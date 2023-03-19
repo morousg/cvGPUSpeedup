@@ -69,7 +69,9 @@ int main() {
 
     gpuErrchk(cudaStreamDestroy(stream));
 
-    float3 var_test = make_<float3>(255, 255, 255);
+    unsigned char uc_var = 255;
+
+    float3 var_test = make_<float3>(uc_var, 255, 255);
     std::cout << "The values of var_test are " << var_test.x << ", " << var_test.y << ", " << var_test.z << std::endl;
 
     return 0;
