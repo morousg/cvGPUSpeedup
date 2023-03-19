@@ -2,6 +2,7 @@
 #include "fast_kernel.h"
 #include "cpu_baseline.h"
 #include "standard_kernels.h"
+#include "cuda_vector_types.h"
 
 #define SIZE 3840*2160
 
@@ -67,6 +68,9 @@ int main() {
     }
 
     gpuErrchk(cudaStreamDestroy(stream));
+
+    float3 var_test = make_<float3>(255, 255, 255);
+    std::cout << "The values of var_test are " << var_test.x << ", " << var_test.y << ", " << var_test.z << std::endl;
 
     return 0;
 }
