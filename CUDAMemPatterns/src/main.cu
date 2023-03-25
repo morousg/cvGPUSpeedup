@@ -42,7 +42,9 @@ int main() {
     float* d_out_y;
     float* d_out_z;
 
-    constexpr size_t NUM_ELEMENTS = 3;
+    constexpr size_t NUM_ELEMENTS = 8192;
+
+    std::cout << "Before any cuda call" << std::endl;
 
     gpuErrchk(cudaMalloc(&d_input, sizeof(uchar3) * NUM_ELEMENTS));
     gpuErrchk(cudaMalloc(&d_out_x, sizeof(float) * NUM_ELEMENTS));
@@ -52,32 +54,46 @@ int main() {
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
 
-    uchar3 pixel = {0u, 128u, 255u};
-    uchar3 h_input[NUM_ELEMENTS];
-    float h_out_x[NUM_ELEMENTS], h_out_y[NUM_ELEMENTS], h_out_z[NUM_ELEMENTS];
+    uchar3 pixel = { 0u, 128u, 255u };
+    uchar3* h_input = (uchar3*)malloc(sizeof(uchar3)*NUM_ELEMENTS);
+    float* h_out_x = (float*)malloc(sizeof(float)*NUM_ELEMENTS);
+    float* h_out_y = (float*)malloc(sizeof(float)*NUM_ELEMENTS);
+    float* h_out_z = (float*)malloc(sizeof(float)*NUM_ELEMENTS);
 
-    for (int i=0; i<NUM_ELEMENTS; i++) {
+    for (int i = 0; i < NUM_ELEMENTS; i++) {
         h_input[i] = pixel;
     }
 
     gpuErrchk(cudaMemcpyAsync(d_input, h_input, sizeof(uchar3) * NUM_ELEMENTS, cudaMemcpyHostToDevice, stream));
-    
-    unary_operation_scalar<unary_cuda_vector_cast<uchar3,float3>, uchar3, float3> op1 = {};
+
+    unary_operation_scalar<unary_cuda_vector_cast<uchar3, float3>, uchar3, float3> op1 = {};
     binary_operation_scalar<binary_sub<float3>, float3, float3> op2 = { make_<float3>(1.f, 1.f, 1.f) };
     binary_operation_scalar<binary_div<float3>, float3, float3> op3 = { make_<float3>(2.f, 2.f, 2.f) };
     split_write_scalar<perthread_split_write<float3>, float3> op4 = { d_out_x, d_out_y, d_out_z };
 
-    cuda_transform_noret<<<1,3,0,stream>>>(NUM_ELEMENTS, d_input, op1, op2, op3, op4);
+    std::cout << "Before kernel" << std::endl;
+
+    dim3 block(256);
+    dim3 grid(NUM_ELEMENTS / 256);
+    for (int i = 0; i < 1000000; i++) {
+        cuda_transform_noret << <grid, block, 0, stream >> > (NUM_ELEMENTS, d_input, op1, op2, op3, op4);
+    }
+
+    std::cout << "After kernel" << std::endl;
 
     gpuErrchk(cudaMemcpyAsync(h_out_x, d_out_x, sizeof(float) * NUM_ELEMENTS, cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaMemcpyAsync(h_out_y, d_out_y, sizeof(float) * NUM_ELEMENTS, cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaMemcpyAsync(h_out_z, d_out_z, sizeof(float) * NUM_ELEMENTS, cudaMemcpyDeviceToHost, stream));
 
+    std::cout << "After copies" << std::endl;
+
     gpuErrchk(cudaStreamSynchronize(stream));
 
-    for (int i=0; i<NUM_ELEMENTS; i++) {
-      std::cout << "Result = " << h_out_x[i] << ", " << h_out_y[i] << ", " << h_out_z[i] << std::endl;
-    }
+    std::cout << "After sync" << std::endl;
+
+    //for (int i=0; i<NUM_ELEMENTS; i++) {
+    std::cout << "Result = " << h_out_x[0] << ", " << h_out_y[0] << ", " << h_out_z[0] << std::endl;
+    //}
 
     return 0;
 }

@@ -114,16 +114,33 @@ __device__ void operate_noret(I i_data, const O* o_data) {
     write(i_data, o_data_nc);
 }
 
-template <typename I, typename O, typename Operation, typename... operations>
-__device__ void operate_noret(I i_data, const O* o_data, split_write_scalar<Operation, I, O> op, operations... ops) {
-    if constexpr (NUM_COMPONENTS(I) == 2) {
+template <typename I, typename O, typename Operation, typename Enabler = void>
+struct operate_helper {};
+
+template <typename I, typename O, typename Operation>
+struct operate_helper<I, O, Operation, typename std::enable_if<NUM_COMPONENTS(I) == 2>::type> {
+    __device__ void operator()(I i_data, split_write_scalar<Operation, I, O> op) {
         op.nv_operator(i_data, op.x, op.y);
-    } else if constexpr (NUM_COMPONENTS(I) == 3) {
+    }
+};
+
+template <typename I, typename O, typename Operation>
+struct operate_helper<I, O, Operation, typename std::enable_if<NUM_COMPONENTS(I) == 3>::type> {
+    __device__ void operator()(I i_data, split_write_scalar<Operation, I, O> op) {
         op.nv_operator(i_data, op.x, op.y, op.z);
-    } else if constexpr (NUM_COMPONENTS(I) == 4) {
+    }
+};
+
+template <typename I, typename O, typename Operation>
+struct operate_helper<I, O, Operation, typename std::enable_if<NUM_COMPONENTS(I) == 4>::type> {
+    __device__ void operator()(I i_data, split_write_scalar<Operation, I, O> op) {
         op.nv_operator(i_data, op.x, op.y, op.z, op.w);
     }
-    
+};
+
+template <typename I, typename O, typename Operation, typename... operations>
+__device__ void operate_noret(I i_data, const O* o_data, split_write_scalar<Operation, I, O> op, operations... ops) {
+    operate_helper<I, O, Operation>()(i_data, op);
     operate_noret_noop(i_data, o_data, ops...);
 }
 
@@ -163,14 +180,7 @@ __device__ void operate_noret_noop(I i_data) {}
 
 template <typename I, typename O, typename Operation, typename... operations>
 __device__ void operate_noret(I i_data, split_write_scalar<Operation, I, O> op, operations... ops) {
-    if constexpr (NUM_COMPONENTS(I) == 2) {
-        op.nv_operator(i_data, op.x, op.y);
-    } else if constexpr (NUM_COMPONENTS(I) == 3) {
-        op.nv_operator(i_data, op.x, op.y, op.z);
-    } else if constexpr (NUM_COMPONENTS(I) == 4) {
-        op.nv_operator(i_data, op.x, op.y, op.z, op.w);
-    }
-    
+    operate_helper<I, O, Operation>()(i_data, op);
     operate_noret_noop(i_data, ops...);
 }
 
