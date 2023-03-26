@@ -3,6 +3,7 @@
 #include "fast_kernel.h"
 
 #include <opencv2/core.hpp>
+#include <opencv2/core/cuda_stream_accessor.hpp>
 
 // This is a prototype interface to my kernel fusion library, to test
 // OpenCV programmer's opinion on the shape of it.
