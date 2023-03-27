@@ -309,21 +309,21 @@ template <typename I, typename O, typename Operation, typename Enabler = void>
 struct operate_helper {};
 
 template <typename I, typename O, typename Operation>
-struct operate_helper<I, O, Operation, typename std::enable_if<NUM_COMPONENTS(I) == 2>::type> {
+struct operate_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
     __device__ void operator()(I i_data, split_write_scalar<Operation, I, O> op) {
         op.nv_operator(i_data, op.x, op.y);
     }
 };
 
 template <typename I, typename O, typename Operation>
-struct operate_helper<I, O, Operation, typename std::enable_if<NUM_COMPONENTS(I) == 3>::type> {
+struct operate_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
     __device__ void operator()(I i_data, split_write_scalar<Operation, I, O> op) {
         op.nv_operator(i_data, op.x, op.y, op.z);
     }
 };
 
 template <typename I, typename O, typename Operation>
-struct operate_helper<I, O, Operation, typename std::enable_if<NUM_COMPONENTS(I) == 4>::type> {
+struct operate_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
     __device__ void operator()(I i_data, split_write_scalar<Operation, I, O> op) {
         op.nv_operator(i_data, op.x, op.y, op.z, op.w);
     }

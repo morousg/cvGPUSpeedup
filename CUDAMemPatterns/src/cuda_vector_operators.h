@@ -192,27 +192,27 @@
 #pragma once
 #include "operation_types.h"
 
-template <typename operation, typename T, typename Enabler=void>
+template <typename Operation, typename T, typename Enabler=void>
 struct operation_;
 
-template <typename operation, typename T>
-struct operation_<operation, T, typename std::enable_if<NUM_COMPONENTS(T) == 2>::type> {
+template <typename Operation, typename T>
+struct operation_<Operation, T, typename std::enable_if_t<NUM_COMPONENTS(T) == 2>> {
     inline constexpr __device__ __host__ T operator()(T& n1, T& n2) {
-        return make_<T>(operation()(n1.x, n2.x), operation()(n1.y, n2.y));
+        return make_<T>(Operation()(n1.x, n2.x), Operation()(n1.y, n2.y));
     }
 };
 
-template <typename operation, typename T>
-struct operation_<operation, T, typename std::enable_if<NUM_COMPONENTS(T) == 3>::type> {
+template <typename Operation, typename T>
+struct operation_<Operation, T, typename std::enable_if_t<NUM_COMPONENTS(T) == 3>> {
     inline constexpr __device__ __host__ T operator()(T& n1, T& n2) {
-        return make_<T>(operation()(n1.x, n2.x), operation()(n1.y, n2.y), operation()(n1.z, n2.z));
+        return make_<T>(Operation()(n1.x, n2.x), Operation()(n1.y, n2.y), Operation()(n1.z, n2.z));
     }
 };
 
-template <typename operation, typename T>
-struct operation_<operation, T, typename std::enable_if<NUM_COMPONENTS(T) == 4>::type> {
+template <typename Operation, typename T>
+struct operation_<Operation, T, typename std::enable_if_t<NUM_COMPONENTS(T) == 4>> {
     inline constexpr __device__ __host__ T operator()(T& n1, T& n2) {
-        return make_<T>(operation()(n1.x, n2.x), operation()(n1.y, n2.y), operation()(n1.z, n2.z), operation()(n1.w, n2.w));
+        return make_<T>(Operation()(n1.x, n2.x), Operation()(n1.y, n2.y), Operation()(n1.z, n2.z), Operation()(n1.w, n2.w));
     }
 };
 

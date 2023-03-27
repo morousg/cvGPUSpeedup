@@ -203,14 +203,14 @@ template <typename Operator, typename I, typename Enabler=void>
 struct split_write_scalar {};
 
 template <typename Operator, typename I>
-struct split_write_scalar<Operator, I, typename std::enable_if<NUM_COMPONENTS(I) == 2>::type> {
+struct split_write_scalar<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
     decltype(I::x)* x;
     decltype(I::y)* y;
     Operator nv_operator;
 };
 
 template <typename Operator, typename I>
-struct split_write_scalar<Operator, I, typename std::enable_if<NUM_COMPONENTS(I) == 3>::type> {
+struct split_write_scalar<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
     decltype(I::x)* x;
     decltype(I::y)* y;
     decltype(I::z)* z;
@@ -218,7 +218,7 @@ struct split_write_scalar<Operator, I, typename std::enable_if<NUM_COMPONENTS(I)
 };
 
 template <typename Operator, typename I>
-struct split_write_scalar<Operator, I, typename std::enable_if<NUM_COMPONENTS(I) == 4>::type> {
+struct split_write_scalar<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
     decltype(I::x)* x;
     decltype(I::y)* y;
     decltype(I::z)* z;

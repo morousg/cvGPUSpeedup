@@ -196,11 +196,10 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-typedef unsigned int uint;
-
 #define GLOBAL_ID ((blockIdx.x * blockDim.x) + threadIdx.x)
 
 using uchar = unsigned char;
+using uint = unsigned int;
 
 inline void gpuAssert(cudaError_t code,
                       const char *file,

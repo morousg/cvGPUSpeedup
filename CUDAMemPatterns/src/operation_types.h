@@ -216,21 +216,21 @@ template <typename I, typename O, typename Enabler=void>
 struct unary_cuda_vector_cast {};
 
 template <typename I, typename O>
-struct unary_cuda_vector_cast<I, O, typename std::enable_if<NUM_COMPONENTS(I) == 1>::type> {
+struct unary_cuda_vector_cast<I, O, typename std::enable_if_t<NUM_COMPONENTS(I) == 1>> {
   __device__ __host__ O operator()(I input) { return make_<O>(input.x); }
 };
 
 template <typename I, typename O>
-struct unary_cuda_vector_cast<I, O, typename std::enable_if<NUM_COMPONENTS(I) == 2>::type> {
+struct unary_cuda_vector_cast<I, O, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
     __device__ __host__ O operator()(I input) { return make_<O>(input.x, input.y); }
 };
 
 template <typename I, typename O>
-struct unary_cuda_vector_cast<I, O, typename std::enable_if<NUM_COMPONENTS(I) == 3>::type> {
+struct unary_cuda_vector_cast<I, O, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
     __device__ __host__ O operator()(I input) { return make_<O>(input.x, input.y, input.z); }
 };
 
 template <typename I, typename O>
-struct unary_cuda_vector_cast<I, O, typename std::enable_if<NUM_COMPONENTS(I) == 4>::type> {
+struct unary_cuda_vector_cast<I, O, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
     __device__ __host__ O operator()(I input) { return make_<O>(input.x, input.y, input.z, input.w); }
 };

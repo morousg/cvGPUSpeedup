@@ -201,13 +201,13 @@ template <typename I, typename Enabler=void>
 struct perthread_split_write;
 
 template <typename I>
-struct perthread_split_write<I, typename std::enable_if<NUM_COMPONENTS(I) == 2>::type> {
+struct perthread_split_write<I, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
     __device__ void operator()(I input, decltype(I::x)* output1, decltype(I::y)* output2) { output1[GLOBAL_ID] = input.x; 
                                                                                             output2[GLOBAL_ID] = input.y; }
 };
 
 template <typename I>
-struct perthread_split_write<I, typename std::enable_if<NUM_COMPONENTS(I) == 3>::type> {
+struct perthread_split_write<I, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
     __device__ void operator()(I input, 
                                decltype(I::x)* output1, 
                                decltype(I::y)* output2,
@@ -217,7 +217,7 @@ struct perthread_split_write<I, typename std::enable_if<NUM_COMPONENTS(I) == 3>:
 };
 
 template <typename I>
-struct perthread_split_write<I, typename std::enable_if<NUM_COMPONENTS(I) == 4>::type> {
+struct perthread_split_write<I, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
     __device__ void operator()(I input, decltype(I::x)* output1, 
                                         decltype(I::y)* output2,
                                         decltype(I::z)* output3,
