@@ -14,83 +14,81 @@
 
 #pragma once
 
-#include "fast_kernel.h"
 #include "cv2cuda_types.h"
+#include "fast_kernel.h"
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>
 
-   // This is a prototype interface to my kernel fusion library, to test
-   // OpenCV programmer's opinion on the shape of it.
+// Oscar: this is a prototype interface to my kernel fusion library, to test
+// OpenCV programmer's opinion on the shape of it.
 
 namespace cvGS {
 
-    template <int I, int O>
-    unary_operation_scalar<unary_cuda_vector_cast<typename cv2cuda_t<I>::type, typename cv2cuda_t<O>::type>,
-        typename cv2cuda_t<I>::type, typename cv2cuda_t<O>::type>
-        convertTo() {
-        return {};
+template <int I, int O>
+unary_operation_scalar<unary_cuda_vector_cast<CUDA_T(I), CUDA_T(O)>, CUDA_T(I), CUDA_T(O)> convertTo() {
+    return {};
+}
+
+// This are just a quick mockup of the future generic functions
+// They only work with types that have 3 components. In the future
+// they will work with anything.
+template <int I>
+binary_operation_scalar<binary_mul<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> multiply(cv::Scalar src2) {
+    return {make_<CUDA_T(I)>(src2[0], src2[1], src2[2])};
+}
+
+template <int I>
+binary_operation_scalar<binary_sub<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> subtract(cv::Scalar src2) {
+    return {make_<CUDA_T(I)>(src2[0], src2[1], src2[2])};
+}
+
+template <int I>
+binary_operation_scalar<binary_div<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> divide(cv::Scalar src2) {
+    return {make_<CUDA_T(I)>(src2[0], src2[1], src2[2])};
+}
+
+template <int I, typename Operator, typename Enabler = void>
+struct split_t {};
+
+template <int I, typename Operator>
+struct split_t<I, Operator, std::enable_if_t<CHANNELS(I) == 2>> {
+    inline constexpr Operator operator()(std::vector<cv::cuda::GpuMat>& output) {
+        return {(BASE_CUDA_T(I)*)output.at(0).data, (BASE_CUDA_T(I)*)output.at(1).data};
     }
+};
 
-    // This are just a quick mockup of the future generic functions
-    // They only work with types that have 3 components. In the future
-    // they will work with anything.
-    template <int I, int O>
-    binary_operation_scalar<binary_mul<CUDA_T(I), CUDA_T(O)>, CUDA_T(I), CUDA_T(O)> multiply(cv::Scalar src2) {
-        return { make_<CUDA_T(O)>(src2[0], src2[1], src2[2]) };
+template <int I, typename Operator>
+struct split_t<I, Operator, std::enable_if_t<CHANNELS(I) == 3>> {
+    inline constexpr Operator operator()(std::vector<cv::cuda::GpuMat>& output) {
+        return {(BASE_CUDA_T(I)*)output.at(0).data, (BASE_CUDA_T(I)*)output.at(1).data,
+                (BASE_CUDA_T(I)*)output.at(2).data};
     }
+};
 
-    template <int I, int O>
-    binary_operation_scalar<binary_sub<CUDA_T(I)>, CUDA_T(I), CUDA_T(O)> subtract(cv::Scalar src2) {
-        return { make_<CUDA_T(O)>(src2[0], src2[1], src2[2]) };
+template <int I, typename Operator>
+struct split_t<I, Operator, std::enable_if_t<CHANNELS(I) == 4>> {
+    inline constexpr Operator operator()(std::vector<cv::cuda::GpuMat>& output) {
+        return {(BASE_CUDA_T(I)*)output.at(0).data, (BASE_CUDA_T(I)*)output.at(1).data,
+                (BASE_CUDA_T(I)*)output.at(2).data, (BASE_CUDA_T(I)*)output.at(3).data};
     }
+};
 
-    template <int I, int O>
-    binary_operation_scalar<binary_div<CUDA_T(I)>, CUDA_T(I), CUDA_T(O)> divide(cv::Scalar src2) {
-        return { make_<CUDA_T(O)>(src2[0], src2[1], src2[2]) };
-    }
+template <int I>
+split_write_scalar<perthread_split_write<CUDA_T(I)>, CUDA_T(I)> split(std::vector<cv::cuda::GpuMat>& output) {
+    return split_t<I, split_write_scalar<perthread_split_write<CUDA_T(I)>, CUDA_T(I)>>()(output);
+}
 
-    template <int I, typename Operator, typename Enabler = void>
-    struct split_t {};
+template <int I, typename... operations>
+void executeOperations(cv::cuda::GpuMat& input, cv::cuda::Stream& stream, operations... ops) {
+    int num_elems = input.rows * input.cols;
 
-    template <int I, typename Operator>
-    struct split_t<I, Operator, std::enable_if_t<CHANNELS(I) == 2>> {
-        inline constexpr Operator operator()(std::vector<cv::cuda::GpuMat>& output) {
-            return { (BASE_CUDA_T(I)*)output.at(0).data, (BASE_CUDA_T(I)*)output.at(1).data };
-        }
-    };
+    dim3 block(256);
+    dim3 grid(ceil(num_elems / (float)block.x));
+    cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
-    template <int I, typename Operator>
-    struct split_t<I, Operator, std::enable_if_t<CHANNELS(I) == 3>> {
-        inline constexpr Operator operator()(std::vector<cv::cuda::GpuMat>& output) {
-            return { (BASE_CUDA_T(I)*)output.at(0).data, (BASE_CUDA_T(I)*)output.at(1).data,
-                    (BASE_CUDA_T(I)*)output.at(2).data };
-        }
-    };
-
-    template <int I, typename Operator>
-    struct split_t<I, Operator, std::enable_if_t<CHANNELS(I) == 4>> {
-        inline constexpr Operator operator()(std::vector<cv::cuda::GpuMat>& output) {
-            return { (BASE_CUDA_T(I)*)output.at(0).data, (BASE_CUDA_T(I)*)output.at(1).data,
-                    (BASE_CUDA_T(I)*)output.at(2).data, (BASE_CUDA_T(I)*)output.at(3).data };
-        }
-    };
-
-    template <int I>
-    split_write_scalar<perthread_split_write<CUDA_T(I)>, CUDA_T(I)> split(std::vector<cv::cuda::GpuMat>& output) {
-        return split_t<I, split_write_scalar<perthread_split_write<CUDA_T(I)>, CUDA_T(I)>>()(output);
-    }
-
-    template <int I, typename... operations>
-    void executeOperations(cv::cuda::GpuMat& input, cv::cuda::Stream& stream, operations... ops) {
-        int num_elems = input.rows * input.cols;
-
-        dim3 block(256);
-        dim3 grid(ceil(num_elems / (float)block.x));
-        cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-
-        cuda_transform_noret << <grid, block, 0, cu_stream >> > (num_elems, (CUDA_T(I)*)input.data, ops...);
-        gpuErrchk(cudaGetLastError());
-    }
+    cuda_transform_noret<<<grid, block, 0, cu_stream>>>(num_elems, (CUDA_T(I)*)input.data, ops...);
+    gpuErrchk(cudaGetLastError());
+}
 
 } // namespace cvGS
