@@ -69,6 +69,7 @@ __device__ O operate_optimized(int i, I i_data, binary_operation_pointer<Operati
     return operate_optimized(i, temp, ops...);
 }
 
+template <typename I, typename O, typename I2>
 __device__ void parameter_pointer_read() {}
 
 template <typename I, typename O, typename I2, typename Operation, typename... operations>
