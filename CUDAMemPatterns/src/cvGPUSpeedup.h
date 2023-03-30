@@ -80,7 +80,7 @@ split_write_scalar<perthread_split_write<CUDA_T(I)>, CUDA_T(I)> split(std::vecto
 }
 
 template <int I, typename... operations>
-void executeOperations(cv::cuda::GpuMat& input, cv::cuda::Stream& stream, operations... ops) {
+void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, operations... ops) {
     int num_elems = input.rows * input.cols;
 
     dim3 block(256);
