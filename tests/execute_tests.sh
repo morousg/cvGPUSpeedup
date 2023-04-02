@@ -1,0 +1,1 @@
+find ../../cvGPUSpeedup_builds/ -type f -executable -exec {} \;
