@@ -16,11 +16,12 @@
 #include "cuda_vector_utils.h"
 
 template <typename Operator, typename I, typename O>
-struct _unary_write_scalar {
+struct _memory_write_scalar {
+    O* x;
     Operator nv_operator;
 };
 template <typename Operator, typename I, typename O>
-using unary_write_scalar = _unary_write_scalar<Operator, I, O>;
+using memory_write_scalar = _memory_write_scalar<Operator, I, O>;
 
 template <typename Operator, typename I, typename Enabler=void>
 struct split_write_scalar {};

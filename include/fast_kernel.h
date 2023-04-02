@@ -119,84 +119,43 @@ __global__ void cuda_transform_optimized(int size, I* i_data, O* o_data, operati
     }
 }
 
-template <typename I, typename O>
-__device__ void operate_noret_noop(I i_data, const O* o_data) {}
-
-template <typename I, typename O>
-__device__ void operate_noret(I i_data, const O* o_data) {
-    O* o_data_nc = const_cast<O*>(o_data);
-    perthread_write<I,O> write;
-    write(i_data, o_data_nc);
-}
-
 template <typename I, typename O, typename Operation, typename Enabler = void>
-struct operate_helper {};
+struct split_helper {};
 
 template <typename I, typename O, typename Operation>
-struct operate_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
+struct split_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
     __device__ void operator()(I i_data, split_write_scalar<Operation, I, O> op) {
         op.nv_operator(i_data, op.x, op.y);
     }
 };
 
 template <typename I, typename O, typename Operation>
-struct operate_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
+struct split_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
     __device__ void operator()(I i_data, split_write_scalar<Operation, I, O> op) {
         op.nv_operator(i_data, op.x, op.y, op.z);
     }
 };
 
 template <typename I, typename O, typename Operation>
-struct operate_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
+struct split_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
     __device__ void operator()(I i_data, split_write_scalar<Operation, I, O> op) {
         op.nv_operator(i_data, op.x, op.y, op.z, op.w);
     }
 };
 
-template <typename I, typename O, typename Operation, typename... operations>
-__device__ void operate_noret(I i_data, const O* o_data, split_write_scalar<Operation, I, O> op, operations... ops) {
-    operate_helper<I, O, Operation>()(i_data, op);
-    operate_noret_noop(i_data, o_data, ops...);
-}
-
-template <typename I, typename O, typename Operation, typename... operations>
-__device__ void operate_noret(I i_data, const O* o_data, unary_write_scalar<Operation, I, O> op, operations... ops) {
-    O* o_data_nc = const_cast<O*>(o_data);
-    op.nv_operator(i_data, o_data_nc);
-    operate_noret_noop(i_data, o_data, ops...);
-}
-
-template <typename I, typename O, typename Operation, typename... operations>
-__device__ void operate_noret(I i_data, const O* o_data, unary_operation_scalar<Operation, I, O> op, operations... ops) {
-    O temp = op.nv_operator(i_data);
-    operate_noret(temp, o_data, ops...);
-}
-
-template <typename I, typename O, typename I2, typename Operation, typename... operations>
-__device__ void operate_noret(I i_data, const O* o_data, binary_operation_scalar<Operation, I, I2, O> op, operations... ops) {
-    O temp = op.nv_operator(i_data, op.scalar);
-    operate_noret(temp, o_data, ops...);
-}
-
-template <typename I, typename O, typename I2, typename Operation, typename... operations>
-__device__ void operate_noret(I i_data, const O* o_data, binary_operation_pointer<Operation, I, I2, O> op, operations... ops) {
-    // we want to have access to I2 in order to ask for the type size for optimizing
-    O temp = op.nv_operator(i_data, op.pointer[GLOBAL_ID]);
-    operate_noret(temp, o_data, ops...);
-}
-
-template<typename I, typename O, typename... operations>
-__global__ void cuda_transform_noret(int size, const I* i_data, const O* o_data, operations... ops) {
-    if (GLOBAL_ID < size) operate_noret(i_data[GLOBAL_ID], o_data, ops...);
-}
-
 template <typename I>
-__device__ void operate_noret_noop(I i_data) {}
+__device__ void operate_noret(I i_data) {}
 
 template <typename I, typename O, typename Operation, typename... operations>
 __device__ void operate_noret(I i_data, split_write_scalar<Operation, I, O> op, operations... ops) {
-    operate_helper<I, O, Operation>()(i_data, op);
-    operate_noret_noop(i_data, ops...);
+    split_helper<I, O, Operation>()(i_data, op);
+    operate_noret(i_data, ops...);
+}
+
+template <typename I, typename O, typename Operation, typename... operations>
+__device__ void operate_noret(I i_data, memory_write_scalar<Operation, I, O> op, operations... ops) {
+    op.nv_operator(i_data, op.x);
+    operate_noret(i_data, ops...);
 }
 
 template <typename I, typename O, typename Operation, typename... operations>

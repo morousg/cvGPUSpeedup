@@ -91,4 +91,18 @@ void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, 
     gpuErrchk(cudaGetLastError());
 }
 
+template <int I, int O, typename... operations>
+void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, operations... ops) {
+    int num_elems = input.rows * input.cols;
+
+    dim3 block(256);
+    dim3 grid(ceil(num_elems / (float)block.x));
+    cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
+
+    memory_write_scalar<perthread_write<CUDA_T(O)>, CUDA_T(O), CUDA_T(O)> opFinal = { (CUDA_T(O)*)output.data };
+
+    cuda_transform_noret<<<grid, block, 0, cu_stream>>>(num_elems, (CUDA_T(I)*)input.data, ops..., opFinal);
+    gpuErrchk(cudaGetLastError());
+}
+
 } // namespace cvGS
