@@ -61,10 +61,7 @@ void testSplitOutputOperation(const cv::cuda::GpuMat& d_input, int NUM_ELEMS_X, 
                                                cvGS::split<CV_32FC3>(d_output_cvGS));
 
     // Looking at Nsight Systems, with an RTX A2000 12GB
-    // OpenCV version execution time CPU (only launching the kernels) + GPU kernels only = 36600us
-    // cvGS version execution time CPU (only launching the kernels) + GPU kernels only = 807us
-    // Speed up = 45.35x
-    // OpenCV version execution time GPU kernels only = 228us + 299us + 298us + 352us = 1177us
+    // OpenCV version execution time GPU kernels only = 1184us
     // cvGS version execution time GPU kernels only = 124us
     // Speed up = 9.5x
 
