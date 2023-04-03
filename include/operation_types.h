@@ -39,7 +39,17 @@ template <typename I, typename O, typename Enabler=void>
 struct unary_cuda_vector_cast {};
 
 template <typename I, typename O>
-struct unary_cuda_vector_cast<I, O, typename std::enable_if_t<NUM_COMPONENTS(I) == 1>> {
+struct unary_cuda_vector_cast<I, O, typename std::enable_if_t<!std::is_class<I>::value &&
+                                                              !std::is_class<O>::value >> {
+  __device__ __host__ O operator()(I input) { return static_cast<O>(input); }
+};
+
+template <typename I, typename O>
+struct unary_cuda_vector_cast<I, O, typename std::enable_if_t<NUM_COMPONENTS(I) == 1 &&
+                                                              std::is_class<I>::value &&
+                                                              !std::is_enum<I>::value &&
+                                                              std::is_class<O>::value &&
+                                                              !std::is_enum<O>::value >> {
   __device__ __host__ O operator()(I input) { return make_<O>(input.x); }
 };
 

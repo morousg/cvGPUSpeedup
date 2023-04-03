@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "cv2cuda_types.h"
 #include "fast_kernel.h"
+#include "cvGPUSpeedupHelpers.h"
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>
@@ -35,44 +35,23 @@ unary_operation_scalar<unary_cuda_vector_cast<CUDA_T(I), CUDA_T(O)>, CUDA_T(I), 
 // they will work with anything.
 template <int I>
 binary_operation_scalar<binary_mul<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> multiply(cv::Scalar src2) {
-    return {make_<CUDA_T(I)>(src2[0], src2[1], src2[2])};
+    return operate_t<I, binary_operation_scalar<binary_mul<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>()(src2);
 }
 
 template <int I>
 binary_operation_scalar<binary_sub<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> subtract(cv::Scalar src2) {
-    return {make_<CUDA_T(I)>(src2[0], src2[1], src2[2])};
+    return operate_t<I, binary_operation_scalar<binary_sub<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>()(src2);
 }
 
 template <int I>
 binary_operation_scalar<binary_div<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> divide(cv::Scalar src2) {
-    return {make_<CUDA_T(I)>(src2[0], src2[1], src2[2])};
+    return operate_t<I, binary_operation_scalar<binary_div<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>()(src2);
 }
 
-template <int I, typename Operator, typename Enabler = void>
-struct split_t {};
-
-template <int I, typename Operator>
-struct split_t<I, Operator, std::enable_if_t<CHANNELS(I) == 2>> {
-    inline constexpr Operator operator()(std::vector<cv::cuda::GpuMat>& output) {
-        return {(BASE_CUDA_T(I)*)output.at(0).data, (BASE_CUDA_T(I)*)output.at(1).data};
-    }
-};
-
-template <int I, typename Operator>
-struct split_t<I, Operator, std::enable_if_t<CHANNELS(I) == 3>> {
-    inline constexpr Operator operator()(std::vector<cv::cuda::GpuMat>& output) {
-        return {(BASE_CUDA_T(I)*)output.at(0).data, (BASE_CUDA_T(I)*)output.at(1).data,
-                (BASE_CUDA_T(I)*)output.at(2).data};
-    }
-};
-
-template <int I, typename Operator>
-struct split_t<I, Operator, std::enable_if_t<CHANNELS(I) == 4>> {
-    inline constexpr Operator operator()(std::vector<cv::cuda::GpuMat>& output) {
-        return {(BASE_CUDA_T(I)*)output.at(0).data, (BASE_CUDA_T(I)*)output.at(1).data,
-                (BASE_CUDA_T(I)*)output.at(2).data, (BASE_CUDA_T(I)*)output.at(3).data};
-    }
-};
+template <int I>
+binary_operation_scalar<binary_sum<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> add(cv::Scalar src2) {
+    return operate_t<I, binary_operation_scalar<binary_sum<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>()(src2);
+}
 
 template <int I>
 split_write_scalar<perthread_split_write<CUDA_T(I)>, CUDA_T(I)> split(std::vector<cv::cuda::GpuMat>& output) {
@@ -87,7 +66,7 @@ void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, 
     dim3 grid(ceil(num_elems / (float)block.x));
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
-    cuda_transform_noret<<<grid, block, 0, cu_stream>>>(num_elems, (CUDA_T(I)*)input.data, ops...);
+    cuda_transform_noret<<<grid, block, 0, cu_stream>>>(num_elems, static_cast<CUDA_T(I)*>(static_cast<void*>(input.data)), ops...);
     gpuErrchk(cudaGetLastError());
 }
 
@@ -99,9 +78,9 @@ void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, 
     dim3 grid(ceil(num_elems / (float)block.x));
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
-    memory_write_scalar<perthread_write<CUDA_T(O)>, CUDA_T(O), CUDA_T(O)> opFinal = { (CUDA_T(O)*)output.data };
+    memory_write_scalar<perthread_write<CUDA_T(O)>, CUDA_T(O), CUDA_T(O)> opFinal = { static_cast<CUDA_T(O)*>(static_cast<void*>(output.data)) };
 
-    cuda_transform_noret<<<grid, block, 0, cu_stream>>>(num_elems, (CUDA_T(I)*)input.data, ops..., opFinal);
+    cuda_transform_noret<<<grid, block, 0, cu_stream>>>(num_elems, static_cast<CUDA_T(I)*>(static_cast<void*>(input.data)), ops..., opFinal);
     gpuErrchk(cudaGetLastError());
 }
 
