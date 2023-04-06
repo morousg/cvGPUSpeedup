@@ -14,9 +14,14 @@
 
 #pragma once
 
-#include "cv2cuda_types.h"
+#include <fast_kernel/cuda_vector_utils.h>
+#include <cv2cuda_types.h>
 
 #include <opencv2/core/cuda.hpp>
+
+namespace cvGS {
+
+namespace internal {
 
 template <int I, typename Operator, typename Enabler = void>
 struct split_t {};
@@ -57,20 +62,22 @@ struct operate_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 1>> {
 template <int I, typename Operator>
 struct operate_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 2>> {
     inline constexpr Operator operator()(cv::Scalar& val) {
-        return { make_<CUDA_T(I)>(val[0], val[1]) };
+        return { fk::make_<CUDA_T(I)>(val[0], val[1]) };
     }
 };
 
 template <int I, typename Operator>
 struct operate_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 3>> {
     inline constexpr Operator operator()(cv::Scalar& val) {
-        return { make_<CUDA_T(I)>(val[0], val[1], val[2]) };
+        return { fk::make_<CUDA_T(I)>(val[0], val[1], val[2]) };
     }
 };
 
 template <int I, typename Operator>
 struct operate_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 4>> {
     inline constexpr Operator operator()(cv::Scalar& val) {
-        return { make_<CUDA_T(I)>(val[0], val[1], val[2], val[3]) };
+        return { fk::make_<CUDA_T(I)>(val[0], val[1], val[2], val[3]) };
     }
 };
+}
+}

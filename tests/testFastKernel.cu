@@ -14,21 +14,21 @@
 
 #include <iostream>
 
-#include "fast_kernel.h"
+#include <fast_kernel/fast_kernel.h>
 
 void test_mult_sum_div_float(float* data, dim3 data_dims, cudaStream_t stream) {
     // We don't think about step or ROI's yet.
     dim3 thread_block(512);
     dim3 grid(data_dims.x/512);
 
-    binary_operation_scalar<binary_mul<float>, float> op1 = {5.f};
-    binary_operation_pointer<binary_sum<float>, float> op2 = {data};
-    binary_operation_scalar<binary_div<float>, float> op3 = {2.f};
-    binary_operation_scalar<binary_mul<float>, float> op4 = {5.f};
-    binary_operation_scalar<binary_div<float>, float> op5 = {3.f};
-    binary_operation_scalar<binary_mul<float>, float> op6 = {7.f};
+    fk::binary_operation_scalar<fk::binary_mul<float>, float> op1 = {5.f};
+    fk::binary_operation_pointer<fk::binary_sum<float>, float> op2 = {data};
+    fk::binary_operation_scalar<fk::binary_div<float>, float> op3 = {2.f};
+    fk::binary_operation_scalar<fk::binary_mul<float>, float> op4 = {5.f};
+    fk::binary_operation_scalar<fk::binary_div<float>, float> op5 = {3.f};
+    fk::binary_operation_scalar<fk::binary_mul<float>, float> op6 = {7.f};
 
-    cuda_transform<<<grid, thread_block, 0, stream>>>(data_dims.x, data, data, op1, op2, op3, op4, op5, op6);
+    fk::cuda_transform<<<grid, thread_block, 0, stream>>>(data_dims.x, data, data, op1, op2, op3, op4, op5, op6);
     gpuErrchk(cudaGetLastError());
 }
 
@@ -38,14 +38,14 @@ void test_cuda_transform_optimized(float* data, dim3 data_dims, cudaStream_t str
     dim3 thread_block(512);
     dim3 grid((data_dims.x/512)/4);
 
-    binary_operation_scalar<binary_mul<float>, float> op1 = {5.f};
-    binary_operation_pointer<binary_sum<float>, float> op2 = {data};
-    binary_operation_scalar<binary_div<float>, float> op3 = {2.f};
-    binary_operation_scalar<binary_mul<float>, float> op4 = {5.f};
-    binary_operation_scalar<binary_div<float>, float> op5 = {3.f};
-    binary_operation_scalar<binary_mul<float>, float> op6 = {7.f};
+    fk::binary_operation_scalar<fk::binary_mul<float>, float> op1 = {5.f};
+    fk::binary_operation_pointer<fk::binary_sum<float>, float> op2 = {data};
+    fk::binary_operation_scalar<fk::binary_div<float>, float> op3 = {2.f};
+    fk::binary_operation_scalar<fk::binary_mul<float>, float> op4 = {5.f};
+    fk::binary_operation_scalar<fk::binary_div<float>, float> op5 = {3.f};
+    fk::binary_operation_scalar<fk::binary_mul<float>, float> op6 = {7.f};
 
-    cuda_transform_optimized<<<grid, thread_block, 0, stream>>>(data_dims.x, data, data, op1, op2, op3, op4, op5, op6);
+    fk::cuda_transform_optimized<<<grid, thread_block, 0, stream>>>(data_dims.x, data, data, op1, op2, op3, op4, op5, op6);
     gpuErrchk(cudaGetLastError());
 
 }
@@ -80,17 +80,17 @@ int main() {
 
     gpuErrchk(cudaMemcpyAsync(d_input, h_input, sizeof(uchar3) * NUM_ELEMENTS, cudaMemcpyHostToDevice, stream));
 
-    unary_operation_scalar<unary_cuda_vector_cast<uchar3, float3>, uchar3, float3> op1 = {};
-    binary_operation_scalar<binary_sub<float3>, float3, float3> op2 = { make_<float3>(1.f, 1.f, 1.f) };
-    binary_operation_scalar<binary_div<float3>, float3, float3> op3 = { make_<float3>(2.f, 2.f, 2.f) };
-    split_write_scalar<perthread_split_write<float3>, float3> op4 = { d_out_x, d_out_y, d_out_z };
+    fk::unary_operation_scalar<fk::unary_cuda_vector_cast<uchar3, float3>, uchar3, float3> op1 = {};
+    fk::binary_operation_scalar<fk::binary_sub<float3>, float3, float3> op2 = { fk::make_<float3>(1.f, 1.f, 1.f) };
+    fk::binary_operation_scalar<fk::binary_div<float3>, float3, float3> op3 = { fk::make_<float3>(2.f, 2.f, 2.f) };
+    fk::split_write_scalar<fk::perthread_split_write<float3>, float3> op4 = { d_out_x, d_out_y, d_out_z };
 
     std::cout << "Before kernel" << std::endl;
 
     dim3 block(256);
     dim3 grid(NUM_ELEMENTS / 256);
     for (int i = 0; i < 1000000; i++) {
-        cuda_transform_noret << <grid, block, 0, stream >> > (NUM_ELEMENTS, d_input, op1, op2, op3, op4);
+        fk::cuda_transform_noret << <grid, block, 0, stream >> > (NUM_ELEMENTS, d_input, op1, op2, op3, op4);
     }
 
     std::cout << "After kernel" << std::endl;

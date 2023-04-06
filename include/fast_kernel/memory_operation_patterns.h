@@ -15,6 +15,8 @@
 #pragma once
 #include "cuda_vector_utils.h"
 
+namespace fk {
+
 template <typename Operator, typename I, typename O>
 struct _memory_write_scalar {
     O* x;
@@ -49,3 +51,5 @@ struct split_write_scalar<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(
     decltype(I::w)* w;
     Operator nv_operator;
 };
+
+}

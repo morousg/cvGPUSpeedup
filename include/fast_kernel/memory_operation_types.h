@@ -15,6 +15,8 @@
 #pragma once
 #include "cuda_vector_utils.h"
 
+namespace fk {
+
 template <typename I, typename O=I>
 struct perthread_write {
     __device__ void operator()(I input, O* output) { output[GLOBAL_ID] = input; }
@@ -49,3 +51,5 @@ struct perthread_split_write<I, typename std::enable_if_t<NUM_COMPONENTS(I) == 4
                                                                    output3[GLOBAL_ID] = input.z;
                                                                    output4[GLOBAL_ID] = input.w; }
 };
+
+}

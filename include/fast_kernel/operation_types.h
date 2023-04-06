@@ -15,6 +15,8 @@
 #pragma once
 #include "cuda_vector_utils.h"
 
+namespace fk {
+
 template <typename I1, typename I2=I1, typename O=I1>
 struct binary_sum {
     inline constexpr __device__ __host__ O operator()(I1 input_1, I2 input_2) {return input_1 + input_2;}
@@ -67,3 +69,5 @@ template <typename I, typename O>
 struct unary_cuda_vector_cast<I, O, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
     __device__ __host__ O operator()(I input) { return make_<O>(input.x, input.y, input.z, input.w); }
 };
+
+}

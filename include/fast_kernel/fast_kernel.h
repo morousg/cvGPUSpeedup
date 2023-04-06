@@ -19,6 +19,8 @@
 #include "memory_operation_types.h"
 #include "memory_operation_patterns.h"
 
+namespace fk { // namespace Fast Kernel
+
 template <typename O>
 __device__ O operate(O i_data){
     return i_data;
@@ -180,4 +182,6 @@ __device__ void operate_noret(I i_data, binary_operation_pointer<Operation, I, I
 template<typename I, typename... operations>
 __global__ void cuda_transform_noret(int size, const I*__restrict__ i_data, operations... ops) {
     if (GLOBAL_ID < size) operate_noret(i_data[GLOBAL_ID], ops...);
+}
+
 }

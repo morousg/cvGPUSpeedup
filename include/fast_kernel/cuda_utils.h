@@ -24,14 +24,16 @@
 using uchar = unsigned char;
 using uint = unsigned int;
 
-inline void gpuAssert(cudaError_t code,
-                      const char *file,
-                      int line,
-                      bool abort = true) {
-    if (code != cudaSuccess) {
-        std::cout << "GPUassert: " << cudaGetErrorString(code) << " File: " << file << " Line:" << line << std::endl;
-        if (abort) exit(code);
+namespace fk {
+    constexpr inline void gpuAssert(cudaError_t code,
+                        const char *file,
+                        int line,
+                        bool abort = true) {
+        if (code != cudaSuccess) {
+            std::cout << "GPUassert: " << cudaGetErrorString(code) << " File: " << file << " Line:" << line << std::endl;
+            if (abort) exit(code);
+        }
     }
 }
 
-#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+#define gpuErrchk(ans) { fk::gpuAssert((ans), __FILE__, __LINE__); }
