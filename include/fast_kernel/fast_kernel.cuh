@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include "cuda_vector_operators.h"
-#include "operation_patterns.h"
-#include "memory_operation_patterns.h"
+#include "cuda_vector_operators.cuh"
+#include "operation_patterns.cuh"
+#include "memory_operation_patterns.cuh"
 
 namespace fk { // namespace Fast Kernel
 

@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include <fast_kernel/cuda_vector_utils.h>
-#include <fast_kernel/memory_operation_types.h>
+#include <fast_kernel/cuda_vector_utils.cuh>
+#include <fast_kernel/memory_operation_types.cuh>
 #include <cv2cuda_types.h>
 
 #include <opencv2/core/cuda.hpp>

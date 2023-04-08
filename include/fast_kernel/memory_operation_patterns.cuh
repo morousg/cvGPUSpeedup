@@ -13,8 +13,8 @@
    limitations under the License. */
 
 #pragma once
-#include "cuda_vector_utils.h"
-#include "memory_operation_types.h"
+#include "cuda_vector_utils.cuh"
+#include "memory_operation_types.cuh"
 
 namespace fk {
 

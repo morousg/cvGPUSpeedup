@@ -13,7 +13,7 @@
    limitations under the License. */
 
 #pragma once
-#include "cuda_vector_utils.h"
+#include "cuda_vector_utils.cuh"
 
 namespace fk {
 

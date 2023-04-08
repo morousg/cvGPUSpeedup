@@ -13,8 +13,8 @@
    limitations under the License. */
 
 #pragma once
-#include "cuda_utils.h"
-#include "operation_types.h"
+#include "cuda_utils.cuh"
+#include "operation_types.cuh"
 
 namespace fk {
 

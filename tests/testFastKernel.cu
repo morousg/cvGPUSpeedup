@@ -14,7 +14,7 @@
 
 #include <iostream>
 
-#include <fast_kernel/fast_kernel.h>
+#include <fast_kernel/fast_kernel.cuh>
 
 void test_mult_sum_div_float(float* data, dim3 data_dims, cudaStream_t stream) {
     // We don't think about step or ROI's yet.

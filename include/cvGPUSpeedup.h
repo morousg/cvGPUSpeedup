@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "cvGPUSpeedupHelpers.h"
-#include <fast_kernel/fast_kernel.h>
+#include <cvGPUSpeedupHelpers.h>
+#include <fast_kernel/fast_kernel.cuh>
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>

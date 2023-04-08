@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "cuda_utils.h"
+#include "cuda_utils.cuh"
 
 #define NUM_COMPONENTS(some_type) (sizeof(some_type)/sizeof(decltype(some_type::x)))
 
