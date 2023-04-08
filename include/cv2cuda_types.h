@@ -18,6 +18,8 @@
 #include <cuda_runtime.h>
 #include <opencv2/core/types.hpp>
 
+namespace cvGS {
+
 template <int type>
 struct cv2cuda_t;
 
@@ -56,6 +58,7 @@ CV2CUDA_T(CV_64FC2, double2);
 CV2CUDA_T(CV_64FC3, double3);
 CV2CUDA_T(CV_64FC4, double4);
 
-#define CUDA_T(CV_TYPE) typename cv2cuda_t<CV_TYPE>::type
-#define BASE_CUDA_T(CV_TYPE) typename cv2cuda_t<CV_TYPE & CV_MAT_DEPTH_MASK>::type
-#define CHANNELS(CV_TYPE) 1 + (CV_TYPE >> CV_CN_SHIFT)
+}
+
+#define CUDA_T(CV_TYPE) typename cvGS::cv2cuda_t<CV_TYPE>::type
+#define BASE_CUDA_T(CV_TYPE) typename cvGS::cv2cuda_t<CV_MAT_DEPTH(CV_TYPE)>::type

@@ -16,6 +16,8 @@
 #include "cuda_utils.h"
 #include "operation_types.h"
 
+namespace fk {
+
 template <typename Operator, typename I1, typename I2, typename O>
 struct _binary_operation_scalar {
     I2 scalar;
@@ -39,3 +41,5 @@ struct _unary_operation_scalar {
 };
 template <typename Operator, typename I, typename O>
 using unary_operation_scalar = _unary_operation_scalar<Operator, I, O>;
+
+}

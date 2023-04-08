@@ -16,8 +16,9 @@
 
 #include "cuda_vector_operators.h"
 #include "operation_patterns.h"
-#include "memory_operation_types.h"
 #include "memory_operation_patterns.h"
+
+namespace fk { // namespace Fast Kernel
 
 template <typename O>
 __device__ O operate(O i_data){
@@ -124,21 +125,21 @@ struct split_helper {};
 
 template <typename I, typename O, typename Operation>
 struct split_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
-    __device__ void operator()(I i_data, split_write_scalar<Operation, I, O> op) {
+    __device__ void operator()(I i_data, split_write_scalar_2D<Operation, I, O> op) {
         op.nv_operator(i_data, op.x, op.y);
     }
 };
 
 template <typename I, typename O, typename Operation>
 struct split_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
-    __device__ void operator()(I i_data, split_write_scalar<Operation, I, O> op) {
+    __device__ void operator()(I i_data, split_write_scalar_2D<Operation, I, O> op) {
         op.nv_operator(i_data, op.x, op.y, op.z);
     }
 };
 
 template <typename I, typename O, typename Operation>
 struct split_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
-    __device__ void operator()(I i_data, split_write_scalar<Operation, I, O> op) {
+    __device__ void operator()(I i_data, split_write_scalar_2D<Operation, I, O> op) {
         op.nv_operator(i_data, op.x, op.y, op.z, op.w);
     }
 };
@@ -147,13 +148,13 @@ template <typename I>
 __device__ void operate_noret(I i_data) {}
 
 template <typename I, typename O, typename Operation, typename... operations>
-__device__ void operate_noret(I i_data, split_write_scalar<Operation, I, O> op, operations... ops) {
+__device__ void operate_noret(I i_data, split_write_scalar_2D<Operation, I, O> op, operations... ops) {
     split_helper<I, O, Operation>()(i_data, op);
     operate_noret(i_data, ops...);
 }
 
-template <typename I, typename O, typename Operation, typename... operations>
-__device__ void operate_noret(I i_data, memory_write_scalar<Operation, I, O> op, operations... ops) {
+template <typename I, typename Operation, typename... operations>
+__device__ void operate_noret(I i_data, memory_write_scalar_2D<Operation, I> op, operations... ops) {
     op.nv_operator(i_data, op.x);
     operate_noret(i_data, ops...);
 }
@@ -178,6 +179,14 @@ __device__ void operate_noret(I i_data, binary_operation_pointer<Operation, I, I
 }
 
 template<typename I, typename... operations>
-__global__ void cuda_transform_noret(int size, const I*__restrict__ i_data, operations... ops) {
-    if (GLOBAL_ID < size) operate_noret(i_data[GLOBAL_ID], ops...);
+__global__ void cuda_transform_noret_2D(const Device_Ptr_2D<I> i_data, operations... ops) {
+    cg::thread_block g =  cg::this_thread_block();
+    uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
+    uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
+
+    if (x < i_data.width && y < i_data.height) {
+        operate_noret(*i_data.at({x, y}), ops...);
+    }
+}
+
 }

@@ -14,73 +14,77 @@
 
 #pragma once
 
-#include "fast_kernel.h"
 #include "cvGPUSpeedupHelpers.h"
+#include <fast_kernel/fast_kernel.h>
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>
 
-// Oscar: this is a prototype interface to my kernel fusion library, to test
-// OpenCV programmer's opinion on the shape of it.
-
 namespace cvGS {
 
 template <int I, int O>
-unary_operation_scalar<unary_cuda_vector_cast<CUDA_T(I), CUDA_T(O)>, CUDA_T(I), CUDA_T(O)> convertTo() {
+fk::unary_operation_scalar<fk::unary_cuda_vector_cast<CUDA_T(I), CUDA_T(O)>, CUDA_T(I), CUDA_T(O)> convertTo() {
     return {};
 }
 
-// This are just a quick mockup of the future generic functions
-// They only work with types that have 3 components. In the future
-// they will work with anything.
 template <int I>
-binary_operation_scalar<binary_mul<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> multiply(cv::Scalar src2) {
-    return operate_t<I, binary_operation_scalar<binary_mul<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>()(src2);
+fk::binary_operation_scalar<fk::binary_mul<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> multiply(cv::Scalar src2) {
+    return internal::operate_t<I, fk::binary_operation_scalar<fk::binary_mul<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>()(src2);
 }
 
 template <int I>
-binary_operation_scalar<binary_sub<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> subtract(cv::Scalar src2) {
-    return operate_t<I, binary_operation_scalar<binary_sub<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>()(src2);
+fk::binary_operation_scalar<fk::binary_sub<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> subtract(cv::Scalar src2) {
+    return internal::operate_t<I, fk::binary_operation_scalar<fk::binary_sub<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>()(src2);
 }
 
 template <int I>
-binary_operation_scalar<binary_div<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> divide(cv::Scalar src2) {
-    return operate_t<I, binary_operation_scalar<binary_div<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>()(src2);
+fk::binary_operation_scalar<fk::binary_div<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> divide(cv::Scalar src2) {
+    return internal::operate_t<I, fk::binary_operation_scalar<fk::binary_div<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>()(src2);
 }
 
 template <int I>
-binary_operation_scalar<binary_sum<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> add(cv::Scalar src2) {
-    return operate_t<I, binary_operation_scalar<binary_sum<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>()(src2);
+fk::binary_operation_scalar<fk::binary_sum<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> add(cv::Scalar src2) {
+    return internal::operate_t<I, fk::binary_operation_scalar<fk::binary_sum<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>()(src2);
 }
 
 template <int I>
-split_write_scalar<perthread_split_write<CUDA_T(I)>, CUDA_T(I)> split(std::vector<cv::cuda::GpuMat>& output) {
-    return split_t<I, split_write_scalar<perthread_split_write<CUDA_T(I)>, CUDA_T(I)>>()(output);
+fk::split_write_scalar_2D<fk::perthread_split_write_2D<CUDA_T(I)>, CUDA_T(I)> split(std::vector<cv::cuda::GpuMat>& output) {
+    std::vector<fk::Ptr_2D<BASE_CUDA_T(I)>> fk_output;
+    for (auto& mat : output) {
+        fk::Ptr_2D<BASE_CUDA_T(I)> o((BASE_CUDA_T(I)*)mat.data, mat.cols, mat.rows, mat.step);
+        fk_output.push_back(o);
+    }
+    return internal::split_t<I, fk::split_write_scalar_2D<fk::perthread_split_write_2D<CUDA_T(I)>, CUDA_T(I)>>()(fk_output);
 }
 
 template <int I, typename... operations>
 void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, operations... ops) {
-    int num_elems = input.rows * input.cols;
-
-    dim3 block(256);
-    dim3 grid(ceil(num_elems / (float)block.x));
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
-    cuda_transform_noret<<<grid, block, 0, cu_stream>>>(num_elems, static_cast<CUDA_T(I)*>(static_cast<void*>(input.data)), ops...);
+    fk::Ptr_2D<CUDA_T(I)> fk_input((CUDA_T(I)*)input.data, input.cols, input.rows, input.step);
+
+    dim3 block = fk_input.getBlockSize();
+    dim3 grid;
+    grid.x = (unsigned int)ceil(fk_input.width() / (float)block.x);
+    grid.y = (unsigned int)ceil(fk_input.height() / (float)block.y);
+    fk::cuda_transform_noret_2D<<<grid, block, 0, cu_stream>>>(fk_input.d_ptr(), ops...);
+
     gpuErrchk(cudaGetLastError());
 }
 
 template <int I, int O, typename... operations>
 void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, operations... ops) {
-    int num_elems = input.rows * input.cols;
-
-    dim3 block(256);
-    dim3 grid(ceil(num_elems / (float)block.x));
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
-    memory_write_scalar<perthread_write<CUDA_T(O)>, CUDA_T(O), CUDA_T(O)> opFinal = { static_cast<CUDA_T(O)*>(static_cast<void*>(output.data)) };
+    fk::Ptr_2D<CUDA_T(I)> fk_input((CUDA_T(I)*)input.data, input.cols, input.rows, input.step);
+    fk::Ptr_2D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);
 
-    cuda_transform_noret<<<grid, block, 0, cu_stream>>>(num_elems, static_cast<CUDA_T(I)*>(static_cast<void*>(input.data)), ops..., opFinal);
+    dim3 block = fk_input.getBlockSize();
+    dim3 grid(ceil(fk_input.width() / (float)block.x), ceil(fk_input.height() / (float)block.y));
+
+    fk::memory_write_scalar_2D<fk::perthread_write_2D<CUDA_T(O)>, CUDA_T(O)> opFinal = { fk_output };
+    fk::cuda_transform_noret_2D<<<grid, block, 0, cu_stream>>>(fk_input.d_ptr(), ops..., opFinal);
+    
     gpuErrchk(cudaGetLastError());
 }
 

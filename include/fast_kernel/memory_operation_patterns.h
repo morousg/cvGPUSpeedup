@@ -14,38 +14,41 @@
 
 #pragma once
 #include "cuda_vector_utils.h"
+#include "memory_operation_types.h"
 
-template <typename Operator, typename I, typename O>
-struct _memory_write_scalar {
-    O* x;
+namespace fk {
+
+template <typename Operator, typename O>
+struct memory_write_scalar_2D {
+    Device_Ptr_2D<O> x;
     Operator nv_operator;
 };
-template <typename Operator, typename I, typename O>
-using memory_write_scalar = _memory_write_scalar<Operator, I, O>;
 
 template <typename Operator, typename I, typename Enabler=void>
-struct split_write_scalar {};
+struct split_write_scalar_2D {};
 
 template <typename Operator, typename I>
-struct split_write_scalar<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
-    decltype(I::x)* x;
-    decltype(I::y)* y;
+struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
+    Device_Ptr_2D<decltype(I::x)> x;
+    Device_Ptr_2D<decltype(I::y)> y;
     Operator nv_operator;
 };
 
 template <typename Operator, typename I>
-struct split_write_scalar<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
-    decltype(I::x)* x;
-    decltype(I::y)* y;
-    decltype(I::z)* z;
+struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
+    Device_Ptr_2D<decltype(I::x)> x;
+    Device_Ptr_2D<decltype(I::y)> y;
+    Device_Ptr_2D<decltype(I::z)> z;
     Operator nv_operator;
 };
 
 template <typename Operator, typename I>
-struct split_write_scalar<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
-    decltype(I::x)* x;
-    decltype(I::y)* y;
-    decltype(I::z)* z;
-    decltype(I::w)* w;
+struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
+    Device_Ptr_2D<decltype(I::x)> x;
+    Device_Ptr_2D<decltype(I::y)> y;
+    Device_Ptr_2D<decltype(I::z)> z;
+    Device_Ptr_2D<decltype(I::w)> w;
     Operator nv_operator;
 };
+
+}

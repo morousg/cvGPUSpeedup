@@ -92,9 +92,7 @@ void testSplitOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
                                                 cvGS::split<OC>(d_output_cvGS));
 
         // Looking at Nsight Systems, with an RTX A2000 12GB
-        // OpenCV version execution time GPU kernels only = 1184us
-        // cvGS version execution time GPU kernels only = 124us
-        // Speed up = 9.5x
+        // Speedups are up to 7x, depending on the data type
 
         // Verify results
         for (int i=0; i<CV_MAT_CN(OC); i++) {
@@ -173,12 +171,7 @@ void testNoDefinedOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::St
                                        cvGS::add<OC>(val_add));
 
         // Looking at Nsight Systems, with an RTX A2000 12GB
-        // OpenCV version execution time CPU (only launching the kernels) + GPU kernels only = 36600us
-        // cvGS version execution time CPU (only launching the kernels) + GPU kernels only = 807us
-        // Speed up = 45.35x
-        // OpenCV version execution time GPU kernels only = 228us + 299us + 298us + 352us = 1177us
-        // cvGS version execution time GPU kernels only = 124us
-        // Speed up = 9.5x
+        // Speedups are up to 7x, depending on the data type
 
         // Verify results
         d_output_cv.download(h_cvResults, cv_stream);
@@ -214,12 +207,8 @@ testSplitOutputOperation<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_strea
 
 
 int main() {
-    // Note that cvGPUSpeedup so far only supports vectors, not matrices
-    // since OpenCV will add extra memory for memory alignment reasons,
-    // according to cudaMallocPitch https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__MEMORY.html#group__CUDART__MEMORY_1g32bd7a39135594788a542ae72217775c
-    // In the future we will support kernels with step, that can be different for input and output matrices.
-    constexpr size_t NUM_ELEMS_X = 1920*1080;
-    constexpr size_t NUM_ELEMS_Y = 1;
+    constexpr size_t NUM_ELEMS_X = 3840;
+    constexpr size_t NUM_ELEMS_Y = 2160;
 
     cv::cuda::Stream cv_stream;
 
