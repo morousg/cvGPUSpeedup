@@ -15,6 +15,7 @@
 #pragma once
 
 #include <fast_kernel/cuda_vector_utils.h>
+#include <fast_kernel/memory_operation_types.h>
 #include <cv2cuda_types.h>
 
 #include <opencv2/core/cuda.hpp>
@@ -28,24 +29,22 @@ struct split_t {};
 
 template <int I, typename Operator>
 struct split_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 2>> {
-    inline constexpr Operator operator()(std::vector<cv::cuda::GpuMat>& output) {
-        return {(BASE_CUDA_T(I)*)output.at(0).data, (BASE_CUDA_T(I)*)output.at(1).data};
+    inline constexpr Operator operator()(std::vector<fk::Ptr_2D<BASE_CUDA_T(I)>>& output) {
+        return { output.at(0), output.at(1) };
     }
 };
 
 template <int I, typename Operator>
 struct split_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 3>> {
-    inline constexpr Operator operator()(std::vector<cv::cuda::GpuMat>& output) {
-        return {(BASE_CUDA_T(I)*)output.at(0).data, (BASE_CUDA_T(I)*)output.at(1).data,
-                (BASE_CUDA_T(I)*)output.at(2).data};
+    inline constexpr Operator operator()(std::vector<fk::Ptr_2D<BASE_CUDA_T(I)>>& output) {
+        return { output.at(0), output.at(1), output.at(2) };
     }
 };
 
 template <int I, typename Operator>
 struct split_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 4>> {
-    inline constexpr Operator operator()(std::vector<cv::cuda::GpuMat>& output) {
-        return {(BASE_CUDA_T(I)*)output.at(0).data, (BASE_CUDA_T(I)*)output.at(1).data,
-                (BASE_CUDA_T(I)*)output.at(2).data, (BASE_CUDA_T(I)*)output.at(3).data};
+    inline constexpr Operator operator()(std::vector<fk::Ptr_2D<BASE_CUDA_T(I)>>& output) {
+        return { output.at(0), output.at(1), output.at(2), output.at(3) };
     }
 };
 

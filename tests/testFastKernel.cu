@@ -50,64 +50,61 @@ void test_cuda_transform_optimized(float* data, dim3 data_dims, cudaStream_t str
 
 }
 
-int main() {
-    uchar3* d_input;
-    float* d_out_x;
-    float* d_out_y;
-    float* d_out_z;
+template <typename T>
+bool testPtr_2D() {
+    constexpr size_t width = 1920;
+    constexpr size_t height = 1080;
+    constexpr size_t width_crop = 300;
+    constexpr size_t height_crop = 200;
 
-    constexpr size_t NUM_ELEMENTS = 8192;
+    fk::Point startPoint = {100, 200};
 
-    std::cout << "Before any cuda call" << std::endl;
-
-    gpuErrchk(cudaMalloc(&d_input, sizeof(uchar3) * NUM_ELEMENTS));
-    gpuErrchk(cudaMalloc(&d_out_x, sizeof(float) * NUM_ELEMENTS));
-    gpuErrchk(cudaMalloc(&d_out_y, sizeof(float) * NUM_ELEMENTS));
-    gpuErrchk(cudaMalloc(&d_out_z, sizeof(float) * NUM_ELEMENTS));
+    fk::Ptr_2D<T> input(width, height);
+    fk::Ptr_2D<T> cropedInput = input.crop(startPoint, width_crop, height_crop);
+    fk::Ptr_2D<T> output(width_crop, height_crop);
+    fk::Ptr_2D<T> outputBig(width, height);
 
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
 
-    uchar3 pixel = { 0u, 128u, 255u };
-    uchar3* h_input = (uchar3*)malloc(sizeof(uchar3)*NUM_ELEMENTS);
-    float* h_out_x = (float*)malloc(sizeof(float)*NUM_ELEMENTS);
-    float* h_out_y = (float*)malloc(sizeof(float)*NUM_ELEMENTS);
-    float* h_out_z = (float*)malloc(sizeof(float)*NUM_ELEMENTS);
+    dim3 block2D(32,8);
+    dim3 grid2D(std::ceil(width_crop / (float)block2D.x),
+                std::ceil(height_crop / (float)block2D.y));
+    dim3 grid2DBig(std::ceil(width / (float)block2D.x),
+                   std::ceil(height / (float)block2D.y));
 
-    for (int i = 0; i < NUM_ELEMENTS; i++) {
-        h_input[i] = pixel;
+    fk::memory_write_scalar_2D<fk::perthread_write_2D<T>, T> opFinal_2D = { output };
+    fk::memory_write_scalar_2D<fk::perthread_write_2D<T>, T> opFinal_2DBig = { outputBig };
+
+    for (int i=0; i<100; i++) {
+        fk::cuda_transform_noret_2D<<<grid2D, block2D, 0, stream>>>(cropedInput.d_ptr(), opFinal_2D);
+        fk::cuda_transform_noret_2D<<<grid2DBig, block2D, 0, stream>>>(input.d_ptr(), opFinal_2DBig);
     }
 
-    gpuErrchk(cudaMemcpyAsync(d_input, h_input, sizeof(uchar3) * NUM_ELEMENTS, cudaMemcpyHostToDevice, stream));
+    cudaError_t err = cudaStreamSynchronize(stream);
 
-    fk::unary_operation_scalar<fk::unary_cuda_vector_cast<uchar3, float3>, uchar3, float3> op1 = {};
-    fk::binary_operation_scalar<fk::binary_sub<float3>, float3, float3> op2 = { fk::make_<float3>(1.f, 1.f, 1.f) };
-    fk::binary_operation_scalar<fk::binary_div<float3>, float3, float3> op3 = { fk::make_<float3>(2.f, 2.f, 2.f) };
-    fk::split_write_scalar<fk::perthread_split_write<float3>, float3> op4 = { d_out_x, d_out_y, d_out_z };
+    // TODO: use some values and check results correctness
 
-    std::cout << "Before kernel" << std::endl;
-
-    dim3 block(256);
-    dim3 grid(NUM_ELEMENTS / 256);
-    for (int i = 0; i < 1000000; i++) {
-        fk::cuda_transform_noret << <grid, block, 0, stream >> > (NUM_ELEMENTS, d_input, op1, op2, op3, op4);
+    if (err != cudaSuccess) {
+        return false;
+    } else {
+        return true;
     }
+}
 
-    std::cout << "After kernel" << std::endl;
+int main() {
+    bool test2Dpassed = true;
 
-    gpuErrchk(cudaMemcpyAsync(h_out_x, d_out_x, sizeof(float) * NUM_ELEMENTS, cudaMemcpyDeviceToHost, stream));
-    gpuErrchk(cudaMemcpyAsync(h_out_y, d_out_y, sizeof(float) * NUM_ELEMENTS, cudaMemcpyDeviceToHost, stream));
-    gpuErrchk(cudaMemcpyAsync(h_out_z, d_out_z, sizeof(float) * NUM_ELEMENTS, cudaMemcpyDeviceToHost, stream));
+    test2Dpassed &= testPtr_2D<uchar>();
+    test2Dpassed &= testPtr_2D<uchar3>();
+    test2Dpassed &= testPtr_2D<float>();
+    test2Dpassed &= testPtr_2D<float3>();
 
-    std::cout << "After copies" << std::endl;
-
-    gpuErrchk(cudaStreamSynchronize(stream));
-
-    std::cout << "After sync" << std::endl;
-
-    //for (int i=0; i<NUM_ELEMENTS; i++) {
-    std::cout << "Result = " << h_out_x[0] << ", " << h_out_y[0] << ", " << h_out_z[0] << std::endl;
-    //}
+    if (test2Dpassed) {
+        std::cout << "testPtr_2D Success!!" << std::endl; 
+    } else {
+        std::cout << "testPtr_2D Failed!!" << std::endl;
+    }
 
     return 0;
 }
