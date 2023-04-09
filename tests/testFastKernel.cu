@@ -59,10 +59,10 @@ bool testPtr_2D() {
 
     fk::Point startPoint = {100, 200};
 
-    fk::Ptr_2D<T> input(width, height);
-    fk::Ptr_2D<T> cropedInput = input.crop(startPoint, width_crop, height_crop);
-    fk::Ptr_2D<T> output(width_crop, height_crop);
-    fk::Ptr_2D<T> outputBig(width, height);
+    fk::Ptr3D<T> input(width, height);
+    fk::Ptr3D<T> cropedInput = input.crop(startPoint, width_crop, height_crop);
+    fk::Ptr3D<T> output(width_crop, height_crop);
+    fk::Ptr3D<T> outputBig(width, height);
 
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));

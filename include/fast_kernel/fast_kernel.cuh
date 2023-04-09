@@ -179,7 +179,7 @@ __device__ void operate_noret(I i_data, binary_operation_pointer<Operation, I, I
 }
 
 template<typename I, typename... operations>
-__global__ void cuda_transform_noret_2D(const Device_Ptr_2D<I> i_data, operations... ops) {
+__global__ void cuda_transform_noret_2D(const MemPatterns<I> i_data, operations... ops) {
     cg::thread_block g =  cg::this_thread_block();
     uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
     uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;

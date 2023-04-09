@@ -43,12 +43,17 @@ struct Resize {
     uint target_height;
 };
 
+enum MemType { Device, Host, HostPinned };
+
 template <typename T>
-struct Device_Ptr_2D {
+struct MemPatterns {
     T* data;
     uint width;
     uint height;
+    uint planes;
     uint pitch;
+    MemType type;
+    int deviceID;
 
     Resize resize{ InterpType::NONE, BorderMode::BORDER_CONSTANT, 0, 0 };
 
@@ -105,9 +110,8 @@ struct Device_Ptr_2D {
     }
 };
 
-
 template <typename T>
-class Ptr_2D {
+class Ptr3D {
 
 private:
     struct refPtr {
@@ -115,95 +119,149 @@ private:
         int cnt;  
     };
     refPtr* ref{ nullptr };
-    Device_Ptr_2D<T> device_ptr;
+    MemPatterns<T> patterns;
 
-    __host__ error_t free_ptr() {
-        cudaError_t err = cudaSuccess;
+    __host__ void freePrt() {
         if (ref) {
             ref->cnt--;
             if (ref->cnt == 0) {
-                err = cudaFree(ref->ptr);
+                switch (patterns.type) {
+                    case Device:
+                        gpuErrchk(cudaFree(ref->ptr));
+                        break;
+                    case Host:
+                        free(ref->ptr);
+                        break;
+                    case HostPinned:
+                        gpuErrchk(cudaFreeHost(ref->ptr));
+                        break;
+                    default:
+                        break;
+                }
                 free(ref);
             }
         }
-        return err;
     }
 
-    __host__ Ptr_2D(T * data_, refPtr * ref_, uint width_, uint height_, uint pitch_) : ref(ref_) {
-        device_ptr.data = data_;
-        device_ptr.width = width_;
-        device_ptr.height = height_;
-        device_ptr.pitch = pitch_;
+    __host__ Ptr3D(T * data_, refPtr * ref_, uint width_, uint height_, uint pitch_, uint planes_, MemType type_, int deviceID_) : ref(ref_) {
+        patterns.data = data_;
+        patterns.width = width_;
+        patterns.height = height_;
+        patterns.pitch = pitch_;
+        patterns.planes = planes_;
+        patterns.type = type_;
+        patterns.deviceID = deviceID_;
+    }
+
+    __host__ void allocDevice() {
+        int currentDevice;
+        gpuErrchk(cudaGetDevice(&currentDevice));
+        gpuErrchk(cudaSetDevice(patterns.deviceID));
+        if (patterns.pitch == 0) {
+            size_t pitch_temp;
+            gpuErrchk(cudaMallocPitch(&patterns.data, &pitch_temp, sizeof(T) * patterns.width, patterns.height * patterns.planes));
+            patterns.pitch = pitch_temp;
+        } else {
+            gpuErrchk(cudaMalloc(&patterns.data, patterns.pitch * patterns.height * patterns.planes));
+        }
+        if (currentDevice != patterns.deviceID) {
+            gpuErrchk(cudaSetDevice(currentDevice));
+        }
+    }
+
+    __host__ void allocHost() {
+        patterns.data = (T*)malloc(sizeof(T) * patterns.width * patterns.height * patterns.planes);
+        patterns.pitch = sizeof(T) * patterns.width; //Here we don't support padding
+    }
+
+    __host__ void allocHostPinned() {
+        gpuErrchk(cudaMallocHost(&patterns.data, sizeof(T) * patterns.width * patterns.height * patterns.planes));
+        patterns.pitch = sizeof(T) * patterns.width; //Here we don't support padding
     }
 
 public:
 
-    __host__ Ptr_2D() {}
-    __host__ Ptr_2D(const Ptr_2D<T>& other) {
-        device_ptr = other.device_ptr;
+    __host__ Ptr3D() {}
+
+    __host__ Ptr3D(const Ptr3D<T>& other) {
+        patterns = other.patterns;
         if (other.ref) {
             ref = other.ref;
             ref->cnt++;
         }
     }
-    __host__ Ptr_2D(uint width_, uint height_, uint pitch_ = 0) {
-        alloc_ptr(width_, height_, pitch_);
+
+    __host__ Ptr3D(uint width_, uint height_, uint pitch_ = 0, uint planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
+        allocPtr(width_, height_, pitch_, planes_, type_, deviceID_);
     }
-    __host__ Ptr_2D(T * data_, uint width_, uint height_, uint pitch_) {
-        device_ptr.data = data_;
-        device_ptr.width = width_;
-        device_ptr.height = height_;
-        device_ptr.pitch = pitch_;
+
+    __host__ Ptr3D(T * data_, uint width_, uint height_, uint pitch_, uint planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
+        patterns.data = data_;
+        patterns.width = width_;
+        patterns.height = height_;
+        patterns.pitch = pitch_;
+        patterns.planes = planes_;
+        patterns.type = type_;
+        patterns.deviceID = deviceID_;
     }
-    __host__ ~Ptr_2D() {
+
+    __host__ ~Ptr3D() {
         // TODO: add gpuCkeck
-        free_ptr();
+        freePrt();
     }
 
-    __host__ Device_Ptr_2D<T> d_ptr() const { return device_ptr; }
+    __host__ MemPatterns<T> d_ptr() const { return patterns; }
 
-    operator Device_Ptr_2D<T>() const { return device_ptr; }
+    operator MemPatterns<T>() const { return patterns; }
 
-    __host__ error_t alloc_ptr(uint width_, uint height_, uint pitch_ = 0) {
-        device_ptr.width = width_;
-        device_ptr.height = height_;
+    __host__ void allocPtr(uint width_, uint height_, uint pitch_ = 0, uint planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
+        patterns.width = width_;
+        patterns.height = height_;
+        patterns.pitch = pitch_;
+        patterns.planes = planes_;
+        patterns.type = type_;
+        patterns.deviceID = deviceID_;
         ref = (refPtr*)malloc(sizeof(refPtr));
         ref->cnt = 1;
-        error_t err;
-        if (pitch_ == 0) {
-            size_t pitch_temp;
-            err = cudaMallocPitch(&device_ptr.data, &pitch_temp, sizeof(T) * device_ptr.width, device_ptr.height);
-            device_ptr.pitch = pitch_temp;
-        } else {
-            device_ptr.pitch = pitch_;
-            err = cudaMalloc(&device_ptr.data, device_ptr.pitch * device_ptr.height);
-        }
-        ref->ptr = device_ptr.data;
 
-        return err;
+        switch (type_) {
+            case Device:
+                allocDevice();
+                break;
+            case Host:
+                allocHost();
+                break;
+            case HostPinned:
+                allocHostPinned();
+                break;
+            default:
+                break;
+        }
+
+        ref->ptr = patterns.data;
     }
 
-    __host__ Ptr_2D<T> crop(Point p, uint width_n, uint height_n) {
-        T* ptr = device_ptr.at(p);
+    __host__ Ptr3D<T> crop(Point p, uint width_n, uint height_n, uint planes_n = 1) {
+        T* ptr = patterns.at(p);
         ref->cnt++;
-        return {ptr, ref, width_n, height_n, device_ptr.pitch};
+        return {ptr, ref, width_n, height_n, patterns.pitch, planes_n, patterns.type, patterns.deviceID};
     }
 
     __host__ void setResize(Resize& resize_) {
-        device_ptr.resize = resize_;
+        patterns.resize = resize_;
     }
 
     __host__ uint width() const {
-        return device_ptr.width;
+        return patterns.width;
     }
     __host__ uint height() const {
-        return device_ptr.height;
+        return patterns.height;
     }
     __host__ uint pitch() const {
-        return device_ptr.pitch;
+        return patterns.pitch;
     }
     __host__ T* data() const {
-        return device_ptr.data;
+        return patterns.data;
     }
 
     __host__ dim3 getBlockSize() const {
@@ -212,8 +270,8 @@ public:
 
         std::vector<uint> zeroModY;
 
-        for (uint i = min(8,device_ptr.height); i > 0; i--) {
-            if (device_ptr.height % i == 0) {
+        for (uint i = min(8,patterns.height); i > 0; i--) {
+            if (patterns.height % i == 0) {
                 zeroModY.push_back(i);
             }
         }
@@ -236,7 +294,7 @@ public:
 
 template <typename I, typename O=I>
 struct perthread_write_2D {
-    __device__ void operator()(I input, Device_Ptr_2D<O> output) {
+    __device__ void operator()(I input, MemPatterns<O> output) {
         cg::thread_block g =  cg::this_thread_block();
         uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
         uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
@@ -251,8 +309,8 @@ struct perthread_split_write_2D;
 template <typename I>
 struct perthread_split_write_2D<I, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
     __device__ void operator()(I input,
-                               Device_Ptr_2D<decltype(I::x)> output1,
-                               Device_Ptr_2D<decltype(I::y)> output2) {
+                               MemPatterns<decltype(I::x)> output1,
+                               MemPatterns<decltype(I::y)> output2) {
         cg::thread_block g =  cg::this_thread_block();
         Point p;
         p.x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
@@ -265,9 +323,9 @@ struct perthread_split_write_2D<I, typename std::enable_if_t<NUM_COMPONENTS(I) =
 template <typename I>
 struct perthread_split_write_2D<I, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
     __device__ void operator()(I input, 
-                               Device_Ptr_2D<decltype(I::x)> output1, 
-                               Device_Ptr_2D<decltype(I::y)> output2,
-                               Device_Ptr_2D<decltype(I::z)> output3) {
+                               MemPatterns<decltype(I::x)> output1, 
+                               MemPatterns<decltype(I::y)> output2,
+                               MemPatterns<decltype(I::z)> output3) {
         cg::thread_block g =  cg::this_thread_block();
         Point p;
         p.x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
@@ -281,10 +339,10 @@ struct perthread_split_write_2D<I, typename std::enable_if_t<NUM_COMPONENTS(I) =
 template <typename I>
 struct perthread_split_write_2D<I, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
     __device__ void operator()(I input, 
-                               Device_Ptr_2D<decltype(I::x)> output1, 
-                               Device_Ptr_2D<decltype(I::y)> output2,
-                               Device_Ptr_2D<decltype(I::z)> output3,
-                               Device_Ptr_2D<decltype(I::w)> output4) { 
+                               MemPatterns<decltype(I::x)> output1, 
+                               MemPatterns<decltype(I::y)> output2,
+                               MemPatterns<decltype(I::z)> output3,
+                               MemPatterns<decltype(I::w)> output4) { 
         cg::thread_block g =  cg::this_thread_block();
         Point p;
         p.x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;

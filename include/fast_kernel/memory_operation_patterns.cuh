@@ -20,7 +20,7 @@ namespace fk {
 
 template <typename Operator, typename O>
 struct memory_write_scalar_2D {
-    Device_Ptr_2D<O> x;
+    MemPatterns<O> x;
     Operator nv_operator;
 };
 
@@ -29,25 +29,25 @@ struct split_write_scalar_2D {};
 
 template <typename Operator, typename I>
 struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
-    Device_Ptr_2D<decltype(I::x)> x;
-    Device_Ptr_2D<decltype(I::y)> y;
+    MemPatterns<decltype(I::x)> x;
+    MemPatterns<decltype(I::y)> y;
     Operator nv_operator;
 };
 
 template <typename Operator, typename I>
 struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
-    Device_Ptr_2D<decltype(I::x)> x;
-    Device_Ptr_2D<decltype(I::y)> y;
-    Device_Ptr_2D<decltype(I::z)> z;
+    MemPatterns<decltype(I::x)> x;
+    MemPatterns<decltype(I::y)> y;
+    MemPatterns<decltype(I::z)> z;
     Operator nv_operator;
 };
 
 template <typename Operator, typename I>
 struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
-    Device_Ptr_2D<decltype(I::x)> x;
-    Device_Ptr_2D<decltype(I::y)> y;
-    Device_Ptr_2D<decltype(I::z)> z;
-    Device_Ptr_2D<decltype(I::w)> w;
+    MemPatterns<decltype(I::x)> x;
+    MemPatterns<decltype(I::y)> y;
+    MemPatterns<decltype(I::z)> z;
+    MemPatterns<decltype(I::w)> w;
     Operator nv_operator;
 };
 

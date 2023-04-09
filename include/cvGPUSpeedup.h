@@ -49,9 +49,9 @@ fk::binary_operation_scalar<fk::binary_sum<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUD
 
 template <int I>
 fk::split_write_scalar_2D<fk::perthread_split_write_2D<CUDA_T(I)>, CUDA_T(I)> split(std::vector<cv::cuda::GpuMat>& output) {
-    std::vector<fk::Ptr_2D<BASE_CUDA_T(I)>> fk_output;
+    std::vector<fk::Ptr3D<BASE_CUDA_T(I)>> fk_output;
     for (auto& mat : output) {
-        fk::Ptr_2D<BASE_CUDA_T(I)> o((BASE_CUDA_T(I)*)mat.data, mat.cols, mat.rows, mat.step);
+        fk::Ptr3D<BASE_CUDA_T(I)> o((BASE_CUDA_T(I)*)mat.data, mat.cols, mat.rows, mat.step);
         fk_output.push_back(o);
     }
     return internal::split_t<I, fk::split_write_scalar_2D<fk::perthread_split_write_2D<CUDA_T(I)>, CUDA_T(I)>>()(fk_output);
@@ -61,7 +61,7 @@ template <int I, typename... operations>
 void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, operations... ops) {
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
-    fk::Ptr_2D<CUDA_T(I)> fk_input((CUDA_T(I)*)input.data, input.cols, input.rows, input.step);
+    fk::Ptr3D<CUDA_T(I)> fk_input((CUDA_T(I)*)input.data, input.cols, input.rows, input.step);
 
     dim3 block = fk_input.getBlockSize();
     dim3 grid;
@@ -76,8 +76,8 @@ template <int I, int O, typename... operations>
 void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, operations... ops) {
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
-    fk::Ptr_2D<CUDA_T(I)> fk_input((CUDA_T(I)*)input.data, input.cols, input.rows, input.step);
-    fk::Ptr_2D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);
+    fk::Ptr3D<CUDA_T(I)> fk_input((CUDA_T(I)*)input.data, input.cols, input.rows, input.step);
+    fk::Ptr3D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);
 
     dim3 block = fk_input.getBlockSize();
     dim3 grid(ceil(fk_input.width() / (float)block.x), ceil(fk_input.height() / (float)block.y));
