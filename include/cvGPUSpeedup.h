@@ -79,6 +79,26 @@ fk::memory_read_iterpolated<fk::interpolate_read<CUDA_T(T), (fk::InterpolationTy
     return { accessor, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy), t_width, t_height };
 }
 
+fk::memory_read_iterpolated<fk::interpolate_read<uchar, fk::InterpolationType::INTER_LINEAR, uchar2, 2>, uchar> resize(const cv::cuda::GpuMat input, cv::Size dsize, double fx, double fy) {
+    // So far we only support fk::INTER_LINEAR
+    fk::Ptr3D<uchar> fk_input((uchar*)input.data, input.cols, input.rows, input.step);
+
+    if (dsize != cv::Size()) {
+        fx = static_cast<double>(dsize.width) / fk_input.width();
+        fy = static_cast<double>(dsize.height) / fk_input.height();
+    } else {
+        dsize = cv::Size(CAROTENE_NS::internal::saturate_cast<int>(fk_input.width() * fx), 
+                         CAROTENE_NS::internal::saturate_cast<int>(fk_input.height() * fy));
+    }
+
+    uint t_width = dsize.width;
+    uint t_height = dsize.height;
+
+    auto accessor = fk_input.d_ptr();
+
+    return { accessor, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy), t_width, t_height };
+}
+
 template <int O>
 fk::memory_write_scalar_2D<fk::perthread_write_2D<CUDA_T(O)>, CUDA_T(O)> write(cv::cuda::GpuMat output) {
     fk::Ptr3D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);

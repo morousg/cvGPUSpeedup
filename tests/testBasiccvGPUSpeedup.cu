@@ -242,8 +242,14 @@ bool testResize(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, b
             cv::cuda::resize(d_input, d_up, up, 0., 0., cv::INTER_LINEAR, cv_stream);
             cv::cuda::resize(d_input, d_down, down, 0., 0., cv::INTER_LINEAR, cv_stream);
 
-            cvGS::executeOperations(up, cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, up, 0., 0.), cvGS::write<I>(d_up_cvGS));
-            cvGS::executeOperations(down, cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, down, 0., 0.), cvGS::write<I>(d_down_cvGS));
+            if (I == CV_8UC1) {
+                cvGS::executeOperations(up, cv_stream, cvGS::resize(d_input, up, 0., 0.), cvGS::write<CV_8UC1>(d_up_cvGS));
+                cvGS::executeOperations(down, cv_stream, cvGS::resize(d_input, down, 0., 0.), cvGS::write<CV_8UC1>(d_down_cvGS));
+            } else {
+                cvGS::executeOperations(up, cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, up, 0., 0.), cvGS::write<I>(d_up_cvGS));
+                cvGS::executeOperations(down, cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, down, 0., 0.), cvGS::write<I>(d_down_cvGS));
+            }
+            
 
             cv_stream.waitForCompletion();
 

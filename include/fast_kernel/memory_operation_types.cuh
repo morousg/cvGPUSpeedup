@@ -27,13 +27,13 @@ namespace cg = cooperative_groups;
 namespace fk {
 
 struct Point {
-  __device__ __forceinline__ __host__ Point(uint x_, uint y_) : x(x_), y(y_) {}
+  __device__ __forceinline__ __host__ Point(const uint x_, const uint y_) : x(x_), y(y_) {}
   __device__ __forceinline__ __host__ Point(){}
   uint x;
   uint y;  
 };
 
-inline dim3 getBlockSize(uint width, uint height) {
+inline dim3 getBlockSize(const uint width, const uint height) {
     const std::unordered_map<uint, uint> optionsYX = {{8, 32}, {7, 32}, {6, 32}, {5, 32}, {4, 64}, {3, 64}, {2, 128}, {1, 256}};
     const std::unordered_map<uint, uint> scoresY = {{8, 4}, {7, 3}, {6, 2}, {5, 1}, {4, 4}, {3, 3}, {2, 4}, {1, 4}};
 
@@ -72,18 +72,13 @@ struct PtrAccessor {
     MemType type;
     int deviceID;
 
-    __host__ __device__ __forceinline__ const T*__restrict__ getPtrUnsafe_c(const Point p) const {
-        if (p.x < width && p.y < height) {
-            return (const T*)((const char*)data + (p.y * pitch)) + p.x;
-        }
-        return nullptr;
+    template <typename C>
+    __host__ __device__ __forceinline__ const C*__restrict__ getPtrUnsafe_c(const Point p) const {
+        return (const C*)((const char*)data + (p.y * pitch)) + p.x;
     }
 
     __host__ __device__ __forceinline__ T* getPtrUnsafe(const Point p) const {
-        if (p.x < width && p.y < height) {
-            return (T*)((char*)data + (p.y * pitch)) + p.x;
-        }
-        return nullptr;
+        return (T*)((char*)data + (p.y * pitch)) + p.x;
     }
 
     template <typename C>
@@ -102,8 +97,9 @@ struct PtrAccessor {
         return pitch != sizeof(T) * width;
     }
 
-    __host__ __device__ __forceinline__ const T*__restrict__ at_c(const Point p) const {
-        return getPtrUnsafe_c(p);
+    template <typename C=T>
+    __host__ __device__ __forceinline__ const C*__restrict__ at_c(const Point p) const {
+        return getPtrUnsafe_c<C>(p);
     }
 
     __host__ __device__ __forceinline__ T* at(const Point p) const {
@@ -273,12 +269,8 @@ public:
 
 template <typename I, typename O=I>
 struct perthread_write_2D {
-    __device__ __forceinline__ void operator()(I input, PtrAccessor<O> output) {
-        cg::thread_block g =  cg::this_thread_block();
-        const uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
-        const uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
-
-        *(output.at({x, y})) = input;
+    __device__ __forceinline__ void operator()(const dim3 thread, I input, PtrAccessor<O> output) {
+        *(output.at({thread.x, thread.y})) = input;
     }
 };
 
@@ -287,13 +279,10 @@ struct perthread_split_write_2D;
 
 template <typename I>
 struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 2>> {
-    __device__ __forceinline__ void operator()(I input,
+    __device__ __forceinline__ void operator()(const dim3 thread, I input,
                                PtrAccessor<decltype(I::x)> output1,
                                PtrAccessor<decltype(I::y)> output2) {
-        cg::thread_block g =  cg::this_thread_block();
-        Point p;
-        p.x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
-        p.y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
+        const Point p(thread.x, thread.y);
         *output1.at(p) = input.x; 
         *output2.at(p) = input.y;
     }
@@ -301,14 +290,11 @@ struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 2>> {
 
 template <typename I>
 struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 3>> {
-    __device__ __forceinline__ void operator()(I input, 
+    __device__ __forceinline__ void operator()(const dim3 thread, I input, 
                                PtrAccessor<decltype(I::x)> output1, 
                                PtrAccessor<decltype(I::y)> output2,
                                PtrAccessor<decltype(I::z)> output3) {
-        cg::thread_block g =  cg::this_thread_block();
-        Point p;
-        p.x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
-        p.y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
+        const Point p(thread.x, thread.y);
         *output1.at(p) = input.x; 
         *output2.at(p) = input.y; 
         *output3.at(p) = input.z;
@@ -317,14 +303,12 @@ struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 3>> {
 
 template <typename I>
 struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 4>> {
-    __device__ __forceinline__ void operator()(I input, 
+    __device__ __forceinline__ void operator()(const dim3 thread, I input, 
                                PtrAccessor<decltype(I::x)> output1, 
                                PtrAccessor<decltype(I::y)> output2,
                                PtrAccessor<decltype(I::z)> output3,
                                PtrAccessor<decltype(I::w)> output4) { 
-        cg::thread_block g =  cg::this_thread_block();
-        const Point p((g.dim_threads().x * g.group_index().x) + g.thread_index().x,
-                      (g.dim_threads().y * g.group_index().y) + g.thread_index().y);
+        const Point p(thread.x, thread.y);
         *output1.at(p) = input.x; 
         *output2.at(p) = input.y; 
         *output3.at(p) = input.z;
@@ -411,39 +395,66 @@ enum InterpolationType {
     NONE = 17
 };
 
-template <typename T, InterpolationType INTER_T>
+template <typename T, InterpolationType INTER_T, typename TYPE_TO_READ = T, uint PIX_PER_THREAD = sizeof(TYPE_TO_READ) / sizeof(T)>
 struct interpolate_read;
 
 template <typename T>
-struct interpolate_read<T, InterpolationType::INTER_LINEAR> {
-    __device__ __forceinline__ T operator()(const PtrAccessor<T> input, const float fy, const float fx, const int dst_x, const int dst_y) {        
-        using float_nc = typename VectorType<float, VectorTraits<T>::cn>::type;
-        
+struct interpolate_read<T, InterpolationType::INTER_LINEAR, T, 1> {
+    __device__ __forceinline__ T operator()(const PtrAccessor<T> input, const float fy, const float fx, const int dst_x, const int dst_y) {
         const float src_x = dst_x * fx;
         const float src_y = dst_y * fy;
 
-        float_nc out = make_set<float_nc>(0.f);
+        const int x1 = __float2int_rd(src_x);
+        const int y1 = __float2int_rd(src_y);
+        const int x2 = x1 + 1;
+        const int y2 = y1 + 1;        
+        const int x2_read = ::min(x2, input.width - 1);
+        const int y2_read = ::min(y2, input.height - 1);
+
+        using floatcn_t = typename VectorType<float, VectorTraits<T>::cn>::type;
+        floatcn_t out = make_set<floatcn_t>(0.f);
+        T src_reg = *input.at_c(Point(x1, y1));
+        out = out + src_reg * ((x2 - src_x) * (y2 - src_y));
+
+        src_reg = *input.at_c(Point(x2_read, y1));
+        out = out + src_reg * ((src_x - x1) * (y2 - src_y));
+
+        src_reg = *input.at_c(Point(x1, y2_read));
+        out = out + src_reg * ((x2 - src_x) * (src_y - y1));
+
+        src_reg = *input.at_c(Point(x2_read, y2_read));
+        out = out + src_reg * ((src_x - x1) * (src_y - y1));
+        
+        return saturate_cast<T>(out);
+    } 
+};
+
+template <>
+struct interpolate_read<uchar, InterpolationType::INTER_LINEAR, uchar2, 2> {
+    __device__ __forceinline__ uchar operator()(const PtrAccessor<uchar> input, const float fy, const float fx, const int dst_x, const int dst_y) {        
+        const float src_x = dst_x * fx;
+        const float src_y = dst_y * fy;
 
         const int x1 = __float2int_rd(src_x);
         const int y1 = __float2int_rd(src_y);
         const int x2 = x1 + 1;
         const int y2 = y1 + 1;
-        const int x2_read = ::min(x2, input.width - 1);
+        //const int x2_read = ::min(x2, input.width - 1);
         const int y2_read = ::min(y2, input.height - 1);
 
-        T reg = *input.at_c(Point(x1, y1));
-        out = out + reg * ((x2 - src_x) * (y2 - src_y));
-        
-        reg = *input.at_c(Point(x2_read, y1));
-        out = out + reg * ((src_x - x1) * (y2 - src_y));
-        
-        reg = *input.at_c(Point(x1, y2_read));
-        out = out + reg * ((x2 - src_x) * (src_y - y1));
-        
-        reg = *input.at_c(Point(x2_read, y2_read));
-        out = out + reg * ((src_x - x1) * (src_y - y1));
+        uchar2 reg[2];
+        if (input.width == x2) {
+            reg[0] = *input.at_c<uchar2>(Point(x1, y1));
+            reg[1] = *input.at_c<uchar2>(Point(x1, y2_read));
+        } else {
+            uchar temp = *input.at_c(Point(x1*2, y1));
+            reg[0] = make_<uchar2>(temp, temp);
+            temp = *input.at_c(Point(x1*2, y2_read));
+            reg[1] = make_<uchar2>(temp, temp);
+        }
     
-        return saturate_cast<T>(out);
+        return saturate_cast<uchar>(reg[0].x * ((x2 - src_x) * (y2 - src_y)) + reg[0].y * ((src_x - x1) * (y2 - src_y)) +
+                                    reg[1].x * ((x2 - src_x) * (src_y - y1)) + reg[1].y * ((src_x - x1) * (src_y - y1)));
     } 
 };
 
