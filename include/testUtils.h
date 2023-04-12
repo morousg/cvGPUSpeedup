@@ -19,6 +19,7 @@ DEPTH_TO_STRING(CV_16S, "CV_16S")
 DEPTH_TO_STRING(CV_32S, "CV_32S")
 DEPTH_TO_STRING(CV_32F, "CV_32F")
 DEPTH_TO_STRING(CV_64F, "CV_64F")
+#undef DEPTH_TO_STRING
 
 template <int Channels>
 std::string channelsToString() { return ""; }
@@ -33,6 +34,7 @@ CHANNELS_TO_STRING(1, "C1")
 CHANNELS_TO_STRING(2, "C2")
 CHANNELS_TO_STRING(3, "C3")
 CHANNELS_TO_STRING(4, "C4")
+#undef CHANNELS_TO_STRING
 
 template <int T>
 std::string cvTypeToString() {

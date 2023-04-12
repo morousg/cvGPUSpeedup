@@ -14,60 +14,33 @@
 
 #pragma once
 #include "cuda_vector_utils.cuh"
+#include "../external/opencv/modules/core/include/opencv2/core/cuda/vec_math.hpp"
 
 namespace fk {
 
 template <typename I1, typename I2=I1, typename O=I1>
 struct binary_sum {
-    inline constexpr __device__ __host__ O operator()(I1 input_1, I2 input_2) {return input_1 + input_2;}
+    __device__ __forceinline__ __host__ constexpr O operator()(I1 input_1, I2 input_2) {return input_1 + input_2;}
 };
 
-template <typename I1, typename I2=I1, typename O=I1>
+template <typename I1, typename I2=I1, typename O=I1, typename Enabler=void>
 struct binary_sub {
-    inline constexpr __device__ __host__ O operator()(I1 input_1, I2 input_2) {return input_1 - input_2;}
+    __device__ __forceinline__ __host__ constexpr O operator()(I1 input_1, I2 input_2) {return input_1 - input_2;}
 };
 
 template <typename I1, typename I2=I1, typename O=I1>
 struct binary_mul {
-    inline constexpr __device__ __host__ O operator()(I1 input_1, I2 input_2) {return input_1 * input_2;}
+    __device__ __forceinline__ __host__ constexpr O operator()(I1 input_1, I2 input_2) { return input_1 * input_2; }
 };
 
 template <typename I1, typename I2=I1, typename O=I1>
 struct binary_div {
-    inline constexpr __device__ __host__ O operator()(I1 input_1, I2 input_2) {return input_1 / input_2;}
-};
-
-template <typename I, typename O, typename Enabler=void>
-struct unary_cuda_vector_cast {};
-
-template <typename I, typename O>
-struct unary_cuda_vector_cast<I, O, typename std::enable_if_t<!std::is_class<I>::value &&
-                                                              !std::is_class<O>::value >> {
-  __device__ __host__ O operator()(I input) { return static_cast<O>(input); }
+    __device__ __forceinline__ __host__ constexpr O operator()(I1 input_1, I2 input_2) {return input_1 / input_2;}
 };
 
 template <typename I, typename O>
-struct unary_cuda_vector_cast<I, O, typename std::enable_if_t<NUM_COMPONENTS(I) == 1 &&
-                                                              std::is_class<I>::value &&
-                                                              !std::is_enum<I>::value &&
-                                                              std::is_class<O>::value &&
-                                                              !std::is_enum<O>::value >> {
-  __device__ __host__ O operator()(I input) { return make_<O>(input.x); }
-};
-
-template <typename I, typename O>
-struct unary_cuda_vector_cast<I, O, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
-    __device__ __host__ O operator()(I input) { return make_<O>(input.x, input.y); }
-};
-
-template <typename I, typename O>
-struct unary_cuda_vector_cast<I, O, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
-    __device__ __host__ O operator()(I input) { return make_<O>(input.x, input.y, input.z); }
-};
-
-template <typename I, typename O>
-struct unary_cuda_vector_cast<I, O, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
-    __device__ __host__ O operator()(I input) { return make_<O>(input.x, input.y, input.z, input.w); }
+struct unary_cast {
+    __device__ __forceinline__  __host__ constexpr O operator()(I input) { return saturate_cast<O>(input); }
 };
 
 }

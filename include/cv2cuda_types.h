@@ -17,6 +17,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <opencv2/core/types.hpp>
+#include <opencv2/cudawarping.hpp>
 
 namespace cvGS {
 
@@ -58,6 +59,7 @@ CV2CUDA_T(CV_64FC2, double2);
 CV2CUDA_T(CV_64FC3, double3);
 CV2CUDA_T(CV_64FC4, double4);
 
+#undef CV2CUDA_T
 }
 
 #define CUDA_T(CV_TYPE) typename cvGS::cv2cuda_t<CV_TYPE>::type

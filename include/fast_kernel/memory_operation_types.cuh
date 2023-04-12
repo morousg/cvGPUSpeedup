@@ -1,4 +1,7 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* 
+   Some device functions are modifications of other libraries
+
+   Copyright 2023 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -14,6 +17,7 @@
 
 #pragma once
 #include "cuda_vector_utils.cuh"
+#include "operation_types.cuh"
 #include <cooperative_groups.h>
 #include <vector>
 #include <unordered_map>
@@ -22,31 +26,44 @@ namespace cg = cooperative_groups;
 
 namespace fk {
 
-enum InterpType {INTER_NEAREST , INTER_LINEAR, INTER_CUBIC, NONE};
-enum BorderMode {BORDER_REFLECT101 , BORDER_REPLICATE , BORDER_CONSTANT , BORDER_REFLECT, BORDER_WRAP};
-
 struct Point {
+  __device__ __forceinline__ __host__ Point(uint x_, uint y_) : x(x_), y(y_) {}
+  __device__ __forceinline__ __host__ Point(){}
   uint x;
   uint y;  
 };
 
-struct Crop {
-    Point start_p;
-    uint width_c;
-    uint height_c;
-};
+inline dim3 getBlockSize(uint width, uint height) {
+    const std::unordered_map<uint, uint> optionsYX = {{8, 32}, {7, 32}, {6, 32}, {5, 32}, {4, 64}, {3, 64}, {2, 128}, {1, 256}};
+    const std::unordered_map<uint, uint> scoresY = {{8, 4}, {7, 3}, {6, 2}, {5, 1}, {4, 4}, {3, 3}, {2, 4}, {1, 4}};
 
-struct Resize {
-    InterpType inter_t;
-    BorderMode border_m;
-    uint target_width;
-    uint target_height;
-};
+    std::vector<uint> zeroModY;
+
+    for (uint i = ::min(8, height); i > 0; i--) {
+        if (height % i == 0) {
+            zeroModY.push_back(i);
+        }
+    }
+
+    uint currentScore = 0;
+    uint currentY = 1;
+    for (auto& ySize : zeroModY) {
+        if (scoresY.at(ySize) > currentScore) {
+            currentScore = scoresY.at(ySize);
+            currentY = ySize;
+        }
+        if (currentScore == 4) {
+            break;
+        }
+    }
+
+    return dim3(optionsYX.at(currentY), currentY);
+}
 
 enum MemType { Device, Host, HostPinned };
 
 template <typename T>
-struct MemPatterns {
+struct PtrAccessor {
     T* data;
     uint width;
     uint height;
@@ -55,57 +72,46 @@ struct MemPatterns {
     MemType type;
     int deviceID;
 
-    Resize resize{ InterpType::NONE, BorderMode::BORDER_CONSTANT, 0, 0 };
-
-    template <typename C>
-    __host__ __device__
-    constexpr inline C* getPtrUnsafe(Point p) const {
-        if (p.x >= width || p.y >= height) {
-            return nullptr;
-        } else if (hasPadding()) {
-            return (C*)((uchar*)data + (p.y * pitch)) + p.x;
+    __host__ __device__ __forceinline__ const T*__restrict__ getPtrUnsafe_c(const Point p) const {
+        if (p.x < width && p.y < height) {
+            return (const T*)((const char*)data + (p.y * pitch)) + p.x;
         }
-        return (C*)(data) + (p.y * width) + p.x;
+        return nullptr;
+    }
+
+    __host__ __device__ __forceinline__ T* getPtrUnsafe(const Point p) const {
+        if (p.x < width && p.y < height) {
+            return (T*)((char*)data + (p.y * pitch)) + p.x;
+        }
+        return nullptr;
     }
 
     template <typename C>
-    __host__ __device__ 
-    constexpr inline bool castIsOutOfBounds() const {
+    __host__ __device__ __forceinline__ 
+    constexpr bool castIsOutOfBounds() const {
         return sizeInBytes() % sizeof(C) == 0;
     }
 
-    __host__ __device__ 
-    constexpr inline uint sizeInBytes() const {
+    __host__ __device__ __forceinline__ 
+    constexpr uint sizeInBytes() const {
         return pitch * height;
     }
 
-    __host__ __device__
-    constexpr inline bool hasPadding() const {
+    __host__ __device__ __forceinline__ 
+    constexpr bool hasPadding() const {
         return pitch != sizeof(T) * width;
     }
 
-    __host__ __device__ 
-    constexpr inline T* at(Point p) const {
-        return getPtrUnsafe<T>(p);
+    __host__ __device__ __forceinline__ const T*__restrict__ at_c(const Point p) const {
+        return getPtrUnsafe_c(p);
     }
 
-    template <typename C>
-    __host__ __device__ 
-    constexpr inline C* getCastPtrFor(Point p) const {
-        if (hasPadding() || castIsOutOfBounds()) {
-            // Not supported by now
-            return nullptr;
-        }
-        return getPtrUnsafe<C>(p);
-    }
-    __host__ __device__ 
-    constexpr inline T getResizedPixel(Point p) const {
-        // Do all the magic
-        return (T)0;
+    __host__ __device__ __forceinline__ T* at(const Point p) const {
+        return getPtrUnsafe(p);
     }
 
-    __host__ __device__ 
-    constexpr inline uint getNumElements() const {
+    __host__ __device__ __forceinline__ 
+    constexpr uint getNumElements() const {
         return width * height;
     }
 };
@@ -119,9 +125,9 @@ private:
         int cnt;  
     };
     refPtr* ref{ nullptr };
-    MemPatterns<T> patterns;
+    PtrAccessor<T> patterns;
 
-    __host__ void freePrt() {
+    __host__ inline void freePrt() {
         if (ref) {
             ref->cnt--;
             if (ref->cnt == 0) {
@@ -143,7 +149,7 @@ private:
         }
     }
 
-    __host__ Ptr3D(T * data_, refPtr * ref_, uint width_, uint height_, uint pitch_, uint planes_, MemType type_, int deviceID_) : ref(ref_) {
+    __host__ inline Ptr3D(T * data_, refPtr * ref_, uint width_, uint height_, uint pitch_, uint planes_, MemType type_, int deviceID_) : ref(ref_) {
         patterns.data = data_;
         patterns.width = width_;
         patterns.height = height_;
@@ -153,7 +159,7 @@ private:
         patterns.deviceID = deviceID_;
     }
 
-    __host__ void allocDevice() {
+    __host__ inline void allocDevice() {
         int currentDevice;
         gpuErrchk(cudaGetDevice(&currentDevice));
         gpuErrchk(cudaSetDevice(patterns.deviceID));
@@ -169,21 +175,21 @@ private:
         }
     }
 
-    __host__ void allocHost() {
+    __host__ inline void allocHost() {
         patterns.data = (T*)malloc(sizeof(T) * patterns.width * patterns.height * patterns.planes);
         patterns.pitch = sizeof(T) * patterns.width; //Here we don't support padding
     }
 
-    __host__ void allocHostPinned() {
+    __host__ inline void allocHostPinned() {
         gpuErrchk(cudaMallocHost(&patterns.data, sizeof(T) * patterns.width * patterns.height * patterns.planes));
         patterns.pitch = sizeof(T) * patterns.width; //Here we don't support padding
     }
 
 public:
 
-    __host__ Ptr3D() {}
+    __host__ inline Ptr3D() {}
 
-    __host__ Ptr3D(const Ptr3D<T>& other) {
+    __host__ inline Ptr3D(const Ptr3D<T>& other) {
         patterns = other.patterns;
         if (other.ref) {
             ref = other.ref;
@@ -191,11 +197,11 @@ public:
         }
     }
 
-    __host__ Ptr3D(uint width_, uint height_, uint pitch_ = 0, uint planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
+    __host__ inline Ptr3D(uint width_, uint height_, uint pitch_ = 0, uint planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
         allocPtr(width_, height_, pitch_, planes_, type_, deviceID_);
     }
 
-    __host__ Ptr3D(T * data_, uint width_, uint height_, uint pitch_, uint planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
+    __host__ inline Ptr3D(T * data_, uint width_, uint height_, uint pitch_, uint planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
         patterns.data = data_;
         patterns.width = width_;
         patterns.height = height_;
@@ -205,16 +211,16 @@ public:
         patterns.deviceID = deviceID_;
     }
 
-    __host__ ~Ptr3D() {
+    __host__ inline ~Ptr3D() {
         // TODO: add gpuCkeck
         freePrt();
     }
 
-    __host__ MemPatterns<T> d_ptr() const { return patterns; }
+    __host__ inline PtrAccessor<T> d_ptr() const { return patterns; }
 
-    operator MemPatterns<T>() const { return patterns; }
+    __host__ inline operator PtrAccessor<T>() const { return patterns; }
 
-    __host__ void allocPtr(uint width_, uint height_, uint pitch_ = 0, uint planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
+    __host__ inline void allocPtr(uint width_, uint height_, uint pitch_ = 0, uint planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
         patterns.width = width_;
         patterns.height = height_;
         patterns.pitch = pitch_;
@@ -241,63 +247,36 @@ public:
         ref->ptr = patterns.data;
     }
 
-    __host__ Ptr3D<T> crop(Point p, uint width_n, uint height_n, uint planes_n = 1) {
+    __host__ inline Ptr3D<T> crop(Point p, uint width_n, uint height_n, uint planes_n = 1) {
         T* ptr = patterns.at(p);
         ref->cnt++;
         return {ptr, ref, width_n, height_n, patterns.pitch, planes_n, patterns.type, patterns.deviceID};
     }
 
-    __host__ void setResize(Resize& resize_) {
-        patterns.resize = resize_;
-    }
-
-    __host__ uint width() const {
+    __host__ inline uint width() const {
         return patterns.width;
     }
-    __host__ uint height() const {
+    __host__ inline uint height() const {
         return patterns.height;
     }
-    __host__ uint pitch() const {
+    __host__ inline uint pitch() const {
         return patterns.pitch;
     }
-    __host__ T* data() const {
+    __host__ inline T* data() const {
         return patterns.data;
     }
 
-    __host__ dim3 getBlockSize() const {
-        const std::unordered_map<uint, uint> optionsYX = {{8, 32}, {7, 32}, {6, 32}, {5, 32}, {4, 64}, {3, 64}, {2, 128}, {1, 256}};
-        const std::unordered_map<uint, uint> scoresY = {{8, 4}, {7, 3}, {6, 2}, {5, 1}, {4, 4}, {3, 3}, {2, 4}, {1, 4}};
-
-        std::vector<uint> zeroModY;
-
-        for (uint i = min(8,patterns.height); i > 0; i--) {
-            if (patterns.height % i == 0) {
-                zeroModY.push_back(i);
-            }
-        }
-
-        uint currentScore = 0;
-        uint currentY = 1;
-        for (auto& ySize : zeroModY) {
-            if (scoresY.at(ySize) > currentScore) {
-                currentScore = scoresY.at(ySize);
-                currentY = ySize;
-            }
-            if (currentScore == 4) {
-                break;
-            }
-        }
-
-        return dim3(optionsYX.at(currentY), currentY);
+    __host__ inline dim3 getBlockSize() const {
+        return fk::getBlockSize(patterns.width, patterns.height);
     }
 };
 
 template <typename I, typename O=I>
 struct perthread_write_2D {
-    __device__ void operator()(I input, MemPatterns<O> output) {
+    __device__ __forceinline__ void operator()(I input, PtrAccessor<O> output) {
         cg::thread_block g =  cg::this_thread_block();
-        uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
-        uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
+        const uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
+        const uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
 
         *(output.at({x, y})) = input;
     }
@@ -307,10 +286,10 @@ template <typename I, typename Enabler=void>
 struct perthread_split_write_2D;
 
 template <typename I>
-struct perthread_split_write_2D<I, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
-    __device__ void operator()(I input,
-                               MemPatterns<decltype(I::x)> output1,
-                               MemPatterns<decltype(I::y)> output2) {
+struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 2>> {
+    __device__ __forceinline__ void operator()(I input,
+                               PtrAccessor<decltype(I::x)> output1,
+                               PtrAccessor<decltype(I::y)> output2) {
         cg::thread_block g =  cg::this_thread_block();
         Point p;
         p.x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
@@ -321,11 +300,11 @@ struct perthread_split_write_2D<I, typename std::enable_if_t<NUM_COMPONENTS(I) =
 };
 
 template <typename I>
-struct perthread_split_write_2D<I, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
-    __device__ void operator()(I input, 
-                               MemPatterns<decltype(I::x)> output1, 
-                               MemPatterns<decltype(I::y)> output2,
-                               MemPatterns<decltype(I::z)> output3) {
+struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 3>> {
+    __device__ __forceinline__ void operator()(I input, 
+                               PtrAccessor<decltype(I::x)> output1, 
+                               PtrAccessor<decltype(I::y)> output2,
+                               PtrAccessor<decltype(I::z)> output3) {
         cg::thread_block g =  cg::this_thread_block();
         Point p;
         p.x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
@@ -337,21 +316,135 @@ struct perthread_split_write_2D<I, typename std::enable_if_t<NUM_COMPONENTS(I) =
 };
 
 template <typename I>
-struct perthread_split_write_2D<I, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
-    __device__ void operator()(I input, 
-                               MemPatterns<decltype(I::x)> output1, 
-                               MemPatterns<decltype(I::y)> output2,
-                               MemPatterns<decltype(I::z)> output3,
-                               MemPatterns<decltype(I::w)> output4) { 
+struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 4>> {
+    __device__ __forceinline__ void operator()(I input, 
+                               PtrAccessor<decltype(I::x)> output1, 
+                               PtrAccessor<decltype(I::y)> output2,
+                               PtrAccessor<decltype(I::z)> output3,
+                               PtrAccessor<decltype(I::w)> output4) { 
         cg::thread_block g =  cg::this_thread_block();
-        Point p;
-        p.x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
-        p.y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
+        const Point p((g.dim_threads().x * g.group_index().x) + g.thread_index().x,
+                      (g.dim_threads().y * g.group_index().y) + g.thread_index().y);
         *output1.at(p) = input.x; 
         *output2.at(p) = input.y; 
         *output3.at(p) = input.z;
         *output4.at(p) = input.w; 
     }
+};
+
+// The following code is a modification of the OpenCV file resize.cu
+// which has the following license
+
+/*M///////////////////////////////////////////////////////////////////////////////////////
+//
+//  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
+//
+//  By downloading, copying, installing or using the software you agree to this license.
+//  If you do not agree to this license, do not download, install,
+//  copy or use the software.
+//
+//
+//                           License Agreement
+//                For Open Source Computer Vision Library
+//
+// Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
+// Copyright (C) 2009, Willow Garage Inc., all rights reserved.
+// Third party copyrights are property of their respective owners.
+//
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+//
+//   * Redistribution's of source code must retain the above copyright notice,
+//     this list of conditions and the following disclaimer.
+//
+//   * Redistribution's in binary form must reproduce the above copyright notice,
+//     this list of conditions and the following disclaimer in the documentation
+//     and/or other materials provided with the distribution.
+//
+//   * The name of the copyright holders may not be used to endorse or promote products
+//     derived from this software without specific prior written permission.
+//
+// This software is provided by the copyright holders and contributors "as is" and
+// any express or implied warranties, including, but not limited to, the implied
+// warranties of merchantability and fitness for a particular purpose are disclaimed.
+// In no event shall the Intel Corporation or contributors be liable for any direct,
+// indirect, incidental, special, exemplary, or consequential damages
+// (including, but not limited to, procurement of substitute goods or services;
+// loss of use, data, or profits; or business interruption) however caused
+// and on any theory of liability, whether in contract, strict liability,
+// or tort (including negligence or otherwise) arising in any way out of
+// the use of this software, even if advised of the possibility of such damage.
+//
+//M*/
+
+//! interpolation algorithm
+enum InterpolationType {
+    /** nearest neighbor interpolation */
+    INTER_NEAREST        = 0,
+    /** bilinear interpolation */
+    INTER_LINEAR         = 1,
+    /** bicubic interpolation */
+    INTER_CUBIC          = 2,
+    /** resampling using pixel area relation. It may be a preferred method for image decimation, as
+    it gives moire'-free results. But when the image is zoomed, it is similar to the INTER_NEAREST
+    method. */
+    INTER_AREA           = 3,
+    /** Lanczos interpolation over 8x8 neighborhood */
+    INTER_LANCZOS4       = 4,
+    /** Bit exact bilinear interpolation */
+    INTER_LINEAR_EXACT = 5,
+    /** Bit exact nearest neighbor interpolation. This will produce same results as
+    the nearest neighbor method in PIL, scikit-image or Matlab. */
+    INTER_NEAREST_EXACT  = 6,
+    /** mask for interpolation codes */
+    INTER_MAX            = 7,
+    /** flag, fills all of the destination image pixels. If some of them correspond to outliers in the
+    source image, they are set to zero */
+    WARP_FILL_OUTLIERS   = 8,
+    /** flag, inverse transformation
+
+    For example, #linearPolar or #logPolar transforms:
+    - flag is __not__ set: \f$dst( \rho , \phi ) = src(x,y)\f$
+    - flag is set: \f$dst(x,y) = src( \rho , \phi )\f$
+    */
+    WARP_INVERSE_MAP     = 16,
+    NONE = 17
+};
+
+template <typename T, InterpolationType INTER_T>
+struct interpolate_read;
+
+template <typename T>
+struct interpolate_read<T, InterpolationType::INTER_LINEAR> {
+    __device__ __forceinline__ T operator()(const PtrAccessor<T> input, const float fy, const float fx, const int dst_x, const int dst_y) {        
+        using float_nc = typename VectorType<float, VectorTraits<T>::cn>::type;
+        
+        const float src_x = dst_x * fx;
+        const float src_y = dst_y * fy;
+
+        float_nc out = make_set<float_nc>(0.f);
+
+        const int x1 = __float2int_rd(src_x);
+        const int y1 = __float2int_rd(src_y);
+        const int x2 = x1 + 1;
+        const int y2 = y1 + 1;
+        const int x2_read = ::min(x2, input.width - 1);
+        const int y2_read = ::min(y2, input.height - 1);
+
+        T reg = *input.at_c(Point(x1, y1));
+        out = out + reg * ((x2 - src_x) * (y2 - src_y));
+        
+        reg = *input.at_c(Point(x2_read, y1));
+        out = out + reg * ((src_x - x1) * (y2 - src_y));
+        
+        reg = *input.at_c(Point(x1, y2_read));
+        out = out + reg * ((x2 - src_x) * (src_y - y1));
+        
+        reg = *input.at_c(Point(x2_read, y2_read));
+        out = out + reg * ((src_x - x1) * (src_y - y1));
+    
+        return saturate_cast<T>(out);
+    } 
 };
 
 }

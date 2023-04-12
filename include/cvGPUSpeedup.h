@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <external/carotene/saturate_cast.hpp>
 #include <cvGPUSpeedupHelpers.h>
 #include <fast_kernel/fast_kernel.cuh>
 
@@ -23,7 +24,7 @@
 namespace cvGS {
 
 template <int I, int O>
-fk::unary_operation_scalar<fk::unary_cuda_vector_cast<CUDA_T(I), CUDA_T(O)>, CUDA_T(I), CUDA_T(O)> convertTo() {
+fk::unary_operation_scalar<fk::unary_cast<CUDA_T(I), CUDA_T(O)>, CUDA_T(I), CUDA_T(O)> convertTo() {
     return {};
 }
 
@@ -57,6 +58,46 @@ fk::split_write_scalar_2D<fk::perthread_split_write_2D<CUDA_T(I)>, CUDA_T(I)> sp
     return internal::split_t<I, fk::split_write_scalar_2D<fk::perthread_split_write_2D<CUDA_T(I)>, CUDA_T(I)>>()(fk_output);
 }
 
+template <int T, int INTER_F>
+fk::memory_read_iterpolated<fk::interpolate_read<CUDA_T(T), (fk::InterpolationType)INTER_F>, CUDA_T(T)> resize(const cv::cuda::GpuMat input, cv::Size dsize, double fx, double fy) {
+    // So far we only support fk::INTER_LINEAR
+    fk::Ptr3D<CUDA_T(T)> fk_input((CUDA_T(T)*)input.data, input.cols, input.rows, input.step);
+
+    if (dsize != cv::Size()) {
+        fx = static_cast<double>(dsize.width) / fk_input.width();
+        fy = static_cast<double>(dsize.height) / fk_input.height();
+    } else {
+        dsize = cv::Size(CAROTENE_NS::internal::saturate_cast<int>(fk_input.width() * fx), 
+                         CAROTENE_NS::internal::saturate_cast<int>(fk_input.height() * fy));
+    }
+
+    uint t_width = dsize.width;
+    uint t_height = dsize.height;
+
+    auto accessor = fk_input.d_ptr();
+
+    return { accessor, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy), t_width, t_height };
+}
+
+template <int O>
+fk::memory_write_scalar_2D<fk::perthread_write_2D<CUDA_T(O)>, CUDA_T(O)> write(cv::cuda::GpuMat output) {
+    fk::Ptr3D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);
+    return { fk_output };
+}
+
+template <typename... operations>
+void executeOperations(const cv::Size& output_dims, cv::cuda::Stream& stream, operations... ops) {
+    cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
+
+    dim3 block = fk::getBlockSize(output_dims.width, output_dims.height);
+    dim3 grid;
+    grid.x = (unsigned int)ceil(output_dims.width / (float)block.x);
+    grid.y = (unsigned int)ceil(output_dims.height / (float)block.y);
+    fk::cuda_transform_noret_2D<<<grid, block, 0, cu_stream>>>(ops...);
+
+    gpuErrchk(cudaGetLastError());
+}
+
 template <int I, typename... operations>
 void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, operations... ops) {
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
@@ -87,5 +128,4 @@ void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, 
     
     gpuErrchk(cudaGetLastError());
 }
-
 } // namespace cvGS

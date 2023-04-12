@@ -13,14 +13,23 @@
    limitations under the License. */
 
 #pragma once
-#include "cuda_vector_utils.cuh"
 #include "memory_operation_types.cuh"
 
 namespace fk {
 
+template <typename Operator, typename T>
+struct memory_read_iterpolated {
+    const PtrAccessor<T> ptr;
+    const float fx;
+    const float fy;
+    const uint target_width;
+    const uint target_height;
+    Operator nv_operator;
+};
+
 template <typename Operator, typename O>
 struct memory_write_scalar_2D {
-    MemPatterns<O> x;
+    PtrAccessor<O> x;
     Operator nv_operator;
 };
 
@@ -28,26 +37,26 @@ template <typename Operator, typename I, typename Enabler=void>
 struct split_write_scalar_2D {};
 
 template <typename Operator, typename I>
-struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
-    MemPatterns<decltype(I::x)> x;
-    MemPatterns<decltype(I::y)> y;
+struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<CN(I) == 2>> {
+    PtrAccessor<decltype(I::x)> x;
+    PtrAccessor<decltype(I::y)> y;
     Operator nv_operator;
 };
 
 template <typename Operator, typename I>
-struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
-    MemPatterns<decltype(I::x)> x;
-    MemPatterns<decltype(I::y)> y;
-    MemPatterns<decltype(I::z)> z;
+struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<CN(I) == 3>> {
+    PtrAccessor<decltype(I::x)> x;
+    PtrAccessor<decltype(I::y)> y;
+    PtrAccessor<decltype(I::z)> z;
     Operator nv_operator;
 };
 
 template <typename Operator, typename I>
-struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
-    MemPatterns<decltype(I::x)> x;
-    MemPatterns<decltype(I::y)> y;
-    MemPatterns<decltype(I::z)> z;
-    MemPatterns<decltype(I::w)> w;
+struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<CN(I) == 4>> {
+    PtrAccessor<decltype(I::x)> x;
+    PtrAccessor<decltype(I::y)> y;
+    PtrAccessor<decltype(I::z)> z;
+    PtrAccessor<decltype(I::w)> w;
     Operator nv_operator;
 };
 
