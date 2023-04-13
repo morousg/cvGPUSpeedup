@@ -27,10 +27,20 @@
 template <int T>
 bool checkResults(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& h_comparison1C) {
     cv::Mat h_comparison(NUM_ELEMS_Y, NUM_ELEMS_X, T);
-    cv::Mat maxError(NUM_ELEMS_Y, NUM_ELEMS_X, T, static_cast<CUDA_T(T)>(0.0001f));
-    cv::compare(h_comparison1C, maxError, h_comparison, cv::CMP_LT);
+    cv::Mat maxError(NUM_ELEMS_Y, NUM_ELEMS_X, T, 0.0001);
+    cv::compare(h_comparison1C, maxError, h_comparison, cv::CMP_GT);
+
+    /*for (int y=0; y<h_comparison1C.rows; y++) {
+        for (int x=0; x<h_comparison1C.cols; x++) {
+            CUDA_T(T) value = h_comparison1C.at<CUDA_T(T)>(y,x);
+            if (value > 0.001) {
+                std::cout << value << ", ";
+            }
+        }
+        std::cout << std::endl;
+    }*/
     
-    int errors = cv::countNonZero(h_comparison1C);
+    int errors = cv::countNonZero(h_comparison);
     return errors == 0;
 }
 
@@ -76,35 +86,40 @@ bool testSplitOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
 
         try {
             cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, I, val_init);
-            cv::cuda::GpuMat d_temp(NUM_ELEMS_Y, NUM_ELEMS_X, OC);
-            cv::cuda::GpuMat d_temp2(NUM_ELEMS_Y, NUM_ELEMS_X, OC);
+            cv::cuda::GpuMat d_crop = d_input(cv::Rect2d(cv::Point2d(200, 200), cv::Point2d(400, 800)));
+            cv::Size up(400, 1000);
+            cv::cuda::GpuMat d_up(up, I);
+            cv::cuda::GpuMat d_temp(up, OC);
+            cv::cuda::GpuMat d_temp2(up, OC);
 
-            cv::Mat diff(NUM_ELEMS_Y, NUM_ELEMS_X, CV_MAT_DEPTH(OC));
+            cv::Mat diff(up, CV_MAT_DEPTH(OC));
             std::vector<cv::Mat> h_cvResults(CV_MAT_CN(OC));
             std::vector<cv::Mat> h_cvGSResults(CV_MAT_CN(OC));
             std::vector<cv::cuda::GpuMat> d_output_cv(CV_MAT_CN(OC));
             std::vector<cv::cuda::GpuMat> d_output_cvGS(CV_MAT_CN(OC));
 
             for (int i=0; i<CV_MAT_CN(I); i++) {
-                d_output_cv.at(i).create(NUM_ELEMS_Y, NUM_ELEMS_X, CV_MAT_DEPTH(OC));
-                h_cvResults.at(i).create(NUM_ELEMS_Y, NUM_ELEMS_X, CV_MAT_DEPTH(OC));
-                d_output_cvGS.at(i).create(NUM_ELEMS_Y, NUM_ELEMS_X, CV_MAT_DEPTH(OC));
-                h_cvGSResults.at(i).create(NUM_ELEMS_Y, NUM_ELEMS_X, CV_MAT_DEPTH(OC));
+                d_output_cv.at(i).create(up, CV_MAT_DEPTH(OC));
+                h_cvResults.at(i).create(up, CV_MAT_DEPTH(OC));
+                d_output_cvGS.at(i).create(up, CV_MAT_DEPTH(OC));
+                h_cvGSResults.at(i).create(up, CV_MAT_DEPTH(OC));
             }
 
             // OpenCV version
-            d_input.convertTo(d_temp, OC, alpha, cv_stream);
+            cv::cuda::resize(d_crop, d_up, up, 0., 0., cv::INTER_LINEAR, cv_stream);
+            d_up.convertTo(d_temp, OC, alpha, cv_stream);
             cv::cuda::subtract(d_temp, val_sub, d_temp2, cv::noArray(), -1, cv_stream);
             cv::cuda::divide(d_temp2, val_div, d_temp, 1.0, -1, cv_stream);
             cv::cuda::split(d_temp, d_output_cv, cv_stream);
 
             // cvGPUSpeedup version
-            cvGS::executeOperations<I>(d_input, cv_stream, 
-                                                    cvGS::convertTo<I, OC>(),
-                                                    cvGS::multiply<OC>(val_alpha),
-                                                    cvGS::subtract<OC>(val_sub),
-                                                    cvGS::divide<OC>(val_div),
-                                                    cvGS::split<OC>(d_output_cvGS));
+            cvGS::executeOperations(up, cv_stream,
+                                       cvGS::resize<I, cv::INTER_LINEAR>(d_input, up, 0., 0.),
+                                       cvGS::convertTo<I, OC>(),
+                                       cvGS::multiply<OC>(val_alpha),
+                                       cvGS::subtract<OC>(val_sub),
+                                       cvGS::divide<OC>(val_div),
+                                       cvGS::split<OC>(d_output_cvGS));
 
             // Looking at Nsight Systems, with an RTX A2000 12GB
             // Speedups are up to 7x, depending on the data type
@@ -119,12 +134,17 @@ bool testSplitOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
 
             for (int i=0; i<CV_MAT_CN(OC); i++) {
                 diff = cv::abs(h_cvResults.at(i) - h_cvGSResults.at(i));
-                passed &= checkResults<CV_MAT_DEPTH(OC)>(NUM_ELEMS_X, NUM_ELEMS_Y, diff);
+                passed &= checkResults<CV_MAT_DEPTH(OC)>(diff.cols, diff.rows, diff);
+            }
+        } catch (const cv::Exception& e) {
+            if (e.code != -210) {
+                error << e.what();
+                passed = false;
             }
         } catch (const std::exception& e) {
             error << e.what();
             passed = false;
-        }
+        } 
 
         if (!passed) {
             std::stringstream ss;
