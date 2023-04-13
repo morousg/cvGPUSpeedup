@@ -14,31 +14,30 @@
 
 #pragma once
 
-#include "cuda_vector_operators.cuh"
 #include "operation_patterns.cuh"
 #include "memory_operation_patterns.cuh"
 
 namespace fk { // namespace Fast Kernel
 
 template <typename O>
-__device__ O operate(O i_data){
+__device__ __forceinline__ O operate(O i_data){
     return i_data;
 }
 
 template <typename I, typename O, typename Operation, typename... operations>
-__device__ O operate(I i_data, unary_operation_scalar<Operation, I, O> op, operations... ops) {
+__device__ __forceinline__ O operate(I i_data, unary_operation_scalar<Operation, I, O> op, operations... ops) {
     O temp = op.nv_operator(i_data);
     return operate(temp, ops...);
 }
 
 template <typename I, typename O, typename I2, typename Operation, typename... operations>
-__device__ O operate(I i_data, binary_operation_scalar<Operation, I, I2, O> op, operations... ops) {
+__device__ __forceinline__ O operate(I i_data, binary_operation_scalar<Operation, I, I2, O> op, operations... ops) {
     O temp = op.nv_operator(i_data, op.scalar);
     return operate(temp, ops...);
 }
 
 template <typename I, typename O, typename I2, typename Operation, typename... operations>
-__device__ O operate(I i_data, binary_operation_pointer<Operation, I, I2, O> op, operations... ops) {
+__device__ __forceinline__ O operate(I i_data, binary_operation_pointer<Operation, I, I2, O> op, operations... ops) {
     // we want to have access to I2 in order to ask for the type size for optimizing
     O temp = op.nv_operator(i_data, op.pointer[GLOBAL_ID]);
     return operate(temp, ops...);
@@ -53,28 +52,28 @@ __global__ void cuda_transform(int size, I* i_data, O* o_data, operations... ops
 // Later on we will play with type sizes and so on.
 
 template <typename O>
-__device__ O operate_optimized(int i, O i_data) {
+__device__ __forceinline__ O operate_optimized(int i, O i_data) {
     return i_data;
 }
 
 template <typename I, typename O, typename I2, typename Operation, typename... operations>
-__device__ O operate_optimized(int i, I i_data, binary_operation_scalar<Operation, I, I2, O> op, operations... ops) {
+__device__ __forceinline__ O operate_optimized(int i, I i_data, binary_operation_scalar<Operation, I, I2, O> op, operations... ops) {
     O temp = op.nv_operator(i_data, op.scalar);
     return operate_optimized(i, temp, ops...);
 }
 
 template <typename I, typename O, typename I2, typename Operation, typename... operations>
-__device__ O operate_optimized(int i, I i_data, binary_operation_pointer<Operation, I, I2, O> op, operations... ops) {
+__device__ __forceinline__ O operate_optimized(int i, I i_data, binary_operation_pointer<Operation, I, I2, O> op, operations... ops) {
     // we want to have access to I2 in order to ask for the type size for optimizing
     O temp = op.nv_operator(i_data, op.temp_register[i]);
     return operate_optimized(i, temp, ops...);
 }
 
 template <typename I, typename O, typename I2>
-__device__ void parameter_pointer_read() {}
+__device__ __forceinline__ void parameter_pointer_read() {}
 
 template <typename I, typename O, typename I2, typename Operation, typename... operations>
-__device__ void parameter_pointer_read(binary_operation_pointer<Operation, I, I2, O>& op, operations&... ops) {
+__device__ __forceinline__ void parameter_pointer_read(binary_operation_pointer<Operation, I, I2, O>& op, operations&... ops) {
     uint4* temp = (uint4*)(op.pointer);
     uint4 temp_r = temp[GLOBAL_ID];
 
@@ -91,7 +90,7 @@ __device__ void parameter_pointer_read(binary_operation_pointer<Operation, I, I2
 }
 
 template <typename I, typename O, typename I2, typename Operation, typename... operations>
-__device__ void parameter_pointer_read(binary_operation_scalar<Operation, I, I2, O>& op, operations&... ops) {
+__device__ __forceinline__ void parameter_pointer_read(binary_operation_scalar<Operation, I, I2, O>& op, operations&... ops) {
     parameter_pointer_read(ops...);
 }
 
@@ -124,69 +123,88 @@ template <typename I, typename O, typename Operation, typename Enabler = void>
 struct split_helper {};
 
 template <typename I, typename O, typename Operation>
-struct split_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 2>> {
-    __device__ void operator()(I i_data, split_write_scalar_2D<Operation, I, O> op) {
-        op.nv_operator(i_data, op.x, op.y);
+struct split_helper<I, O, Operation, typename std::enable_if_t<CN(I) == 2>> {
+    __device__ __forceinline__ void constexpr operator()(const dim3 thread, I i_data, split_write_scalar_2D<Operation, I, O> op) {
+        op.nv_operator(thread, i_data, op.x, op.y);
     }
 };
 
 template <typename I, typename O, typename Operation>
-struct split_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 3>> {
-    __device__ void operator()(I i_data, split_write_scalar_2D<Operation, I, O> op) {
-        op.nv_operator(i_data, op.x, op.y, op.z);
+struct split_helper<I, O, Operation, typename std::enable_if_t<CN(I) == 3>> {
+    __device__ __forceinline__ void constexpr operator()(const dim3 thread, I i_data, split_write_scalar_2D<Operation, I, O> op) {
+        op.nv_operator(thread, i_data, op.x, op.y, op.z);
     }
 };
 
 template <typename I, typename O, typename Operation>
-struct split_helper<I, O, Operation, typename std::enable_if_t<NUM_COMPONENTS(I) == 4>> {
-    __device__ void operator()(I i_data, split_write_scalar_2D<Operation, I, O> op) {
-        op.nv_operator(i_data, op.x, op.y, op.z, op.w);
+struct split_helper<I, O, Operation, typename std::enable_if_t<CN(I) == 4>> {
+    __device__ __forceinline__ constexpr void operator()(const dim3 thread, I i_data, split_write_scalar_2D<Operation, I, O> op) {
+        op.nv_operator(thread, i_data, op.x, op.y, op.z, op.w);
     }
 };
 
 template <typename I>
-__device__ void operate_noret(I i_data) {}
+__device__ void operate_noret(dim3 thread, I i_data) {}
 
 template <typename I, typename O, typename Operation, typename... operations>
-__device__ void operate_noret(I i_data, split_write_scalar_2D<Operation, I, O> op, operations... ops) {
-    split_helper<I, O, Operation>()(i_data, op);
-    operate_noret(i_data, ops...);
+__device__ __forceinline__ constexpr void operate_noret(const dim3 thread, I i_data, split_write_scalar_2D<Operation, I, O> op, operations... ops) {
+    split_helper<I, O, Operation>()(thread, i_data, op);
+    operate_noret(thread, i_data, ops...);
 }
 
 template <typename I, typename Operation, typename... operations>
-__device__ void operate_noret(I i_data, memory_write_scalar_2D<Operation, I> op, operations... ops) {
-    op.nv_operator(i_data, op.x);
-    operate_noret(i_data, ops...);
+__device__ __forceinline__ constexpr void operate_noret(const dim3 thread, I i_data, memory_write_scalar_2D<Operation, I> op, operations... ops) {
+    op.nv_operator(thread, i_data, op.x);
+    operate_noret(thread, i_data, ops...);
 }
 
 template <typename I, typename O, typename Operation, typename... operations>
-__device__ void operate_noret(I i_data, unary_operation_scalar<Operation, I, O> op, operations... ops) {
+__device__ __forceinline__ constexpr void operate_noret(const dim3 thread, I i_data, unary_operation_scalar<Operation, I, O> op, operations... ops) {
     O temp = op.nv_operator(i_data);
-    operate_noret(temp, ops...);
+    operate_noret(thread, temp, ops...);
 }
 
 template <typename I, typename O, typename I2, typename Operation, typename... operations>
-__device__ void operate_noret(I i_data, binary_operation_scalar<Operation, I, I2, O> op, operations... ops) {
+__device__ __forceinline__ constexpr void operate_noret(const dim3 thread, I i_data, binary_operation_scalar<Operation, I, I2, O> op, operations... ops) {
     O temp = op.nv_operator(i_data, op.scalar);
-    operate_noret(temp, ops...);
+    operate_noret(thread, temp, ops...);
 }
 
-template <typename I, typename O, typename I2, typename Operation, typename... operations>
-__device__ void operate_noret(I i_data, binary_operation_pointer<Operation, I, I2, O> op, operations... ops) {
+// TODO: adapt this to PtrAccessor<T> instead of raw pointer
+/*template <typename I, typename O, typename I2, typename Operation, typename... operations>
+__device__ __forceinline__ void operate_noret(I i_data, binary_operation_pointer<Operation, I, I2, O> op, operations... ops) {
     // we want to have access to I2 in order to ask for the type size for optimizing
     O temp = op.nv_operator(i_data, op.pointer[GLOBAL_ID]);
     operate_noret(temp, ops...);
+}*/
+
+template <typename T, typename Operation, typename... operations>
+__device__ __forceinline__ constexpr void operate_noret(memory_read_iterpolated<Operation, T> op, operations... ops) {
+    cg::thread_block g = cg::this_thread_block();
+
+    const int x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
+    const int y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
+
+    if (x < op.target_width && y < op.target_height) {
+        T temp = op.nv_operator(op.ptr, op.fy, op.fx, x, y);
+        operate_noret(dim3(x,y), temp, ops...);
+    }
 }
 
 template<typename I, typename... operations>
-__global__ void cuda_transform_noret_2D(const MemPatterns<I> i_data, operations... ops) {
+__global__ void cuda_transform_noret_2D(const PtrAccessor<I> i_data, operations... ops) {
     cg::thread_block g =  cg::this_thread_block();
     uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
     uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
 
     if (x < i_data.width && y < i_data.height) {
-        operate_noret(*i_data.at({x, y}), ops...);
+        operate_noret(dim3(x,y), *i_data.at({x, y}), ops...);
     }
+}
+
+template<typename... operations>
+__global__ void cuda_transform_noret_2D(operations... ops) {
+    operate_noret(ops...);
 }
 
 }
