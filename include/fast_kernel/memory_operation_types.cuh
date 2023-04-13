@@ -33,31 +33,70 @@ struct Point {
   uint y;  
 };
 
-inline dim3 getBlockSize(const uint width, const uint height) {
-    const std::unordered_map<uint, uint> optionsYX = {{8, 32}, {7, 32}, {6, 32}, {5, 32}, {4, 64}, {3, 64}, {2, 128}, {1, 256}};
-    const std::unordered_map<uint, uint> scoresY = {{8, 4}, {7, 3}, {6, 2}, {5, 1}, {4, 4}, {3, 3}, {2, 4}, {1, 4}};
+inline uint computeDiscardedThreads(const uint width, const uint height, const uint blockDimx, const uint blockDimy) {
+    const uint modX = width % blockDimx;
+    const uint modY = height % blockDimy;
+    const uint th_disabled_in_X = blockDimx - modX;
+    const uint th_disabled_in_Y = blockDimy - modY;
+    return (th_disabled_in_X * (modY == 0 ? height : (height + blockDimy)) + th_disabled_in_Y * width);
+}
 
-    std::vector<uint> zeroModY;
+template <uint bxS_t, uint byS_t>
+struct computeBestSolution {};
 
-    for (uint i = ::min(8, height); i > 0; i--) {
-        if (height % i == 0) {
-            zeroModY.push_back(i);
+template <uint bxS_t>
+struct computeBestSolution<bxS_t, 0> {
+    inline void operator()(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint (&blockDimX)[4], const uint (&blockDimY)[2][4]) const {
+        const uint currentDiscardedThreads = computeDiscardedThreads(width, height, blockDimX[bxS_t], blockDimY[0][bxS_t]);
+        if (minDiscardedThreads > currentDiscardedThreads) {
+            minDiscardedThreads = currentDiscardedThreads;
+            bxS = bxS_t;
+            byS = 0;
+            if (minDiscardedThreads == 0) return; 
+        }
+        computeBestSolution<bxS_t, 1>()(width, height, bxS, byS, minDiscardedThreads, blockDimX, blockDimY);
+    }
+};
+
+template <uint bxS_t>
+struct computeBestSolution<bxS_t, 1> {
+    inline void operator()(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint (&blockDimX)[4], const uint (&blockDimY)[2][4]) const {
+        const uint currentDiscardedThreads = computeDiscardedThreads(width, height, blockDimX[bxS_t], blockDimY[1][bxS_t]);
+        if (minDiscardedThreads > currentDiscardedThreads) {
+            minDiscardedThreads = currentDiscardedThreads;
+            bxS = bxS_t;
+            byS = 1;
+            if (minDiscardedThreads == 0) return; 
+        }
+        computeBestSolution<bxS_t+1, 0>()(width, height, bxS, byS, minDiscardedThreads, blockDimX, blockDimY);
+    }
+};
+
+template <>
+struct computeBestSolution<3, 1> {
+    inline void operator()(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint (&blockDimX)[4], const uint (&blockDimY)[2][4]) const {
+        const uint currentDiscardedThreads = computeDiscardedThreads(width, height, blockDimX[3], blockDimY[1][3]);
+        if (minDiscardedThreads > currentDiscardedThreads) {
+            minDiscardedThreads = currentDiscardedThreads;
+            bxS = 3;
+            byS = 1;
         }
     }
+};
 
-    uint currentScore = 0;
-    uint currentY = 1;
-    for (auto& ySize : zeroModY) {
-        if (scoresY.at(ySize) > currentScore) {
-            currentScore = scoresY.at(ySize);
-            currentY = ySize;
-        }
-        if (currentScore == 4) {
-            break;
-        }
-    }
 
-    return dim3(optionsYX.at(currentY), currentY);
+inline dim3 getBlockSize(const uint width, const uint height, const uint planes = 1) {
+    constexpr uint blockDimX[4]    = { 32, 64, 128, 256  };  // Possible block sizes in the x axis
+    constexpr uint blockDimY[2][4] = {{ 8,  4,   2,   1},
+                                      { 6,  3,   3,   2} };  // Possible block sizes in the y axis according to blockDim.x
+    
+    uint minDiscardedThreads = UINT_MAX;
+    uint bxS = 0; // from 0 to 3
+    uint byS = 0; // from 0 to 1
+    
+    computeBestSolution<0, 0>()(width, height, bxS, byS, minDiscardedThreads, blockDimX, blockDimY);
+
+    return dim3(blockDimX[bxS], blockDimY[byS][bxS], planes);
 }
 
 enum MemType { Device, Host, HostPinned };
@@ -69,17 +108,9 @@ struct PtrAccessor {
     uint height;
     uint planes;
     uint pitch;
+    dim3 adjusted_blockSize;
     MemType type;
     int deviceID;
-
-    template <typename C>
-    __host__ __device__ __forceinline__ const C*__restrict__ getPtrUnsafe_c(const Point p) const {
-        return (const C*)((const char*)data + (p.y * pitch)) + p.x;
-    }
-
-    __host__ __device__ __forceinline__ T* getPtrUnsafe(const Point p) const {
-        return (T*)((char*)data + (p.y * pitch)) + p.x;
-    }
 
     template <typename C>
     __host__ __device__ __forceinline__ 
@@ -97,13 +128,16 @@ struct PtrAccessor {
         return pitch != sizeof(T) * width;
     }
 
-    template <typename C=T>
-    __host__ __device__ __forceinline__ const C*__restrict__ at_c(const Point p) const {
-        return getPtrUnsafe_c<C>(p);
+    __host__ __device__ __forceinline__ const T*__restrict__ at_cr(const Point p) const {
+        return (const T*)((const char*)data + (p.y * pitch)) + p.x;
+    }
+
+    __host__ __device__ __forceinline__ const T* at_c(const Point p) const {
+        return (const T*)((const char*)data + (p.y * pitch)) + p.x;
     }
 
     __host__ __device__ __forceinline__ T* at(const Point p) const {
-        return getPtrUnsafe(p);
+        return (T*)((char*)data + (p.y * pitch)) + p.x;
     }
 
     __host__ __device__ __forceinline__ 
@@ -145,15 +179,7 @@ private:
         }
     }
 
-    __host__ inline Ptr3D(T * data_, refPtr * ref_, uint width_, uint height_, uint pitch_, uint planes_, MemType type_, int deviceID_) : ref(ref_) {
-        patterns.data = data_;
-        patterns.width = width_;
-        patterns.height = height_;
-        patterns.pitch = pitch_;
-        patterns.planes = planes_;
-        patterns.type = type_;
-        patterns.deviceID = deviceID_;
-    }
+    __host__ inline Ptr3D(PtrAccessor<T> patterns_, refPtr * ref_) : patterns(patterns_), ref(ref_) {}
 
     __host__ inline void allocDevice() {
         int currentDevice;
@@ -205,6 +231,7 @@ public:
         patterns.planes = planes_;
         patterns.type = type_;
         patterns.deviceID = deviceID_;
+        patterns.adjusted_blockSize = fk::getBlockSize(patterns.width, patterns.height);
     }
 
     __host__ inline ~Ptr3D() {
@@ -216,7 +243,7 @@ public:
 
     __host__ inline operator PtrAccessor<T>() const { return patterns; }
 
-    __host__ inline void allocPtr(uint width_, uint height_, uint pitch_ = 0, uint planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
+    __host__ inline void allocPtr(const uint width_, const uint height_, const uint pitch_ = 0, const uint planes_ = 1, const MemType type_ = Device, const int deviceID_ = 0) {
         patterns.width = width_;
         patterns.height = height_;
         patterns.pitch = pitch_;
@@ -229,6 +256,7 @@ public:
         switch (type_) {
             case Device:
                 allocDevice();
+                patterns.adjusted_blockSize = fk::getBlockSize(patterns.width, patterns.height);
                 break;
             case Host:
                 allocHost();
@@ -246,7 +274,9 @@ public:
     __host__ inline Ptr3D<T> crop(Point p, uint width_n, uint height_n, uint planes_n = 1) {
         T* ptr = patterns.at(p);
         ref->cnt++;
-        return {ptr, ref, width_n, height_n, patterns.pitch, planes_n, patterns.type, patterns.deviceID};
+        const PtrAccessor<T> newAccessor = {ptr, width_n, height_n, planes_n, patterns.pitch,
+                                            fk::getBlockSize(width_n, height_n), patterns.type, patterns.deviceID};
+        return {newAccessor, ref};
     }
 
     __host__ inline uint width() const {
@@ -263,7 +293,7 @@ public:
     }
 
     __host__ inline dim3 getBlockSize() const {
-        return fk::getBlockSize(patterns.width, patterns.height);
+        return patterns.adjusted_blockSize;
     }
 };
 
@@ -395,11 +425,11 @@ enum InterpolationType {
     NONE = 17
 };
 
-template <typename T, InterpolationType INTER_T, typename TYPE_TO_READ = T, typename Enabler=void>
+template <typename T, InterpolationType INTER_T>
 struct interpolate_read;
 
 template <typename T>
-struct interpolate_read<T, InterpolationType::INTER_LINEAR, T, std::enable_if_t<CN(T)>1>> {
+struct interpolate_read<T, InterpolationType::INTER_LINEAR> {
     __device__ __forceinline__ T operator()(const PtrAccessor<T> input, const float fy, const float fx, const int dst_x, const int dst_y) {
         const float src_x = dst_x * fx;
         const float src_y = dst_y * fy;
@@ -413,49 +443,19 @@ struct interpolate_read<T, InterpolationType::INTER_LINEAR, T, std::enable_if_t<
 
         using floatcn_t = typename VectorType<float, VectorTraits<T>::cn>::type;
         floatcn_t out = make_set<floatcn_t>(0.f);
-        T src_reg = *input.at_c(Point(x1, y1));
+        T src_reg = *input.at_cr(Point(x1, y1));
         out = out + src_reg * ((x2 - src_x) * (y2 - src_y));
 
-        src_reg = *input.at_c(Point(x2_read, y1));
+        src_reg = *input.at_cr(Point(x2_read, y1));
         out = out + src_reg * ((src_x - x1) * (y2 - src_y));
 
-        src_reg = *input.at_c(Point(x1, y2_read));
+        src_reg = *input.at_cr(Point(x1, y2_read));
         out = out + src_reg * ((x2 - src_x) * (src_y - y1));
 
-        src_reg = *input.at_c(Point(x2_read, y2_read));
+        src_reg = *input.at_cr(Point(x2_read, y2_read));
         out = out + src_reg * ((src_x - x1) * (src_y - y1));
         
         return saturate_cast<T>(out);
-    } 
-};
-
-template <typename T>
-struct interpolate_read<T, InterpolationType::INTER_LINEAR, typename VectorType<T, 2>::type, std::enable_if_t<!std::is_class<T>::value>> {
-    __device__ __forceinline__ uchar operator()(const PtrAccessor<uchar> input, const float fy, const float fx, const int dst_x, const int dst_y) {        
-        using type_c2 = typename VectorType<T, 2>::type;
-       
-        const float src_x = dst_x * fx;
-        const float src_y = dst_y * fy;
-
-        const int x1 = __float2int_rd(src_x);
-        const int y1 = __float2int_rd(src_y);
-        const int x2 = x1 + 1;
-        const int y2 = y1 + 1;
-        const int y2_read = ::min(y2, input.height - 1);
-
-        type_c2 reg[2];
-        if (input.width == x2) {
-            reg[0] = *input.at_c<type_c2>(Point(x1, y1));
-            reg[1] = *input.at_c<type_c2>(Point(x1, y2_read));
-        } else {
-            uchar temp = *input.at_c(Point(x1*2, y1));
-            reg[0] = make_<type_c2>(temp, temp);
-            temp = *input.at_c(Point(x1*2, y2_read));
-            reg[1] = make_<type_c2>(temp, temp);
-        }
-    
-        return saturate_cast<T>(reg[0].x * ((x2 - src_x) * (y2 - src_y)) + reg[0].y * ((src_x - x1) * (y2 - src_y)) +
-                                    reg[1].x * ((x2 - src_x) * (src_y - y1)) + reg[1].y * ((src_x - x1) * (src_y - y1)));
     } 
 };
 

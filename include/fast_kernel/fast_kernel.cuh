@@ -124,21 +124,21 @@ struct split_helper {};
 
 template <typename I, typename O, typename Operation>
 struct split_helper<I, O, Operation, typename std::enable_if_t<CN(I) == 2>> {
-    __device__ __forceinline__ void operator()(const dim3 thread, I i_data, split_write_scalar_2D<Operation, I, O> op) {
+    __device__ __forceinline__ void constexpr operator()(const dim3 thread, I i_data, split_write_scalar_2D<Operation, I, O> op) {
         op.nv_operator(thread, i_data, op.x, op.y);
     }
 };
 
 template <typename I, typename O, typename Operation>
 struct split_helper<I, O, Operation, typename std::enable_if_t<CN(I) == 3>> {
-    __device__ __forceinline__ void operator()(const dim3 thread, I i_data, split_write_scalar_2D<Operation, I, O> op) {
+    __device__ __forceinline__ void constexpr operator()(const dim3 thread, I i_data, split_write_scalar_2D<Operation, I, O> op) {
         op.nv_operator(thread, i_data, op.x, op.y, op.z);
     }
 };
 
 template <typename I, typename O, typename Operation>
 struct split_helper<I, O, Operation, typename std::enable_if_t<CN(I) == 4>> {
-    __device__ __forceinline__ void operator()(const dim3 thread, I i_data, split_write_scalar_2D<Operation, I, O> op) {
+    __device__ __forceinline__ constexpr void operator()(const dim3 thread, I i_data, split_write_scalar_2D<Operation, I, O> op) {
         op.nv_operator(thread, i_data, op.x, op.y, op.z, op.w);
     }
 };
@@ -147,29 +147,30 @@ template <typename I>
 __device__ void operate_noret(dim3 thread, I i_data) {}
 
 template <typename I, typename O, typename Operation, typename... operations>
-__device__ __forceinline__ void operate_noret(const dim3 thread, I i_data, split_write_scalar_2D<Operation, I, O> op, operations... ops) {
+__device__ __forceinline__ constexpr void operate_noret(const dim3 thread, I i_data, split_write_scalar_2D<Operation, I, O> op, operations... ops) {
     split_helper<I, O, Operation>()(thread, i_data, op);
     operate_noret(thread, i_data, ops...);
 }
 
 template <typename I, typename Operation, typename... operations>
-__device__ __forceinline__ void operate_noret(const dim3 thread, I i_data, memory_write_scalar_2D<Operation, I> op, operations... ops) {
+__device__ __forceinline__ constexpr void operate_noret(const dim3 thread, I i_data, memory_write_scalar_2D<Operation, I> op, operations... ops) {
     op.nv_operator(thread, i_data, op.x);
     operate_noret(thread, i_data, ops...);
 }
 
 template <typename I, typename O, typename Operation, typename... operations>
-__device__ __forceinline__ void operate_noret(const dim3 thread, I i_data, unary_operation_scalar<Operation, I, O> op, operations... ops) {
+__device__ __forceinline__ constexpr void operate_noret(const dim3 thread, I i_data, unary_operation_scalar<Operation, I, O> op, operations... ops) {
     O temp = op.nv_operator(i_data);
     operate_noret(thread, temp, ops...);
 }
 
 template <typename I, typename O, typename I2, typename Operation, typename... operations>
-__device__ __forceinline__ void operate_noret(const dim3 thread, I i_data, binary_operation_scalar<Operation, I, I2, O> op, operations... ops) {
+__device__ __forceinline__ constexpr void operate_noret(const dim3 thread, I i_data, binary_operation_scalar<Operation, I, I2, O> op, operations... ops) {
     O temp = op.nv_operator(i_data, op.scalar);
     operate_noret(thread, temp, ops...);
 }
 
+// TODO: adapt this to PtrAccessor<T> instead of raw pointer
 /*template <typename I, typename O, typename I2, typename Operation, typename... operations>
 __device__ __forceinline__ void operate_noret(I i_data, binary_operation_pointer<Operation, I, I2, O> op, operations... ops) {
     // we want to have access to I2 in order to ask for the type size for optimizing
@@ -178,7 +179,7 @@ __device__ __forceinline__ void operate_noret(I i_data, binary_operation_pointer
 }*/
 
 template <typename T, typename Operation, typename... operations>
-__device__ __forceinline__ void operate_noret(memory_read_iterpolated<Operation, T> op, operations... ops) {
+__device__ __forceinline__ constexpr void operate_noret(memory_read_iterpolated<Operation, T> op, operations... ops) {
     cg::thread_block g = cg::this_thread_block();
 
     const int x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;

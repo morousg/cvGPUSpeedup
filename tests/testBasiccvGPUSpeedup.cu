@@ -26,12 +26,25 @@
 
 template <int T>
 bool checkResults(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& h_comparison1C) {
-    cv::Mat h_comparison;
-    cv::Mat maxError(NUM_ELEMS_Y, NUM_ELEMS_X, T, static_cast<BASE_CUDA_T(T)>(0.0001f));
+    cv::Mat h_comparison(NUM_ELEMS_Y, NUM_ELEMS_X, T);
+    cv::Mat maxError(NUM_ELEMS_Y, NUM_ELEMS_X, T, static_cast<CUDA_T(T)>(0.0001f));
     cv::compare(h_comparison1C, maxError, h_comparison, cv::CMP_LT);
     
     int errors = cv::countNonZero(h_comparison1C);
     return errors == 0;
+}
+
+template <int T>
+bool compareAndCheck(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& cvVersion, cv::Mat& cvGSVersion) {
+    bool passed = true;
+    cv::Mat diff = cv::abs(cvVersion - cvGSVersion);
+    std::vector<cv::Mat> h_comparison1C(CV_MAT_CN(T));
+    cv::split(diff, h_comparison1C);
+
+    for (int i=0; i<CV_MAT_CN(T); i++) {
+        passed &= checkResults<CV_MAT_DEPTH(T)>(NUM_ELEMS_X, NUM_ELEMS_Y, h_comparison1C.at(i));
+    }
+    return passed;
 }
 
 template <int I, int OC>
@@ -183,13 +196,8 @@ bool testNoDefinedOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::St
 
             cv_stream.waitForCompletion();
 
-            cv::Mat diff = cv::abs(h_cvResults - h_cvGSResults);
-            std::vector<cv::Mat> h_comparison1C(CV_MAT_CN(OC));
-            cv::split(diff, h_comparison1C);
-
-            for (int i=0; i<CV_MAT_CN(OC); i++) {
-                passed &= checkResults<CV_MAT_DEPTH(OC)>(NUM_ELEMS_X, NUM_ELEMS_Y, h_comparison1C.at(i));
-            }
+            passed = compareAndCheck<OC>(NUM_ELEMS_X, NUM_ELEMS_Y, h_cvResults, h_cvGSResults);
+            
         } catch (const std::exception& e) {
             error << e.what();
             passed = false;
@@ -233,25 +241,30 @@ bool testResize(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, b
             cv::Size up(3870, 2260); // x,y
             cv::Size down(600, 500); // x,y
 
-            cv::cuda::GpuMat d_down(down, O);
-            cv::cuda::GpuMat d_up(up, O);
+            cv::cuda::GpuMat d_down(down, I);
+            cv::cuda::GpuMat d_up(up, I);
 
-            cv::cuda::GpuMat d_down_cvGS(down, O);
-            cv::cuda::GpuMat d_up_cvGS(up, O);
+            cv::cuda::GpuMat d_down_cvGS(down, I);
+            cv::cuda::GpuMat d_up_cvGS(up, I);
 
             cv::cuda::resize(d_input, d_up, up, 0., 0., cv::INTER_LINEAR, cv_stream);
             cv::cuda::resize(d_input, d_down, down, 0., 0., cv::INTER_LINEAR, cv_stream);
 
-            if (I == CV_8UC1) {
-                cvGS::executeOperations(up, cv_stream, cvGS::resize(d_input, up, 0., 0.), cvGS::write<CV_8UC1>(d_up_cvGS));
-                cvGS::executeOperations(down, cv_stream, cvGS::resize(d_input, down, 0., 0.), cvGS::write<CV_8UC1>(d_down_cvGS));
-            } else {
-                cvGS::executeOperations(up, cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, up, 0., 0.), cvGS::write<I>(d_up_cvGS));
-                cvGS::executeOperations(down, cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, down, 0., 0.), cvGS::write<I>(d_down_cvGS));
-            }
-            
+            cvGS::executeOperations(up, cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, up, 0., 0.), cvGS::write<I>(d_up_cvGS));
+            cvGS::executeOperations(down, cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, down, 0., 0.), cvGS::write<I>(d_down_cvGS));
+
+            cv::Mat h_up, h_up_cvGS;
+            cv::Mat h_down, h_down_cvGS;
+
+            d_up.download(h_up, cv_stream);
+            d_up_cvGS.download(h_up_cvGS, cv_stream);
+            d_down.download(h_down, cv_stream);
+            d_down_cvGS.download(h_down_cvGS, cv_stream);
 
             cv_stream.waitForCompletion();
+
+            passed &= compareAndCheck<I>(up.width, up.height, h_up, h_up_cvGS);
+            passed &= compareAndCheck<I>(down.width, down.height, h_down, h_down_cvGS);
 
         } catch (const cv::Exception& e) {
             if (e.code != -210) {
@@ -300,6 +313,7 @@ int main() {
     LAUNCH_TESTS_NO_SPLIT(CV_16UC1, CV_32FC1)
     LAUNCH_TESTS_NO_SPLIT(CV_16SC1, CV_32FC1)
     LAUNCH_TESTS_NO_SPLIT(CV_32SC1, CV_32FC1)
+    LAUNCH_TESTS_NO_SPLIT(CV_32FC1, CV_32FC1)
     LAUNCH_TESTS(CV_8UC2, CV_32FC2)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
     LAUNCH_TESTS(CV_8UC4, CV_32FC4)

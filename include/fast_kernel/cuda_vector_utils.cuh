@@ -81,7 +81,7 @@ namespace fk {
     // It will not compile if you try to do bad things. The number of elements
     // need to conform to T, and the type of the elements will always be casted.
     template <typename T, typename... Numbers>
-    __device__ __forceinline__ __host__ constexpr T make_(Numbers... pack) {
+    __device__ __forceinline__ __host__ constexpr T make_(const Numbers... pack) {
         return {static_cast<decltype(T::x)>(pack)...};
     }
 
@@ -144,46 +144,47 @@ namespace fk {
     struct unary_vector_set_;
     
     template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<!std::is_class<T>::value>>{
+    struct unary_vector_set_<T, typename std::enable_if_t<!std::is_aggregate<T>::value &&
+                                                          !std::is_class<T>::value &&
+                                                          !std::is_enum<T>::value>>{
         // This case exists to make things easyer when we don't know if the type
         // is going to be a vector type or a normal type
-        __device__ __forceinline__ __host__ T operator()(T& val) {
+        __device__ __forceinline__ __host__ T operator()(T val) {
             return val;
         }
     };
 
     template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<std::is_class<T>::value &&
-                                                          !std::is_enum<T>::value &&
-                                                          CN(T) == 1>>{
-        __device__ __forceinline__ __host__ T operator()(decltype(T::x)& val) {
+    struct unary_vector_set_<T, typename std::enable_if_t<std::is_aggregate<T>::value &&
+                                                          VectorTraits<T>::cn == 1>> {
+        __device__ __forceinline__ __host__ T operator()(typename VectorTraits<T>::base val) {
             return {val};
         }
     };
 
     template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<CN(T) == 2>>{
-        __device__ __forceinline__ __host__ T operator()(decltype(T::x)& val) {
+    struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 2>> {
+        __device__ __forceinline__ __host__ T operator()(typename VectorTraits<T>::base val) {
             return {val, val};
         }
     };
 
     template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<CN(T) == 3>>{
-        __device__ __forceinline__ __host__ T operator()(decltype(T::x)& val) {
+    struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 3>>{
+        __device__ __forceinline__ __host__ T operator()(typename VectorTraits<T>::base val) {
             return {val, val, val};
         }
     };
 
     template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<CN(T) == 4>>{
-        __device__ __forceinline__ __host__ T operator()(decltype(T::x)& val) {
+    struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 4>>{
+        __device__ __forceinline__ __host__ T operator()(typename VectorTraits<T>::base val) {
             return {val, val, val, val};
         }
     };
 
     template <typename T>
-    __device__ __forceinline__ __host__ constexpr T make_set(decltype(T::x) val) {
+    __device__ __forceinline__ __host__ constexpr T make_set(typename VectorTraits<T>::base val) {
         return unary_vector_set_<T>()(val);
     }
 
