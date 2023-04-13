@@ -395,11 +395,11 @@ enum InterpolationType {
     NONE = 17
 };
 
-template <typename T, InterpolationType INTER_T, typename TYPE_TO_READ = T, uint PIX_PER_THREAD = sizeof(TYPE_TO_READ) / sizeof(T)>
+template <typename T, InterpolationType INTER_T, typename TYPE_TO_READ = T, typename Enabler=void>
 struct interpolate_read;
 
 template <typename T>
-struct interpolate_read<T, InterpolationType::INTER_LINEAR, T, 1> {
+struct interpolate_read<T, InterpolationType::INTER_LINEAR, T, std::enable_if_t<CN(T)>1>> {
     __device__ __forceinline__ T operator()(const PtrAccessor<T> input, const float fy, const float fx, const int dst_x, const int dst_y) {
         const float src_x = dst_x * fx;
         const float src_y = dst_y * fy;
@@ -429,9 +429,11 @@ struct interpolate_read<T, InterpolationType::INTER_LINEAR, T, 1> {
     } 
 };
 
-template <>
-struct interpolate_read<uchar, InterpolationType::INTER_LINEAR, uchar2, 2> {
+template <typename T>
+struct interpolate_read<T, InterpolationType::INTER_LINEAR, typename VectorType<T, 2>::type, std::enable_if_t<!std::is_class<T>::value>> {
     __device__ __forceinline__ uchar operator()(const PtrAccessor<uchar> input, const float fy, const float fx, const int dst_x, const int dst_y) {        
+        using type_c2 = typename VectorType<T, 2>::type;
+       
         const float src_x = dst_x * fx;
         const float src_y = dst_y * fy;
 
@@ -439,21 +441,20 @@ struct interpolate_read<uchar, InterpolationType::INTER_LINEAR, uchar2, 2> {
         const int y1 = __float2int_rd(src_y);
         const int x2 = x1 + 1;
         const int y2 = y1 + 1;
-        //const int x2_read = ::min(x2, input.width - 1);
         const int y2_read = ::min(y2, input.height - 1);
 
-        uchar2 reg[2];
+        type_c2 reg[2];
         if (input.width == x2) {
-            reg[0] = *input.at_c<uchar2>(Point(x1, y1));
-            reg[1] = *input.at_c<uchar2>(Point(x1, y2_read));
+            reg[0] = *input.at_c<type_c2>(Point(x1, y1));
+            reg[1] = *input.at_c<type_c2>(Point(x1, y2_read));
         } else {
             uchar temp = *input.at_c(Point(x1*2, y1));
-            reg[0] = make_<uchar2>(temp, temp);
+            reg[0] = make_<type_c2>(temp, temp);
             temp = *input.at_c(Point(x1*2, y2_read));
-            reg[1] = make_<uchar2>(temp, temp);
+            reg[1] = make_<type_c2>(temp, temp);
         }
     
-        return saturate_cast<uchar>(reg[0].x * ((x2 - src_x) * (y2 - src_y)) + reg[0].y * ((src_x - x1) * (y2 - src_y)) +
+        return saturate_cast<T>(reg[0].x * ((x2 - src_x) * (y2 - src_y)) + reg[0].y * ((src_x - x1) * (y2 - src_y)) +
                                     reg[1].x * ((x2 - src_x) * (src_y - y1)) + reg[1].y * ((src_x - x1) * (src_y - y1)));
     } 
 };
