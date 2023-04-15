@@ -24,13 +24,11 @@ struct memory_read_iterpolated {
     const float fy;
     const uint target_width;
     const uint target_height;
-    Operator nv_operator;
 };
 
 template <typename Operator, typename O>
 struct memory_write_scalar_2D {
     PtrAccessor<O> x;
-    Operator nv_operator;
 };
 
 template <typename Operator, typename I, typename Enabler=void>
@@ -40,7 +38,6 @@ template <typename Operator, typename I>
 struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<CN(I) == 2>> {
     PtrAccessor<decltype(I::x)> x;
     PtrAccessor<decltype(I::y)> y;
-    Operator nv_operator;
 };
 
 template <typename Operator, typename I>
@@ -48,7 +45,6 @@ struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<CN(I) == 3>>
     PtrAccessor<decltype(I::x)> x;
     PtrAccessor<decltype(I::y)> y;
     PtrAccessor<decltype(I::z)> z;
-    Operator nv_operator;
 };
 
 template <typename Operator, typename I>
@@ -57,7 +53,6 @@ struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<CN(I) == 4>>
     PtrAccessor<decltype(I::y)> y;
     PtrAccessor<decltype(I::z)> z;
     PtrAccessor<decltype(I::w)> w;
-    Operator nv_operator;
 };
 
 }

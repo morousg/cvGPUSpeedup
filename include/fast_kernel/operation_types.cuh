@@ -20,27 +20,27 @@ namespace fk {
 
 template <typename I1, typename I2=I1, typename O=I1>
 struct binary_sum {
-    __device__ __forceinline__ __host__ constexpr O operator()(I1 input_1, I2 input_2) {return input_1 + input_2;}
+    FK_HOST_DEVICE_FUSE O exec(const I1& input_1, const I2& input_2) {return input_1 + input_2;}
 };
 
-template <typename I1, typename I2=I1, typename O=I1, typename Enabler=void>
+template <typename I1, typename I2=I1, typename O=I1>
 struct binary_sub {
-    __device__ __forceinline__ __host__ constexpr O operator()(I1 input_1, I2 input_2) {return input_1 - input_2;}
+    FK_HOST_DEVICE_FUSE O exec(const I1& input_1, const I2& input_2) {return input_1 - input_2;}
 };
 
 template <typename I1, typename I2=I1, typename O=I1>
 struct binary_mul {
-    __device__ __forceinline__ __host__ constexpr O operator()(I1 input_1, I2 input_2) { return input_1 * input_2; }
+    FK_HOST_DEVICE_FUSE O exec(const I1& input_1, const I2& input_2) { return input_1 * input_2; }
 };
 
 template <typename I1, typename I2=I1, typename O=I1>
 struct binary_div {
-    __device__ __forceinline__ __host__ constexpr O operator()(I1 input_1, I2 input_2) {return input_1 / input_2;}
+    FK_HOST_DEVICE_FUSE O exec(const I1& input_1, const I2& input_2) {return input_1 / input_2;}
 };
 
 template <typename I, typename O>
 struct unary_cast {
-    __device__ __forceinline__  __host__ constexpr O operator()(I input) { return saturate_cast<O>(input); }
+    FK_HOST_DEVICE_FUSE O exec(const I& input) { return saturate_cast<O>(input); }
 };
 
 }

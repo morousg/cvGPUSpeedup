@@ -33,11 +33,11 @@ struct Point {
   uint y;  
 };
 
-inline uint computeDiscardedThreads(const uint width, const uint height, const uint blockDimx, const uint blockDimy) {
+inline constexpr uint computeDiscardedThreads(const uint width, const uint height, const uint blockDimx, const uint blockDimy) {
     const uint modX = width % blockDimx;
     const uint modY = height % blockDimy;
-    const uint th_disabled_in_X = blockDimx - modX;
-    const uint th_disabled_in_Y = blockDimy - modY;
+    const uint th_disabled_in_X = modX == 0 ? 0 : blockDimx - modX;
+    const uint th_disabled_in_Y = modY == 0 ? 0 : blockDimy - modY;
     return (th_disabled_in_X * (modY == 0 ? height : (height + blockDimy)) + th_disabled_in_Y * width);
 }
 
@@ -46,7 +46,7 @@ struct computeBestSolution {};
 
 template <uint bxS_t>
 struct computeBestSolution<bxS_t, 0> {
-    inline void operator()(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint (&blockDimX)[4], const uint (&blockDimY)[2][4]) const {
+    static constexpr void exec(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint (&blockDimX)[4], const uint (&blockDimY)[2][4]) {
         const uint currentDiscardedThreads = computeDiscardedThreads(width, height, blockDimX[bxS_t], blockDimY[0][bxS_t]);
         if (minDiscardedThreads > currentDiscardedThreads) {
             minDiscardedThreads = currentDiscardedThreads;
@@ -54,27 +54,28 @@ struct computeBestSolution<bxS_t, 0> {
             byS = 0;
             if (minDiscardedThreads == 0) return; 
         }
-        computeBestSolution<bxS_t, 1>()(width, height, bxS, byS, minDiscardedThreads, blockDimX, blockDimY);
+        computeBestSolution<bxS_t, 1>::exec(width, height, bxS, byS, minDiscardedThreads, blockDimX, blockDimY);
     }
 };
 
 template <uint bxS_t>
 struct computeBestSolution<bxS_t, 1> {
-    inline void operator()(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint (&blockDimX)[4], const uint (&blockDimY)[2][4]) const {
+    static constexpr void exec(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint (&blockDimX)[4], const uint (&blockDimY)[2][4]) {
         const uint currentDiscardedThreads = computeDiscardedThreads(width, height, blockDimX[bxS_t], blockDimY[1][bxS_t]);
         if (minDiscardedThreads > currentDiscardedThreads) {
             minDiscardedThreads = currentDiscardedThreads;
             bxS = bxS_t;
             byS = 1;
+            if constexpr (bxS_t == 3) return;
             if (minDiscardedThreads == 0) return; 
         }
-        computeBestSolution<bxS_t+1, 0>()(width, height, bxS, byS, minDiscardedThreads, blockDimX, blockDimY);
+        computeBestSolution<bxS_t+1, 0>::exec(width, height, bxS, byS, minDiscardedThreads, blockDimX, blockDimY);
     }
 };
 
 template <>
 struct computeBestSolution<3, 1> {
-    inline void operator()(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint (&blockDimX)[4], const uint (&blockDimY)[2][4]) const {
+    static constexpr void exec(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint (&blockDimX)[4], const uint (&blockDimY)[2][4]) {
         const uint currentDiscardedThreads = computeDiscardedThreads(width, height, blockDimX[3], blockDimY[1][3]);
         if (minDiscardedThreads > currentDiscardedThreads) {
             minDiscardedThreads = currentDiscardedThreads;
@@ -94,7 +95,7 @@ inline dim3 getBlockSize(const uint width, const uint height, const uint planes 
     uint bxS = 0; // from 0 to 3
     uint byS = 0; // from 0 to 1
     
-    computeBestSolution<0, 0>()(width, height, bxS, byS, minDiscardedThreads, blockDimX, blockDimY);
+    computeBestSolution<0, 0>::exec(width, height, bxS, byS, minDiscardedThreads, blockDimX, blockDimY);
 
     return dim3(blockDimX[bxS], blockDimY[byS][bxS], planes);
 }
@@ -108,60 +109,43 @@ struct PtrAccessor {
     uint height;
     uint planes;
     uint pitch;
-    dim3 adjusted_blockSize;
-    MemType type;
-    int deviceID;
 
-    template <typename C>
-    __host__ __device__ __forceinline__ 
-    constexpr bool castIsOutOfBounds() const {
-        return sizeInBytes() % sizeof(C) == 0;
-    }
-
-    __host__ __device__ __forceinline__ 
-    constexpr uint sizeInBytes() const {
-        return pitch * height;
-    }
-
-    __host__ __device__ __forceinline__ 
-    constexpr bool hasPadding() const {
-        return pitch != sizeof(T) * width;
-    }
-
-    __host__ __device__ __forceinline__ const T*__restrict__ at_cr(const Point p) const {
-        return (const T*)((const char*)data + (p.y * pitch)) + p.x;
-    }
-
-    __host__ __device__ __forceinline__ const T* at_c(const Point p) const {
+    __host__ __device__ __forceinline__ const T*__restrict__ at_cr(const Point& p) const {
         return (const T*)((const char*)data + (p.y * pitch)) + p.x;
     }
 
     __host__ __device__ __forceinline__ T* at(const Point p) const {
         return (T*)((char*)data + (p.y * pitch)) + p.x;
     }
-
-    __host__ __device__ __forceinline__ 
-    constexpr uint getNumElements() const {
-        return width * height;
-    }
 };
 
 template <typename T>
 class Ptr3D {
 
-private:
+protected:
     struct refPtr {
         void* ptr;
         int cnt;  
     };
     refPtr* ref{ nullptr };
     PtrAccessor<T> patterns;
+    dim3 adjusted_blockSize;
+    MemType type;
+    int deviceID;
+
+    __host__ inline constexpr uint sizeInBytes() const {
+        return patterns.pitch * patterns.height;
+    }
+
+    __host__ inline constexpr uint getNumElements() const {
+        return patterns.width * patterns.height;
+    }
 
     __host__ inline void freePrt() {
         if (ref) {
             ref->cnt--;
             if (ref->cnt == 0) {
-                switch (patterns.type) {
+                switch (type) {
                     case Device:
                         gpuErrchk(cudaFree(ref->ptr));
                         break;
@@ -179,12 +163,13 @@ private:
         }
     }
 
-    __host__ inline Ptr3D(PtrAccessor<T> patterns_, refPtr * ref_) : patterns(patterns_), ref(ref_) {}
+    __host__ inline Ptr3D(PtrAccessor<T> patterns_, refPtr * ref_, dim3 bs_, MemType type_, int devID) : 
+        patterns(patterns_), ref(ref_), adjusted_blockSize(bs_), type(type_), deviceID(devID) {}
 
-    __host__ inline void allocDevice() {
+    __host__ virtual void allocDevice() {
         int currentDevice;
         gpuErrchk(cudaGetDevice(&currentDevice));
-        gpuErrchk(cudaSetDevice(patterns.deviceID));
+        gpuErrchk(cudaSetDevice(deviceID));
         if (patterns.pitch == 0) {
             size_t pitch_temp;
             gpuErrchk(cudaMallocPitch(&patterns.data, &pitch_temp, sizeof(T) * patterns.width, patterns.height * patterns.planes));
@@ -192,7 +177,7 @@ private:
         } else {
             gpuErrchk(cudaMalloc(&patterns.data, patterns.pitch * patterns.height * patterns.planes));
         }
-        if (currentDevice != patterns.deviceID) {
+        if (currentDevice != deviceID) {
             gpuErrchk(cudaSetDevice(currentDevice));
         }
     }
@@ -213,6 +198,9 @@ public:
 
     __host__ inline Ptr3D(const Ptr3D<T>& other) {
         patterns = other.patterns;
+        adjusted_blockSize = other.adjusted_blockSize;
+        type = other.type;
+        deviceID = other.deviceID;
         if (other.ref) {
             ref = other.ref;
             ref->cnt++;
@@ -229,9 +217,9 @@ public:
         patterns.height = height_;
         patterns.pitch = pitch_;
         patterns.planes = planes_;
-        patterns.type = type_;
-        patterns.deviceID = deviceID_;
-        patterns.adjusted_blockSize = fk::getBlockSize(patterns.width, patterns.height);
+        type = type_;
+        deviceID = deviceID_;
+        adjusted_blockSize = fk::getBlockSize(patterns.width, patterns.height);
     }
 
     __host__ inline ~Ptr3D() {
@@ -248,15 +236,15 @@ public:
         patterns.height = height_;
         patterns.pitch = pitch_;
         patterns.planes = planes_;
-        patterns.type = type_;
-        patterns.deviceID = deviceID_;
+        type = type_;
+        deviceID = deviceID_;
         ref = (refPtr*)malloc(sizeof(refPtr));
         ref->cnt = 1;
 
         switch (type_) {
             case Device:
                 allocDevice();
-                patterns.adjusted_blockSize = fk::getBlockSize(patterns.width, patterns.height);
+                adjusted_blockSize = fk::getBlockSize(patterns.width, patterns.height);
                 break;
             case Host:
                 allocHost();
@@ -274,9 +262,8 @@ public:
     __host__ inline Ptr3D<T> crop(Point p, uint width_n, uint height_n, uint planes_n = 1) {
         T* ptr = patterns.at(p);
         ref->cnt++;
-        const PtrAccessor<T> newAccessor = {ptr, width_n, height_n, planes_n, patterns.pitch,
-                                            fk::getBlockSize(width_n, height_n), patterns.type, patterns.deviceID};
-        return {newAccessor, ref};
+        const PtrAccessor<T> newAccessor = {ptr, width_n, height_n, planes_n, patterns.pitch};
+        return {newAccessor, ref, fk::getBlockSize(width_n, height_n), type, deviceID};
     }
 
     __host__ inline uint width() const {
@@ -293,13 +280,27 @@ public:
     }
 
     __host__ inline dim3 getBlockSize() const {
-        return patterns.adjusted_blockSize;
+        return adjusted_blockSize;
+    }
+};
+
+template <typename T>
+class Tensor : public Ptr3D<T> {
+    __host__ void allocDevice() final {
+        int currentDevice;
+        gpuErrchk(cudaGetDevice(&currentDevice));
+        gpuErrchk(cudaSetDevice(this->deviceID));
+        this->patterns.pitch = this->patterns.width * sizeof(T);
+        gpuErrchk(cudaMalloc(&this->patterns.data, this->patterns.pitch * this->patterns.height * this->patterns.planes));
+        if (currentDevice != this->deviceID) {
+            gpuErrchk(cudaSetDevice(currentDevice));
+        }
     }
 };
 
 template <typename I, typename O=I>
 struct perthread_write_2D {
-    __device__ __forceinline__ void operator()(const dim3 thread, I input, PtrAccessor<O> output) {
+    FK_DEVICE_FUSE void exec(const dim3 thread, const I input, PtrAccessor<O> output) {
         *(output.at({thread.x, thread.y})) = input;
     }
 };
@@ -309,7 +310,7 @@ struct perthread_split_write_2D;
 
 template <typename I>
 struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 2>> {
-    __device__ __forceinline__ void operator()(const dim3 thread, I input,
+    FK_DEVICE_FUSE void exec(const dim3 thread, const I input,
                                PtrAccessor<decltype(I::x)> output1,
                                PtrAccessor<decltype(I::y)> output2) {
         const Point p(thread.x, thread.y);
@@ -320,7 +321,7 @@ struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 2>> {
 
 template <typename I>
 struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 3>> {
-    __device__ __forceinline__ void operator()(const dim3 thread, I input, 
+    FK_DEVICE_FUSE void exec(const dim3 thread, const I input, 
                                PtrAccessor<decltype(I::x)> output1, 
                                PtrAccessor<decltype(I::y)> output2,
                                PtrAccessor<decltype(I::z)> output3) {
@@ -333,7 +334,7 @@ struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 3>> {
 
 template <typename I>
 struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 4>> {
-    __device__ __forceinline__ void operator()(const dim3 thread, I input, 
+    FK_DEVICE_FUSE void exec(const dim3 thread, I input, 
                                PtrAccessor<decltype(I::x)> output1, 
                                PtrAccessor<decltype(I::y)> output2,
                                PtrAccessor<decltype(I::z)> output3,
@@ -430,33 +431,32 @@ struct interpolate_read;
 
 template <typename T>
 struct interpolate_read<T, InterpolationType::INTER_LINEAR> {
-    __device__ __forceinline__ T operator()(const PtrAccessor<T> input, const float fy, const float fx, const int dst_x, const int dst_y) {
+    static __device__ __forceinline__ T exec(const PtrAccessor<T> input, const float fy, const float fx, const uint dst_x, const uint dst_y) {
         const float src_x = dst_x * fx;
         const float src_y = dst_y * fy;
 
-        const int x1 = __float2int_rd(src_x);
-        const int y1 = __float2int_rd(src_y);
-        const int x2 = x1 + 1;
-        const int y2 = y1 + 1;        
-        const int x2_read = ::min(x2, input.width - 1);
-        const int y2_read = ::min(y2, input.height - 1);
+        const uint x1 = __float2int_rd(src_x);
+        const uint y1 = __float2int_rd(src_y);
+        const uint x2 = x1 + 1;
+        const uint y2 = y1 + 1;        
+        const uint x2_read = ::min(x2, input.width - 1);
+        const uint y2_read = ::min(y2, input.height - 1);
 
         using floatcn_t = typename VectorType<float, VectorTraits<T>::cn>::type;
         floatcn_t out = make_set<floatcn_t>(0.f);
-        T src_reg = *input.at_cr(Point(x1, y1));
+        T src_reg = *input.at_cr({x1, y1});
         out = out + src_reg * ((x2 - src_x) * (y2 - src_y));
 
-        src_reg = *input.at_cr(Point(x2_read, y1));
+        src_reg = *input.at_cr({x2_read, y1});
         out = out + src_reg * ((src_x - x1) * (y2 - src_y));
 
-        src_reg = *input.at_cr(Point(x1, y2_read));
+        src_reg = *input.at_cr({x1, y2_read});
         out = out + src_reg * ((x2 - src_x) * (src_y - y1));
 
-        src_reg = *input.at_cr(Point(x2_read, y2_read));
+        src_reg = *input.at_cr({x2_read, y2_read});
         out = out + src_reg * ((src_x - x1) * (src_y - y1));
         
         return saturate_cast<T>(out);
     } 
 };
-
 }

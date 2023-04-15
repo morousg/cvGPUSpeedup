@@ -23,6 +23,9 @@
 #include <cuda_runtime.h>
 
 #define GLOBAL_ID ((blockIdx.x * blockDim.x) + threadIdx.x)
+#define FK_DEVICE_FUSE static constexpr __device__ __forceinline__
+#define FK_HOST_DEVICE_FUSE FK_DEVICE_FUSE __host__
+#define FK_HOST_FUSE static constexpr inline __host__
 
 using uchar = unsigned char;
 using schar = signed char;
@@ -70,14 +73,14 @@ namespace fk {
 // or tort (including negligence or otherwise) arising in any way out of
 // the use of this software, even if advised of the possibility of such damage.
 
-    template <typename T> __device__ __forceinline__ T saturate_cast(uchar v) { return T(v); }
-    template <typename T> __device__ __forceinline__ T saturate_cast(schar v) { return T(v); }
-    template <typename T> __device__ __forceinline__ T saturate_cast(ushort v) { return T(v); }
-    template <typename T> __device__ __forceinline__ T saturate_cast(short v) { return T(v); }
-    template <typename T> __device__ __forceinline__ T saturate_cast(uint v) { return T(v); }
-    template <typename T> __device__ __forceinline__ T saturate_cast(int v) { return T(v); }
-    template <typename T> __device__ __forceinline__ T saturate_cast(float v) { return T(v); }
-    template <typename T> __device__ __forceinline__ T saturate_cast(double v) { return T(v); }
+    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(uchar v) { return T(v); }
+    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(schar v) { return T(v); }
+    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(ushort v) { return T(v); }
+    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(short v) { return T(v); }
+    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(uint v) { return T(v); }
+    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(int v) { return T(v); }
+    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(float v) { return T(v); }
+    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(double v) { return T(v); }
 
     template <> __device__ __forceinline__ uchar saturate_cast<uchar>(schar v)
     {

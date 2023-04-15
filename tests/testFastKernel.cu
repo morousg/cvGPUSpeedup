@@ -16,40 +16,6 @@
 
 #include <fast_kernel/fast_kernel.cuh>
 
-void test_mult_sum_div_float(float* data, dim3 data_dims, cudaStream_t stream) {
-    // We don't think about step or ROI's yet.
-    dim3 thread_block(512);
-    dim3 grid(data_dims.x/512);
-
-    fk::binary_operation_scalar<fk::binary_mul<float>, float> op1 = {5.f};
-    fk::binary_operation_pointer<fk::binary_sum<float>, float> op2 = {data};
-    fk::binary_operation_scalar<fk::binary_div<float>, float> op3 = {2.f};
-    fk::binary_operation_scalar<fk::binary_mul<float>, float> op4 = {5.f};
-    fk::binary_operation_scalar<fk::binary_div<float>, float> op5 = {3.f};
-    fk::binary_operation_scalar<fk::binary_mul<float>, float> op6 = {7.f};
-
-    fk::cuda_transform<<<grid, thread_block, 0, stream>>>(data_dims.x, data, data, op1, op2, op3, op4, op5, op6);
-    gpuErrchk(cudaGetLastError());
-}
-
-void test_cuda_transform_optimized(float* data, dim3 data_dims, cudaStream_t stream) {
-
-     // We don't think about step or ROI's yet.
-    dim3 thread_block(512);
-    dim3 grid((data_dims.x/512)/4);
-
-    fk::binary_operation_scalar<fk::binary_mul<float>, float> op1 = {5.f};
-    fk::binary_operation_pointer<fk::binary_sum<float>, float> op2 = {data};
-    fk::binary_operation_scalar<fk::binary_div<float>, float> op3 = {2.f};
-    fk::binary_operation_scalar<fk::binary_mul<float>, float> op4 = {5.f};
-    fk::binary_operation_scalar<fk::binary_div<float>, float> op5 = {3.f};
-    fk::binary_operation_scalar<fk::binary_mul<float>, float> op6 = {7.f};
-
-    fk::cuda_transform_optimized<<<grid, thread_block, 0, stream>>>(data_dims.x, data, data, op1, op2, op3, op4, op5, op6);
-    gpuErrchk(cudaGetLastError());
-
-}
-
 template <typename T>
 bool testPtr_2D() {
     constexpr size_t width = 1920;
@@ -77,8 +43,8 @@ bool testPtr_2D() {
     fk::memory_write_scalar_2D<fk::perthread_write_2D<T>, T> opFinal_2DBig = { outputBig };
 
     for (int i=0; i<100; i++) {
-        fk::cuda_transform_noret_2D<<<grid2D, block2D, 0, stream>>>(cropedInput.d_ptr(), opFinal_2D);
-        fk::cuda_transform_noret_2D<<<grid2DBig, block2D, 0, stream>>>(input.d_ptr(), opFinal_2DBig);
+        fk::cuda_transform_<<<grid2D, block2D, 0, stream>>>(cropedInput.d_ptr(), opFinal_2D);
+        fk::cuda_transform_<<<grid2DBig, block2D, 0, stream>>>(input.d_ptr(), opFinal_2DBig);
     }
 
     cudaError_t err = cudaStreamSynchronize(stream);

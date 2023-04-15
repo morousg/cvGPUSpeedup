@@ -59,97 +59,97 @@ namespace vec_math_detail
     template <int cn, typename VecD> struct SatCastHelper;
     template <typename VecD> struct SatCastHelper<1, VecD>
     {
-        template <typename VecS> static __device__ __forceinline__ VecD cast(const VecS& v)
+        template <typename VecS> static __device__ __forceinline__ constexpr VecD cast(const VecS& v)
         {
             using D = typename VectorTraits<VecD>::base;
-            return make_<VecD>(saturate_cast<D>(v.x));
+            return make::type<VecD>(saturate_cast<D>(v.x));
         }
     };
     template <typename VecD> struct SatCastHelper<2, VecD>
     {
-        template <typename VecS> static __device__ __forceinline__ VecD cast(const VecS& v)
+        template <typename VecS> static __device__ __forceinline__ constexpr VecD cast(const VecS& v)
         {
             using D = typename VectorTraits<VecD>::base;
-            return make_<VecD>(saturate_cast<D>(v.x), saturate_cast<D>(v.y));
+            return make::type<VecD>(saturate_cast<D>(v.x), saturate_cast<D>(v.y));
         }
     };
     template <typename VecD> struct SatCastHelper<3, VecD>
     {
-        template <typename VecS> static __device__ __forceinline__ VecD cast(const VecS& v)
+        template <typename VecS> static __device__ __forceinline__ constexpr VecD cast(const VecS& v)
         {
             using D = typename VectorTraits<VecD>::base;
-            return make_<VecD>(saturate_cast<D>(v.x), saturate_cast<D>(v.y), saturate_cast<D>(v.z));
+            return make::type<VecD>(saturate_cast<D>(v.x), saturate_cast<D>(v.y), saturate_cast<D>(v.z));
         }
     };
     template <typename VecD> struct SatCastHelper<4, VecD>
     {
-        template <typename VecS> static __device__ __forceinline__ VecD cast(const VecS& v)
+        template <typename VecS> static __device__ __forceinline__ constexpr VecD cast(const VecS& v)
         {
             using D = typename VectorTraits<VecD>::base;
-            return make_<VecD>(saturate_cast<D>(v.x), saturate_cast<D>(v.y), saturate_cast<D>(v.z), saturate_cast<D>(v.w));
+            return make::type<VecD>(saturate_cast<D>(v.x), saturate_cast<D>(v.y), saturate_cast<D>(v.z), saturate_cast<D>(v.w));
         }
     };
 
-    template <typename VecD, typename VecS> static __device__ __forceinline__ VecD saturate_cast_helper(const VecS& v)
+    template <typename VecD, typename VecS> static __device__ __forceinline__ constexpr VecD saturate_cast_helper(const VecS& v)
     {
         return SatCastHelper<VectorTraits<VecD>::cn, VecD>::cast(v);
     }
 }
 
-template<typename T> static __device__ __forceinline__ T saturate_cast(const uchar1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const char1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const ushort1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const short1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const uint1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const int1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const float1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const double1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uchar1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const char1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const ushort1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const short1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uint1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const int1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const float1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const double1& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
 
-template<typename T> static __device__ __forceinline__ T saturate_cast(const uchar2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const char2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const ushort2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const short2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const uint2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const int2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const float2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const double2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uchar2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const char2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const ushort2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const short2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uint2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const int2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const float2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const double2& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
 
-template<typename T> static __device__ __forceinline__ T saturate_cast(const uchar3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const char3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const ushort3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const short3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const uint3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const int3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const float3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const double3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uchar3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const char3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const ushort3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const short3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uint3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const int3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const float3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const double3& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
 
-template<typename T> static __device__ __forceinline__ T saturate_cast(const uchar4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const char4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const ushort4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const short4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const uint4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const int4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const float4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
-template<typename T> static __device__ __forceinline__ T saturate_cast(const double4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uchar4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const char4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const ushort4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const short4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uint4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const int4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const float4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
+template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const double4& v) {return vec_math_detail::saturate_cast_helper<T>(v);}
 
 // unary operators
 
 #define CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(op, input_type, output_type) \
-    __device__ __forceinline__ __host__ output_type ## 1 operator op(const input_type ## 1 & a) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 1 operator op(const input_type ## 1 & a) \
     { \
-        return make_<output_type ## 1>(op (a.x)); \
+        return make::type<output_type ## 1>(op (a.x)); \
     } \
-    __device__ __forceinline__ __host__ output_type ## 2 operator op(const input_type ## 2 & a) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 2 operator op(const input_type ## 2 & a) \
     { \
-        return make_<output_type ## 2>(op (a.x), op (a.y)); \
+        return make::type<output_type ## 2>(op (a.x), op (a.y)); \
     } \
-    __device__ __forceinline__ __host__ output_type ## 3 operator op(const input_type ## 3 & a) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 3 operator op(const input_type ## 3 & a) \
     { \
-        return make_<output_type ## 3>(op (a.x), op (a.y), op (a.z)); \
+        return make::type<output_type ## 3>(op (a.x), op (a.y), op (a.z)); \
     } \
-    __device__ __forceinline__ __host__ output_type ## 4 operator op(const input_type ## 4 & a) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 4 operator op(const input_type ## 4 & a) \
     { \
-        return make_<output_type ## 4>(op (a.x), op (a.y), op (a.z), op (a.w)); \
+        return make::type<output_type ## 4>(op (a.x), op (a.y), op (a.z), op (a.w)); \
     }
 
 CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(-, char, char)
@@ -179,21 +179,21 @@ CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(~, uint, uint)
 // unary functions
 
 #define CV_CUDEV_IMPLEMENT_VEC_UNARY_FUNC(func_name, func, input_type, output_type) \
-    __device__ __forceinline__ output_type ## 1 func_name(const input_type ## 1 & a) \
+    __device__ __forceinline__ constexpr output_type ## 1 func_name(const input_type ## 1 & a) \
     { \
-        return make_<output_type ## 1>(func (a.x)); \
+        return make::type<output_type ## 1>(func (a.x)); \
     } \
-    __device__ __forceinline__ output_type ## 2 func_name(const input_type ## 2 & a) \
+    __device__ __forceinline__ constexpr output_type ## 2 func_name(const input_type ## 2 & a) \
     { \
-        return make_<output_type ## 2>(func (a.x), func (a.y)); \
+        return make::type<output_type ## 2>(func (a.x), func (a.y)); \
     } \
-    __device__ __forceinline__ output_type ## 3 func_name(const input_type ## 3 & a) \
+    __device__ __forceinline__ constexpr output_type ## 3 func_name(const input_type ## 3 & a) \
     { \
-        return make_<output_type ## 3>(func (a.x), func (a.y), func (a.z)); \
+        return make::type<output_type ## 3>(func (a.x), func (a.y), func (a.z)); \
     } \
-    __device__ __forceinline__ output_type ## 4 func_name(const input_type ## 4 & a) \
+    __device__ __forceinline__ constexpr output_type ## 4 func_name(const input_type ## 4 & a) \
     { \
-        return make_<output_type ## 4>(func (a.x), func (a.y), func (a.z), func (a.w)); \
+        return make::type<output_type ## 4>(func (a.x), func (a.y), func (a.z), func (a.w)); \
     }
 
 CV_CUDEV_IMPLEMENT_VEC_UNARY_FUNC(abs, ::fabsf, float, float)
@@ -374,21 +374,21 @@ CV_CUDEV_IMPLEMENT_VEC_UNARY_FUNC(atanh, ::atanh, double, double)
 // binary operators (vec & vec)
 
 #define CV_CUDEV_IMPLEMENT_VEC_BINARY_OP(op, input_type, output_type) \
-    __device__ __forceinline__ __host__ output_type ## 1 operator op(const input_type ## 1 & a, const input_type ## 1 & b) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 1 operator op(const input_type ## 1 & a, const input_type ## 1 & b) \
     { \
-        return make_<output_type ## 1>(a.x op b.x); \
+        return make::type<output_type ## 1>(a.x op b.x); \
     } \
-    __device__ __forceinline__ __host__ output_type ## 2 operator op(const input_type ## 2 & a, const input_type ## 2 & b) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 2 operator op(const input_type ## 2 & a, const input_type ## 2 & b) \
     { \
-        return make_<output_type ## 2>(a.x op b.x, a.y op b.y); \
+        return make::type<output_type ## 2>(a.x op b.x, a.y op b.y); \
     } \
-    __device__ __forceinline__ __host__ output_type ## 3 operator op(const input_type ## 3 & a, const input_type ## 3 & b) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 3 operator op(const input_type ## 3 & a, const input_type ## 3 & b) \
     { \
-        return make_<output_type ## 3>(a.x op b.x, a.y op b.y, a.z op b.z); \
+        return make::type<output_type ## 3>(a.x op b.x, a.y op b.y, a.z op b.z); \
     } \
-    __device__ __forceinline__ __host__ output_type ## 4 operator op(const input_type ## 4 & a, const input_type ## 4 & b) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 4 operator op(const input_type ## 4 & a, const input_type ## 4 & b) \
     { \
-        return make_<output_type ## 4>(a.x op b.x, a.y op b.y, a.z op b.z, a.w op b.w); \
+        return make::type<output_type ## 4>(a.x op b.x, a.y op b.y, a.z op b.z, a.w op b.w); \
     }
 
 CV_CUDEV_IMPLEMENT_VEC_BINARY_OP(+, uchar, int)
@@ -525,37 +525,37 @@ CV_CUDEV_IMPLEMENT_VEC_BINARY_OP(^, uint, uint)
 // binary operators (vec & scalar)
 
 #define CV_CUDEV_IMPLEMENT_SCALAR_BINARY_OP(op, input_type, scalar_type, output_type) \
-    __device__ __forceinline__ __host__ output_type ## 1 operator op(const input_type ## 1 & a, scalar_type s) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 1 operator op(const input_type ## 1 & a, scalar_type s) \
     { \
-        return make_<output_type ## 1>(a.x op s); \
+        return make::type<output_type ## 1>(a.x op s); \
     } \
-    __device__ __forceinline__ __host__ output_type ## 1 operator op(scalar_type s, const input_type ## 1 & b) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 1 operator op(scalar_type s, const input_type ## 1 & b) \
     { \
-        return make_<output_type ## 1>(s op b.x); \
+        return make::type<output_type ## 1>(s op b.x); \
     } \
-    __device__ __forceinline__ __host__ output_type ## 2 operator op(const input_type ## 2 & a, scalar_type s) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 2 operator op(const input_type ## 2 & a, scalar_type s) \
     { \
-        return make_<output_type ## 2>(a.x op s, a.y op s); \
+        return make::type<output_type ## 2>(a.x op s, a.y op s); \
     } \
-    __device__ __forceinline__ __host__ output_type ## 2 operator op(scalar_type s, const input_type ## 2 & b) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 2 operator op(scalar_type s, const input_type ## 2 & b) \
     { \
-        return make_<output_type ## 2>(s op b.x, s op b.y); \
+        return make::type<output_type ## 2>(s op b.x, s op b.y); \
     } \
-    __device__ __forceinline__ __host__ output_type ## 3 operator op(const input_type ## 3 & a, scalar_type s) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 3 operator op(const input_type ## 3 & a, scalar_type s) \
     { \
-        return make_<output_type ## 3>(a.x op s, a.y op s, a.z op s); \
+        return make::type<output_type ## 3>(a.x op s, a.y op s, a.z op s); \
     } \
-    __device__ __forceinline__ __host__ output_type ## 3 operator op(scalar_type s, const input_type ## 3 & b) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 3 operator op(scalar_type s, const input_type ## 3 & b) \
     { \
-        return make_<output_type ## 3>(s op b.x, s op b.y, s op b.z); \
+        return make::type<output_type ## 3>(s op b.x, s op b.y, s op b.z); \
     } \
-    __device__ __forceinline__ __host__ output_type ## 4 operator op(const input_type ## 4 & a, scalar_type s) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 4 operator op(const input_type ## 4 & a, scalar_type s) \
     { \
-        return make_<output_type ## 4>(a.x op s, a.y op s, a.z op s, a.w op s); \
+        return make::type<output_type ## 4>(a.x op s, a.y op s, a.z op s, a.w op s); \
     } \
-    __device__ __forceinline__ __host__ output_type ## 4 operator op(scalar_type s, const input_type ## 4 & b) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 4 operator op(scalar_type s, const input_type ## 4 & b) \
     { \
-        return make_<output_type ## 4>(s op b.x, s op b.y, s op b.z, s op b.w); \
+        return make::type<output_type ## 4>(s op b.x, s op b.y, s op b.z, s op b.w); \
     }
 
 CV_CUDEV_IMPLEMENT_SCALAR_BINARY_OP(+, uchar, int, int)
@@ -746,19 +746,19 @@ CV_CUDEV_IMPLEMENT_SCALAR_BINARY_OP(^, uint, uint, uint)
 #define CV_CUDEV_IMPLEMENT_VEC_BINARY_FUNC(func_name, func, input_type, output_type) \
     __device__ __forceinline__ output_type ## 1 func_name(const input_type ## 1 & a, const input_type ## 1 & b) \
     { \
-        return make_<output_type ## 1>(func (a.x, b.x)); \
+        return make::type<output_type ## 1>(func (a.x, b.x)); \
     } \
     __device__ __forceinline__ output_type ## 2 func_name(const input_type ## 2 & a, const input_type ## 2 & b) \
     { \
-        return make_<output_type ## 2>(func (a.x, b.x), func (a.y, b.y)); \
+        return make::type<output_type ## 2>(func (a.x, b.x), func (a.y, b.y)); \
     } \
     __device__ __forceinline__ output_type ## 3 func_name(const input_type ## 3 & a, const input_type ## 3 & b) \
     { \
-        return make_<output_type ## 3>(func (a.x, b.x), func (a.y, b.y), func (a.z, b.z)); \
+        return make::type<output_type ## 3>(func (a.x, b.x), func (a.y, b.y), func (a.z, b.z)); \
     } \
     __device__ __forceinline__ output_type ## 4 func_name(const input_type ## 4 & a, const input_type ## 4 & b) \
     { \
-        return make_<output_type ## 4>(func (a.x, b.x), func (a.y, b.y), func (a.z, b.z), func (a.w, b.w)); \
+        return make::type<output_type ## 4>(func (a.x, b.x), func (a.y, b.y), func (a.z, b.z), func (a.w, b.w)); \
     }
 
 CV_CUDEV_IMPLEMENT_VEC_BINARY_FUNC(max, ::max, uchar, uchar)
@@ -804,35 +804,35 @@ CV_CUDEV_IMPLEMENT_VEC_BINARY_FUNC(atan2, ::atan2, double, double)
 #define CV_CUDEV_IMPLEMENT_SCALAR_BINARY_FUNC(func_name, func, input_type, scalar_type, output_type) \
     __device__ __forceinline__ output_type ## 1 func_name(const input_type ## 1 & a, scalar_type s) \
     { \
-        return make_<output_type ## 1>(func ((output_type) a.x, (output_type) s)); \
+        return make::type<output_type ## 1>(func ((output_type) a.x, (output_type) s)); \
     } \
     __device__ __forceinline__ output_type ## 1 func_name(scalar_type s, const input_type ## 1 & b) \
     { \
-        return make_<output_type ## 1>(func ((output_type) s, (output_type) b.x)); \
+        return make::type<output_type ## 1>(func ((output_type) s, (output_type) b.x)); \
     } \
     __device__ __forceinline__ output_type ## 2 func_name(const input_type ## 2 & a, scalar_type s) \
     { \
-        return make_<output_type ## 2>(func ((output_type) a.x, (output_type) s), func ((output_type) a.y, (output_type) s)); \
+        return make::type<output_type ## 2>(func ((output_type) a.x, (output_type) s), func ((output_type) a.y, (output_type) s)); \
     } \
     __device__ __forceinline__ output_type ## 2 func_name(scalar_type s, const input_type ## 2 & b) \
     { \
-        return make_<output_type ## 2>(func ((output_type) s, (output_type) b.x), func ((output_type) s, (output_type) b.y)); \
+        return make::type<output_type ## 2>(func ((output_type) s, (output_type) b.x), func ((output_type) s, (output_type) b.y)); \
     } \
     __device__ __forceinline__ output_type ## 3 func_name(const input_type ## 3 & a, scalar_type s) \
     { \
-        return make_<output_type ## 3>(func ((output_type) a.x, (output_type) s), func ((output_type) a.y, (output_type) s), func ((output_type) a.z, (output_type) s)); \
+        return make::type<output_type ## 3>(func ((output_type) a.x, (output_type) s), func ((output_type) a.y, (output_type) s), func ((output_type) a.z, (output_type) s)); \
     } \
     __device__ __forceinline__ output_type ## 3 func_name(scalar_type s, const input_type ## 3 & b) \
     { \
-        return make_<output_type ## 3>(func ((output_type) s, (output_type) b.x), func ((output_type) s, (output_type) b.y), func ((output_type) s, (output_type) b.z)); \
+        return make::type<output_type ## 3>(func ((output_type) s, (output_type) b.x), func ((output_type) s, (output_type) b.y), func ((output_type) s, (output_type) b.z)); \
     } \
     __device__ __forceinline__ output_type ## 4 func_name(const input_type ## 4 & a, scalar_type s) \
     { \
-        return make_<output_type ## 4>(func ((output_type) a.x, (output_type) s), func ((output_type) a.y, (output_type) s), func ((output_type) a.z, (output_type) s), func ((output_type) a.w, (output_type) s)); \
+        return make::type<output_type ## 4>(func ((output_type) a.x, (output_type) s), func ((output_type) a.y, (output_type) s), func ((output_type) a.z, (output_type) s), func ((output_type) a.w, (output_type) s)); \
     } \
     __device__ __forceinline__ output_type ## 4 func_name(scalar_type s, const input_type ## 4 & b) \
     { \
-        return make_<output_type ## 4>(func ((output_type) s, (output_type) b.x), func ((output_type) s, (output_type) b.y), func ((output_type) s, (output_type) b.z), func ((output_type) s, (output_type) b.w)); \
+        return make::type<output_type ## 4>(func ((output_type) s, (output_type) b.x), func ((output_type) s, (output_type) b.y), func ((output_type) s, (output_type) b.z), func ((output_type) s, (output_type) b.w)); \
     }
 
 CV_CUDEV_IMPLEMENT_SCALAR_BINARY_FUNC(max, ::max, uchar, uchar, uchar)

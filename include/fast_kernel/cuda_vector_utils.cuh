@@ -53,15 +53,15 @@ namespace fk {
 
 #define VECTOR_TRAITS(BaseType) \
     template <> \
-    struct VectorTraits<BaseType> { using base = BaseType; enum {cn=1}; }; \
+    struct VectorTraits<BaseType> { using base = BaseType; enum {cn=1}; enum {bytes=sizeof(base)}; }; \
     template <> \
-    struct VectorTraits<BaseType ## 1> { using base = BaseType; enum {cn=1}; }; \
+    struct VectorTraits<BaseType ## 1> { using base = BaseType; enum {cn=1}; enum {bytes=sizeof(base)}; }; \
     template <> \
-    struct VectorTraits<BaseType ## 2> { using base = BaseType; enum {cn=2}; }; \
+    struct VectorTraits<BaseType ## 2> { using base = BaseType; enum {cn=2}; enum {bytes=sizeof(base)*2}; }; \
     template <> \
-    struct VectorTraits<BaseType ## 3> { using base = BaseType; enum {cn=3}; }; \
+    struct VectorTraits<BaseType ## 3> { using base = BaseType; enum {cn=3}; enum {bytes=sizeof(base)*3}; }; \
     template <> \
-    struct VectorTraits<BaseType ## 4> { using base = BaseType; enum {cn=4}; };
+    struct VectorTraits<BaseType ## 4> { using base = BaseType; enum {cn=4}; enum {bytes=sizeof(base)*4}; };
 
     VECTOR_TRAITS(uchar)
     VECTOR_TRAITS(char)
@@ -80,22 +80,25 @@ namespace fk {
     // Automagically making any CUDA vector type from a template type
     // It will not compile if you try to do bad things. The number of elements
     // need to conform to T, and the type of the elements will always be casted.
-    template <typename T, typename... Numbers>
-    __device__ __forceinline__ __host__ constexpr T make_(const Numbers... pack) {
-        return {static_cast<decltype(T::x)>(pack)...};
-    }
+    struct make {
+        template <typename T, typename... Numbers>
+        FK_HOST_DEVICE_FUSE T type(const Numbers... pack) {
+            return {static_cast<decltype(T::x)>(pack)...};
+        }
+    };
+    
 
     template <typename T, typename Enabler=void>
     struct to_printable;
 
     template <typename T>
     struct to_printable<T, std::enable_if_t<sizeof(T) == 1>> {
-        __host__ inline constexpr int operator()(T val) { return static_cast<int>(val); }
+        FK_HOST_FUSE int exec(T val) { return static_cast<int>(val); }
     };
 
     template <typename T>
     struct to_printable<T, std::enable_if_t<(sizeof(T) > 1)>> {
-        __host__ inline constexpr T operator()(T val) { return val; }
+        FK_HOST_FUSE T exec(T val) { return val; }
     };
 
     template <typename T, typename Enabler=void>
@@ -103,7 +106,7 @@ namespace fk {
 
     template <typename T>
     struct print_vector<T, typename std::enable_if_t<CN(T) == 1>> {
-        __host__ inline constexpr std::ostream& operator()(std::ostream& outs, T val) {
+        FK_HOST_FUSE std::ostream& exec(std::ostream& outs, T val) {
             outs << "{" << to_printable<decltype(T::x)>()(val.x) << "}";
             return outs;
         }
@@ -111,7 +114,7 @@ namespace fk {
 
     template <typename T>
     struct print_vector<T, typename std::enable_if_t<CN(T) == 2>> {
-        __host__ inline constexpr std::ostream& operator()(std::ostream& outs, T val) {
+        FK_HOST_FUSE std::ostream& exec(std::ostream& outs, T val) {
             outs << "{" << to_printable<decltype(T::x)>()(val.x) << ", " << to_printable<decltype(T::y)>()(val.y) << "}";
             return outs;
         }
@@ -119,7 +122,7 @@ namespace fk {
 
     template <typename T>
     struct print_vector<T, typename std::enable_if_t<CN(T) == 3>> {
-        __host__ inline constexpr std::ostream& operator()(std::ostream& outs, T val) {
+        FK_HOST_FUSE std::ostream& exec(std::ostream& outs, T val) {
             outs << "{" << to_printable<decltype(T::x)>()(val.x) << ", " << to_printable<decltype(T::y)>()(val.y) <<
             ", " << to_printable<decltype(T::z)>()(val.z) << "}";
             return outs;
@@ -128,7 +131,7 @@ namespace fk {
 
     template <typename T>
     struct print_vector<T, typename std::enable_if_t<CN(T) == 4>> {
-        __host__ inline constexpr std::ostream& operator()(std::ostream& outs, T val) {
+        FK_HOST_FUSE std::ostream& exec(std::ostream& outs, T val) {
             outs << "{" << to_printable<decltype(T::x)>()(val.x) << ", " << to_printable<decltype(T::y)>()(val.y) << ", " <<
             to_printable<decltype(T::z)>()(val.z) << ", " << to_printable<decltype(T::w)>()(val.w) << "}";
             return outs;
@@ -149,7 +152,7 @@ namespace fk {
                                                           !std::is_enum<T>::value>>{
         // This case exists to make things easyer when we don't know if the type
         // is going to be a vector type or a normal type
-        __device__ __forceinline__ __host__ T operator()(T val) {
+        FK_HOST_DEVICE_FUSE T exec(const T val) {
             return val;
         }
     };
@@ -157,39 +160,39 @@ namespace fk {
     template <typename T>
     struct unary_vector_set_<T, typename std::enable_if_t<std::is_aggregate<T>::value &&
                                                           VectorTraits<T>::cn == 1>> {
-        __device__ __forceinline__ __host__ T operator()(typename VectorTraits<T>::base val) {
+        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base val) {
             return {val};
         }
     };
 
     template <typename T>
     struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 2>> {
-        __device__ __forceinline__ __host__ T operator()(typename VectorTraits<T>::base val) {
+        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base val) {
             return {val, val};
         }
     };
 
     template <typename T>
     struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 3>>{
-        __device__ __forceinline__ __host__ T operator()(typename VectorTraits<T>::base val) {
+        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base val) {
             return {val, val, val};
         }
     };
 
     template <typename T>
     struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 4>>{
-        __device__ __forceinline__ __host__ T operator()(typename VectorTraits<T>::base val) {
+        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base val) {
             return {val, val, val, val};
         }
     };
 
     template <typename T>
     __device__ __forceinline__ __host__ constexpr T make_set(typename VectorTraits<T>::base val) {
-        return unary_vector_set_<T>()(val);
+        return unary_vector_set_<T>::exec(val);
     }
 
     template <typename T>
     __device__ __forceinline__ __host__ constexpr T make_set(T val) {
-        return unary_vector_set_<T>()(val);
+        return unary_vector_set_<T>::exec(val);
     }
 }

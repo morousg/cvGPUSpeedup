@@ -25,58 +25,58 @@ namespace cvGS {
 namespace internal {
 
 template <int I, typename Operator, typename Enabler = void>
-struct split_t {};
+struct split_builder_t {};
 
 template <int I, typename Operator>
-struct split_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 2>> {
-    inline constexpr Operator operator()(std::vector<fk::Ptr3D<BASE_CUDA_T(I)>>& output) {
+struct split_builder_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 2>> {
+    FK_HOST_FUSE Operator build(const std::vector<fk::Ptr3D<BASE_CUDA_T(I)>>& output) {
         return { output.at(0), output.at(1) };
     }
 };
 
 template <int I, typename Operator>
-struct split_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 3>> {
-    inline constexpr Operator operator()(std::vector<fk::Ptr3D<BASE_CUDA_T(I)>>& output) {
+struct split_builder_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 3>> {
+    FK_HOST_FUSE Operator build(const std::vector<fk::Ptr3D<BASE_CUDA_T(I)>>& output) {
         return { output.at(0), output.at(1), output.at(2) };
     }
 };
 
 template <int I, typename Operator>
-struct split_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 4>> {
-    inline constexpr Operator operator()(std::vector<fk::Ptr3D<BASE_CUDA_T(I)>>& output) {
+struct split_builder_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 4>> {
+    FK_HOST_FUSE Operator build(const std::vector<fk::Ptr3D<BASE_CUDA_T(I)>>& output) {
         return { output.at(0), output.at(1), output.at(2), output.at(3) };
     }
 };
 
 template <int I, typename Operator, typename Enabler = void>
-struct operate_t {};
+struct operator_builder_t {};
 
 template <int I, typename Operator>
-struct operate_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 1>> {
-    inline constexpr Operator operator()(cv::Scalar& val) {
+struct operator_builder_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 1>> {
+    FK_HOST_FUSE Operator build(const cv::Scalar& val) {
         return { static_cast<BASE_CUDA_T(I)>(val[0]) };
     }
 };
 
 template <int I, typename Operator>
-struct operate_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 2>> {
-    inline constexpr Operator operator()(cv::Scalar& val) {
-        return { fk::make_<CUDA_T(I)>(val[0], val[1]) };
+struct operator_builder_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 2>> {
+    FK_HOST_FUSE Operator build(const cv::Scalar& val) {
+        return { fk::make::type<CUDA_T(I)>(val[0], val[1]) };
     }
 };
 
 template <int I, typename Operator>
-struct operate_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 3>> {
-    inline constexpr Operator operator()(cv::Scalar& val) {
-        return { fk::make_<CUDA_T(I)>(val[0], val[1], val[2]) };
+struct operator_builder_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 3>> {
+    FK_HOST_FUSE Operator build(const cv::Scalar& val) {
+        return { fk::make::type<CUDA_T(I)>(val[0], val[1], val[2]) };
     }
 };
 
 template <int I, typename Operator>
-struct operate_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 4>> {
-    inline constexpr Operator operator()(cv::Scalar& val) {
-        return { fk::make_<CUDA_T(I)>(val[0], val[1], val[2], val[3]) };
+struct operator_builder_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 4>> {
+    FK_HOST_FUSE Operator build(const cv::Scalar& val) {
+        return { fk::make::type<CUDA_T(I)>(val[0], val[1], val[2], val[3]) };
     }
 };
-}
-}
+} // namespace internal
+} // namespace cvGS

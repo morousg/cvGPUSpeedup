@@ -1,5 +1,7 @@
 NVCC=nvcc
-NVCCFLAGS=-I../include -I/usr/local/cuda/include -L/usr/local/cuda/lib64 -lcuda -lcudart -I/usr/local/include/opencv4 -L/usr/local/lib -lopencv_core -lopencv_cudaarithm -lopencv_imgproc -lopencv_cudawarping
+NVCCFLAGS_ONLY_FK=-I../include -I/usr/local/cuda/include -L/usr/local/cuda/lib64 -lcuda -lcudart
+NVCCFLAGS_ONLY_CV=-I/usr/local/include/opencv4 -L/usr/local/lib -lopencv_core -lopencv_cudaarithm -lopencv_imgproc -lopencv_cudawarping
+NVCCFLAGS=
 DEBUGFLAGS=
 
 
@@ -11,6 +13,11 @@ OUTPUT_DIR=../../cvGPUSpeedup_builds
 debug: DEBUGFLAGS += -g -G
 debug: all
 
+fk: NVCCFLAGS += $(NVCCFLAGS_ONLY_FK)
+fk:
+	$(NVCC) $(DEBUGFLAGS) $(NVCCFLAGS) testFastKernel.cu -o $(OUTPUT_DIR)/testFastKernel
+
+all: NVCCFLAGS += $(NVCCFLAGS_ONLY_FK) $(NVCCFLAGS_ONLY_CV)
 all: $(OBJ)
 %: %.cu
 	$(NVCC) $(DEBUGFLAGS) $(NVCCFLAGS) $< -o $(OUTPUT_DIR)/$@

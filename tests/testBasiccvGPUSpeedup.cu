@@ -27,10 +27,11 @@
 template <int T>
 bool checkResults(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& h_comparison1C) {
     cv::Mat h_comparison(NUM_ELEMS_Y, NUM_ELEMS_X, T);
-    cv::Mat maxError(NUM_ELEMS_Y, NUM_ELEMS_X, T, 0.0001);
+    cv::Mat maxError(NUM_ELEMS_Y, NUM_ELEMS_X, T, 0.00001);
     cv::compare(h_comparison1C, maxError, h_comparison, cv::CMP_GT);
 
-    /*for (int y=0; y<h_comparison1C.rows; y++) {
+#ifdef CVGS_DEBUG
+    for (int y=0; y<h_comparison1C.rows; y++) {
         for (int x=0; x<h_comparison1C.cols; x++) {
             CUDA_T(T) value = h_comparison1C.at<CUDA_T(T)>(y,x);
             if (value > 0.001) {
@@ -38,7 +39,8 @@ bool checkResults(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& h_comparison1C) {
             }
         }
         std::cout << std::endl;
-    }*/
+    }
+#endif
     
     int errors = cv::countNonZero(h_comparison);
     return errors == 0;
@@ -59,8 +61,9 @@ bool compareAndCheck(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& cvVersion, cv::M
 
 template <int I, int OC>
 bool testSplitOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
-    std::stringstream error;
+    std::stringstream error_s;
     bool passed = true;
+    bool exception = false;
 
     if (enabled) {
         struct Parameters {
@@ -86,8 +89,8 @@ bool testSplitOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
 
         try {
             cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, I, val_init);
-            cv::cuda::GpuMat d_crop = d_input(cv::Rect2d(cv::Point2d(200, 200), cv::Point2d(400, 800)));
-            cv::Size up(400, 1000);
+            cv::cuda::GpuMat d_crop = d_input(cv::Rect2d(cv::Point2d(200, 200), cv::Point2d(260, 320)));
+            cv::Size up(64, 128);
             cv::cuda::GpuMat d_up(up, I);
             cv::cuda::GpuMat d_temp(up, OC);
             cv::cuda::GpuMat d_temp2(up, OC);
@@ -113,7 +116,7 @@ bool testSplitOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
             cv::cuda::split(d_temp, d_output_cv, cv_stream);
 
             // cvGPUSpeedup version
-            cvGS::executeOperations(up, cv_stream,
+            cvGS::executeOperations<I>(cv_stream,
                                        cvGS::resize<I, cv::INTER_LINEAR>(d_input, up, 0., 0.),
                                        cvGS::convertTo<I, OC>(),
                                        cvGS::multiply<OC>(val_alpha),
@@ -138,18 +141,26 @@ bool testSplitOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
             }
         } catch (const cv::Exception& e) {
             if (e.code != -210) {
-                error << e.what();
+                error_s << e.what();
                 passed = false;
+                exception = true;
             }
         } catch (const std::exception& e) {
-            error << e.what();
+            error_s << e.what();
             passed = false;
+            exception = true;
         } 
 
         if (!passed) {
-            std::stringstream ss;
-            ss << "testSplitOutputOperation<" << cvTypeToString<I>() << ", " << cvTypeToString<OC>();
-            std::cout << ss.str() << "> failed!! ERROR: " << error.str() << std::endl;
+            if (!exception) {
+                std::stringstream ss;
+                ss << "testNoDefinedOutputOperation<" << cvTypeToString<I>() << ", " << cvTypeToString<OC>();
+                std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
+            } else {
+                std::stringstream ss;
+                ss << "testNoDefinedOutputOperation<" << cvTypeToString<I>() << ", " << cvTypeToString<OC>();
+                std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
+            }
         }
     }
 
@@ -158,8 +169,9 @@ bool testSplitOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
 
 template <int I, int OC>
 bool testNoDefinedOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
-    std::stringstream error;
+    std::stringstream error_s;
     bool passed = true;
+    bool exception = false;
 
     if (enabled) {
 
@@ -201,11 +213,11 @@ bool testNoDefinedOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::St
 
             // cvGPUSpeedup version
             cvGS::executeOperations<I, OC>(d_input, d_output_cvGS, cv_stream, 
-                                        cvGS::convertTo<I, OC>(),
-                                        cvGS::subtract<OC>(val_sub),
-                                        cvGS::multiply<OC>(val_mul),
-                                        cvGS::divide<OC>(val_div),
-                                        cvGS::add<OC>(val_add));
+                                            cvGS::convertTo<I, OC>(),
+                                            cvGS::subtract<OC>(val_sub),
+                                            cvGS::multiply<OC>(val_mul),
+                                            cvGS::divide<OC>(val_div),
+                                            cvGS::add<OC>(val_add));
 
             // Looking at Nsight Systems, with an RTX A2000 12GB
             // Speedups are up to 7x, depending on the data type
@@ -219,14 +231,21 @@ bool testNoDefinedOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::St
             passed = compareAndCheck<OC>(NUM_ELEMS_X, NUM_ELEMS_Y, h_cvResults, h_cvGSResults);
             
         } catch (const std::exception& e) {
-            error << e.what();
+            error_s << e.what();
             passed = false;
+            exception = true;
         }
 
         if (!passed) {
-            std::stringstream ss;
-            ss << "testNoDefinedOutputOperation<" << cvTypeToString<I>() << ", " << cvTypeToString<OC>();
-            std::cout << ss.str() << "> failed!! ERROR: " << error.str() << std::endl;
+            if (!exception) {
+                std::stringstream ss;
+                ss << "testNoDefinedOutputOperation<" << cvTypeToString<I>() << ", " << cvTypeToString<OC>();
+                std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
+            } else {
+                std::stringstream ss;
+                ss << "testNoDefinedOutputOperation<" << cvTypeToString<I>() << ", " << cvTypeToString<OC>();
+                std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
+            }
         }
 
     }
@@ -236,8 +255,9 @@ bool testNoDefinedOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::St
 
 template <int I, int O>
 bool testResize(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
-    std::stringstream error;
+    std::stringstream error_s;
     bool passed = true;
+    bool exception = false;
 
     if (enabled) {
 
@@ -259,7 +279,7 @@ bool testResize(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, b
             cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, I, val_init);
 
             cv::Size up(3870, 2260); // x,y
-            cv::Size down(600, 500); // x,y
+            cv::Size down(300, 500); // x,y
 
             cv::cuda::GpuMat d_down(down, I);
             cv::cuda::GpuMat d_up(up, I);
@@ -270,9 +290,8 @@ bool testResize(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, b
             cv::cuda::resize(d_input, d_up, up, 0., 0., cv::INTER_LINEAR, cv_stream);
             cv::cuda::resize(d_input, d_down, down, 0., 0., cv::INTER_LINEAR, cv_stream);
 
-            cvGS::executeOperations(up, cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, up, 0., 0.), cvGS::write<I>(d_up_cvGS));
-            cvGS::executeOperations(down, cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, down, 0., 0.), cvGS::write<I>(d_down_cvGS));
-
+            cvGS::executeOperations<I>(cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, up, 0., 0.), cvGS::write<I>(d_up_cvGS));
+            cvGS::executeOperations<I>(cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, down, 0., 0.), cvGS::write<I>(d_down_cvGS));
             cv::Mat h_up, h_up_cvGS;
             cv::Mat h_down, h_down_cvGS;
 
@@ -288,18 +307,26 @@ bool testResize(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, b
 
         } catch (const cv::Exception& e) {
             if (e.code != -210) {
-                error << e.what();
+                error_s << e.what();
                 passed = false;
+                exception = true;
             }
         } catch (const std::exception& e) {
-            error << e.what();
+            error_s << e.what();
             passed = false;
+            exception = true;
         } 
 
         if (!passed) {
-            std::stringstream ss;
-            ss << "testResize<" << cvTypeToString<I>() << ", " << cvTypeToString<O>();
-            std::cout << ss.str() << "> failed!! ERROR: " << error.str() << std::endl;
+            if (!exception) {
+                std::stringstream ss;
+                ss << "testResize<" << cvTypeToString<I>() << ", " << cvTypeToString<O>();
+                std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
+            } else {
+                std::stringstream ss;
+                ss << "testResize<" << cvTypeToString<I>() << ", " << cvTypeToString<O>();
+                std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
+            }
         }
     }
 
@@ -316,8 +343,8 @@ results["testNoDefinedOutputOperation"] &= testNoDefinedOutputOperation<CV_INPUT
 results["testResize"] &= testResize<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
 int main() {
-    constexpr size_t NUM_ELEMS_X = 1920;
-    constexpr size_t NUM_ELEMS_Y = 1080;
+    constexpr size_t NUM_ELEMS_X = 3840;
+    constexpr size_t NUM_ELEMS_Y = 2160;
 
     cv::cuda::Stream cv_stream;
 
