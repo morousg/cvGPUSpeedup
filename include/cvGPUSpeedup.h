@@ -24,68 +24,72 @@
 namespace cvGS {
 
 template <int I, int O>
-inline constexpr fk::unary_operation_scalar<fk::unary_cast<CUDA_T(I), CUDA_T(O)>, CUDA_T(I), CUDA_T(O)> convertTo() {
+inline constexpr fk::unary_operation_scalar<fk::unary_cast<CUDA_T(I), CUDA_T(O)>, CUDA_T(O)> convertTo() {
     return {};
 }
 
 template <int I>
-inline constexpr fk::binary_operation_scalar<fk::binary_mul<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> multiply(const cv::Scalar& src2) {
-    return internal::operator_builder_t<I, fk::binary_operation_scalar<fk::binary_mul<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>::build(src2);
+inline constexpr fk::binary_operation_scalar<fk::binary_mul<CUDA_T(I)>, CUDA_T(I)> multiply(const cv::Scalar& src2) {
+    return internal::operator_builder_t<I, fk::binary_operation_scalar<fk::binary_mul<CUDA_T(I)>, CUDA_T(I)>>::build(src2);
 }
 
 template <int I>
-inline constexpr fk::binary_operation_scalar<fk::binary_sub<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> subtract(const cv::Scalar& src2) {
-    return internal::operator_builder_t<I, fk::binary_operation_scalar<fk::binary_sub<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>::build(src2);
+inline constexpr fk::binary_operation_scalar<fk::binary_sub<CUDA_T(I)>, CUDA_T(I)> subtract(const cv::Scalar& src2) {
+    return internal::operator_builder_t<I, fk::binary_operation_scalar<fk::binary_sub<CUDA_T(I)>, CUDA_T(I)>>::build(src2);
 }
 
 template <int I>
-inline constexpr fk::binary_operation_scalar<fk::binary_div<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> divide(const cv::Scalar& src2) {
-    return internal::operator_builder_t<I, fk::binary_operation_scalar<fk::binary_div<CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>::build(src2);
+inline constexpr fk::binary_operation_scalar<fk::binary_div<CUDA_T(I)>, CUDA_T(I)> divide(const cv::Scalar& src2) {
+    return internal::operator_builder_t<I, fk::binary_operation_scalar<fk::binary_div<CUDA_T(I)>, CUDA_T(I)>>::build(src2);
 }
 
 template <int I>
-inline constexpr fk::binary_operation_scalar<fk::binary_sum<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)> add(const cv::Scalar& src2) {
-    return internal::operator_builder_t<I, fk::binary_operation_scalar<fk::binary_sum<CUDA_T(I), CUDA_T(I)>, CUDA_T(I), CUDA_T(I)>>::build(src2);
+inline constexpr fk::binary_operation_scalar<fk::binary_sum<CUDA_T(I)>, CUDA_T(I)> add(const cv::Scalar& src2) {
+    return internal::operator_builder_t<I, fk::binary_operation_scalar<fk::binary_sum<CUDA_T(I)>, CUDA_T(I)>>::build(src2);
 }
 
 template <int I>
-inline constexpr fk::split_write_scalar_2D<fk::perthread_split_write_2D<CUDA_T(I)>, CUDA_T(I)> split(const std::vector<cv::cuda::GpuMat>& output) {
-    std::vector<fk::Ptr3D<BASE_CUDA_T(I)>> fk_output;
+inline constexpr auto split(const std::vector<cv::cuda::GpuMat>& output) {
+    std::vector<fk::Ptr2D<BASE_CUDA_T(I)>> fk_output;
     for (auto& mat : output) {
-        fk::Ptr3D<BASE_CUDA_T(I)> o_ptr((BASE_CUDA_T(I)*)mat.data, mat.cols, mat.rows, mat.step);
+        fk::Ptr2D<BASE_CUDA_T(I)> o_ptr((BASE_CUDA_T(I)*)mat.data, mat.cols, mat.rows, mat.step);
         fk_output.push_back(o_ptr);
     }
-    return internal::split_builder_t<I, fk::split_write_scalar_2D<fk::perthread_split_write_2D<CUDA_T(I)>, CUDA_T(I)>>::build(fk_output);
+    return internal::split_builder_t<I, fk::split_write_scalar<fk::_2D,fk::perthread_split_write<fk::_2D,CUDA_T(I)>, CUDA_T(I)>>::build(fk_output);
 }
 
 template <int T, int INTER_F>
-inline constexpr fk::memory_read_iterpolated<fk::interpolate_read<CUDA_T(T), (fk::InterpolationType)INTER_F>, CUDA_T(T)> resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
+inline const fk::memory_read_iterpolated_N<1, fk::interpolate_read<fk::_2D, CUDA_T(T), (fk::InterpolationType)INTER_F>,
+                            CUDA_T(T)> resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
     // So far we only support fk::INTER_LINEAR
-    const fk::Ptr3D<CUDA_T(T)> fk_input((CUDA_T(T)*)input.data, input.cols, input.rows, input.step);
-
     uint t_width, t_height;
     if (dsize != cv::Size()) {
-        fx = static_cast<double>(dsize.width) / fk_input.width();
-        fy = static_cast<double>(dsize.height) / fk_input.height();
+        fx = static_cast<double>(dsize.width) / input.cols;
+        fy = static_cast<double>(dsize.height) / input.rows;
         t_width = dsize.width;
         t_height = dsize.height;
     } else {
-        t_width = CAROTENE_NS::internal::saturate_cast<int>(fk_input.width() * fx);
-        t_height = CAROTENE_NS::internal::saturate_cast<int>(fk_input.height() * fy);
+        t_width = CAROTENE_NS::internal::saturate_cast<int>(input.cols * fx);
+        t_height = CAROTENE_NS::internal::saturate_cast<int>(input.rows * fy);
     }
 
-    return { fk_input, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy), t_width, t_height };
+    const fk::RawPtr<fk::_2D, CUDA_T(T)> fk_input = 
+    {(CUDA_T(T)*)input.data, {(uint)input.cols, (uint)input.rows, (uint)input.step}};
+
+    using retType = fk::memory_read_iterpolated_N<1, fk::interpolate_read<fk::_2D, CUDA_T(T), (fk::InterpolationType)INTER_F>, CUDA_T(T)>;
+
+    return retType{fk_input, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy), t_width, t_height};
 }
 
 template <int O>
-inline constexpr fk::memory_write_scalar_2D<fk::perthread_write_2D<CUDA_T(O)>, CUDA_T(O)> write(const cv::cuda::GpuMat& output) {
-    fk::Ptr3D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);
+inline constexpr fk::memory_write_scalar<fk::_2D, fk::perthread_write<fk::_2D, CUDA_T(O)>, CUDA_T(O)> write(const cv::cuda::GpuMat& output) {
+    fk::Ptr2D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);
     return { fk_output };
 }
 
 template <int T, typename... operations>
-inline constexpr dim3 extractDataDims(const fk::memory_read_iterpolated<fk::interpolate_read<CUDA_T(T), fk::InterpolationType::INTER_LINEAR>, CUDA_T(T)>& op, const operations&... ops) {
-    return dim3(op.target_width, op.target_height, op.ptr.planes);
+inline constexpr dim3 extractDataDims(const fk::memory_read_iterpolated_N<1, fk::interpolate_read<fk::_2D, CUDA_T(T), fk::InterpolationType::INTER_LINEAR>, CUDA_T(T)>& op, const operations&... ops) {
+    return dim3(op.target_width, op.target_height);
 }
 
 template <int T, typename... operations>
@@ -106,7 +110,7 @@ template <int I, typename... operations>
 inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, const operations&... ops) {
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
-    fk::Ptr3D<CUDA_T(I)> fk_input((CUDA_T(I)*)input.data, input.cols, input.rows, input.step);
+    fk::Ptr2D<CUDA_T(I)> fk_input((CUDA_T(I)*)input.data, input.cols, input.rows, input.step);
 
     dim3 block = fk_input.getBlockSize();
     dim3 grid;
@@ -121,13 +125,13 @@ template <int I, int O, typename... operations>
 inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const operations&... ops) {
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
-    fk::Ptr3D<CUDA_T(I)> fk_input((CUDA_T(I)*)input.data, input.cols, input.rows, input.step);
-    fk::Ptr3D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);
+    fk::Ptr2D<CUDA_T(I)> fk_input((CUDA_T(I)*)input.data, input.cols, input.rows, input.step);
+    fk::Ptr2D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);
 
     dim3 block = fk_input.getBlockSize();
-    dim3 grid(ceil(fk_input.width() / (float)block.x), ceil(fk_input.height() / (float)block.y));
+    dim3 grid(ceil(fk_input.dims().width / (float)block.x), ceil(fk_input.dims().height / (float)block.y));
 
-    fk::memory_write_scalar_2D<fk::perthread_write_2D<CUDA_T(O)>, CUDA_T(O)> opFinal = { fk_output };
+    fk::memory_write_scalar<fk::_2D, fk::perthread_write<fk::_2D, CUDA_T(O)>, CUDA_T(O)> opFinal = { fk_output };
     fk::cuda_transform_<<<grid, block, 0, cu_stream>>>(fk_input.d_ptr(), ops..., opFinal);
     
     gpuErrchk(cudaGetLastError());

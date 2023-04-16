@@ -27,10 +27,11 @@ namespace cg = cooperative_groups;
 namespace fk {
 
 struct Point {
-  __device__ __forceinline__ __host__ Point(const uint x_, const uint y_) : x(x_), y(y_) {}
-  __device__ __forceinline__ __host__ Point(){}
-  uint x;
-  uint y;  
+    uint x;
+    uint y;
+    uint z;  
+    __device__ __forceinline__ __host__ Point() : x(0), y(0), z(0) {}
+    __device__ __forceinline__ __host__ Point(const uint x_, const uint y_ = 0, const uint z_ = 0) : x(x_), y(y_), z(z_) {}
 };
 
 inline constexpr uint computeDiscardedThreads(const uint width, const uint height, const uint blockDimx, const uint blockDimy) {
@@ -86,7 +87,7 @@ struct computeBestSolution<3, 1> {
 };
 
 
-inline dim3 getBlockSize(const uint width, const uint height, const uint planes = 1) {
+inline constexpr dim3 getBlockSize(const uint& width, const uint& height) {
     constexpr uint blockDimX[4]    = { 32, 64, 128, 256  };  // Possible block sizes in the x axis
     constexpr uint blockDimY[2][4] = {{ 8,  4,   2,   1},
                                       { 6,  3,   3,   2} };  // Possible block sizes in the y axis according to blockDim.x
@@ -97,48 +98,240 @@ inline dim3 getBlockSize(const uint width, const uint height, const uint planes 
     
     computeBestSolution<0, 0>::exec(width, height, bxS, byS, minDiscardedThreads, blockDimX, blockDimY);
 
-    return dim3(blockDimX[bxS], blockDimY[byS][bxS], planes);
+    return dim3(blockDimX[bxS], blockDimY[byS][bxS]);
 }
 
 enum MemType { Device, Host, HostPinned };
+enum ND { _1D=1, _2D=2, _3D=3 };
 
-template <typename T>
-struct PtrAccessor {
-    T* data;
+template <ND D>
+struct PtrDims;
+
+template <>
+struct PtrDims<_1D> {
+    uint width;
+    uint pitch;
+
+    __host__ __device__ __forceinline__ PtrDims() : pitch(0) {}
+    __host__ __device__ __forceinline__
+    PtrDims(uint width_, uint pitch_=0) : width(width_), pitch(pitch_) {}
+};
+
+template <>
+struct PtrDims<_2D> {
+    uint width;
+    uint height;
+    uint pitch;
+
+    __host__ __device__ __forceinline__ PtrDims() : pitch(0) {}
+    __host__ __device__ __forceinline__
+    PtrDims(uint width_, uint height_, uint pitch_=0) :
+                    width(width_), height(height_), pitch(pitch_) {}
+};
+
+template <>
+struct PtrDims<_3D> {
     uint width;
     uint height;
     uint planes;
+    uint color_planes;
     uint pitch;
+    uint plane_pitch;
 
-    __host__ __device__ __forceinline__ const T*__restrict__ at_cr(const Point& p) const {
-        return (const T*)((const char*)data + (p.y * pitch)) + p.x;
+    __host__ __device__ __forceinline__ PtrDims() : pitch(0), plane_pitch(0) {}
+    __host__ __device__ __forceinline__ 
+    PtrDims(uint width_, uint height_, uint planes_, uint color_planes_ = 1, uint pitch_=0) :
+            width(width_), height(height_), planes(planes_), color_planes(color_planes_),
+            pitch(pitch_), plane_pitch(pitch_ * height_) {}
+};
+
+template <ND D>
+struct PtrAccessor;
+
+template <>
+struct PtrAccessor<_1D> {
+    template <typename T>
+    FK_HOST_DEVICE_FUSE T*__restrict__ cr_point(const Point& p, const T*__restrict__ data, const PtrDims<_1D>& dims) {
+        return data + p.x;
     }
 
-    __host__ __device__ __forceinline__ T* at(const Point p) const {
-        return (T*)((char*)data + (p.y * pitch)) + p.x;
+    template <typename T>
+    static __device__ __forceinline__ __host__ T* point(const Point& p, const T* data, const PtrDims<_1D>& dims) {
+        return data + p.x;
+    }
+};
+
+template <>
+struct PtrAccessor<_2D> {
+    template <typename T>
+    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const Point& p, const T*__restrict__ data, const PtrDims<_2D>& dims) {
+        return (const T*)((const char*)data + (p.y * dims.pitch)) + p.x;
+    }
+
+    template <typename T>
+    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const uint& x, const uint& y, const T*__restrict__ data, const uint& pitch) {
+        return (const T*)((const char*)data + (y * pitch)) + x;
+    }
+
+    template <typename T>
+    static __device__ __forceinline__ __host__ T* point(const Point& p, const T* data, const PtrDims<_2D>& dims) {
+        return (T*)((char*)data + (p.y * dims.pitch)) + p.x;
+    }
+};
+
+template <>
+struct PtrAccessor<_3D> {
+    template <typename T>
+    FK_HOST_DEVICE_FUSE T*__restrict__ cr_point(const Point& p, const T*__restrict__ data, const PtrDims<_3D>& dims) {
+        return (const T*)((const char*)data + ((dims.plane_pitch * dims.color_planes * p.z) + (p.y * dims.pitch))) + p.x;
+    }
+
+    template <typename T>
+    static __device__ __forceinline__ __host__ T* point(const Point& p, const T* data, const PtrDims<_3D>& dims) {
+        return (T*)((char*)data + ((dims.plane_pitch * dims.color_planes * p.z) + (p.y * dims.pitch))) + p.x;
+    }
+};
+
+template <ND D, typename T>
+struct RawPtr;
+
+template <typename T>
+struct RawPtr<_1D, T> {
+    T* data;
+    PtrDims<_1D> dims;
+    using base = typename VectorTraits<T>::base;
+    enum {cn=VectorTraits<T>::cn};
+};
+
+template <typename T>
+struct RawPtr<_2D, T> {
+    T* data;
+    PtrDims<_2D> dims;
+    using base = typename VectorTraits<T>::base;
+    enum {cn=VectorTraits<T>::cn};
+};
+
+template <typename T>
+struct RawPtr<_3D, T> {
+    T* data;
+    PtrDims<_3D> dims;
+    using base = typename VectorTraits<T>::base;
+    enum {cn=VectorTraits<T>::cn};
+};
+
+template <ND D, typename T>
+struct PtrImpl;
+
+template <typename T>
+struct PtrImpl<_1D,T> {
+    FK_HOST_FUSE size_t sizeInBytes(const PtrDims<_1D>& dims) {
+        return dims.pitch;
+    }
+    FK_HOST_FUSE uint getNumElements(const PtrDims<_1D>& dims) {
+        return dims.width;
+    }
+    FK_HOST_FUSE void d_malloc(RawPtr<_1D,T>& ptr_a) {
+        gpuErrchk(cudaMalloc(&ptr_a.data, sizeof(T) * ptr_a.dims.width));
+        ptr_a.dims.pitch = sizeof(T) * ptr_a.dims.width;
+    }
+    FK_HOST_FUSE void h_malloc_init(PtrDims<_1D>& dims) {}
+    FK_HOST_FUSE dim3 getBlockSize(const PtrDims<_1D>& dims) {
+        return fk::getBlockSize(dims.width, 1);
     }
 };
 
 template <typename T>
-class Ptr3D {
+struct PtrImpl<_2D,T> {
+    FK_HOST_FUSE size_t sizeInBytes(const PtrDims<_2D>& dims) {
+        return dims.pitch * dims.height;
+    }
+    FK_HOST_FUSE uint getNumElements(const PtrDims<_2D>& dims) {
+        return dims.width * dims.height;
+    }
+    FK_HOST_FUSE void d_malloc(RawPtr<_2D,T>& ptr_a) {
+        if (ptr_a.dims.pitch == 0) {
+            size_t pitch;
+            gpuErrchk(cudaMallocPitch(&ptr_a.data, &pitch, sizeof(T) * ptr_a.dims.width, ptr_a.dims.height));
+            ptr_a.dims.pitch = pitch;
+        } else {
+            gpuErrchk(cudaMalloc(&ptr_a.data, PtrImpl<_2D,T>::sizeInBytes(ptr_a.dims)));
+        }
+    }
+    FK_HOST_FUSE void h_malloc_init(PtrDims<_2D>& dims) {}
+    FK_HOST_FUSE dim3 getBlockSize(const PtrDims<_2D>& dims) {
+        return fk::getBlockSize(dims.width, dims.height);
+    }
+};
 
+template <typename T>
+struct PtrImpl<_3D,T> {
+    FK_HOST_FUSE size_t sizeInBytes(const PtrDims<_3D>& dims) {
+        return dims.pitch * dims.height * dims.planes;
+    }
+    FK_HOST_FUSE uint getNumElements(const PtrDims<_3D>& dims) {
+        return dims.width * dims.height * dims.planes;
+    }
+    FK_HOST_FUSE void d_malloc(RawPtr<_3D,T>& ptr_a) {
+        if (ptr_a.dims.pitch == 0) {
+            size_t pitch;
+            gpuErrchk(cudaMallocPitch(&ptr_a.data, &pitch, sizeof(T) * ptr_a.dims.width, ptr_a.dims.height * ptr_a.dims.planes));
+            ptr_a.dims.pitch = pitch;
+        } else {
+            gpuErrchk(cudaMalloc(&ptr_a.data, PtrImpl<_3D,T>::sizeInBytes(ptr_a)));
+        }
+        ptr_a.plane_pitch = ptr_a.dims.pitch * ptr_a.dims.heigth;
+    }
+    FK_HOST_FUSE void h_malloc_init(PtrDims<_3D>& dims) {
+        dims.plane_pitch = dims.pitch * dims.height;
+    }
+    FK_HOST_FUSE dim3 getBlockSize(const PtrDims<_3D>& dims) {
+        return fk::getBlockSize(dims.width, dims.height);
+    }
+};
+
+template <ND D, typename T, typename At>
+class Ptr{
 protected:
-    struct refPtr {
+    struct RefPtr {
         void* ptr;
         int cnt;  
     };
-    refPtr* ref{ nullptr };
-    PtrAccessor<T> patterns;
+    RefPtr* ref{ nullptr };
+    RawPtr<D,T> ptr_a;
     dim3 adjusted_blockSize;
     MemType type;
     int deviceID;
 
+    __host__ inline Ptr(RawPtr<D,T> ptr_a_, RefPtr * ref_, dim3 bs_, MemType type_, int devID) : 
+                        ptr_a(ptr_a_), ref(ref_), adjusted_blockSize(bs_), type(type_), deviceID(devID) {}
+
     __host__ inline constexpr uint sizeInBytes() const {
-        return patterns.pitch * patterns.height;
+        return PtrImpl<D,T>::sizeInBytes(ptr_a.dims);
+    }
+    __host__ inline constexpr uint getNumElements() const {
+        return PtrImpl<D,T>::getNumElements(ptr_a.dims);
+    }
+    
+    __host__ virtual void allocDevice() {
+        int currentDevice;
+        gpuErrchk(cudaGetDevice(&currentDevice));
+        gpuErrchk(cudaSetDevice(deviceID));
+        PtrImpl<D,T>::d_malloc(ptr_a);
+        if (currentDevice != deviceID) {
+            gpuErrchk(cudaSetDevice(currentDevice));
+        }
     }
 
-    __host__ inline constexpr uint getNumElements() const {
-        return patterns.width * patterns.height;
+    __host__ inline void allocHost() {
+        ptr_a.dims.pitch = sizeof(T) * ptr_a.dims.width; //Here we don't support padding
+        ptr_a.data = (T*)malloc(PtrImpl<D,T>::sizeInBytes(ptr_a.dims));
+        PtrImpl<D,T>::h_malloc_init(ptr_a.dims);
+    }
+
+    __host__ inline void allocHostPinned() {
+        ptr_a.dims.pitch = sizeof(T) * ptr_a.dims.width; //Here we don't support padding
+        gpuErrchk(cudaMallocHost(&ptr_a.data, PtrImpl<D,T>::sizeInBytes(ptr_a.dims)));
+        PtrImpl<D,T>::h_malloc_init(ptr_a.dims);
     }
 
     __host__ inline void freePrt() {
@@ -163,41 +356,12 @@ protected:
         }
     }
 
-    __host__ inline Ptr3D(PtrAccessor<T> patterns_, refPtr * ref_, dim3 bs_, MemType type_, int devID) : 
-        patterns(patterns_), ref(ref_), adjusted_blockSize(bs_), type(type_), deviceID(devID) {}
-
-    __host__ virtual void allocDevice() {
-        int currentDevice;
-        gpuErrchk(cudaGetDevice(&currentDevice));
-        gpuErrchk(cudaSetDevice(deviceID));
-        if (patterns.pitch == 0) {
-            size_t pitch_temp;
-            gpuErrchk(cudaMallocPitch(&patterns.data, &pitch_temp, sizeof(T) * patterns.width, patterns.height * patterns.planes));
-            patterns.pitch = pitch_temp;
-        } else {
-            gpuErrchk(cudaMalloc(&patterns.data, patterns.pitch * patterns.height * patterns.planes));
-        }
-        if (currentDevice != deviceID) {
-            gpuErrchk(cudaSetDevice(currentDevice));
-        }
-    }
-
-    __host__ inline void allocHost() {
-        patterns.data = (T*)malloc(sizeof(T) * patterns.width * patterns.height * patterns.planes);
-        patterns.pitch = sizeof(T) * patterns.width; //Here we don't support padding
-    }
-
-    __host__ inline void allocHostPinned() {
-        gpuErrchk(cudaMallocHost(&patterns.data, sizeof(T) * patterns.width * patterns.height * patterns.planes));
-        patterns.pitch = sizeof(T) * patterns.width; //Here we don't support padding
-    }
-
 public:
 
-    __host__ inline Ptr3D() {}
+    __host__ inline Ptr() {}
 
-    __host__ inline Ptr3D(const Ptr3D<T>& other) {
-        patterns = other.patterns;
+    __host__ inline Ptr(const Ptr<D,T, At>& other) {
+        ptr_a = other.ptr_a;
         adjusted_blockSize = other.adjusted_blockSize;
         type = other.type;
         deviceID = other.deviceID;
@@ -207,44 +371,29 @@ public:
         }
     }
 
-    __host__ inline Ptr3D(uint width_, uint height_, uint pitch_ = 0, uint planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
-        allocPtr(width_, height_, pitch_, planes_, type_, deviceID_);
+    __host__ inline Ptr(const PtrDims<D>& dims, MemType type_ = Device, int deviceID_ = 0) {
+        allocPtr(dims, type_, deviceID_);
     }
 
-    __host__ inline Ptr3D(T * data_, uint width_, uint height_, uint pitch_, uint planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
-        patterns.data = data_;
-        patterns.width = width_;
-        patterns.height = height_;
-        patterns.pitch = pitch_;
-        patterns.planes = planes_;
+    __host__ inline Ptr(T * data_, const PtrDims<D>& dims, MemType type_ = Device, int deviceID_ = 0) {
+        ptr_a.data = data_;
+        ptr_a.dims = dims;
         type = type_;
         deviceID = deviceID_;
-        adjusted_blockSize = fk::getBlockSize(patterns.width, patterns.height);
+        adjusted_blockSize = PtrImpl<D,T>::getBlockSize(ptr_a.dims);
     }
 
-    __host__ inline ~Ptr3D() {
-        // TODO: add gpuCkeck
-        freePrt();
-    }
-
-    __host__ inline PtrAccessor<T> d_ptr() const { return patterns; }
-
-    __host__ inline operator PtrAccessor<T>() const { return patterns; }
-
-    __host__ inline void allocPtr(const uint width_, const uint height_, const uint pitch_ = 0, const uint planes_ = 1, const MemType type_ = Device, const int deviceID_ = 0) {
-        patterns.width = width_;
-        patterns.height = height_;
-        patterns.pitch = pitch_;
-        patterns.planes = planes_;
+    __host__ inline void allocPtr(const PtrDims<D>& dims_, const MemType type_ = Device, const int deviceID_ = 0) {
+        ptr_a.dims = dims_;
         type = type_;
         deviceID = deviceID_;
-        ref = (refPtr*)malloc(sizeof(refPtr));
+        ref = (RefPtr*)malloc(sizeof(RefPtr));
         ref->cnt = 1;
 
         switch (type_) {
             case Device:
                 allocDevice();
-                adjusted_blockSize = fk::getBlockSize(patterns.width, patterns.height);
+                adjusted_blockSize = PtrImpl<D,T>::getBlockSize(ptr_a.dims);
                 break;
             case Host:
                 allocHost();
@@ -256,94 +405,179 @@ public:
                 break;
         }
 
-        ref->ptr = patterns.data;
+        ref->ptr = ptr_a.data;
     }
 
-    __host__ inline Ptr3D<T> crop(Point p, uint width_n, uint height_n, uint planes_n = 1) {
-        T* ptr = patterns.at(p);
+    __host__ inline ~Ptr() {
+        freePrt();
+    }
+
+    __host__ inline RawPtr<D,T> d_ptr() const { return ptr_a; }
+
+    __host__ inline operator RawPtr<D,T>() const { return ptr_a; }
+
+    __host__ inline Ptr<D,T, At> crop(Point p, PtrDims<D> newDims) {
+        T* ptr = At::point(p, ptr_a.data, ptr_a.dims);
         ref->cnt++;
-        const PtrAccessor<T> newAccessor = {ptr, width_n, height_n, planes_n, patterns.pitch};
-        return {newAccessor, ref, fk::getBlockSize(width_n, height_n), type, deviceID};
+        const RawPtr<D,T> newRawPtr = {ptr, newDims};
+        return {newRawPtr, ref, PtrImpl<D,T>::getBlockSize(newDims), type, deviceID};
     }
-
-    __host__ inline uint width() const {
-        return patterns.width;
+    __host__ inline RawPtr<D,T> raw_ptr() const {
+        return ptr_a;
     }
-    __host__ inline uint height() const {
-        return patterns.height;
-    }
-    __host__ inline uint pitch() const {
-        return patterns.pitch;
+    __host__ inline PtrDims<D> dims() const {
+        return ptr_a.dims;
     }
     __host__ inline T* data() const {
-        return patterns.data;
+        return ptr_a.data;
     }
-
     __host__ inline dim3 getBlockSize() const {
         return adjusted_blockSize;
+    }
+    __host__ inline MemType getMemType() const {
+        return type;
+    }
+    __host__ inline int getDeviceID() const {
+        return deviceID;
     }
 };
 
 template <typename T>
-class Tensor : public Ptr3D<T> {
-    __host__ void allocDevice() final {
-        int currentDevice;
-        gpuErrchk(cudaGetDevice(&currentDevice));
-        gpuErrchk(cudaSetDevice(this->deviceID));
-        this->patterns.pitch = this->patterns.width * sizeof(T);
-        gpuErrchk(cudaMalloc(&this->patterns.data, this->patterns.pitch * this->patterns.height * this->patterns.planes));
-        if (currentDevice != this->deviceID) {
-            gpuErrchk(cudaSetDevice(currentDevice));
-        }
+class Ptr1D : public Ptr<_1D, T, PtrAccessor<_1D>> {
+public:
+    __host__ inline Ptr1D(uint num_elems, uint size_in_bytes = 0, MemType type_ = Device, int deviceID_ = 0) : 
+                          Ptr<_1D, T, PtrAccessor<_1D>>(PtrDims<_1D>(num_elems, size_in_bytes), type_, deviceID_) {}
+    __host__ inline Ptr1D(const Ptr<_1D, T, PtrAccessor<_1D>>& other) : Ptr<_1D, T, PtrAccessor<_1D>>(other) {}
+    __host__ inline Ptr1D(T * data_, const PtrDims<_1D>& dims_, MemType type_ = Device, int deviceID_ = 0) :
+                          Ptr<_1D, T, PtrAccessor<_1D>>(data_, dims_, type_, deviceID_) {}
+    __host__ inline Ptr1D<T> crop1D(Point p, PtrDims<_1D> newDims) {
+        return Ptr<_1D, T, PtrAccessor<_1D>>::crop(p, newDims);
     }
 };
 
-template <typename I, typename O=I>
-struct perthread_write_2D {
-    FK_DEVICE_FUSE void exec(const dim3 thread, const I input, PtrAccessor<O> output) {
-        *(output.at({thread.x, thread.y})) = input;
+template <typename T>
+class Ptr2D : public Ptr<_2D, T, PtrAccessor<_2D>> {
+public:
+    __host__ inline Ptr2D(uint width_, uint height_, uint pitch_ = 0, MemType type_ = Device, int deviceID_ = 0) : 
+    Ptr<_2D, T, PtrAccessor<_2D>>(PtrDims<_2D>(width_, height_, pitch_), type_, deviceID_) {}
+    __host__ inline Ptr2D(const Ptr<_2D, T, PtrAccessor<_2D>>& other) : Ptr<_2D, T, PtrAccessor<_2D>>(other) {}
+    __host__ inline Ptr2D(T * data_, uint width_, uint height_, uint pitch_, MemType type_ = Device, int deviceID_ = 0) :
+                          Ptr<_2D, T, PtrAccessor<_2D>>(data_, PtrDims<_2D>(width_,height_,pitch_), type_, deviceID_) {}
+    __host__ inline Ptr2D<T> crop2D(Point p, PtrDims<_2D> newDims) {
+        return Ptr<_2D, T, PtrAccessor<_2D>>::crop(p, newDims);
     }
 };
 
-template <typename I, typename Enabler=void>
-struct perthread_split_write_2D;
-
-template <typename I>
-struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 2>> {
-    FK_DEVICE_FUSE void exec(const dim3 thread, const I input,
-                               PtrAccessor<decltype(I::x)> output1,
-                               PtrAccessor<decltype(I::y)> output2) {
-        const Point p(thread.x, thread.y);
-        *output1.at(p) = input.x; 
-        *output2.at(p) = input.y;
+// A Ptr3D pointer can have 2D padding on each plane, or not
+template <typename T>
+class Ptr3D : public Ptr<_3D, T, PtrAccessor<_3D>> {
+public:
+    __host__ inline Ptr3D(uint width_, uint height_, uint planes_, uint color_planes_ = 1, uint pitch_ = 0, MemType type_ = Device, int deviceID_ = 0) : 
+    Ptr<_3D, T, PtrAccessor<_3D>>(PtrDims<_3D>(width_, height_, planes_, color_planes_, pitch_), type_, deviceID_) {}
+    __host__ inline Ptr3D(const Ptr<_3D, T, PtrAccessor<_3D>>& other) : Ptr<_3D, T, PtrAccessor<_3D>>(other) {}
+    __host__ inline Ptr3D(T * data_, const PtrDims<_3D>& dims_, MemType type_ = Device, int deviceID_ = 0) :
+                          Ptr<_3D, T, PtrAccessor<_3D>>(data_, dims_, type_, deviceID_) {}
+    __host__ inline Ptr3D<T> crop3D(Point p, PtrDims<_3D> newDims) {
+        return Ptr<_3D, T, PtrAccessor<_3D>>::crop(p, newDims);
     }
 };
 
-template <typename I>
-struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 3>> {
-    FK_DEVICE_FUSE void exec(const dim3 thread, const I input, 
-                               PtrAccessor<decltype(I::x)> output1, 
-                               PtrAccessor<decltype(I::y)> output2,
-                               PtrAccessor<decltype(I::z)> output3) {
-        const Point p(thread.x, thread.y);
-        *output1.at(p) = input.x; 
-        *output2.at(p) = input.y; 
-        *output3.at(p) = input.z;
+// A Tensor pointer will never have any padding
+template <typename T>
+class Tensor : public Ptr<_3D, T, PtrAccessor<_3D>> {
+public:
+    __host__ inline Tensor(uint width_, uint height_, uint planes_, uint color_planes_ = 1, MemType type_ = Device, int deviceID_ = 0) : 
+    Ptr<_3D,T, PtrAccessor<_3D>>(PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_) {}
+};
+
+template <ND D, typename T>
+struct perthread_write {
+    FK_DEVICE_FUSE void exec(const Point& thread, const T& input, const RawPtr<D,T>& output) {
+        *PtrAccessor<D>::point(thread, output.data, output.dims) = input;
     }
 };
 
-template <typename I>
-struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 4>> {
-    FK_DEVICE_FUSE void exec(const dim3 thread, I input, 
-                               PtrAccessor<decltype(I::x)> output1, 
-                               PtrAccessor<decltype(I::y)> output2,
-                               PtrAccessor<decltype(I::z)> output3,
-                               PtrAccessor<decltype(I::w)> output4) { 
-        const Point p(thread.x, thread.y);
-        *output1.at(p) = input.x; 
-        *output2.at(p) = input.y; 
-        *output3.at(p) = input.z;
-        *output4.at(p) = input.w; 
+template <typename T, typename Enabler=void>
+struct perthread_packed2plannar_tensor_write;
+
+template <typename T>
+struct perthread_packed2plannar_tensor_write<T, typename std::enable_if_t<CN(T) == 2>> {
+    FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
+                             const Tensor<typename VectorTraits<T>::base>& ptr) {
+        using BaseType = typename VectorTraits<T>::base;
+        BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr.data, ptr.dims);
+        *work_plane = input.x;
+        work_plane += (ptr.dims.width * ptr.dims.height);
+        *work_plane = input.y;
+    }
+};
+
+template <typename T>
+struct perthread_packed2plannar_tensor_write<T, typename std::enable_if_t<CN(T) == 3>> {
+    FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
+                             const Tensor<typename VectorTraits<T>::base>& ptr) {
+        using BaseType = typename VectorTraits<T>::base;
+        BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr.data, ptr.dims);
+        *work_plane = input.x;
+        work_plane += (ptr.dims.width * ptr.dims.height);
+        *work_plane = input.y;
+        work_plane += (ptr.dims.width * ptr.dims.height);
+        *work_plane = input.z;
+    }
+};
+
+template <typename T>
+struct perthread_packed2plannar_tensor_write<T, typename std::enable_if_t<CN(T) == 4>> {
+    FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
+                             const Tensor<typename VectorTraits<T>::base>& ptr) {
+        using BaseType = typename VectorTraits<T>::base;
+        BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr.data, ptr.dims);
+        *work_plane = input.x;
+        work_plane += (ptr.dims.width * ptr.dims.height);
+        *work_plane = input.y;
+        work_plane += (ptr.dims.width * ptr.dims.height);
+        *work_plane = input.z;
+        work_plane += (ptr.dims.width * ptr.dims.height);
+        *work_plane = input.w;
+    }
+};
+
+template <ND D, typename T, typename Enabler=void>
+struct perthread_split_write;
+
+template <ND D, typename T>
+struct perthread_split_write<D, T, typename std::enable_if_t<CN(T) == 2>> {
+    FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
+                             const RawPtr<D,decltype(T::x)>& output1,
+                             const RawPtr<D,decltype(T::y)>& output2) {
+        *PtrAccessor<D>::point(thread, output1.data, output1.dims) = input.x;
+        *PtrAccessor<D>::point(thread, output2.data, output2.dims) = input.y;
+    }
+};
+
+template <ND D, typename T>
+struct perthread_split_write<D, T, typename std::enable_if_t<CN(T) == 3>> {
+    FK_DEVICE_FUSE void exec(const Point& thread, const T& input, 
+                             const RawPtr<D,decltype(T::x)>& output1, 
+                             const RawPtr<D,decltype(T::y)>& output2,
+                             const RawPtr<D,decltype(T::z)>& output3) {
+        *PtrAccessor<D>::point(thread, output1.data, output1.dims) = input.x;
+        *PtrAccessor<D>::point(thread, output2.data, output2.dims) = input.y;
+        *PtrAccessor<D>::point(thread, output3.data, output3.dims) = input.z;
+    }
+};
+
+template <ND D, typename T>
+struct perthread_split_write<D, T, typename std::enable_if_t<CN(T) == 4>> {
+    FK_DEVICE_FUSE void exec(const Point& thread, const T& input, 
+                               RawPtr<D,decltype(T::x)> output1, 
+                               RawPtr<D,decltype(T::y)> output2,
+                               RawPtr<D,decltype(T::z)> output3,
+                               RawPtr<D,decltype(T::w)> output4) { 
+        *PtrAccessor<D>::point(thread, output1.data, output1.dims) = input.x;
+        *PtrAccessor<D>::point(thread, output2.data, output2.dims) = input.y;
+        *PtrAccessor<D>::point(thread, output3.data, output3.dims) = input.z;
+        *PtrAccessor<D>::point(thread, output4.data, output4.dims) = input.w;
     }
 };
 
@@ -426,37 +660,48 @@ enum InterpolationType {
     NONE = 17
 };
 
-template <typename T, InterpolationType INTER_T>
+template <ND D, typename I, InterpolationType INTER_T>
 struct interpolate_read;
 
-template <typename T>
-struct interpolate_read<T, InterpolationType::INTER_LINEAR> {
-    static __device__ __forceinline__ T exec(const PtrAccessor<T> input, const float fy, const float fx, const uint dst_x, const uint dst_y) {
-        const float src_x = dst_x * fx;
-        const float src_y = dst_y * fy;
+template <typename I>
+struct interpolate_read<_2D, I, InterpolationType::INTER_LINEAR> {
+    static __device__ __forceinline__ const I exec(const Point& thread, const I*__restrict__ i_data,
+                                                   const PtrDims<_2D>& i_dims, const float& fy, const float& fx) {
+        const float src_x = thread.x * fx;
+        const float src_y = thread.y * fy;
 
         const uint x1 = __float2int_rd(src_x);
         const uint y1 = __float2int_rd(src_y);
         const uint x2 = x1 + 1;
         const uint y2 = y1 + 1;        
-        const uint x2_read = ::min(x2, input.width - 1);
-        const uint y2_read = ::min(y2, input.height - 1);
+        const uint x2_read = ::min(x2, i_dims.width - 1);
+        const uint y2_read = ::min(y2, i_dims.height - 1);
 
-        using floatcn_t = typename VectorType<float, VectorTraits<T>::cn>::type;
+        using floatcn_t = typename VectorType<float, VectorTraits<I>::cn>::type;
         floatcn_t out = make_set<floatcn_t>(0.f);
-        T src_reg = *input.at_cr({x1, y1});
+        I src_reg = *PtrAccessor<_2D>::cr_point(x1, y1, i_data, i_dims.pitch);  //input.at_cr({x1, y1});
         out = out + src_reg * ((x2 - src_x) * (y2 - src_y));
 
-        src_reg = *input.at_cr({x2_read, y1});
+        src_reg = *PtrAccessor<_2D>::cr_point(x2_read, y1, i_data, i_dims.pitch); //*input.at_cr({x2_read, y1});
         out = out + src_reg * ((src_x - x1) * (y2 - src_y));
 
-        src_reg = *input.at_cr({x1, y2_read});
+        src_reg = *PtrAccessor<_2D>::cr_point(x1, y2_read, i_data, i_dims.pitch); //*input.at_cr({x1, y2_read});
         out = out + src_reg * ((x2 - src_x) * (src_y - y1));
 
-        src_reg = *input.at_cr({x2_read, y2_read});
+        src_reg = *PtrAccessor<_2D>::cr_point(x2_read, y2_read, i_data, i_dims.pitch); //*input.at_cr({x2_read, y2_read});
         out = out + src_reg * ((src_x - x1) * (src_y - y1));
         
-        return saturate_cast<T>(out);
+        return saturate_cast<I>(out);
     } 
 };
+
+template <typename I>
+struct interpolate_read<_3D, I, InterpolationType::INTER_LINEAR> {
+    FK_DEVICE_FUSE I exec(const Point& thread, const RawPtr<_3D, I>& input) {
+        const RawPtr<_2D,I>& myPtr = input.ptrs[thread.z];                                           
+        return interpolate_read<_2D, I, InterpolationType::INTER_LINEAR>
+                                ::exec(thread, myPtr.data, myPtr.dims, myPtr.fy, myPtr.fx);
+    }
+};
+
 }

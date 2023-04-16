@@ -1,5 +1,5 @@
 NVCC=nvcc
-NVCCFLAGS_ONLY_FK=-I../include -I/usr/local/cuda/include -L/usr/local/cuda/lib64 -lcuda -lcudart
+NVCCFLAGS_ONLY_FK=-gencode arch=compute_86,code=sm_86 -I../include -I/usr/local/cuda/include -L/usr/local/cuda/lib64 -lcuda -lcudart
 NVCCFLAGS_ONLY_CV=-I/usr/local/include/opencv4 -L/usr/local/lib -lopencv_core -lopencv_cudaarithm -lopencv_imgproc -lopencv_cudawarping
 NVCCFLAGS=
 DEBUGFLAGS=

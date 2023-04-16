@@ -17,42 +17,43 @@
 
 namespace fk {
 
-template <typename Operator, typename T>
-struct memory_read_iterpolated {
-    const PtrAccessor<T> ptr;
-    const float fx;
-    const float fy;
+// TODO: maybe use always this version with NPtr = 1 for the current 2D only version
+template <int NPtr, typename Operator, typename T>
+struct memory_read_iterpolated_N {
+    const RawPtr<_2D,T> ptr[NPtr];
+    const float fx[NPtr];
+    const float fy[NPtr];
     const uint target_width;
     const uint target_height;
 };
 
-template <typename Operator, typename O>
-struct memory_write_scalar_2D {
-    PtrAccessor<O> x;
+template <ND D, typename Operator, typename T>
+struct memory_write_scalar {
+    RawPtr<D,T> ptr;
 };
 
-template <typename Operator, typename I, typename Enabler=void>
-struct split_write_scalar_2D {};
+template <ND D, typename Operator, typename T, typename Enabler=void>
+struct split_write_scalar {};
 
-template <typename Operator, typename I>
-struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<CN(I) == 2>> {
-    PtrAccessor<decltype(I::x)> x;
-    PtrAccessor<decltype(I::y)> y;
+template <ND D, typename Operator, typename T>
+struct split_write_scalar<D, Operator, T, typename std::enable_if_t<CN(T) == 2>> {
+    RawPtr<D, decltype(T::x)> x;
+    RawPtr<D, decltype(T::y)> y;
 };
 
-template <typename Operator, typename I>
-struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<CN(I) == 3>> {
-    PtrAccessor<decltype(I::x)> x;
-    PtrAccessor<decltype(I::y)> y;
-    PtrAccessor<decltype(I::z)> z;
+template <ND D, typename Operator, typename T>
+struct split_write_scalar<D, Operator, T, typename std::enable_if_t<CN(T) == 3>> {
+    RawPtr<D, decltype(T::x)> x;
+    RawPtr<D, decltype(T::y)> y;
+    RawPtr<D, decltype(T::z)> z;
 };
 
-template <typename Operator, typename I>
-struct split_write_scalar_2D<Operator, I, typename std::enable_if_t<CN(I) == 4>> {
-    PtrAccessor<decltype(I::x)> x;
-    PtrAccessor<decltype(I::y)> y;
-    PtrAccessor<decltype(I::z)> z;
-    PtrAccessor<decltype(I::w)> w;
+template <ND D, typename Operator, typename T>
+struct split_write_scalar<D, Operator, T, typename std::enable_if_t<CN(T) == 4>> {
+    RawPtr<D, decltype(T::x)> x;
+    RawPtr<D, decltype(T::y)> y;
+    RawPtr<D, decltype(T::z)> z;
+    RawPtr<D, decltype(T::w)> w;
 };
 
 }

@@ -25,10 +25,10 @@ bool testPtr_2D() {
 
     fk::Point startPoint = {100, 200};
 
-    fk::Ptr3D<T> input(width, height);
-    fk::Ptr3D<T> cropedInput = input.crop(startPoint, width_crop, height_crop);
-    fk::Ptr3D<T> output(width_crop, height_crop);
-    fk::Ptr3D<T> outputBig(width, height);
+    fk::Ptr2D<T> input(width, height);
+    fk::Ptr2D<T> cropedInput = input.crop(startPoint, fk::PtrDims<fk::_2D>(width_crop, height_crop));
+    fk::Ptr2D<T> output(width_crop, height_crop);
+    fk::Ptr2D<T> outputBig(width, height);
 
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
@@ -39,8 +39,8 @@ bool testPtr_2D() {
     dim3 grid2DBig(std::ceil(width / (float)block2D.x),
                    std::ceil(height / (float)block2D.y));
 
-    fk::memory_write_scalar_2D<fk::perthread_write_2D<T>, T> opFinal_2D = { output };
-    fk::memory_write_scalar_2D<fk::perthread_write_2D<T>, T> opFinal_2DBig = { outputBig };
+    fk::memory_write_scalar<fk::_2D, fk::perthread_write<fk::_2D, T>, T> opFinal_2D = { output };
+    fk::memory_write_scalar<fk::_2D, fk::perthread_write<fk::_2D, T>, T> opFinal_2DBig = { outputBig };
 
     for (int i=0; i<100; i++) {
         fk::cuda_transform_<<<grid2D, block2D, 0, stream>>>(cropedInput.d_ptr(), opFinal_2D);
@@ -65,6 +65,19 @@ int main() {
     test2Dpassed &= testPtr_2D<uchar3>();
     test2Dpassed &= testPtr_2D<float>();
     test2Dpassed &= testPtr_2D<float3>();
+
+    cudaStream_t stream;
+    gpuErrchk(cudaStreamCreate(&stream));
+
+    fk::Ptr2D<uchar> input(64,64);
+    fk::Ptr2D<uint> output(64,64);
+    
+    fk::unary_operation_scalar<fk::unary_cast<uchar, uint>, uint> op = {};
+    fk::memory_write_scalar<fk::_2D, fk::perthread_write<fk::_2D, uint>, uint> opFinal_2D = { output };
+
+    fk::cuda_transform_<<<dim3(8),dim3(64,8),0,stream>>>(input.d_ptr(), op);
+
+    gpuErrchk(cudaStreamSynchronize(stream));
 
     if (test2Dpassed) {
         std::cout << "testPtr_2D Success!!" << std::endl; 

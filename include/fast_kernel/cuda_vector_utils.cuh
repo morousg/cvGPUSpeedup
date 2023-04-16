@@ -82,7 +82,7 @@ namespace fk {
     // need to conform to T, and the type of the elements will always be casted.
     struct make {
         template <typename T, typename... Numbers>
-        FK_HOST_DEVICE_FUSE T type(const Numbers... pack) {
+        FK_HOST_DEVICE_FUSE T type(const Numbers&... pack) {
             return {static_cast<decltype(T::x)>(pack)...};
         }
     };
@@ -152,7 +152,7 @@ namespace fk {
                                                           !std::is_enum<T>::value>>{
         // This case exists to make things easyer when we don't know if the type
         // is going to be a vector type or a normal type
-        FK_HOST_DEVICE_FUSE T exec(const T val) {
+        FK_HOST_DEVICE_FUSE T exec(const T& val) {
             return val;
         }
     };
@@ -160,39 +160,39 @@ namespace fk {
     template <typename T>
     struct unary_vector_set_<T, typename std::enable_if_t<std::is_aggregate<T>::value &&
                                                           VectorTraits<T>::cn == 1>> {
-        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base val) {
+        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
             return {val};
         }
     };
 
     template <typename T>
     struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 2>> {
-        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base val) {
+        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
             return {val, val};
         }
     };
 
     template <typename T>
     struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 3>>{
-        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base val) {
+        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
             return {val, val, val};
         }
     };
 
     template <typename T>
     struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 4>>{
-        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base val) {
+        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
             return {val, val, val, val};
         }
     };
 
     template <typename T>
-    __device__ __forceinline__ __host__ constexpr T make_set(typename VectorTraits<T>::base val) {
+    __device__ __forceinline__ __host__ constexpr T make_set(const typename VectorTraits<T>::base& val) {
         return unary_vector_set_<T>::exec(val);
     }
 
     template <typename T>
-    __device__ __forceinline__ __host__ constexpr T make_set(T val) {
+    __device__ __forceinline__ __host__ constexpr T make_set(const T& val) {
         return unary_vector_set_<T>::exec(val);
     }
 }

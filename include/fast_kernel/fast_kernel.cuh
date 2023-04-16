@@ -19,58 +19,63 @@
 
 namespace fk { // namespace Fast Kernel
 
-template <typename I, typename O, typename Operation, typename Enabler = void>
+// HELPER FUNCTIONS
+
+template <ND D, typename Operation, typename T, typename Enabler = void>
 struct split_helper {};
 
-template <typename I, typename O, typename Operation>
-struct split_helper<I, O, Operation, typename std::enable_if_t<CN(I) == 2>> {
-    FK_DEVICE_FUSE void exec(const dim3 thread, const I i_data, const split_write_scalar_2D<Operation, I, O>& op) {
+template <ND D, typename Operation, typename T>
+struct split_helper<D, Operation, T, typename std::enable_if_t<CN(T) == 2>> {
+    FK_DEVICE_FUSE void exec(const Point& thread, const T& i_data, const split_write_scalar<D, Operation, T>& op) {
         Operation::exec(thread, i_data, op.x, op.y);
     }
 };
 
-template <typename I, typename O, typename Operation>
-struct split_helper<I, O, Operation, typename std::enable_if_t<CN(I) == 3>> {
-    FK_DEVICE_FUSE void exec(const dim3 thread, const I i_data, const split_write_scalar_2D<Operation, I, O>& op) {
+template <ND D, typename Operation, typename T>
+struct split_helper<D, Operation, T, typename std::enable_if_t<CN(T) == 3>> {
+    FK_DEVICE_FUSE void exec(const Point& thread, const T& i_data, const split_write_scalar<D, Operation, T>& op) {
         Operation::exec(thread, i_data, op.x, op.y, op.z);
     }
 };
 
-template <typename I, typename O, typename Operation>
-struct split_helper<I, O, Operation, typename std::enable_if_t<CN(I) == 4>> {
-    FK_DEVICE_FUSE void exec(const dim3 thread, const I i_data, const split_write_scalar_2D<Operation, I, O>& op) {
+template <ND D, typename Operation, typename T>
+struct split_helper<D, Operation, T, typename std::enable_if_t<CN(T) == 4>> {
+    FK_DEVICE_FUSE void exec(const Point& thread, const T& i_data, const split_write_scalar<D, Operation, T>& op) {
         Operation::exec(thread, i_data, op.x, op.y, op.z, op.w);
     }
 };
 
-template <typename I>
-__device__ __forceinline__ constexpr void operate_noret(const dim3& thread, const I& i_data) {}
+// START OF THE KERNEL RECURSIVITY
 
-template <typename I, typename O, typename Operation, typename... operations>
-__device__ __forceinline__ constexpr void operate_noret(const dim3& thread, const I& i_data, const split_write_scalar_2D<Operation, I, O>& op, const operations&... ops) {
-    split_helper<I, O, Operation>::exec(thread, i_data, op);
+template <typename T>
+__device__ __forceinline__ constexpr void operate_noret(const Point& thread, const T& i_data) {}
+
+template <ND D, typename Operation, typename T, typename... operations>
+__device__ __forceinline__ constexpr void operate_noret(const Point& thread, const T& i_data, const split_write_scalar<D, Operation, T>& op, const operations&... ops) {
+    split_helper<D, Operation, T>::exec(thread, i_data, op);
     operate_noret(thread, i_data, ops...);
 }
 
-template <typename I, typename Operation, typename... operations>
-__device__ __forceinline__ constexpr void operate_noret(const dim3& thread, const I& i_data, const memory_write_scalar_2D<Operation, I>& op, const operations&... ops) {
-    Operation::exec(thread, i_data, op.x);
+template <ND D, typename Operation, typename T, typename... operations>
+__device__ __forceinline__ constexpr 
+void operate_noret(const Point& thread, const T& i_data, const memory_write_scalar<D, Operation, T>& op, const operations&... ops) {
+    Operation::exec(thread, i_data, op.ptr);
     operate_noret(thread, i_data, ops...);
 }
 
 template <typename I, typename O, typename Operation, typename... operations>
-__device__ __forceinline__ constexpr void operate_noret(const dim3& thread, const I& i_data, const unary_operation_scalar<Operation, I, O>& op, const operations&... ops) {
+__device__ __forceinline__ constexpr void operate_noret(const Point& thread, const I& i_data, const unary_operation_scalar<Operation, O>& op, const operations&... ops) {
     const O temp = Operation::exec(i_data);
     operate_noret(thread, temp, ops...);
 }
 
 template <typename I, typename O, typename I2, typename Operation, typename... operations>
-__device__ __forceinline__ constexpr void operate_noret(const dim3& thread, const I& i_data, const binary_operation_scalar<Operation, I, I2, O>& op, const operations&... ops) {
+__device__ __forceinline__ constexpr void operate_noret(const Point& thread, const I& i_data, const binary_operation_scalar<Operation, I2, O>& op, const operations&... ops) {
     const O temp = Operation::exec(i_data, op.scalar);
     operate_noret(thread, temp, ops...);
 }
 
-// TODO: adapt this to PtrAccessor<T> instead of raw pointer
+// TODO: adapt this to RawPtr<T> instead of raw pointer
 /*template <typename I, typename O, typename I2, typename Operation, typename... operations>
 __device__ __forceinline__ void operate_noret(I i_data, binary_operation_pointer<Operation, I, I2, O> op, operations... ops) {
     // we want to have access to I2 in order to ask for the type size for optimizing
@@ -78,27 +83,29 @@ __device__ __forceinline__ void operate_noret(I i_data, binary_operation_pointer
     operate_noret(temp, ops...);
 }*/
 
-template <typename T, typename Operation, typename... operations>
-__device__ __forceinline__ constexpr void operate_noret(const memory_read_iterpolated<Operation, T>& op, const operations&... ops) {
+template <typename Operation, typename T, typename... operations>
+__device__ __forceinline__ constexpr void operate_noret(const memory_read_iterpolated_N<1, Operation, T>& op, const operations&... ops) {
     cg::thread_block g = cg::this_thread_block();
 
     const uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
     const uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
+    const uint z =  g.group_index().z; // So far we only consider the option of using the z dimension to specify n (x*y) thread planes
 
     if (x < op.target_width && y < op.target_height) {
-        const T temp = Operation::exec(op.ptr, op.fy, op.fx, x, y);
-        operate_noret(dim3(x,y), temp, ops...);
+        const T temp = Operation::exec({x, y, z}, op.ptr[z].data, op.ptr[z].dims, op.fy[z], op.fx[z]);
+        operate_noret(Point(x, y, z), temp, ops...);
     }
 }
 
-template<typename I, typename... operations>
-__global__ void cuda_transform_(PtrAccessor<I> i_data, const operations... ops) {
+template<ND D, typename I, typename... operations>
+__global__ void cuda_transform_(const RawPtr<D, I> i_data, const operations... ops) {
     cg::thread_block g =  cg::this_thread_block();
-    uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
-    uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
+    const uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
+    const uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
+    const uint z =  g.group_index().z; // So far we only consider the option of using the z dimension to specify n (x*y) thread planes
 
-    if (x < i_data.width && y < i_data.height) {
-        operate_noret(dim3(x,y), *i_data.at({x, y}), ops...);
+    if (x < i_data.dims.width && y < i_data.dims.height) {
+        operate_noret(Point(x, y, z), *PtrAccessor<D>::cr_point({x, y, z}, i_data.data, i_data.dims), ops...);
     }
 }
 
