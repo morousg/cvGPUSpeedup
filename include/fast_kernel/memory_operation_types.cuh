@@ -300,7 +300,7 @@ class Tensor : public Ptr3D<T> {
 
 template <typename I, typename O=I>
 struct perthread_write_2D {
-    FK_DEVICE_FUSE void exec(const dim3 thread, const I input, PtrAccessor<O> output) {
+    FK_DEVICE_FUSE void exec(const dim3& thread, const I& input, const PtrAccessor<O>& output) {
         *(output.at({thread.x, thread.y})) = input;
     }
 };
@@ -310,9 +310,9 @@ struct perthread_split_write_2D;
 
 template <typename I>
 struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 2>> {
-    FK_DEVICE_FUSE void exec(const dim3 thread, const I input,
-                               PtrAccessor<decltype(I::x)> output1,
-                               PtrAccessor<decltype(I::y)> output2) {
+    FK_DEVICE_FUSE void exec(const dim3& thread, const I& input,
+                             const PtrAccessor<decltype(I::x)>& output1,
+                             const PtrAccessor<decltype(I::y)>& output2) {
         const Point p(thread.x, thread.y);
         *output1.at(p) = input.x; 
         *output2.at(p) = input.y;
@@ -321,10 +321,10 @@ struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 2>> {
 
 template <typename I>
 struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 3>> {
-    FK_DEVICE_FUSE void exec(const dim3 thread, const I input, 
-                               PtrAccessor<decltype(I::x)> output1, 
-                               PtrAccessor<decltype(I::y)> output2,
-                               PtrAccessor<decltype(I::z)> output3) {
+    FK_DEVICE_FUSE void exec(const dim3& thread, const I& input,
+                             const PtrAccessor<decltype(I::x)>& output1,
+                             const PtrAccessor<decltype(I::y)>& output2,
+                             const PtrAccessor<decltype(I::z)>& output3) {
         const Point p(thread.x, thread.y);
         *output1.at(p) = input.x; 
         *output2.at(p) = input.y; 
@@ -334,11 +334,11 @@ struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 3>> {
 
 template <typename I>
 struct perthread_split_write_2D<I, typename std::enable_if_t<CN(I) == 4>> {
-    FK_DEVICE_FUSE void exec(const dim3 thread, I input, 
-                               PtrAccessor<decltype(I::x)> output1, 
-                               PtrAccessor<decltype(I::y)> output2,
-                               PtrAccessor<decltype(I::z)> output3,
-                               PtrAccessor<decltype(I::w)> output4) { 
+    FK_DEVICE_FUSE void exec(const dim3& thread, const I& input,
+                             const PtrAccessor<decltype(I::x)>& output1,
+                             const PtrAccessor<decltype(I::y)>& output2,
+                             const PtrAccessor<decltype(I::z)>& output3,
+                             const PtrAccessor<decltype(I::w)>& output4) {
         const Point p(thread.x, thread.y);
         *output1.at(p) = input.x; 
         *output2.at(p) = input.y; 

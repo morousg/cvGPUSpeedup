@@ -24,21 +24,21 @@ struct split_helper {};
 
 template <typename I, typename O, typename Operation>
 struct split_helper<I, O, Operation, typename std::enable_if_t<CN(I) == 2>> {
-    FK_DEVICE_FUSE void exec(const dim3 thread, const I i_data, const split_write_scalar_2D<Operation, I, O>& op) {
+    FK_DEVICE_FUSE void exec(const dim3& thread, const I& i_data, const split_write_scalar_2D<Operation, I, O>& op) {
         Operation::exec(thread, i_data, op.x, op.y);
     }
 };
 
 template <typename I, typename O, typename Operation>
 struct split_helper<I, O, Operation, typename std::enable_if_t<CN(I) == 3>> {
-    FK_DEVICE_FUSE void exec(const dim3 thread, const I i_data, const split_write_scalar_2D<Operation, I, O>& op) {
+    FK_DEVICE_FUSE void exec(const dim3& thread, const I& i_data, const split_write_scalar_2D<Operation, I, O>& op) {
         Operation::exec(thread, i_data, op.x, op.y, op.z);
     }
 };
 
 template <typename I, typename O, typename Operation>
 struct split_helper<I, O, Operation, typename std::enable_if_t<CN(I) == 4>> {
-    FK_DEVICE_FUSE void exec(const dim3 thread, const I i_data, const split_write_scalar_2D<Operation, I, O>& op) {
+    FK_DEVICE_FUSE void exec(const dim3& thread, const I& i_data, const split_write_scalar_2D<Operation, I, O>& op) {
         Operation::exec(thread, i_data, op.x, op.y, op.z, op.w);
     }
 };

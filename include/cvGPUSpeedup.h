@@ -84,7 +84,7 @@ inline constexpr fk::memory_write_scalar_2D<fk::perthread_write_2D<CUDA_T(O)>, C
 }
 
 template <int T, typename... operations>
-inline constexpr dim3 extractDataDims(const fk::memory_read_iterpolated<fk::interpolate_read<CUDA_T(T), fk::InterpolationType::INTER_LINEAR>, CUDA_T(T)>& op, const operations&... ops) {
+inline const dim3 extractDataDims(const fk::memory_read_iterpolated<fk::interpolate_read<CUDA_T(T), fk::InterpolationType::INTER_LINEAR>, CUDA_T(T)>& op, const operations&... ops) {
     return dim3(op.target_width, op.target_height, op.ptr.planes);
 }
 
