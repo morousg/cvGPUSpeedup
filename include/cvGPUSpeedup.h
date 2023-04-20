@@ -81,6 +81,41 @@ inline const fk::memory_read_iterpolated_N<1, fk::interpolate_read<fk::_2D, CUDA
     return retType{fk_input, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy), t_width, t_height};
 }
 
+void resize_2D(const cv::cuda::GpuMat input, cv::cuda::GpuMat output, const cv::Size dsize, double fx, double fy,
+                            cv::cuda::Stream stream) {
+    // So far we only support fk::INTER_LINEAR
+    uint t_width, t_height;
+    if (dsize != cv::Size()) {
+        fx = static_cast<double>(dsize.width) / input.cols;
+        fy = static_cast<double>(dsize.height) / input.rows;
+        t_width = dsize.width;
+        t_height = dsize.height;
+    } else {
+        t_width = CAROTENE_NS::internal::saturate_cast<int>(input.cols * fx);
+        t_height = CAROTENE_NS::internal::saturate_cast<int>(input.rows * fy);
+    }
+
+    cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
+
+    dim3 block = fk::getBlockSize(t_width, t_height);
+    dim3 grid;
+    grid.x = (unsigned int)ceil(t_width / (float)block.x);
+    grid.y = (unsigned int)ceil(t_height / (float)block.y);
+
+    fk::resize_2D<<<grid, block, 0, cu_stream>>>((uchar3*)input.data, (uchar3*)output.data, input.cols, input.rows, input.step,
+                                                  t_width, t_height, output.step, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy));
+    
+    fk::resize_2D_v2<<<grid, block, 0, cu_stream>>>((uchar3*)input.data, (uchar3*)output.data, input.cols, input.rows, input.step,
+                                                  t_width, t_height, output.step, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy));
+
+    fk::resize_2D_v3<<<grid, block, 0, cu_stream>>>((uchar3*)input.data, (uchar3*)output.data, input.cols, input.rows, input.step,
+                                                  t_width, t_height, output.step, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy));
+
+    stream.waitForCompletion();
+    gpuErrchk(cudaGetLastError());
+}
+
+
 template <int O>
 inline constexpr fk::memory_write_scalar<fk::_2D, fk::perthread_write<fk::_2D, CUDA_T(O)>, CUDA_T(O)> write(const cv::cuda::GpuMat& output) {
     fk::Ptr2D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);

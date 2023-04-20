@@ -20,9 +20,9 @@ namespace fk {
 // TODO: maybe use always this version with NPtr = 1 for the current 2D only version
 template <int NPtr, typename Operator, typename T>
 struct memory_read_iterpolated_N {
-    const RawPtr<_2D,T> ptr[NPtr];
-    const float fx[NPtr];
-    const float fy[NPtr];
+    const RawPtr<_2D,T> ptr;
+    const float fx;
+    const float fy;
     const uint target_width;
     const uint target_height;
 };

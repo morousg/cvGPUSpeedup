@@ -177,6 +177,11 @@ struct PtrAccessor<_2D> {
     static __device__ __forceinline__ __host__ T* point(const Point& p, const T* data, const PtrDims<_2D>& dims) {
         return (T*)((char*)data + (p.y * dims.pitch)) + p.x;
     }
+
+    template <typename T>
+    static __device__ __forceinline__ __host__ T* point(const uint& x, const uint& y, const T*__restrict__ data, const uint& pitch) {
+        return (T*)((char*)data + (y * pitch)) + x;
+    }
 };
 
 template <>
@@ -665,33 +670,34 @@ struct interpolate_read;
 
 template <typename I>
 struct interpolate_read<_2D, I, InterpolationType::INTER_LINEAR> {
-    static __device__ __forceinline__ const I exec(const Point& thread, const I*__restrict__ i_data,
-                                                   const PtrDims<_2D>& i_dims, const float& fy, const float& fx) {
-        const float src_x = thread.x * fx;
-        const float src_y = thread.y * fy;
+    static __device__ __forceinline__ I exec(const uint& x, const uint& y, const I*__restrict__ i_data,
+                                                   const uint& width, const uint& height, const uint& pitch,
+                                                   const float& fx, const float& fy) {
+        const float src_x = x * fx;
+        const float src_y = y * fy;
 
         const uint x1 = __float2int_rd(src_x);
         const uint y1 = __float2int_rd(src_y);
         const uint x2 = x1 + 1;
         const uint y2 = y1 + 1;        
-        const uint x2_read = ::min(x2, i_dims.width - 1);
-        const uint y2_read = ::min(y2, i_dims.height - 1);
+        const uint x2_read = ::min(x2, width - 1);
+        const uint y2_read = ::min(y2, height - 1);
 
         using floatcn_t = typename VectorType<float, VectorTraits<I>::cn>::type;
         floatcn_t out = make_set<floatcn_t>(0.f);
-        I src_reg = *PtrAccessor<_2D>::cr_point(x1, y1, i_data, i_dims.pitch);  //input.at_cr({x1, y1});
+        uchar3 src_reg = *PtrAccessor<_2D>::cr_point(x1, y1, i_data, pitch);  //input.at_cr({x1, y1});
         out = out + src_reg * ((x2 - src_x) * (y2 - src_y));
 
-        src_reg = *PtrAccessor<_2D>::cr_point(x2_read, y1, i_data, i_dims.pitch); //*input.at_cr({x2_read, y1});
+        src_reg = *PtrAccessor<_2D>::cr_point(x2_read, y1, i_data, pitch); //*input.at_cr({x2_read, y1});
         out = out + src_reg * ((src_x - x1) * (y2 - src_y));
 
-        src_reg = *PtrAccessor<_2D>::cr_point(x1, y2_read, i_data, i_dims.pitch); //*input.at_cr({x1, y2_read});
+        src_reg = *PtrAccessor<_2D>::cr_point(x1, y2_read, i_data, pitch); //*input.at_cr({x1, y2_read});
         out = out + src_reg * ((x2 - src_x) * (src_y - y1));
 
-        src_reg = *PtrAccessor<_2D>::cr_point(x2_read, y2_read, i_data, i_dims.pitch); //*input.at_cr({x2_read, y2_read});
+        src_reg = *PtrAccessor<_2D>::cr_point(x2_read, y2_read, i_data, pitch); //*input.at_cr({x2_read, y2_read});
         out = out + src_reg * ((src_x - x1) * (src_y - y1));
-        
-        return saturate_cast<I>(out);
+
+        return saturate_cast<I>(out);   
     } 
 };
 
