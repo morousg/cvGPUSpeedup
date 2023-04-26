@@ -27,8 +27,10 @@ Now imagine that you have to execute that same code, for 30 or 40 crops from a s
 If you look at the code, it's not that difficult to add your own kernels into the game. You just need to create your struct, and make an operate_noret() version that will handle your struct parameters, and call your kernel as a __device__ function, with those parameters.
 
 In order to "fuse" it with other kernels:
-1. Instead of reading from device memory, use the value generated in the previous __device__ function, passed to your operate_noret function by the previous one.
-2. Instead of writting to device memory, make the __device__ function to return the result.
-3. Make your operate_noret function version, to pass the result as the input for the next operate_noret call.
+1. Instead of reading from device memory, use the value generated in the previous __device__ function, passed to your operate_noret function as parameter.
+2. Instead of writting to device memory, make your __device__ function to return the result.
+3. Make your operate_noret function version, to get the result of the previous operate_noret call as input, and pass the result as the input for the next operate_noret call.
 4. To read the data, use one of the read memory patterns available as the first struct, or create your own.
 5. To write the data, use one of the write memory patterns available as the last struct, or create your own.
+
+A performance tip. Do not use static arrays inside your struct. The nvcc compiler will do bad things that will heavily affect the resulting kernel performance.
