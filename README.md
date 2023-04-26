@@ -18,6 +18,8 @@ This is how the usage of cvGPUSpeedup looks like, compared to OpenCV:
 
 ![alt text](https://github.com/morousg/cvGPUSpeedup/blob/0acabe5354fb99fcc3d27ff5982b32d6c320bf15/cvGPUSpeedupExample.png)
 
+You can replace I and OC with OpenCV types, like CV_8UC3, CV_32FC2, etc... Those OpenCV types should correspond to the input and output types of the GpuMat's passed as input and output. When only one CV type is passed, it means that the input and output types for the operation are always the same.
+
 The cvGPUSpeedup version, will do the same, but with a single CUDA kernel, and execute from 4x up to 7x faster, depending on the GPU, driver version, and OS.
 
 Now imagine that you have to execute that same code, for 30 or 40 crops from a source image. Then the speedup can grow to 10x.
