@@ -123,68 +123,6 @@ struct PtrDims<_3D> {
             pitch(pitch_), plane_pitch(pitch_ * height_) {}
 };
 
-template <ND D>
-struct PtrAccessor;
-
-template <>
-struct PtrAccessor<_1D> {
-    template <typename T>
-    FK_HOST_DEVICE_FUSE T*__restrict__ cr_point(const Point& p, const T*__restrict__ data, const PtrDims<_1D>& dims) {
-        return data + p.x;
-    }
-
-    template <typename T>
-    static __device__ __forceinline__ __host__ T* point(const Point& p, const T* data, const PtrDims<_1D>& dims) {
-        return data + p.x;
-    }
-};
-
-template <>
-struct PtrAccessor<_2D> {
-    template <typename T>
-    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const Point& p, const T*__restrict__ data, const PtrDims<_2D>& dims) {
-        return (const T*)((const char*)data + (p.y * dims.pitch)) + p.x;
-    }
-
-    template <typename T>
-    FK_DEVICE_FUSE const T*__restrict__ cr_point(const int& x, const int& y, const T*__restrict__ data, const int& pitch) {
-        return (const T*)((const char*)data + (y * pitch)) + x;
-    }
-
-    template <typename T>
-    FK_DEVICE_FUSE const T read_point(const int& x, const int& y, const T*__restrict__ data, const int& pitch) {
-        return ((const T*)((const char*)data + (y * pitch)))[x];
-    }
-
-    template <typename T>
-    static __device__ __forceinline__ __host__ T* point(const Point& p, const T* data, const PtrDims<_2D>& dims) {
-        return (T*)((char*)data + (p.y * dims.pitch)) + p.x;
-    }
-
-    template <typename T>
-    FK_DEVICE_FUSE T* point(const int& x, const int& y, const T*__restrict__ data, const int& pitch) {
-        return (T*)((char*)data + (y * pitch)) + x;
-    }
-
-    template <typename T>
-    FK_DEVICE_FUSE void write_point(const int&x, const int& y, const T*__restrict__ data, const int& pitch, const T& res) {
-        ((T*)((char*)data + (y * pitch)))[x] = res;
-    }
-};
-
-template <>
-struct PtrAccessor<_3D> {
-    template <typename T>
-    FK_HOST_DEVICE_FUSE T*__restrict__ cr_point(const Point& p, const T*__restrict__ data, const PtrDims<_3D>& dims) {
-        return (const T*)((const char*)data + ((dims.plane_pitch * dims.color_planes * p.z) + (p.y * dims.pitch))) + p.x;
-    }
-
-    template <typename T>
-    static __device__ __forceinline__ __host__ T* point(const Point& p, const T* data, const PtrDims<_3D>& dims) {
-        return (T*)((char*)data + ((dims.plane_pitch * dims.color_planes * p.z) + (p.y * dims.pitch))) + p.x;
-    }
-};
-
 template <ND D, typename T>
 struct RawPtr;
 
@@ -210,6 +148,49 @@ struct RawPtr<_3D, T> {
     PtrDims<_3D> dims;
     using base = typename VectorTraits<T>::base;
     enum {cn=VectorTraits<T>::cn};
+};
+
+template <ND D>
+struct PtrAccessor;
+
+template <>
+struct PtrAccessor<_1D> {
+    template <typename T>
+    FK_HOST_DEVICE_FUSE T*__restrict__ cr_point(const Point& p, const RawPtr<_1D, T>& ptr) {
+        return ptr.data + p.x;
+    }
+
+    template <typename T>
+    static __device__ __forceinline__ __host__ T* point(const Point& p, const RawPtr<_1D, T>& ptr) {
+        return ptr.data + p.x;
+    }
+};
+
+template <>
+struct PtrAccessor<_2D> {
+    template <typename T>
+    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const Point& p, const RawPtr<_2D, T>& ptr) {
+        return (const T*)((const char*)ptr.data + (p.y * ptr.dims.pitch)) + p.x;
+    }
+
+    template <typename T>
+    static __device__ __forceinline__ __host__ T* point(const Point& p, const RawPtr<_2D, T>& ptr) {
+        return (T*)((char*)ptr.data + (p.y * ptr.dims.pitch)) + p.x;
+    }
+};
+
+template <>
+struct PtrAccessor<_3D> {
+    template <typename T>
+    FK_HOST_DEVICE_FUSE T*__restrict__ cr_point(const Point& p, const RawPtr<_3D, T>& ptr) {
+        return (const T*)((const char*)ptr.data + ((ptr.dims.plane_pitch * ptr.dims.color_planes * p.z) + (p.y * ptr.dims.pitch))) + p.x;
+    }
+
+    template <typename T>
+    static __device__ __forceinline__ __host__ T* point(const Point& p, const RawPtr<_3D, T>& ptr) {
+        return (T*)((char*)ptr.data + ((ptr.dims.plane_pitch * ptr.dims.color_planes * p.z) + (p.y * ptr.dims.pitch))) + p.x;
+    }
+
 };
 
 template <ND D, typename T>
@@ -270,9 +251,9 @@ struct PtrImpl<_3D,T> {
             gpuErrchk(cudaMallocPitch(&ptr_a.data, &pitch, sizeof(T) * ptr_a.dims.width, ptr_a.dims.height * ptr_a.dims.planes));
             ptr_a.dims.pitch = pitch;
         } else {
-            gpuErrchk(cudaMalloc(&ptr_a.data, PtrImpl<_3D,T>::sizeInBytes(ptr_a)));
+            gpuErrchk(cudaMalloc(&ptr_a.data, PtrImpl<_3D,T>::sizeInBytes(ptr_a.dims)));
         }
-        ptr_a.plane_pitch = ptr_a.dims.pitch * ptr_a.dims.heigth;
+        ptr_a.dims.plane_pitch = ptr_a.dims.pitch * ptr_a.dims.height;
     }
     FK_HOST_FUSE void h_malloc_init(PtrDims<_3D>& dims) {
         dims.plane_pitch = dims.pitch * dims.height;
@@ -405,24 +386,18 @@ public:
         freePrt();
     }
 
-    __host__ inline RawPtr<D,T> d_ptr() const { return ptr_a; }
+    __host__ inline RawPtr<D,T> ptr() const { return ptr_a; }
 
     __host__ inline operator RawPtr<D,T>() const { return ptr_a; }
 
     __host__ inline Ptr<D,T, At> crop(Point p, PtrDims<D> newDims) {
-        T* ptr = At::point(p, ptr_a.data, ptr_a.dims);
+        T* ptr = At::point(p, ptr_a);
         ref->cnt++;
         const RawPtr<D,T> newRawPtr = {ptr, newDims};
         return {newRawPtr, ref, PtrImpl<D,T>::getBlockSize(newDims), type, deviceID};
     }
-    __host__ inline RawPtr<D,T> raw_ptr() const {
-        return ptr_a;
-    }
     __host__ inline PtrDims<D> dims() const {
         return ptr_a.dims;
-    }
-    __host__ inline T* data() const {
-        return ptr_a.data;
     }
     __host__ inline dim3 getBlockSize() const {
         return adjusted_blockSize;
@@ -479,8 +454,12 @@ public:
 template <typename T>
 class Tensor : public Ptr<_3D, T, PtrAccessor<_3D>> {
 public:
+    __host__ inline Tensor() {}
     __host__ inline Tensor(uint width_, uint height_, uint planes_, uint color_planes_ = 1, MemType type_ = Device, int deviceID_ = 0) : 
     Ptr<_3D,T, PtrAccessor<_3D>>(PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_) {}
+    __host__ inline void allocTensor(uint width_, uint height_, uint planes_, uint color_planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
+        this->allocPtr(PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_);
+    }
 };
 
 }

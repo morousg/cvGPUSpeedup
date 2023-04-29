@@ -17,14 +17,26 @@
 
 namespace fk {
 
-// TODO: maybe use always this version with NPtr = 1 for the current 2D only version
-template <int NPtr, typename Operator, typename T>
-struct memory_read_iterpolated_N {
+template <int NPtr, typename Operator, typename T, typename Enabler=void>
+struct memory_read_iterpolated_N;
+
+template <typename Operator, typename T>
+struct memory_read_iterpolated_N<1, Operator, T, std::enable_if_t<true>> {
     const RawPtr<_2D,T> ptr;
     const float fx;
     const float fy;
     const uint target_width;
     const uint target_height;
+};
+
+// TODO: maybe use always this version with NPtr = 1 for the current 2D only version
+template <int NPtr, typename Operator, typename T>
+struct memory_read_iterpolated_N<NPtr, Operator, T, std::enable_if_t<(NPtr>1)>> {
+    RawPtr<_2D,T> ptr[NPtr];
+    float fx[NPtr];
+    float fy[NPtr];
+    uint target_width;
+    uint target_height;
 };
 
 template <ND D, typename Operator, typename T>

@@ -43,8 +43,8 @@ bool testPtr_2D() {
     fk::memory_write_scalar<fk::_2D, fk::perthread_write<fk::_2D, T>, T> opFinal_2DBig = { outputBig };
 
     for (int i=0; i<100; i++) {
-        fk::cuda_transform_<<<grid2D, block2D, 0, stream>>>(cropedInput.d_ptr(), opFinal_2D);
-        fk::cuda_transform_<<<grid2DBig, block2D, 0, stream>>>(input.d_ptr(), opFinal_2DBig);
+        fk::cuda_transform_<<<grid2D, block2D, 0, stream>>>(cropedInput.ptr(), opFinal_2D);
+        fk::cuda_transform_<<<grid2DBig, block2D, 0, stream>>>(input.ptr(), opFinal_2DBig);
     }
 
     cudaError_t err = cudaStreamSynchronize(stream);
@@ -75,7 +75,7 @@ int main() {
     fk::unary_operation_scalar<fk::unary_cast<uchar, uint>, uint> op = {};
     fk::memory_write_scalar<fk::_2D, fk::perthread_write<fk::_2D, uint>, uint> opFinal_2D = { output };
 
-    fk::cuda_transform_<<<dim3(1,8),dim3(64,8),0,stream>>>(input.d_ptr(), op);
+    fk::cuda_transform_<<<dim3(1,8),dim3(64,8),0,stream>>>(input.ptr(), op);
 
     gpuErrchk(cudaStreamSynchronize(stream));
 

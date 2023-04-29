@@ -30,7 +30,7 @@ namespace fk {
 template <ND D, typename T>
 struct perthread_write {
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input, const RawPtr<D,T>& output) {
-        *PtrAccessor<D>::point(thread, output.data, output.dims) = input;
+        *PtrAccessor<D>::point(thread, output) = input;
     }
 };
 
@@ -42,7 +42,7 @@ struct perthread_packed2plannar_tensor_write<T, typename std::enable_if_t<CN(T) 
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
                              const Tensor<typename VectorTraits<T>::base>& ptr) {
         using BaseType = typename VectorTraits<T>::base;
-        BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr.data, ptr.dims);
+        BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr);
         *work_plane = input.x;
         work_plane += (ptr.dims.width * ptr.dims.height);
         *work_plane = input.y;
@@ -54,7 +54,7 @@ struct perthread_packed2plannar_tensor_write<T, typename std::enable_if_t<CN(T) 
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
                              const Tensor<typename VectorTraits<T>::base>& ptr) {
         using BaseType = typename VectorTraits<T>::base;
-        BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr.data, ptr.dims);
+        BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr);
         *work_plane = input.x;
         work_plane += (ptr.dims.width * ptr.dims.height);
         *work_plane = input.y;
@@ -68,7 +68,7 @@ struct perthread_packed2plannar_tensor_write<T, typename std::enable_if_t<CN(T) 
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
                              const Tensor<typename VectorTraits<T>::base>& ptr) {
         using BaseType = typename VectorTraits<T>::base;
-        BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr.data, ptr.dims);
+        BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr);
         *work_plane = input.x;
         work_plane += (ptr.dims.width * ptr.dims.height);
         *work_plane = input.y;
@@ -87,8 +87,8 @@ struct perthread_split_write<D, T, typename std::enable_if_t<CN(T) == 2>> {
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
                              const RawPtr<D,decltype(T::x)>& output1,
                              const RawPtr<D,decltype(T::y)>& output2) {
-        *PtrAccessor<D>::point(thread, output1.data, output1.dims) = input.x;
-        *PtrAccessor<D>::point(thread, output2.data, output2.dims) = input.y;
+        *PtrAccessor<D>::point(thread, output1) = input.x;
+        *PtrAccessor<D>::point(thread, output2) = input.y;
     }
 };
 
@@ -98,9 +98,9 @@ struct perthread_split_write<D, T, typename std::enable_if_t<CN(T) == 3>> {
                              const RawPtr<D,decltype(T::x)>& output1, 
                              const RawPtr<D,decltype(T::y)>& output2,
                              const RawPtr<D,decltype(T::z)>& output3) {
-        PtrAccessor<D>::write_point(thread.x, thread.y, output1.data, output1.dims.pitch, input.x);
-        PtrAccessor<D>::write_point(thread.x, thread.y, output2.data, output2.dims.pitch, input.y);
-        PtrAccessor<D>::write_point(thread.x, thread.y, output3.data, output3.dims.pitch, input.z);
+        *PtrAccessor<D>::point(thread, output1) = input.x;
+        *PtrAccessor<D>::point(thread, output2) = input.y;
+        *PtrAccessor<D>::point(thread, output3) = input.z;
     }
 };
 
@@ -111,10 +111,10 @@ struct perthread_split_write<D, T, typename std::enable_if_t<CN(T) == 4>> {
                                const RawPtr<D,decltype(T::y)>& output2,
                                const RawPtr<D,decltype(T::z)>& output3,
                                const RawPtr<D,decltype(T::w)>& output4) { 
-        *PtrAccessor<D>::point(thread, output1.data, output1.dims) = input.x;
-        *PtrAccessor<D>::point(thread, output2.data, output2.dims) = input.y;
-        *PtrAccessor<D>::point(thread, output3.data, output3.dims) = input.z;
-        *PtrAccessor<D>::point(thread, output4.data, output4.dims) = input.w;
+        *PtrAccessor<D>::point(thread, output1) = input.x;
+        *PtrAccessor<D>::point(thread, output2) = input.y;
+        *PtrAccessor<D>::point(thread, output3) = input.z;
+        *PtrAccessor<D>::point(thread, output4) = input.w;
     }
 };
 
@@ -197,48 +197,50 @@ enum InterpolationType {
     NONE = 17
 };
 
-template <ND D, typename I, InterpolationType INTER_T>
+template <ND D, typename I, InterpolationType INTER_T, int NPtr>
 struct interpolate_read;
 
 template <typename I>
-struct interpolate_read<_2D, I, InterpolationType::INTER_LINEAR> {
-    static __device__ __forceinline__ const I exec(const int& x, const int& y, const I*__restrict__ i_data,
-                                             const int& width, const int& height, const int& pitch,
-                                             const float& fx, const float& fy) {
-        const float src_x = x * fx;
-        const float src_y = y * fy;
+struct interpolate_read<_2D, I, InterpolationType::INTER_LINEAR, 1> {
+    static __device__ __forceinline__ const I exec(const Point& thread, const RawPtr<_2D,I>& ptr,
+                                                   const float& fx, const float& fy) {
+        const float src_x = thread.x * fx;
+        const float src_y = thread.y * fy;
 
         const int x1 = __float2int_rd(src_x);
         const int y1 = __float2int_rd(src_y);
         const int x2 = x1 + 1;
         const int y2 = y1 + 1;        
-        const int x2_read = ::min(x2, width - 1);
-        const int y2_read = ::min(y2, height - 1);
+        const int x2_read = ::min(x2, ptr.dims.width - 1);
+        const int y2_read = ::min(y2, ptr.dims.height - 1);
 
         using floatcn_t = typename VectorType<float, VectorTraits<I>::cn>::type;
         floatcn_t out = make_set<floatcn_t>(0.f);
-        I src_reg = PtrAccessor<_2D>::read_point(x1, y1, i_data, pitch);  //input.at_cr({x1, y1});
+        I src_reg = *PtrAccessor<_2D>::cr_point(Point(x1, y1), ptr);
         out = out + src_reg * ((x2 - src_x) * (y2 - src_y));
 
-        src_reg = PtrAccessor<_2D>::read_point(x2_read, y1, i_data, pitch); //*input.at_cr({x2_read, y1});
+        src_reg = *PtrAccessor<_2D>::cr_point(Point(x2_read, y1), ptr);
         out = out + src_reg * ((src_x - x1) * (y2 - src_y));
 
-        src_reg = PtrAccessor<_2D>::read_point(x1, y2_read, i_data, pitch); //*input.at_cr({x1, y2_read});
+        src_reg = *PtrAccessor<_2D>::cr_point(Point(x1, y2_read), ptr);
         out = out + src_reg * ((x2 - src_x) * (src_y - y1));
 
-        src_reg = PtrAccessor<_2D>::read_point(x2_read, y2_read, i_data, pitch); //*input.at_cr({x2_read, y2_read});
+        src_reg = *PtrAccessor<_2D>::cr_point(Point(x2_read, y2_read), ptr);
         out = out + src_reg * ((src_x - x1) * (src_y - y1));
 
         return saturate_cast<I>(out);   
     } 
 };
 
-template <typename I>
-struct interpolate_read<_3D, I, InterpolationType::INTER_LINEAR> {
-    FK_DEVICE_FUSE I exec(const Point& thread, const RawPtr<_3D, I>& input) {
-        const RawPtr<_2D,I>& myPtr = input.ptrs[thread.z];                                           
-        return interpolate_read<_2D, I, InterpolationType::INTER_LINEAR>
-                                ::exec(thread, myPtr.data, myPtr.dims, myPtr.fy, myPtr.fx);
+template <typename I, int NPtr>
+struct interpolate_read<_3D, I, InterpolationType::INTER_LINEAR, NPtr> {
+    FK_DEVICE_FUSE I exec(const Point& thread, 
+                          const RawPtr<_2D,I> (&ptr)[NPtr], 
+                          const float (&fx)[NPtr], const float (&fy)[NPtr]) {           
+
+        return interpolate_read<_2D, I, InterpolationType::INTER_LINEAR, 1>
+                                ::exec(thread, ptr[thread.z], fx[thread.z], fy[thread.z]);
+
     }
 };
 

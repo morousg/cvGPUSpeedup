@@ -83,17 +83,16 @@ __device__ __forceinline__ void operate_noret(I i_data, binary_operation_pointer
     operate_noret(temp, ops...);
 }*/
 
-template <typename Operation, typename T, typename... operations>
-__device__ __forceinline__ constexpr void operate_noret(const memory_read_iterpolated_N<1, Operation, T>& op, const operations&... ops) {
+template <int NPtr, typename Operation, typename T, typename... operations>
+__device__ __forceinline__ constexpr void operate_noret(const memory_read_iterpolated_N<NPtr, Operation, T>& op, const operations&... ops) {
     cg::thread_block g = cg::this_thread_block();
 
-    const int x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
-    const int y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
-    //const int z =  g.group_index().z; // So far we only consider the option of using the z dimension to specify n (x*y) thread planes
+    const uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
+    const uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
+    const uint z =  g.group_index().z; // So far we only consider the option of using the z dimension to specify n (x*y) thread planes
 
     if (x < op.target_width && y < op.target_height) {
-        const T temp = Operation::exec(x, y, op.ptr.data, 
-        op.ptr.dims.width, op.ptr.dims.height, op.ptr.dims.pitch, op.fx, op.fy);
+        const T temp = Operation::exec(Point(x,y,z), op.ptr, op.fx, op.fy);
         operate_noret(Point(x, y), temp, ops...);
     }
 }
@@ -106,148 +105,13 @@ __global__ void cuda_transform_(const RawPtr<D, I> i_data, const operations... o
     const uint z =  g.group_index().z; // So far we only consider the option of using the z dimension to specify n (x*y) thread planes
 
     if (x < i_data.dims.width && y < i_data.dims.height) {
-        operate_noret(Point(x, y, z), *PtrAccessor<D>::cr_point({x, y, z}, i_data.data, i_data.dims), ops...);
+        operate_noret(Point(x, y, z), *PtrAccessor<D>::cr_point(Point(x, y, z), i_data), ops...);
     }
 }
 
 template<typename... operations>
 __global__ void cuda_transform_noret_2D(const operations... ops) {
     operate_noret(ops...);
-}
-
-template <typename I>
-struct interpolate_read_v3 {
-    static __device__ __forceinline__ I exec(const uint& x, const uint& y, const I*__restrict__ i_data,
-                                             const uint& width, const uint& height, const uint& pitch,
-                                             const float& fx, const float& fy) {
-        const float src_x = x * fx;
-        const float src_y = y * fy;
-
-        const uint x1 = __float2int_rd(src_x);
-        const uint y1 = __float2int_rd(src_y);
-        const uint x2 = x1 + 1;
-        const uint y2 = y1 + 1;        
-        const uint x2_read = ::min(x2, width - 1);
-        const uint y2_read = ::min(y2, height - 1);
-
-        using floatcn_t = typename VectorType<float, VectorTraits<I>::cn>::type;
-        floatcn_t out = make_set<floatcn_t>(0.f);
-        uchar3 src_reg = *PtrAccessor<_2D>::cr_point(x1, y1, i_data, pitch);  //input.at_cr({x1, y1});
-        out = out + src_reg * ((x2 - src_x) * (y2 - src_y));
-
-        src_reg = *PtrAccessor<_2D>::cr_point(x2_read, y1, i_data, pitch); //*input.at_cr({x2_read, y1});
-        out = out + src_reg * ((src_x - x1) * (y2 - src_y));
-
-        src_reg = *PtrAccessor<_2D>::cr_point(x1, y2_read, i_data, pitch); //*input.at_cr({x1, y2_read});
-        out = out + src_reg * ((x2 - src_x) * (src_y - y1));
-
-        src_reg = *PtrAccessor<_2D>::cr_point(x2_read, y2_read, i_data, pitch); //*input.at_cr({x2_read, y2_read});
-        out = out + src_reg * ((src_x - x1) * (src_y - y1));
-
-        return fk::saturate_cast<I>(out);    
-    } 
-};
-
-template <typename I>
-__device__ __forceinline__ const I exec(const uint& x, const uint& y, const I*__restrict__ i_data,
-                                        const uint& width, const uint& height, const uint& pitch,
-                                        const float& fx, const float& fy) {
-    const float src_x = x * fx;
-    const float src_y = y * fy;
-
-    const uint x1 = __float2int_rd(src_x);
-    const uint y1 = __float2int_rd(src_y);
-    const uint x2 = x1 + 1;
-    const uint y2 = y1 + 1;        
-    const uint x2_read = ::min(x2, width - 1);
-    const uint y2_read = ::min(y2, height - 1);
-
-    using floatcn_t = typename VectorType<float, VectorTraits<I>::cn>::type;
-    floatcn_t out = make_set<floatcn_t>(0.f);
-    uchar3 src_reg = *PtrAccessor<_2D>::cr_point(x1, y1, i_data, pitch);  //input.at_cr({x1, y1});
-    out = out + src_reg * ((x2 - src_x) * (y2 - src_y));
-
-    src_reg = *PtrAccessor<_2D>::cr_point(x2_read, y1, i_data, pitch); //*input.at_cr({x2_read, y1});
-    out = out + src_reg * ((src_x - x1) * (y2 - src_y));
-
-    src_reg = *PtrAccessor<_2D>::cr_point(x1, y2_read, i_data, pitch); //*input.at_cr({x1, y2_read});
-    out = out + src_reg * ((x2 - src_x) * (src_y - y1));
-
-    src_reg = *PtrAccessor<_2D>::cr_point(x2_read, y2_read, i_data, pitch); //*input.at_cr({x2_read, y2_read});
-    out = out + src_reg * ((src_x - x1) * (src_y - y1));
-
-    return fk::saturate_cast<I>(out);    
-
-}
-
-template <typename I>
-__global__ void resize_2D_v3(const I*__restrict__ i_data, I* o_data, 
-                          uint width, uint height, uint pitch, // Source info
-                          uint t_width, uint t_height, uint t_pitch, // Destination info
-                          float fx, float fy) {
-    cg::thread_block g = cg::this_thread_block();
-
-    const uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
-    const uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
-    if ( x < t_width && y < t_height ) {
-        I* output = PtrAccessor<_2D>::point(x, y, o_data, t_pitch);
-        *output = fk::saturate_cast<I>(interpolate_read_v3<I>::exec(x, y, i_data, width, height, pitch, fx, fy));
-    }
-}
-
-template <typename I>
-__global__ void resize_2D_v2(const I*__restrict__ i_data, I* o_data, 
-                          uint width, uint height, uint pitch, // Source info
-                          uint t_width, uint t_height, uint t_pitch, // Destination info
-                          float fx, float fy) {
-    cg::thread_block g = cg::this_thread_block();
-
-    const uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
-    const uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
-    if ( x < t_width && y < t_height ) {
-        I* output = PtrAccessor<_2D>::point(x, y, o_data, t_pitch);
-        *output = fk::saturate_cast<I>(exec(x, y, i_data, width, height, pitch, fx, fy));
-    }
-}
-
-template <typename I>
-__global__ void resize_2D(const I*__restrict__ i_data, I*__restrict__ o_data, 
-                          const int width, const int height, const int pitch, // Source info
-                          const int t_width, const int t_height, const int t_pitch, // Destination info
-                          const float fx, const float fy) {
-    using floatcn_t = typename VectorType<float, VectorTraits<I>::cn>::type;
-
-    // TODO: what if threadIdx and so on
-    cg::thread_block g = cg::this_thread_block();
-    const int x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
-    const int y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
-    if ( x < t_width && y < t_height ) {
-        const float src_x = x * fx;
-        const float src_y = y * fy;
-
-        floatcn_t out = make_set<floatcn_t>(0.f);
-        const int x1 = __float2int_rd(src_x);
-        const int y1 = __float2int_rd(src_y);
-        const int x2 = x1 + 1;
-        const int y2 = y1 + 1;        
-        const int x2_read = ::min(x2, width - 1);
-        const int y2_read = ::min(y2, height - 1);
-
-        uchar3 src_reg = *PtrAccessor<_2D>::cr_point(x1, y1, i_data, pitch);  //input.at_cr({x1, y1});
-        out = out + src_reg * ((x2 - src_x) * (y2 - src_y));
-
-        src_reg = *PtrAccessor<_2D>::cr_point(x2_read, y1, i_data, pitch); //*input.at_cr({x2_read, y1});
-        out = out + src_reg * ((src_x - x1) * (y2 - src_y));
-
-        src_reg = *PtrAccessor<_2D>::cr_point(x1, y2_read, i_data, pitch); //*input.at_cr({x1, y2_read});
-        out = out + src_reg * ((x2 - src_x) * (src_y - y1));
-
-        src_reg = *PtrAccessor<_2D>::cr_point(x2_read, y2_read, i_data, pitch); //*input.at_cr({x2_read, y2_read});
-        out = out + src_reg * ((src_x - x1) * (src_y - y1));
-        
-        I* output = PtrAccessor<_2D>::point(x, y, o_data, t_pitch);
-        *output = fk::saturate_cast<I>(out);
-    }
 }
 
 }
