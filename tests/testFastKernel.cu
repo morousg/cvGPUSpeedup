@@ -75,7 +75,7 @@ int main() {
     fk::unary_operation_scalar<fk::unary_cast<uchar, uint>, uint> op = {};
     fk::memory_write_scalar<fk::_2D, fk::perthread_write<fk::_2D, uint>, uint> opFinal_2D = { output };
 
-    fk::cuda_transform_<<<dim3(8),dim3(64,8),0,stream>>>(input.d_ptr(), op);
+    fk::cuda_transform_<<<dim3(1,8),dim3(64,8),0,stream>>>(input.d_ptr(), op);
 
     gpuErrchk(cudaStreamSynchronize(stream));
 

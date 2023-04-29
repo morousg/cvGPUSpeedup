@@ -109,20 +109,28 @@ bool testSplitOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
             }
 
             // OpenCV version
-            cv::cuda::resize(d_crop, d_up, up, 0., 0., cv::INTER_LINEAR, cv_stream);
-            d_up.convertTo(d_temp, OC, alpha, cv_stream);
-            cv::cuda::subtract(d_temp, val_sub, d_temp2, cv::noArray(), -1, cv_stream);
-            cv::cuda::divide(d_temp2, val_div, d_temp, 1.0, -1, cv_stream);
-            cv::cuda::split(d_temp, d_output_cv, cv_stream);
+            for (int i=0; i<100; i++) {
+                cv::cuda::resize(d_crop, d_up, up, 0., 0., cv::INTER_LINEAR, cv_stream);
+                d_up.convertTo(d_temp, OC, alpha, cv_stream);
+                cv::cuda::subtract(d_temp, val_sub, d_temp2, cv::noArray(), -1, cv_stream);
+                cv::cuda::divide(d_temp2, val_div, d_temp, 1.0, -1, cv_stream);
+                cv::cuda::split(d_temp, d_output_cv, cv_stream);
+            }
 
-            // cvGPUSpeedup version
-            cvGS::executeOperations<I>(cv_stream,
-                                       cvGS::resize<I, cv::INTER_LINEAR>(d_input, up, 0., 0.),
-                                       cvGS::convertTo<I, OC>(),
-                                       cvGS::multiply<OC>(val_alpha),
-                                       cvGS::subtract<OC>(val_sub),
-                                       cvGS::divide<OC>(val_div),
-                                       cvGS::split<OC>(d_output_cvGS));
+            for (int i=0; i<100; i++) {
+                // cvGPUSpeedup version
+                cvGS::executeOperations<I>(cv_stream,
+                                        cvGS::resize<I, cv::INTER_LINEAR>(d_input, up, 0., 0.),
+                                        cvGS::convertTo<I, OC>(),
+                                        cvGS::multiply<OC>(val_alpha),
+                                        cvGS::subtract<OC>(val_sub),
+                                        cvGS::divide<OC>(val_div),
+                                        cvGS::split<OC>(d_output_cvGS));
+            }
+            
+            for (int i=0; i<100; i++) {
+                cvGS::resize_2D(d_input, d_up, up, 0., 0., cv_stream);
+            }
 
             // Looking at Nsight Systems, with an RTX A2000 12GB
             // Speedups are up to 7x, depending on the data type
@@ -337,12 +345,12 @@ bool testResize(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, b
 }
 
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-results["testNoDefinedOutputOperation"] &= testNoDefinedOutputOperation<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, false); \
+results["testNoDefinedOutputOperation"] &= testNoDefinedOutputOperation<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true); \
 results["testSplitOutputOperation"] &= testSplitOutputOperation<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true); \
 results["testResize"] &= testResize<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
 #define LAUNCH_TESTS_NO_SPLIT(CV_INPUT, CV_OUTPUT) \
-results["testNoDefinedOutputOperation"] &= testNoDefinedOutputOperation<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, false); \
+results["testNoDefinedOutputOperation"] &= testNoDefinedOutputOperation<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true); \
 results["testResize"] &= testResize<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
 int main() {
@@ -358,15 +366,15 @@ int main() {
     results["testSplitOutputOperation"] = true;
     results["testResize"] = true;
 
-    /*LAUNCH_TESTS_NO_SPLIT(CV_8UC1, CV_32FC1)
+    LAUNCH_TESTS_NO_SPLIT(CV_8UC1, CV_32FC1)
     LAUNCH_TESTS_NO_SPLIT(CV_8SC1, CV_32FC1)
     LAUNCH_TESTS_NO_SPLIT(CV_16UC1, CV_32FC1)
     LAUNCH_TESTS_NO_SPLIT(CV_16SC1, CV_32FC1)
     LAUNCH_TESTS_NO_SPLIT(CV_32SC1, CV_32FC1)
     LAUNCH_TESTS_NO_SPLIT(CV_32FC1, CV_32FC1)
-    LAUNCH_TESTS(CV_8UC2, CV_32FC2)*/
+    LAUNCH_TESTS(CV_8UC2, CV_32FC2)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
-    /*LAUNCH_TESTS(CV_8UC4, CV_32FC4)
+    LAUNCH_TESTS(CV_8UC4, CV_32FC4)
     LAUNCH_TESTS(CV_8SC2, CV_32FC2)
     LAUNCH_TESTS(CV_8SC3, CV_32FC3)
     LAUNCH_TESTS(CV_8SC4, CV_32FC4)
@@ -381,7 +389,7 @@ int main() {
     LAUNCH_TESTS(CV_32SC4, CV_32FC4)
     LAUNCH_TESTS(CV_32FC2, CV_64FC2)
     LAUNCH_TESTS(CV_32FC3, CV_64FC3)
-    LAUNCH_TESTS(CV_32FC4, CV_64FC4)*/
+    LAUNCH_TESTS(CV_32FC4, CV_64FC4)
 
     #undef LAUNCH_TESTS_NO_SPLIT
     #undef LAUNCH_TESTS
