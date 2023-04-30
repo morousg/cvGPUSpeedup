@@ -56,6 +56,12 @@ __device__ __forceinline__ constexpr void operate_noret(const Point& thread, con
     operate_noret(thread, i_data, ops...);
 }
 
+template <typename Operation, typename T, typename... operations>
+__device__ __forceinline__ constexpr void operate_noret(const Point& thread, const T& i_data, const split_write_tensor<Operation, typename fk::VectorTraits<T>::base>& op, const operations&... ops) {
+    Operation::exec(thread, i_data, op.t);
+    operate_noret(thread, i_data, ops...);
+}
+
 template <ND D, typename Operation, typename T, typename... operations>
 __device__ __forceinline__ constexpr 
 void operate_noret(const Point& thread, const T& i_data, const memory_write_scalar<D, Operation, T>& op, const operations&... ops) {
@@ -93,7 +99,7 @@ __device__ __forceinline__ constexpr void operate_noret(const memory_read_iterpo
 
     if (x < op.target_width && y < op.target_height) {
         const T temp = Operation::exec(Point(x,y,z), op.ptr, op.fx, op.fy);
-        operate_noret(Point(x, y), temp, ops...);
+        operate_noret(Point(x, y, z), temp, ops...);
     }
 }
 

@@ -442,7 +442,8 @@ class Ptr3D : public Ptr<_3D, T, PtrAccessor<_3D>> {
 public:
     __host__ inline Ptr3D(uint width_, uint height_, uint planes_, uint color_planes_ = 1, uint pitch_ = 0, MemType type_ = Device, int deviceID_ = 0) : 
     Ptr<_3D, T, PtrAccessor<_3D>>(PtrDims<_3D>(width_, height_, planes_, color_planes_, pitch_), type_, deviceID_) {}
-    __host__ inline Ptr3D(const Ptr<_3D, T, PtrAccessor<_3D>>& other) : Ptr<_3D, T, PtrAccessor<_3D>>(other) {}
+    __host__ inline Ptr3D(const Ptr<_3D, T, PtrAccessor<_3D>>& other) :
+                          Ptr<_3D, T, PtrAccessor<_3D>>(other) {}
     __host__ inline Ptr3D(T * data_, const PtrDims<_3D>& dims_, MemType type_ = Device, int deviceID_ = 0) :
                           Ptr<_3D, T, PtrAccessor<_3D>>(data_, dims_, type_, deviceID_) {}
     __host__ inline Ptr3D<T> crop3D(Point p, PtrDims<_3D> newDims) {
@@ -455,8 +456,15 @@ template <typename T>
 class Tensor : public Ptr<_3D, T, PtrAccessor<_3D>> {
 public:
     __host__ inline Tensor() {}
+
+    __host__ inline Tensor(const Tensor<T>& other) : Ptr<_3D, T, PtrAccessor<_3D>>(other) {}
+    
     __host__ inline Tensor(uint width_, uint height_, uint planes_, uint color_planes_ = 1, MemType type_ = Device, int deviceID_ = 0) : 
     Ptr<_3D,T, PtrAccessor<_3D>>(PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_) {}
+    
+    __host__ inline Tensor(T* data, uint width_, uint height_, uint planes_, uint color_planes_ = 1, MemType type_ = Device, int deviceID_ = 0) : 
+    Ptr<_3D,T, PtrAccessor<_3D>>(data, PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_) {}
+    
     __host__ inline void allocTensor(uint width_, uint height_, uint planes_, uint color_planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
         this->allocPtr(PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_);
     }

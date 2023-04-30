@@ -35,12 +35,12 @@ struct perthread_write {
 };
 
 template <typename T, typename Enabler=void>
-struct perthread_packed2plannar_tensor_write;
+struct perthread_tensor_split_write;
 
 template <typename T>
-struct perthread_packed2plannar_tensor_write<T, typename std::enable_if_t<CN(T) == 2>> {
+struct perthread_tensor_split_write<T, typename std::enable_if_t<CN(T) == 2>> {
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
-                             const Tensor<typename VectorTraits<T>::base>& ptr) {
+                             const RawPtr<_3D, typename VectorTraits<T>::base>& ptr) {
         using BaseType = typename VectorTraits<T>::base;
         BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr);
         *work_plane = input.x;
@@ -50,9 +50,9 @@ struct perthread_packed2plannar_tensor_write<T, typename std::enable_if_t<CN(T) 
 };
 
 template <typename T>
-struct perthread_packed2plannar_tensor_write<T, typename std::enable_if_t<CN(T) == 3>> {
+struct perthread_tensor_split_write<T, typename std::enable_if_t<CN(T) == 3>> {
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
-                             const Tensor<typename VectorTraits<T>::base>& ptr) {
+                             const RawPtr<_3D, typename VectorTraits<T>::base>& ptr) {
         using BaseType = typename VectorTraits<T>::base;
         BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr);
         *work_plane = input.x;
@@ -64,9 +64,9 @@ struct perthread_packed2plannar_tensor_write<T, typename std::enable_if_t<CN(T) 
 };
 
 template <typename T>
-struct perthread_packed2plannar_tensor_write<T, typename std::enable_if_t<CN(T) == 4>> {
+struct perthread_tensor_split_write<T, typename std::enable_if_t<CN(T) == 4>> {
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
-                             const Tensor<typename VectorTraits<T>::base>& ptr) {
+                             const RawPtr<_3D, typename VectorTraits<T>::base>& ptr) {
         using BaseType = typename VectorTraits<T>::base;
         BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr);
         *work_plane = input.x;
@@ -236,7 +236,8 @@ template <typename I, int NPtr>
 struct interpolate_read<_3D, I, InterpolationType::INTER_LINEAR, NPtr> {
     FK_DEVICE_FUSE I exec(const Point& thread, 
                           const RawPtr<_2D,I> (&ptr)[NPtr], 
-                          const float (&fx)[NPtr], const float (&fy)[NPtr]) {           
+                          const float (&fx)[NPtr], const float (&fy)[NPtr]) {    
+               
 
         return interpolate_read<_2D, I, InterpolationType::INTER_LINEAR, 1>
                                 ::exec(thread, ptr[thread.z], fx[thread.z], fy[thread.z]);

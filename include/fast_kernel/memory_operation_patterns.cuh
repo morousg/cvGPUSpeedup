@@ -68,4 +68,9 @@ struct split_write_scalar<D, Operator, T, typename std::enable_if_t<CN(T) == 4>>
     RawPtr<D, decltype(T::w)> w;
 };
 
+template <typename Operator, typename T>
+struct split_write_tensor {
+    RawPtr<_3D, T> t;
+};
+
 }

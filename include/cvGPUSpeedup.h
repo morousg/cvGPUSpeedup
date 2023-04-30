@@ -59,14 +59,20 @@ inline constexpr auto split(const std::vector<cv::cuda::GpuMat>& output) {
     return internal::split_builder_t<O, fk::Ptr2D<BASE_CUDA_T(O)>, fk::split_write_scalar<fk::_2D, fk::perthread_split_write<fk::_2D,CUDA_T(O)>, CUDA_T(O)>>::build(fk_output);
 }
 
-template <int O>
-inline constexpr auto split(const std::vector<fk::Tensor<BASE_CUDA_T(O)>>& output) {
-    return internal::split_builder_t<O, fk::Tensor<BASE_CUDA_T(O)>, fk::split_write_scalar<fk::_3D, fk::perthread_split_write<fk::_3D,CUDA_T(O)>, CUDA_T(O)>>::build(output);
+template <int I>
+inline constexpr fk::split_write_tensor<fk::perthread_tensor_split_write<CUDA_T(I)>, BASE_CUDA_T(I)> 
+split(const cv::cuda::GpuMat& output, const cv::Size& planeDims) {
+    assert(output.cols % (planeDims.width * planeDims.height) == 0 && output.cols / (planeDims.width * planeDims.height) == CV_MAT_CN(I) &&
+    "Each row of the GpuMap should contain as many planes as width / (planeDims.width * planeDims.height)");
+
+    fk::Tensor<BASE_CUDA_T(I)> t_output((BASE_CUDA_T(I)*)output.data, planeDims.width, planeDims.height, output.rows, CV_MAT_CN(I));
+
+    return {t_output};
 }
 
 template <int T, int INTER_F>
-inline const fk::memory_read_iterpolated_N<1, fk::interpolate_read<fk::_2D, CUDA_T(T), (fk::InterpolationType)INTER_F, 1>,
-                            CUDA_T(T)> resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
+inline const fk::memory_read_iterpolated_N<1, fk::interpolate_read<fk::_2D, CUDA_T(T), (fk::InterpolationType)INTER_F, 1>, CUDA_T(T)>
+resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
     // So far we only support fk::INTER_LINEAR
     uint t_width, t_height;
     if (dsize != cv::Size()) {
@@ -88,8 +94,9 @@ inline const fk::memory_read_iterpolated_N<1, fk::interpolate_read<fk::_2D, CUDA
 }
 
 template <int T, int INTER_F, int NPtr>
-inline const fk::memory_read_iterpolated_N<NPtr, fk::interpolate_read<fk::_3D, CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr>,
-                            CUDA_T(T)> resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize) {
+inline const fk::memory_read_iterpolated_N<NPtr, fk::interpolate_read<fk::_3D, CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr>, CUDA_T(T)> 
+resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize) {
+    
     fk::memory_read_iterpolated_N<NPtr, fk::interpolate_read<fk::_3D, CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr>, CUDA_T(T)> resizeArray;
     resizeArray.target_width = dsize.width;
     resizeArray.target_height = dsize.height;

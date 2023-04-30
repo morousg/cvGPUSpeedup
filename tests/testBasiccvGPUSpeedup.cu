@@ -14,179 +14,8 @@
 
 #include <sstream>
 
-#include <testUtils.h>
+#include "testsCommon.h"
 #include <cvGPUSpeedup.h>
-
-#include <opencv2/core.hpp>
-#include <opencv2/core/cuda_stream_accessor.hpp>
-#include <opencv2/cudaarithm.hpp>
-#include <opencv2/cudawarping.hpp>
-#include <opencv2/core/cuda.hpp>
-#include <opencv2/imgproc.hpp>
-
-template <int T>
-bool checkResults(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& h_comparison1C) {
-    cv::Mat h_comparison(NUM_ELEMS_Y, NUM_ELEMS_X, T);
-    cv::Mat maxError(NUM_ELEMS_Y, NUM_ELEMS_X, T, 0.00001);
-    cv::compare(h_comparison1C, maxError, h_comparison, cv::CMP_GT);
-
-#ifdef CVGS_DEBUG
-    for (int y=0; y<h_comparison1C.rows; y++) {
-        for (int x=0; x<h_comparison1C.cols; x++) {
-            CUDA_T(T) value = h_comparison1C.at<CUDA_T(T)>(y,x);
-            if (value > 0.001) {
-                std::cout << value << ", ";
-            }
-        }
-        std::cout << std::endl;
-    }
-#endif
-    
-    int errors = cv::countNonZero(h_comparison);
-    return errors == 0;
-}
-
-template <int T>
-bool compareAndCheck(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& cvVersion, cv::Mat& cvGSVersion) {
-    bool passed = true;
-    cv::Mat diff = cv::abs(cvVersion - cvGSVersion);
-    std::vector<cv::Mat> h_comparison1C(CV_MAT_CN(T));
-    cv::split(diff, h_comparison1C);
-
-    for (int i=0; i<CV_MAT_CN(T); i++) {
-        passed &= checkResults<CV_MAT_DEPTH(T)>(NUM_ELEMS_X, NUM_ELEMS_Y, h_comparison1C.at(i));
-    }
-    return passed;
-}
-
-template <int I, int OC>
-bool testSplitOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
-    std::stringstream error_s;
-    bool passed = true;
-    bool exception = false;
-
-    if (enabled) {
-        struct Parameters {
-            cv::Scalar init;
-            cv::Scalar alpha;
-            cv::Scalar val_sub;
-            cv::Scalar val_div;
-        };
-
-        double alpha = 0.3;
-
-        std::vector<Parameters> params = {
-            {{2u}, {alpha}, {1.f}, {3.2f}},
-            {{2u, 37u}, {alpha, alpha}, {1.f, 4.f}, {3.2f, 0.6f}},
-            {{2u, 37u, 128u}, {alpha, alpha, alpha}, {1.f, 4.f, 3.2f}, {3.2f, 0.6f, 11.8f}},
-            {{2u, 37u, 128u, 20u}, {alpha, alpha, alpha, alpha}, {1.f, 4.f, 3.2f, 0.5f}, {3.2f, 0.6f, 11.8f, 33.f}}
-        };
-
-        cv::Scalar val_init = params.at(CV_MAT_CN(OC)-1).init;
-        cv::Scalar val_alpha = params.at(CV_MAT_CN(OC)-1).alpha;
-        cv::Scalar val_sub = params.at(CV_MAT_CN(OC)-1).val_sub;
-        cv::Scalar val_div = params.at(CV_MAT_CN(OC)-1).val_div;
-
-        try {
-            constexpr int NCrops = 30;
-            cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, I, val_init);
-            cv::Rect2d crop(cv::Point2d(200, 200), cv::Point2d(260, 320));
-            std::array<cv::cuda::GpuMat, NCrops> crops;
-
-            for (int i=0; i<NCrops; i++) {
-                crops[i] = d_input(crop);
-            }
-
-            cv::Size up(64, 128);
-            cv::cuda::GpuMat d_up(up, I);
-            cv::cuda::GpuMat d_temp(up, OC);
-            cv::cuda::GpuMat d_temp2(up, OC);
-
-            cv::Mat diff(up, CV_MAT_DEPTH(OC));
-            std::vector<cv::Mat> h_cvResults(CV_MAT_CN(OC));
-            std::vector<cv::Mat> h_cvGSResults(CV_MAT_CN(OC));
-            std::vector<cv::cuda::GpuMat> d_output_cv(CV_MAT_CN(OC));
-            std::vector<cv::cuda::GpuMat> d_output_cvGS(CV_MAT_CN(OC));
-            std::vector<fk::Tensor<BASE_CUDA_T(OC)>> d_tensor_output(CV_MAT_CN(OC));
-
-            for (int i=0; i<CV_MAT_CN(I); i++) {
-                d_output_cv.at(i).create(up, CV_MAT_DEPTH(OC));
-                h_cvResults.at(i).create(up, CV_MAT_DEPTH(OC));
-                d_output_cvGS.at(i).create(up, CV_MAT_DEPTH(OC));
-                h_cvGSResults.at(i).create(up, CV_MAT_DEPTH(OC));
-                d_tensor_output.at(i).allocTensor(up.width, up.height, NCrops);
-            }
-
-            // OpenCV version
-            for (int i=0; i<NCrops; i++) {
-                cv::cuda::resize(crops[i], d_up, up, 0., 0., cv::INTER_LINEAR, cv_stream);
-                d_up.convertTo(d_temp, OC, alpha, cv_stream);
-                cv::cuda::subtract(d_temp, val_sub, d_temp2, cv::noArray(), -1, cv_stream);
-                cv::cuda::divide(d_temp2, val_div, d_temp, 1.0, -1, cv_stream);
-                cv::cuda::split(d_temp, d_output_cv, cv_stream);
-            }
-
-            for (int i=0; i<NCrops; i++) {
-                // cvGPUSpeedup version
-                cvGS::executeOperations<I>(cv_stream,
-                                            cvGS::resize<I, cv::INTER_LINEAR>(crops[i], up, 0., 0.),
-                                            cvGS::convertTo<I, OC>(),
-                                            cvGS::multiply<OC>(val_alpha),
-                                            cvGS::subtract<OC>(val_sub),
-                                            cvGS::divide<OC>(val_div),
-                                            cvGS::split<OC>(d_output_cvGS));
-            }
-            
-            cvGS::executeOperations<I>(cv_stream,
-                                        cvGS::resize<I, cv::INTER_LINEAR, NCrops>(crops, up),
-                                        cvGS::convertTo<I, OC>(),
-                                        cvGS::multiply<OC>(val_alpha),
-                                        cvGS::subtract<OC>(val_sub),
-                                        cvGS::divide<OC>(val_div),
-                                        cvGS::split<OC>(d_tensor_output));
-
-            // Looking at Nsight Systems, with an RTX A2000 12GB
-            // Speedups are up to 7x, depending on the data type
-
-            // Verify results
-            for (int i=0; i<CV_MAT_CN(OC); i++) {
-                d_output_cv.at(i).download(h_cvResults.at(i), cv_stream);
-                d_output_cvGS.at(i).download(h_cvGSResults.at(i), cv_stream);
-            }
-
-            cv_stream.waitForCompletion();
-
-            for (int i=0; i<CV_MAT_CN(OC); i++) {
-                diff = cv::abs(h_cvResults.at(i) - h_cvGSResults.at(i));
-                passed &= checkResults<CV_MAT_DEPTH(OC)>(diff.cols, diff.rows, diff);
-            }
-        } catch (const cv::Exception& e) {
-            if (e.code != -210) {
-                error_s << e.what();
-                passed = false;
-                exception = true;
-            }
-        } catch (const std::exception& e) {
-            error_s << e.what();
-            passed = false;
-            exception = true;
-        } 
-
-        if (!passed) {
-            if (!exception) {
-                std::stringstream ss;
-                ss << "testNoDefinedOutputOperation<" << cvTypeToString<I>() << ", " << cvTypeToString<OC>();
-                std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
-            } else {
-                std::stringstream ss;
-                ss << "testNoDefinedOutputOperation<" << cvTypeToString<I>() << ", " << cvTypeToString<OC>();
-                std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
-            }
-        }
-    }
-
-    return passed;
-}
 
 template <int I, int OC>
 bool testNoDefinedOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
@@ -356,11 +185,6 @@ bool testResize(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, b
 
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
 results["testNoDefinedOutputOperation"] &= testNoDefinedOutputOperation<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true); \
-results["testSplitOutputOperation"] &= testSplitOutputOperation<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true); \
-results["testResize"] &= testResize<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
-
-#define LAUNCH_TESTS_NO_SPLIT(CV_INPUT, CV_OUTPUT) \
-results["testNoDefinedOutputOperation"] &= testNoDefinedOutputOperation<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true); \
 results["testResize"] &= testResize<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
 int main() {
@@ -373,15 +197,14 @@ int main() {
 
     std::unordered_map<std::string, bool> results;
     results["testNoDefinedOutputOperation"] = true;
-    results["testSplitOutputOperation"] = true;
     results["testResize"] = true;
 
-    LAUNCH_TESTS_NO_SPLIT(CV_8UC1, CV_32FC1)
-    LAUNCH_TESTS_NO_SPLIT(CV_8SC1, CV_32FC1)
-    LAUNCH_TESTS_NO_SPLIT(CV_16UC1, CV_32FC1)
-    LAUNCH_TESTS_NO_SPLIT(CV_16SC1, CV_32FC1)
-    LAUNCH_TESTS_NO_SPLIT(CV_32SC1, CV_32FC1)
-    LAUNCH_TESTS_NO_SPLIT(CV_32FC1, CV_32FC1)
+    LAUNCH_TESTS(CV_8UC1, CV_32FC1)
+    LAUNCH_TESTS(CV_8SC1, CV_32FC1)
+    LAUNCH_TESTS(CV_16UC1, CV_32FC1)
+    LAUNCH_TESTS(CV_16SC1, CV_32FC1)
+    LAUNCH_TESTS(CV_32SC1, CV_32FC1)
+    LAUNCH_TESTS(CV_32FC1, CV_32FC1)
     LAUNCH_TESTS(CV_8UC2, CV_32FC2)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
     LAUNCH_TESTS(CV_8UC4, CV_32FC4)
