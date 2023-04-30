@@ -88,8 +88,15 @@ bool testSplitOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
         cv::Scalar val_div = params.at(CV_MAT_CN(OC)-1).val_div;
 
         try {
+            constexpr int NCrops = 30;
             cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, I, val_init);
-            cv::cuda::GpuMat d_crop = d_input(cv::Rect2d(cv::Point2d(200, 200), cv::Point2d(260, 320)));
+            cv::Rect2d crop(cv::Point2d(200, 200), cv::Point2d(260, 320));
+            std::array<cv::cuda::GpuMat, NCrops> crops;
+
+            for (int i=0; i<NCrops; i++) {
+                crops[i] = d_input(crop);
+            }
+
             cv::Size up(64, 128);
             cv::cuda::GpuMat d_up(up, I);
             cv::cuda::GpuMat d_temp(up, OC);
@@ -100,29 +107,43 @@ bool testSplitOutputOperation(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
             std::vector<cv::Mat> h_cvGSResults(CV_MAT_CN(OC));
             std::vector<cv::cuda::GpuMat> d_output_cv(CV_MAT_CN(OC));
             std::vector<cv::cuda::GpuMat> d_output_cvGS(CV_MAT_CN(OC));
+            std::vector<fk::Tensor<BASE_CUDA_T(OC)>> d_tensor_output(CV_MAT_CN(OC));
 
             for (int i=0; i<CV_MAT_CN(I); i++) {
                 d_output_cv.at(i).create(up, CV_MAT_DEPTH(OC));
                 h_cvResults.at(i).create(up, CV_MAT_DEPTH(OC));
                 d_output_cvGS.at(i).create(up, CV_MAT_DEPTH(OC));
                 h_cvGSResults.at(i).create(up, CV_MAT_DEPTH(OC));
+                d_tensor_output.at(i).allocTensor(up.width, up.height, NCrops);
             }
 
             // OpenCV version
-            cv::cuda::resize(d_crop, d_up, up, 0., 0., cv::INTER_LINEAR, cv_stream);
-            d_up.convertTo(d_temp, OC, alpha, cv_stream);
-            cv::cuda::subtract(d_temp, val_sub, d_temp2, cv::noArray(), -1, cv_stream);
-            cv::cuda::divide(d_temp2, val_div, d_temp, 1.0, -1, cv_stream);
-            cv::cuda::split(d_temp, d_output_cv, cv_stream);
+            for (int i=0; i<NCrops; i++) {
+                cv::cuda::resize(crops[i], d_up, up, 0., 0., cv::INTER_LINEAR, cv_stream);
+                d_up.convertTo(d_temp, OC, alpha, cv_stream);
+                cv::cuda::subtract(d_temp, val_sub, d_temp2, cv::noArray(), -1, cv_stream);
+                cv::cuda::divide(d_temp2, val_div, d_temp, 1.0, -1, cv_stream);
+                cv::cuda::split(d_temp, d_output_cv, cv_stream);
+            }
 
-            // cvGPUSpeedup version
+            for (int i=0; i<NCrops; i++) {
+                // cvGPUSpeedup version
+                cvGS::executeOperations<I>(cv_stream,
+                                            cvGS::resize<I, cv::INTER_LINEAR>(crops[i], up, 0., 0.),
+                                            cvGS::convertTo<I, OC>(),
+                                            cvGS::multiply<OC>(val_alpha),
+                                            cvGS::subtract<OC>(val_sub),
+                                            cvGS::divide<OC>(val_div),
+                                            cvGS::split<OC>(d_output_cvGS));
+            }
+            
             cvGS::executeOperations<I>(cv_stream,
-                                       cvGS::resize<I, cv::INTER_LINEAR>(d_input, up, 0., 0.),
-                                       cvGS::convertTo<I, OC>(),
-                                       cvGS::multiply<OC>(val_alpha),
-                                       cvGS::subtract<OC>(val_sub),
-                                       cvGS::divide<OC>(val_div),
-                                       cvGS::split<OC>(d_output_cvGS));
+                                        cvGS::resize<I, cv::INTER_LINEAR, NCrops>(crops, up),
+                                        cvGS::convertTo<I, OC>(),
+                                        cvGS::multiply<OC>(val_alpha),
+                                        cvGS::subtract<OC>(val_sub),
+                                        cvGS::divide<OC>(val_div),
+                                        cvGS::split<OC>(d_tensor_output));
 
             // Looking at Nsight Systems, with an RTX A2000 12GB
             // Speedups are up to 7x, depending on the data type

@@ -16,18 +16,22 @@
 
 namespace fk {
 
-template <typename Operator, typename I1, typename I2=I1, typename O=I1>
+// We need to add O so that the compiler knows the otput type of Operator before knowing Operator.
+// It can not deduce O from Operator
+template <typename Operator, typename I2, typename O=I2>
 struct binary_operation_scalar {
     const I2 scalar;
 };
 
-template <typename Operator, typename I1, typename I2=I1, typename O=I1>
+/*template <typename Operator, typename T>
 struct binary_operation_pointer {
-    I2* pointer;
-    I2 temp_register[4];
-};
+    T* pointer;
+    T temp_register[4];
+};*/
 
-template <typename Operator, typename I, typename O>
+// We need to add O so that the compiler knows the otput type of Operator before knowing Operator.
+// It can not deduce O from Operator
+template <typename Operator, typename O>
 struct unary_operation_scalar {};
 
 }

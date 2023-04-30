@@ -24,26 +24,26 @@ namespace cvGS {
 
 namespace internal {
 
-template <int I, typename Operator, typename Enabler = void>
+template <int I, typename PtrType, typename Operator, typename Enabler = void>
 struct split_builder_t {};
 
-template <int I, typename Operator>
-struct split_builder_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 2>> {
-    FK_HOST_FUSE Operator build(const std::vector<fk::Ptr3D<BASE_CUDA_T(I)>>& output) {
+template <int I, typename PtrType, typename Operator>
+struct split_builder_t<I, PtrType, Operator, std::enable_if_t<CV_MAT_CN(I) == 2>> {
+    FK_HOST_FUSE Operator build(const std::vector<PtrType>& output) {
         return { output.at(0), output.at(1) };
     }
 };
 
-template <int I, typename Operator>
-struct split_builder_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 3>> {
-    FK_HOST_FUSE Operator build(const std::vector<fk::Ptr3D<BASE_CUDA_T(I)>>& output) {
+template <int I, typename PtrType, typename Operator>
+struct split_builder_t<I, PtrType, Operator, std::enable_if_t<CV_MAT_CN(I) == 3>> {
+    FK_HOST_FUSE Operator build(const std::vector<PtrType>& output) {
         return { output.at(0), output.at(1), output.at(2) };
     }
 };
 
-template <int I, typename Operator>
-struct split_builder_t<I, Operator, std::enable_if_t<CV_MAT_CN(I) == 4>> {
-    FK_HOST_FUSE Operator build(const std::vector<fk::Ptr3D<BASE_CUDA_T(I)>>& output) {
+template <int I, typename PtrType, typename Operator>
+struct split_builder_t<I, PtrType, Operator, std::enable_if_t<CV_MAT_CN(I) == 4>> {
+    FK_HOST_FUSE Operator build(const std::vector<PtrType>& output) {
         return { output.at(0), output.at(1), output.at(2), output.at(3) };
     }
 };
