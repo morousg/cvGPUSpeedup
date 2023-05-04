@@ -25,7 +25,7 @@
 #define GLOBAL_ID ((blockIdx.x * blockDim.x) + threadIdx.x)
 #define FK_DEVICE_FUSE static constexpr __device__ __forceinline__
 #define FK_HOST_DEVICE_FUSE FK_DEVICE_FUSE __host__
-#define FK_HOST_FUSE static constexpr inline __host__
+#define FK_HOST_FUSE static inline __host__
 
 using uchar = unsigned char;
 using schar = signed char;

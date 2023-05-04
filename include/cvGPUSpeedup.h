@@ -95,16 +95,20 @@ resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double f
 
 template <int T, int INTER_F, int NPtr>
 inline const fk::memory_read_iterpolated_N<NPtr, fk::interpolate_read<fk::_3D, CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr>, CUDA_T(T)> 
-resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize) {
+resize(const std::array<cv::cuda::GpuMat, NPtr> input, const cv::Size dsize, const int usedPlanes) {
     
     fk::memory_read_iterpolated_N<NPtr, fk::interpolate_read<fk::_3D, CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr>, CUDA_T(T)> resizeArray;
     resizeArray.target_width = dsize.width;
     resizeArray.target_height = dsize.height;
-    for (int i=0; i<NPtr; i++) {
+    resizeArray.active_planes = usedPlanes;
+    for (int i=0; i<usedPlanes; i++) {
         // So far we only support fk::INTER_LINEAR
         resizeArray.ptr[i] = {(CUDA_T(T)*)input[i].data, {(uint)input[i].cols, (uint)input[i].rows, (uint)input[i].step}};
         resizeArray.fx[i] = static_cast<double>(dsize.width) / input[i].cols;
         resizeArray.fy[i] = static_cast<double>(dsize.height) / input[i].rows;
+        if (input[i].cols == 0 || input[i].rows == 0) {
+            std::cout << "Rows or Cols are zero" << std::endl;
+        }
     }
 
     return resizeArray;
@@ -117,13 +121,13 @@ inline constexpr fk::memory_write_scalar<fk::_2D, fk::perthread_write<fk::_2D, C
 }
 
 template <int T, typename... operations>
-inline constexpr dim3 extractDataDims(const fk::memory_read_iterpolated_N<1, fk::interpolate_read<fk::_2D, CUDA_T(T), fk::InterpolationType::INTER_LINEAR, 1>, CUDA_T(T)>& op, const operations&... ops) {
+inline dim3 extractDataDims(const fk::memory_read_iterpolated_N<1, fk::interpolate_read<fk::_2D, CUDA_T(T), fk::InterpolationType::INTER_LINEAR, 1>, CUDA_T(T)>& op, const operations&... ops) {
     return dim3(op.target_width, op.target_height);
 }
 
 template <int T, int NPtr, typename... operations>
-inline constexpr dim3 extractDataDims(const fk::memory_read_iterpolated_N<NPtr, fk::interpolate_read<fk::_3D, CUDA_T(T), fk::InterpolationType::INTER_LINEAR, NPtr>, CUDA_T(T)>& op, const operations&... ops) {
-    return dim3(op.target_width, op.target_height, NPtr);
+inline dim3 extractDataDims(const fk::memory_read_iterpolated_N<NPtr, fk::interpolate_read<fk::_3D, CUDA_T(T), fk::InterpolationType::INTER_LINEAR, NPtr>, CUDA_T(T)>& op, const operations&... ops) {
+    return dim3(op.target_width, op.target_height, op.active_planes);
 }
 
 template <int T, typename... operations>
@@ -149,8 +153,8 @@ inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda:
 
     dim3 block = fk_input.getBlockSize();
     dim3 grid;
-    grid.x = (unsigned int)ceil(fk_input.width() / (float)block.x);
-    grid.y = (unsigned int)ceil(fk_input.height() / (float)block.y);
+    grid.x = (unsigned int)ceil(fk_input.dims().width / (float)block.x);
+    grid.y = (unsigned int)ceil(fk_input.dims().height / (float)block.y);
     fk::cuda_transform_<<<grid, block, 0, cu_stream>>>(fk_input.ptr(), ops...);
 
     gpuErrchk(cudaGetLastError());
