@@ -90,7 +90,7 @@ bool test_resize_split_N(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_
             auto splitOp = cvGS::split<CV_TYPE_O>(d_tensor_output, up);
 
             cvGS::executeOperations<CV_TYPE_I>(cv_stream,
-                                       cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up),
+                                       cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
                                        cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
                                        cvGS::multiply<CV_TYPE_O>(val_alpha),
                                        cvGS::subtract<CV_TYPE_O>(val_sub),

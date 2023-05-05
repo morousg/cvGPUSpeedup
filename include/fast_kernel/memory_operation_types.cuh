@@ -202,7 +202,7 @@ struct interpolate_read;
 
 template <typename I>
 struct interpolate_read<_2D, I, InterpolationType::INTER_LINEAR, 1> {
-    FK_DEVICE_FUSE const I exec(const Point& thread, const RawPtr<_2D,I>& ptr,
+    static __device__ __forceinline__ const I exec(const Point& thread, const RawPtr<_2D,I>& ptr,
                                                    const float& fx, const float& fy) {
         const float src_x = thread.x * fx;
         const float src_y = thread.y * fy;
@@ -234,7 +234,7 @@ struct interpolate_read<_2D, I, InterpolationType::INTER_LINEAR, 1> {
 
 template <typename I, int NPtr>
 struct interpolate_read<_3D, I, InterpolationType::INTER_LINEAR, NPtr> {
-    FK_DEVICE_FUSE I exec(const Point& thread,
+    FK_DEVICE_FUSE const I exec(const Point& thread,
                           const RawPtr<_2D,I> (&ptr)[NPtr], 
                           const float (&fx)[NPtr], const float (&fy)[NPtr]) {
         return interpolate_read<_2D, I, InterpolationType::INTER_LINEAR, 1>
