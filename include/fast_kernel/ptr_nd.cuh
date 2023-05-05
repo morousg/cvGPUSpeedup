@@ -7,9 +7,8 @@ namespace fk {
 struct Point {
     uint x;
     uint y;
-    uint z;  
-    __device__ __forceinline__ __host__ Point() : x(0), y(0), z(0) {}
-    __device__ __forceinline__ __host__ Point(const uint x_, const uint y_ = 0, const uint z_ = 0) : x(x_), y(y_), z(z_) {}
+    uint z;
+    __device__ __forceinline__ __host__ Point(const uint x_ = 0, const uint y_ = 0, const uint z_ = 0) : x(x_), y(y_), z(z_) {}
 };
 
 inline constexpr uint computeDiscardedThreads(const uint width, const uint height, const uint blockDimx, const uint blockDimy) {
@@ -65,7 +64,7 @@ struct computeBestSolution<3, 1> {
 };
 
 
-inline constexpr dim3 getBlockSize(const uint& width, const uint& height) {
+inline dim3 getBlockSize(const uint& width, const uint& height) {
     constexpr uint blockDimX[4]    = { 32, 64, 128, 256  };  // Possible block sizes in the x axis
     constexpr uint blockDimY[2][4] = {{ 8,  4,   2,   1},
                                       { 6,  3,   3,   2} };  // Possible block sizes in the y axis according to blockDim.x

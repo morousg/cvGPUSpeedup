@@ -27,6 +27,7 @@ struct memory_read_iterpolated_N<1, Operator, T, std::enable_if_t<true>> {
     const float fy;
     const uint target_width;
     const uint target_height;
+    const int active_planes{ 1 };
 };
 
 // TODO: maybe use always this version with NPtr = 1 for the current 2D only version
@@ -37,6 +38,7 @@ struct memory_read_iterpolated_N<NPtr, Operator, T, std::enable_if_t<(NPtr>1)>> 
     float fy[NPtr];
     uint target_width;
     uint target_height;
+    int active_planes;
 };
 
 template <ND D, typename Operator, typename T>

@@ -97,7 +97,7 @@ __device__ __forceinline__ constexpr void operate_noret(const memory_read_iterpo
     const uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
     const uint z =  g.group_index().z; // So far we only consider the option of using the z dimension to specify n (x*y) thread planes
 
-    if (x < op.target_width && y < op.target_height) {
+    if (x < op.target_width && y < op.target_height && z < op.active_planes) {
         const T temp = Operation::exec(Point(x,y,z), op.ptr, op.fx, op.fy);
         operate_noret(Point(x, y, z), temp, ops...);
     }
