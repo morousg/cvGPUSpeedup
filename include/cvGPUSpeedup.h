@@ -95,20 +95,22 @@ resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double f
 
 template <int T, int INTER_F, int NPtr>
 inline const fk::memory_read_iterpolated_N<NPtr, fk::interpolate_read<fk::_3D, CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr>, CUDA_T(T)> 
-resize(const std::array<cv::cuda::GpuMat, NPtr> input, const cv::Size dsize, const int usedPlanes) {
+resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int usedPlanes) {
     
     fk::memory_read_iterpolated_N<NPtr, fk::interpolate_read<fk::_3D, CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr>, CUDA_T(T)> resizeArray;
     resizeArray.target_width = dsize.width;
     resizeArray.target_height = dsize.height;
     resizeArray.active_planes = usedPlanes;
+
     for (int i=0; i<usedPlanes; i++) {
         // So far we only support fk::INTER_LINEAR
-        resizeArray.ptr[i] = {(CUDA_T(T)*)input[i].data, {(uint)input[i].cols, (uint)input[i].rows, (uint)input[i].step}};
-        resizeArray.fx[i] = static_cast<double>(dsize.width) / input[i].cols;
-        resizeArray.fy[i] = static_cast<double>(dsize.height) / input[i].rows;
-        if (input[i].cols == 0 || input[i].rows == 0) {
-            std::cout << "Rows or Cols are zero" << std::endl;
-        }
+        fk::PtrDims<fk::_2D> dims;
+        dims.width = (uint)input[i].cols;
+        dims.height = (uint)input[i].rows;
+        dims.pitch = (uint)input[i].step;
+        resizeArray.ptr[i] = {(CUDA_T(T)*)input[i].data, dims};
+        resizeArray.fx[i] = static_cast<float>(1.0 / (static_cast<double>(dsize.width) / input[i].cols));
+        resizeArray.fy[i] = static_cast<float>(1.0 / (static_cast<double>(dsize.height) / input[i].rows));
     }
 
     return resizeArray;
@@ -140,6 +142,7 @@ inline constexpr void executeOperations(cv::cuda::Stream& stream, const operatio
     grid.x = (unsigned int)ceil(dataDims.x / (float)block.x);
     grid.y = (unsigned int)ceil(dataDims.y / (float)block.y);
     grid.z = dataDims.z;
+
     fk::cuda_transform_noret_2D<<<grid, block, 0, cu_stream>>>(ops...);
 
     gpuErrchk(cudaGetLastError());

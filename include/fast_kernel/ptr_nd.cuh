@@ -7,9 +7,8 @@ namespace fk {
 struct Point {
     uint x;
     uint y;
-    uint z;  
-    __device__ __forceinline__ __host__ Point() : x(0), y(0), z(0) {}
-    __device__ __forceinline__ __host__ Point(const uint x_, const uint y_ = 0, const uint z_ = 0) : x(x_), y(y_), z(z_) {}
+    uint z;
+    __device__ __forceinline__ __host__ Point(const uint x_ = 0, const uint y_ = 0, const uint z_ = 0) : x(x_), y(y_), z(z_) {}
 };
 
 inline constexpr uint computeDiscardedThreads(const uint width, const uint height, const uint blockDimx, const uint blockDimy) {
