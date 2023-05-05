@@ -14,15 +14,15 @@ The first main focus is on the transform operation, with an incomplete set of ba
 
 In order to use it, you need to compile your code, along with cvGPUSpeedup library headers, with nvcc and at least C++14 support. We are testing it with CUDA version 11.8, on compute capabilities 7.5 and 8.6.
 
-This is how the usage of cvGPUSpeedup looks like, compared to OpenCV:
+Let's see an example in OpenCV:
 
-![alt text](https://github.com/morousg/cvGPUSpeedup/blob/0acabe5354fb99fcc3d27ff5982b32d6c320bf15/cvGPUSpeedupExample.png)
+![alt text](https://github.com/morousg/cvGPUSpeedup/blob/98a268319b97955bf6d1fe0f3a611e0ea82f9d7d/OpenCVversion.png)
 
-You can replace I and OC with OpenCV types, like CV_8UC3, CV_32FC2, etc... Those OpenCV types should correspond to the input and output types of the GpuMat's passed as input and output. When only one CV type is passed, it means that the input and output types for the operation are always the same.
+Now, same functionality but with cvGPUSpeedup and kernel execution being 38x times faster:
 
-The cvGPUSpeedup version, will do the same, but with a single CUDA kernel, and execute from 4x up to 7x faster, depending on the GPU, driver version, and OS.
+![alt text](https://github.com/morousg/cvGPUSpeedup/blob/98a268319b97955bf6d1fe0f3a611e0ea82f9d7d/cvGPUSpeedupVersion.png)
 
-Now imagine that you have to execute that same code, for 30 or 40 crops from a source image. Then the speedup can grow to 10x.
+The cvGPUSpeedup version, will do the same, but with a single CUDA kernel, and execute up to 38x time faster, for 50 crops of an image.
 
 If you look at the code, it's not that difficult to add your own kernels into the game. You just need to create your struct, and make an operate_noret() version that will handle your struct parameters, and call your kernel as a __device__ function, with those parameters.
 
