@@ -14,7 +14,7 @@
 
 #include <iostream>
 
-#include <fast_kernel/fast_kernel.cuh>
+#include <fused_kernel/fused_kernel.cuh>
 
 template <typename T>
 bool testPtr_2D() {

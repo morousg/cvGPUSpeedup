@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "operation_patterns.cuh"
-#include "memory_operation_patterns.cuh"
+#include "operation_parameters.cuh"
+#include "memory_operation_parameters.cuh"
 
 namespace fk { // namespace Fast Kernel
 
@@ -118,6 +118,94 @@ __global__ void cuda_transform_(const RawPtr<D, I> i_data, const operations... o
 template<typename... operations>
 __global__ void cuda_transform_noret_2D(const operations... ops) {
     operate_noret(ops...);
+}
+
+// generic operation struct
+
+template <typename Params, typename Operation, typename I>
+struct ReadDeviceFunction {
+    Params params;
+};
+
+template <typename Params, typename Operation, typename I, typename O>
+struct BinaryDeviceFunction {
+    Params params;
+};
+
+template <typename Operation, typename I, typename O>
+struct UnaryDeviceFunction {};
+
+template <typename Params, typename Operation, typename O>
+struct WriteDeviceFunction {
+    Params params;
+    dim3 dataDims;
+    Operation write;
+    using type = O;
+};
+
+// Util to get the last parameter of a parameter pack
+template<typename... Args>
+__device__ __forceinline__ constexpr decltype(auto) last(Args&&... args){
+   return (std::forward<Args>(args), ...);
+}
+
+// Recursive operate function
+template <typename T>
+__device__ __forceinline__ constexpr void operate(const Point& thread, const T& i_data) {
+    return i_data;
+}
+
+template <typename I, typename O, typename Params, typename Operation, typename... operations>
+__device__ __forceinline__ constexpr O operate(const Point& thread, const I& i_data, const BinaryDeviceFunction<Params, Operation, I, O>& op, const operations&... ops) {
+    return operate(thread, Operation::exec(i_data, op.params), ops...);
+}
+
+template <typename I, typename O, typename Operation, typename... operations>
+__device__ __forceinline__ constexpr O operate(const Point& thread, const I& i_data, const UnaryDeviceFunction<Operation, I, O>& op, const operations&... ops) {
+    return operate(thread, Operation::exec(i_data), ops...);
+}
+
+template <typename O, typename Params, typename Operation, typename... operations>
+__device__ __forceinline__ constexpr O operate(const Point& thread, const O& i_data, const WriteDeviceFunction<Params, Operation, O>& op) {
+    return i_data;
+}
+
+template <typename ReadParams, typename ReadOperation, typename I, typename... operations>
+__global__ void cuda_transform(const ReadDeviceFunction<ReadParams, ReadOperation, I> readPattern, 
+                                                  const operations&... ops) {
+    auto writePattern = last(ops...);
+    using O = typename decltype(writePattern)::type;
+    using WriteOperation = decltype(writePattern.write);
+
+    cg::thread_block g = cg::this_thread_block();
+
+    const uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
+    const uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
+    const uint z =  g.group_index().z; // So far we only consider the option of using the z dimension to specify n (x*y) thread planes
+    const Point thread{x, y, z};
+
+    if (x < writePattern.dataDims.x && y < writePattern.dataDims.y && z < writePattern.dataDims.z) {
+        const I tempI = ReadOperation::exec(thread, readPattern.params);
+        if constexpr (sizeof...(ops) > 1) {
+            const O tempO = operate(thread, tempI, ops...);
+            WriteOperation::exec(thread, tempO, writePattern.params);
+        } else {
+            WriteOperation::exec(thread, tempI, writePattern.params);
+        }
+    }
+}
+
+void test() {
+
+    RawPtr<_2D, uchar3> input;
+    RawPtr<_2D, float3> output;
+
+    auto op1 = ReadDeviceFunction<RawPtr<_2D, uchar3>, perthread_read<_2D, uchar3>, uchar3>{input};
+    auto op2 = UnaryDeviceFunction<unary_cast<uchar3,float3>, uchar3, float3>{};
+    auto op3 = WriteDeviceFunction<RawPtr<_2D, float3>, perthread_write<_2D, float3>, float3>{output, {1, 1, 1}};
+
+    cuda_transform<<<1,1,0,0>>>(op1, op2, op3);
+
 }
 
 }

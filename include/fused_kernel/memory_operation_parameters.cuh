@@ -13,7 +13,7 @@
    limitations under the License. */
 
 #pragma once
-#include "memory_operation_types.cuh"
+#include "memory_operations.cuh"
 
 namespace fk {
 

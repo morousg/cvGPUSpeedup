@@ -17,7 +17,7 @@
 
 #pragma once
 #include "cuda_vector_utils.cuh"
-#include "operation_types.cuh"
+#include "operations.cuh"
 #include "ptr_nd.cuh"
 #include <cooperative_groups.h>
 #include <vector>
@@ -26,6 +26,13 @@
 namespace cg = cooperative_groups;
 
 namespace fk {
+
+template <ND D, typename T>
+struct perthread_read {
+    FK_DEVICE_FUSE T exec(const Point& thread, const RawPtr<D,T>& ptr) {
+        return *PtrAccessor<D>::cr_point(thread, ptr);
+    }
+};
 
 template <ND D, typename T>
 struct perthread_write {

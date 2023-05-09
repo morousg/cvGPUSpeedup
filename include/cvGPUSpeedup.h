@@ -16,8 +16,8 @@
 
 #include <external/carotene/saturate_cast.hpp>
 #include <cvGPUSpeedupHelpers.h>
-#include <fast_kernel/fast_kernel.cuh>
-#include <fast_kernel/ptr_nd.cuh>
+#include <fused_kernel/fused_kernel.cuh>
+#include <fused_kernel/ptr_nd.cuh>
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>
@@ -144,6 +144,7 @@ inline constexpr void executeOperations(cv::cuda::Stream& stream, const operatio
     grid.z = dataDims.z;
 
     fk::cuda_transform_noret_2D<<<grid, block, 0, cu_stream>>>(ops...);
+    //fk::cuda_transform<<<grid, block, 0, cu_stream>>>(ops...);
 
     gpuErrchk(cudaGetLastError());
 }
