@@ -16,31 +16,42 @@
 #include "cuda_vector_utils.cuh"
 #include "../external/opencv/modules/core/include/opencv2/core/cuda/vec_math.hpp"
 
+#define DECL_TYPES_UNARY(I, O) using InputType = I; using OutputType = O;
+#define DECL_TYPES_BINARY(I1, I2, O)  using InputType = I1; using ParamsType = I2; using OutputType = O;
+
 namespace fk {
 
 template <typename I1, typename I2=I1, typename O=I1>
-struct binary_sum {
+struct BinarySum {
     FK_HOST_DEVICE_FUSE O exec(const I1& input_1, const I2& input_2) {return input_1 + input_2;}
+    DECL_TYPES_BINARY(I1, I2, O)
 };
 
 template <typename I1, typename I2=I1, typename O=I1>
-struct binary_sub {
+struct BinarySub {
     FK_HOST_DEVICE_FUSE O exec(const I1& input_1, const I2& input_2) {return input_1 - input_2;}
+    DECL_TYPES_BINARY(I1, I2, O)
 };
 
 template <typename I1, typename I2=I1, typename O=I1>
-struct binary_mul {
+struct BinaryMul {
     FK_HOST_DEVICE_FUSE O exec(const I1& input_1, const I2& input_2) { return input_1 * input_2; }
+    DECL_TYPES_BINARY(I1, I2, O)
 };
 
 template <typename I1, typename I2=I1, typename O=I1>
-struct binary_div {
+struct BinaryDiv {
     FK_HOST_DEVICE_FUSE O exec(const I1& input_1, const I2& input_2) {return input_1 / input_2;}
+    DECL_TYPES_BINARY(I1, I2, O)
 };
 
 template <typename I, typename O>
-struct unary_cast {
+struct UnaryCast {
     FK_HOST_DEVICE_FUSE O exec(const I& input) { return saturate_cast<O>(input); }
+    DECL_TYPES_UNARY(I, O)
 };
 
 }
+
+#undef DECL_TYPES_UNARY
+#undef DECL_TYPES_BINARY

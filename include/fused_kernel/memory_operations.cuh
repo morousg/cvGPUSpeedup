@@ -20,109 +20,90 @@
 #include "operations.cuh"
 #include "ptr_nd.cuh"
 #include <cooperative_groups.h>
-#include <vector>
-#include <unordered_map>
 
 namespace cg = cooperative_groups;
 
 namespace fk {
 
 template <ND D, typename T>
-struct perthread_read {
+struct PerThreadRead {
     FK_DEVICE_FUSE T exec(const Point& thread, const RawPtr<D,T>& ptr) {
         return *PtrAccessor<D>::cr_point(thread, ptr);
     }
+    using Type = T;
+    using ParamsType = RawPtr<D,T>;
 };
 
 template <ND D, typename T>
-struct perthread_write {
+struct PerThreadWrite {
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input, const RawPtr<D,T>& output) {
         *PtrAccessor<D>::point(thread, output) = input;
     }
-};
-
-template <typename T, typename Enabler=void>
-struct perthread_tensor_split_write;
-
-template <typename T>
-struct perthread_tensor_split_write<T, typename std::enable_if_t<CN(T) == 2>> {
-    FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
-                             const RawPtr<_3D, typename VectorTraits<T>::base>& ptr) {
-        using BaseType = typename VectorTraits<T>::base;
-        BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr);
-        *work_plane = input.x;
-        work_plane += (ptr.dims.width * ptr.dims.height);
-        *work_plane = input.y;
-    }
+    using Type = T;
+    using ParamsType = RawPtr<D,T>;
 };
 
 template <typename T>
-struct perthread_tensor_split_write<T, typename std::enable_if_t<CN(T) == 3>> {
+struct TensorSplitWrite {
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
                              const RawPtr<_3D, typename VectorTraits<T>::base>& ptr) {
-        using BaseType = typename VectorTraits<T>::base;
-        BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr);
-        *work_plane = input.x;
-        work_plane += (ptr.dims.width * ptr.dims.height);
-        *work_plane = input.y;
-        work_plane += (ptr.dims.width * ptr.dims.height);
-        *work_plane = input.z;
-    }
-};
+        static_assert(CN(T) >= 2, "Wrong type for split tensor write. It must be one of <type>2, <type>3 or <type>4.");
 
-template <typename T>
-struct perthread_tensor_split_write<T, typename std::enable_if_t<CN(T) == 4>> {
-    FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
-                             const RawPtr<_3D, typename VectorTraits<T>::base>& ptr) {
-        using BaseType = typename VectorTraits<T>::base;
-        BaseType* work_plane = PtrAccessor<_3D>::point(thread, ptr);
+        int planePixels = ptr.dims.width * ptr.dims.height;
+
+        typename VectorTraits<T>::base* work_plane = PtrAccessor<_3D>::point(thread, ptr);
         *work_plane = input.x;
-        work_plane += (ptr.dims.width * ptr.dims.height);
+        work_plane += planePixels;
         *work_plane = input.y;
-        work_plane += (ptr.dims.width * ptr.dims.height);
-        *work_plane = input.z;
-        work_plane += (ptr.dims.width * ptr.dims.height);
-        *work_plane = input.w;
+        if constexpr (CN(T) >= 3) {
+            work_plane += planePixels;
+            *work_plane = input.z;
+        }
+        if constexpr (CN(T) == 4) {
+            work_plane += planePixels;
+            *work_plane = input.w;
+        }
     }
+    using Type = T;
+    using ParamsType = RawPtr<_3D, typename VectorTraits<T>::base>;
 };
 
 template <ND D, typename T, typename Enabler=void>
-struct perthread_split_write;
+struct SplitWriteParams {};
 
 template <ND D, typename T>
-struct perthread_split_write<D, T, typename std::enable_if_t<CN(T) == 2>> {
+struct SplitWriteParams<D, T, typename std::enable_if_t<CN(T) == 2>> {
+    RawPtr<D, decltype(T::x)> x;
+    RawPtr<D, decltype(T::y)> y;
+};
+
+template <ND D, typename T>
+struct SplitWriteParams<D, T, typename std::enable_if_t<CN(T) == 3>> {
+    RawPtr<D, decltype(T::x)> x;
+    RawPtr<D, decltype(T::y)> y;
+    RawPtr<D, decltype(T::z)> z;
+};
+
+template <ND D, typename T>
+struct SplitWriteParams<D, T, typename std::enable_if_t<CN(T) == 4>> {
+    RawPtr<D, decltype(T::x)> x;
+    RawPtr<D, decltype(T::y)> y;
+    RawPtr<D, decltype(T::z)> z;
+    RawPtr<D, decltype(T::w)> w;
+};
+
+template <ND D, typename T>
+struct SplitWrite {
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
-                             const RawPtr<D,decltype(T::x)>& output1,
-                             const RawPtr<D,decltype(T::y)>& output2) {
-        *PtrAccessor<D>::point(thread, output1) = input.x;
-        *PtrAccessor<D>::point(thread, output2) = input.y;
+                             const SplitWriteParams<D, T>& params) {
+        static_assert(CN(T) >= 2, "Wrong type for split write. It must be one of <type>2, <type>3 or <type>4.");
+        *PtrAccessor<D>::point(thread, params.x) = input.x;
+        *PtrAccessor<D>::point(thread, params.y) = input.y;
+        if constexpr (CN(T) >= 3) *PtrAccessor<D>::point(thread, params.z) = input.z;
+        if constexpr (CN(T) == 4) *PtrAccessor<D>::point(thread, params.w) = input.w;
     }
-};
-
-template <ND D, typename T>
-struct perthread_split_write<D, T, typename std::enable_if_t<CN(T) == 3>> {
-    FK_DEVICE_FUSE void exec(const Point& thread, const T& input, 
-                             const RawPtr<D,decltype(T::x)>& output1, 
-                             const RawPtr<D,decltype(T::y)>& output2,
-                             const RawPtr<D,decltype(T::z)>& output3) {
-        *PtrAccessor<D>::point(thread, output1) = input.x;
-        *PtrAccessor<D>::point(thread, output2) = input.y;
-        *PtrAccessor<D>::point(thread, output3) = input.z;
-    }
-};
-
-template <ND D, typename T>
-struct perthread_split_write<D, T, typename std::enable_if_t<CN(T) == 4>> {
-    FK_DEVICE_FUSE void exec(const Point& thread, const T& input, 
-                               const RawPtr<D,decltype(T::x)>& output1, 
-                               const RawPtr<D,decltype(T::y)>& output2,
-                               const RawPtr<D,decltype(T::z)>& output3,
-                               const RawPtr<D,decltype(T::w)>& output4) { 
-        *PtrAccessor<D>::point(thread, output1) = input.x;
-        *PtrAccessor<D>::point(thread, output2) = input.y;
-        *PtrAccessor<D>::point(thread, output3) = input.z;
-        *PtrAccessor<D>::point(thread, output4) = input.w;
-    }
+    using Type = T;
+    using ParamsType = SplitWriteParams<D, T>;
 };
 
 // The following code is a modification of the OpenCV file resize.cu
@@ -204,15 +185,35 @@ enum InterpolationType {
     NONE = 17
 };
 
-template <ND D, typename I, InterpolationType INTER_T, int NPtr>
-struct interpolate_read;
+template <typename I, int NPtr>
+struct InterpolateParams {
+    RawPtr<_2D,I> ptr[NPtr];
+    float fx[NPtr];
+    float fy[NPtr];
+    int target_width;
+    int target_height;
+    int active_planes;
+};
 
 template <typename I>
-struct interpolate_read<_2D, I, InterpolationType::INTER_LINEAR, 1> {
-    static __device__ __forceinline__ const I exec(const Point& thread, const RawPtr<_2D,I>& ptr,
-                                                   const float& fx, const float& fy) {
-        const float src_x = thread.x * fx;
-        const float src_y = thread.y * fy;
+struct InterpolateParams<I, 1> {
+    const RawPtr<_2D,I> ptr;
+    const float fx;
+    const float fy;
+    const int target_width;
+    const int target_height;
+};
+
+template <typename I, InterpolationType INTER_T, int NPtr>
+struct InterpolateRead;
+
+template <typename I>
+struct InterpolateRead<I, InterpolationType::INTER_LINEAR, 1> {
+    static __device__ __forceinline__ const I exec(const Point& thread, const InterpolateParams<I, 1>& params) {
+        const RawPtr<_2D, I> ptr = params.ptr;
+
+        const float src_x = thread.x * params.fx;
+        const float src_y = thread.y * params.fy;
 
         const int x1 = __float2int_rd(src_x);
         const int y1 = __float2int_rd(src_y);
@@ -237,17 +238,20 @@ struct interpolate_read<_2D, I, InterpolationType::INTER_LINEAR, 1> {
 
         return saturate_cast<I>(out);
     }
+    using Type = I;
+    using ParamsType = InterpolateParams<I, 1>;
 };
 
 template <typename I, int NPtr>
-struct interpolate_read<_3D, I, InterpolationType::INTER_LINEAR, NPtr> {
+struct InterpolateRead<I, InterpolationType::INTER_LINEAR, NPtr> {
     FK_DEVICE_FUSE const I exec(const Point& thread,
-                          const RawPtr<_2D,I> (&ptr)[NPtr], 
-                          const float (&fx)[NPtr], const float (&fy)[NPtr]) {
-        return interpolate_read<_2D, I, InterpolationType::INTER_LINEAR, 1>
-                                ::exec(thread, ptr[thread.z], fx[thread.z], fy[thread.z]);
+                          const InterpolateParams<I, NPtr>& params) {
+        return InterpolateRead<I, InterpolationType::INTER_LINEAR, 1>
+                                ::exec(thread, {params.ptr[thread.z], params.fx[thread.z], params.fy[thread.z]});
 
     }
+    using Type = I;
+    using ParamsType = InterpolateParams<I, NPtr>;
 };
 
 }
