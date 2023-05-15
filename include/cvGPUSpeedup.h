@@ -83,7 +83,7 @@ inline constexpr fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(I)>> split(
 template <int T, int INTER_F>
 inline const fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F, 1>>
     resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
-    // So far we only support fk::INTER_LINEAR
+    static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
     const fk::RawPtr<fk::_2D, CUDA_T(T)> fk_input = 
     {(CUDA_T(T)*)input.data, {(uint)input.cols, (uint)input.rows, (uint)input.step}};
@@ -102,7 +102,7 @@ inline const fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::Interpol
 template <int T, int INTER_F, int NPtr>
 inline const fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr>> 
     resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int usedPlanes) {
-    
+    static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
     fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr>> resizeArray;
     resizeArray.params.target_width = dsize.width;
     resizeArray.params.target_height = dsize.height;
