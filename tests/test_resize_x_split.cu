@@ -124,9 +124,6 @@ bool test_resize_split_N(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_
                                        cvGS::split<CV_TYPE_O>(d_tensor_output, up));
             }
 
-            // Looking at Nsight Systems, with an RTX A2000 12GB
-            // Speedups are up to 7x, depending on the data type
-
             d_tensor_output.download(h_tensor_output, cv_stream);
 
             // Verify results
@@ -306,9 +303,6 @@ bool test_resize_split_N_batch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Strea
                                         cvGS::split<CV_TYPE_O>(d_tensor_output, up));
             }
 
-            // Looking at Nsight Systems, with an RTX A2000 12GB
-            // Speedups are up to 7x, depending on the data type
-
             d_tensor_output.download(h_tensor_output, cv_stream);
 
             // Verify results
@@ -456,9 +450,6 @@ bool test_resize_split_one(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& c
                                     cvGS::subtract<CV_TYPE_O>(val_sub),
                                     cvGS::divide<CV_TYPE_O>(val_div),
                                     cvGS::split<CV_TYPE_O>(d_output_cvGS));
-
-            // Looking at Nsight Systems, with an RTX A2000 12GB
-            // Speedups are up to 7x, depending on the data type
 
             // Verify results
             for (int i=0; i<CV_MAT_CN(CV_TYPE_O); i++) {
