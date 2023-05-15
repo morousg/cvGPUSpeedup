@@ -49,6 +49,17 @@ inline constexpr fk::BinaryDeviceFunction<fk::BinarySum<CUDA_T(I)>> add(const cv
     return internal::operator_builder_t<I, fk::BinaryDeviceFunction<fk::BinarySum<CUDA_T(I)>>>::build(src2);
 }
 
+template <int T, cv::ColorConversionCodes CODE>
+inline constexpr auto cvtColor() {
+    // So far, we only support reordering channels
+    static_assert(isSupportedColorConversion<CODE>, "Color conversion type not supported yet.");
+    if constexpr (CODE == cv::COLOR_BGR2RGB || CODE == cv::COLOR_RGB2BGR) {
+        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<CUDA_T(T), 2, 1, 0>> {};
+    } else if constexpr (CODE == cv::COLOR_BGRA2RGBA || CODE == cv::COLOR_RGBA2BGRA) {
+        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<CUDA_T(T), 2, 1, 0, 3>> {};
+    }
+}
+
 template <int O>
 inline constexpr auto split(const std::vector<cv::cuda::GpuMat>& output) {
     std::vector<fk::Ptr2D<BASE_CUDA_T(O)>> fk_output;

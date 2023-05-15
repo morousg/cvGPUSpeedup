@@ -1,4 +1,5 @@
 /* Copyright 2023 Oscar Amoros Huguet
+   Copyright 2023 David Del Rio Astorga
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,6 +49,72 @@ namespace fk {
     VECTOR_TYPE(double)
 #undef VECTOR_TYPE
 
+    template <typename... Types>
+    struct TypeList {};
+
+    template<typename... Args1, typename... Args2, typename... Args3, typename... Args4>
+    struct TypeList<TypeList<Args1...>, TypeList<Args2...>, TypeList<Args3...>, TypeList<Args4...>> {
+        using type = TypeList<Args1..., Args2..., Args3..., Args4...>;
+    };
+
+    using VOne   = TypeList<uchar1, char1, ushort1, short1, uint1, int1, ulong1, long1, ulonglong1, longlong1, float1, double1>;
+    using VTwo   = TypeList<uchar2, char2, ushort2, short2, uint2, int2, ulong2, long2, ulonglong2, longlong2, float2, double2>;
+    using VThree = TypeList<uchar3, char3, ushort3, short3, uint3, int3, ulong3, long3, ulonglong3, longlong3, float3, double3>;
+    using VFour  = TypeList<uchar4, char4, ushort4, short4, uint4, int4, ulong4, long4, ulonglong4, longlong4, float4, double4>;
+    using VAll   = typename TypeList<VOne, VTwo, VThree, VFour>::type;
+
+    template <typename... Args>
+    struct one_of_t {};
+
+    template <typename T, typename... U>
+    struct one_of_t<T, TypeList<U...>> {
+        enum {value = (std::is_same<T, U>::value || ...)};
+    };
+
+    template <typename T>
+    constexpr bool validCUDAVec = one_of_t<T, VAll>::value;
+
+    template <typename T>
+    __host__ __device__ __forceinline__ constexpr int Channels() { 
+        static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: Channels<invalid_type>()");
+        if constexpr (one_of_t<T, VOne>::value) {
+        return 1;
+        } else if constexpr (one_of_t<T, VTwo>::value) { 
+        return 2;
+        } else if constexpr (one_of_t<T, VThree>::value) { 
+        return 3;
+        } else {
+        return 4;
+        }
+    }
+
+    template <int idx, typename T>
+    __host__ __device__ __forceinline__ constexpr auto VectorAt(const T& vector) {
+        static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: VectorAt<invalid_type>()");
+        if constexpr (idx == 0) { 
+            return vector.x; 
+        } else if constexpr (idx == 1) { 
+            static_assert(Channels<T>() >= 2, "Vector type smaller than 2 elements has no member y"); 
+            return vector.y;
+        } else if constexpr (idx == 2) { 
+            static_assert(Channels<T>() >= 3, "Vector type smaller than 3 elements has no member z");
+            return vector.z;
+        } else if constexpr (idx == 3) {
+            static_assert(Channels<T>() == 4, "Vector type smaller than 4 elements has no member w");
+            return vector.w;
+        }
+    }
+
+    template <int... idx>
+    struct VReorder {
+        template <typename T>
+        FK_HOST_DEVICE_FUSE T exec(const T& vector) {
+            static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: VReorder<...>::exec<invalid_type>(invalid_type vector)");
+            static_assert(sizeof...(idx) == Channels<T>(), "Wrong number of indexes for the cuda vetor type in VReorder.");
+            return {VectorAt<idx>(vector)...};
+        }
+    };
+
     template <typename V>
     struct VectorTraits {};
 
@@ -83,6 +150,7 @@ namespace fk {
     struct make {
         template <typename T, typename... Numbers>
         FK_HOST_DEVICE_FUSE T type(const Numbers&... pack) {
+            static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: make::type<invalid_type>()");
             return {static_cast<decltype(T::x)>(pack)...};
         }
     };

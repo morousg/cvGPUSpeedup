@@ -16,6 +16,7 @@
 
 #include "testsCommon.h"
 #include <cvGPUSpeedup.h>
+#include <opencv2/cudaimgproc.hpp>
 
 template <int CV_TYPE_I, int CV_TYPE_O, int CROPS>
 bool test_resize_split_N(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
@@ -78,22 +79,50 @@ bool test_resize_split_N(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_
                 }
             }
 
+            constexpr bool correctDept = CV_MAT_DEPTH(CV_TYPE_O) == CV_32F;
+
             // OpenCV version
             for (int crop_i=0; crop_i<CROPS; crop_i++) {
                 cv::cuda::resize(crops[crop_i], d_up, up, 0., 0., cv::INTER_LINEAR, cv_stream);
                 d_up.convertTo(d_temp, CV_TYPE_O, alpha, cv_stream);
+                if constexpr (CV_MAT_CN(CV_TYPE_I) == 3 && correctDept) {
+                    cv::cuda::cvtColor(d_temp, d_temp, cv::COLOR_RGB2BGR, 0, cv_stream);
+                } else if constexpr (CV_MAT_CN(CV_TYPE_I) == 4 && correctDept) {
+                    cv::cuda::cvtColor(d_temp, d_temp, cv::COLOR_RGBA2BGRA, 0, cv_stream);
+                }
                 cv::cuda::subtract(d_temp, val_sub, d_temp2, cv::noArray(), -1, cv_stream);
                 cv::cuda::divide(d_temp2, val_div, d_temp, 1.0, -1, cv_stream);
                 cv::cuda::split(d_temp, d_output_cv[crop_i], cv_stream);
             }
 
-            cvGS::executeOperations<CV_TYPE_I>(cv_stream,
+            // cvGPUSpeedup
+            if constexpr (CV_MAT_CN(CV_TYPE_I) == 3 && correctDept) {
+                cvGS::executeOperations<CV_TYPE_I>(cv_stream,
+                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
+                                        cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
+                                        cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGB2BGR>(),
+                                        cvGS::multiply<CV_TYPE_O>(val_alpha),
+                                        cvGS::subtract<CV_TYPE_O>(val_sub),
+                                        cvGS::divide<CV_TYPE_O>(val_div),
+                                        cvGS::split<CV_TYPE_O>(d_tensor_output, up));
+            } else if constexpr (CV_MAT_CN(CV_TYPE_I) == 4 && correctDept) {
+                cvGS::executeOperations<CV_TYPE_I>(cv_stream,
+                                       cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
+                                       cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
+                                       cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGBA2BGRA>(),
+                                       cvGS::multiply<CV_TYPE_O>(val_alpha),
+                                       cvGS::subtract<CV_TYPE_O>(val_sub),
+                                       cvGS::divide<CV_TYPE_O>(val_div),
+                                       cvGS::split<CV_TYPE_O>(d_tensor_output, up));
+            } else {
+                cvGS::executeOperations<CV_TYPE_I>(cv_stream,
                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
                                        cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
                                        cvGS::multiply<CV_TYPE_O>(val_alpha),
                                        cvGS::subtract<CV_TYPE_O>(val_sub),
                                        cvGS::divide<CV_TYPE_O>(val_div),
                                        cvGS::split<CV_TYPE_O>(d_tensor_output, up));
+            }
 
             // Looking at Nsight Systems, with an RTX A2000 12GB
             // Speedups are up to 7x, depending on the data type
@@ -228,11 +257,20 @@ bool test_resize_split_N_batch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Strea
                 }
             }
 
+            constexpr bool correctDept = CV_MAT_DEPTH(CV_TYPE_O) == CV_32F;
+
             // OpenCV version
             for (int crop_i=0; crop_i<CROPS; crop_i++) {
                 cv::cuda::resize(crops[crop_i], d_resized_array[crop_i], up, 0., 0., cv::INTER_LINEAR, cv_stream);
             }
             d_resize_output.convertTo(d_temp, CV_TYPE_O, alpha, cv_stream);
+
+            if constexpr (CV_MAT_CN(CV_TYPE_O) == 3 && correctDept) {
+                cv::cuda::cvtColor(d_temp, d_temp, cv::COLOR_RGB2BGR, 0, cv_stream);
+            } else if constexpr (CV_MAT_CN(CV_TYPE_O) == 4 && correctDept) {
+                cv::cuda::cvtColor(d_temp, d_temp, cv::COLOR_RGBA2BGRA, 0, cv_stream);
+            }
+
             cv::cuda::subtract(d_temp, val_sub, d_temp2, cv::noArray(), -1, cv_stream);
             cv::cuda::divide(d_temp2, val_div, d_temp, 1.0, -1, cv_stream);
             for (int crop_i=0; crop_i<CROPS; crop_i++) {
@@ -240,13 +278,33 @@ bool test_resize_split_N_batch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Strea
             }
 
             // cvGPUSpeedup version
-            cvGS::executeOperations<CV_TYPE_I>(cv_stream,
-                                       cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
-                                       cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
-                                       cvGS::multiply<CV_TYPE_O>(val_alpha),
-                                       cvGS::subtract<CV_TYPE_O>(val_sub),
-                                       cvGS::divide<CV_TYPE_O>(val_div),
-                                       cvGS::split<CV_TYPE_O>(d_tensor_output, up));
+            if constexpr (CV_MAT_CN(CV_TYPE_O) == 3 && correctDept) {
+                cvGS::executeOperations<CV_TYPE_I>(cv_stream,
+                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
+                                        cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
+                                        cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGB2BGR>(),
+                                        cvGS::multiply<CV_TYPE_O>(val_alpha),
+                                        cvGS::subtract<CV_TYPE_O>(val_sub),
+                                        cvGS::divide<CV_TYPE_O>(val_div),
+                                        cvGS::split<CV_TYPE_O>(d_tensor_output, up));
+            } else if constexpr (CV_MAT_CN(CV_TYPE_O) == 4 && correctDept) {
+                cvGS::executeOperations<CV_TYPE_I>(cv_stream,
+                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
+                                        cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
+                                        cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGBA2BGRA>(),
+                                        cvGS::multiply<CV_TYPE_O>(val_alpha),
+                                        cvGS::subtract<CV_TYPE_O>(val_sub),
+                                        cvGS::divide<CV_TYPE_O>(val_div),
+                                        cvGS::split<CV_TYPE_O>(d_tensor_output, up));
+            } else {
+                cvGS::executeOperations<CV_TYPE_I>(cv_stream,
+                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
+                                        cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
+                                        cvGS::multiply<CV_TYPE_O>(val_alpha),
+                                        cvGS::subtract<CV_TYPE_O>(val_sub),
+                                        cvGS::divide<CV_TYPE_O>(val_div),
+                                        cvGS::split<CV_TYPE_O>(d_tensor_output, up));
+            }
 
             // Looking at Nsight Systems, with an RTX A2000 12GB
             // Speedups are up to 7x, depending on the data type
