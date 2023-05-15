@@ -34,6 +34,7 @@ __device__ __forceinline__ void operate_noret(I i_data, binary_operation_pointer
 template <typename Operation>
 struct ReadDeviceFunction {
     typename Operation::ParamsType params;
+    dim3 activeThreads;
 };
 
 template <typename Operation>
@@ -47,7 +48,6 @@ struct UnaryDeviceFunction {};
 template <typename Operation>
 struct WriteDeviceFunction {
     typename Operation::ParamsType params;
-    dim3 dataDims;
     using Op = Operation;
 };
 
@@ -83,7 +83,7 @@ __device__ __forceinline__ constexpr auto operate(const Point& thread, const typ
 }
 
 template <typename ReadOperation, typename... operations>
-__global__ void cuda_transform(const dim3 gridActiveThreads, const ReadDeviceFunction<ReadOperation> readPattern, const operations... ops) {
+__global__ void cuda_transform(const ReadDeviceFunction<ReadOperation> readPattern, const operations... ops) {
     auto writePattern = last(ops...);
     using WriteOperation = typename decltype(writePattern)::Op;
 
@@ -94,7 +94,7 @@ __global__ void cuda_transform(const dim3 gridActiveThreads, const ReadDeviceFun
     const uint z =  g.group_index().z; // So far we only consider the option of using the z dimension to specify n (x*y) thread planes
     const Point thread{x, y, z};
 
-    if (x < gridActiveThreads.x && y < gridActiveThreads.y && z < gridActiveThreads.z) {
+    if (x < readPattern.activeThreads.x && y < readPattern.activeThreads.y && z < readPattern.activeThreads.z) {
         const auto tempI = ReadOperation::exec(thread, readPattern.params);
         if constexpr (sizeof...(ops) > 1) {
             const auto tempO = operate(thread, tempI, ops...);
@@ -104,20 +104,4 @@ __global__ void cuda_transform(const dim3 gridActiveThreads, const ReadDeviceFun
         }
     }
 }
-
-void test() {
-
-    RawPtr<_2D, uchar3> input;
-    RawPtr<_2D, float3> output;
-
-    auto op1 = ReadDeviceFunction<PerThreadRead<_2D, uchar3>>   { input };
-    auto op2 = UnaryDeviceFunction<UnaryCast<uchar3, float3>>   {};
-    auto op3 = BinaryDeviceFunction<BinarySum<float3>>          { make_set<float3>(1.f) };
-    auto op4 = WriteDeviceFunction<PerThreadWrite<_2D, float3>> { output };
-
-    dim3 gridActiveThreads{1, 1, 1};
-    cuda_transform<<<1,1,0,0>>>(gridActiveThreads, op1, op2, op3, op4);
-
-}
-
-}
+} // namespace Fast Kernel

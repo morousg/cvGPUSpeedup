@@ -39,17 +39,17 @@ bool testPtr_2D() {
     dim3 grid2DBig(std::ceil(width / (float)block2D.x),
                    std::ceil(height / (float)block2D.y));
 
-    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readCrop{cropedInput};
-    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readFull{input};
     dim3 gridActiveThreadsCrop(cropedInput.dims().width, cropedInput.dims().height);
     dim3 gridActiveThreads(input.dims().width, input.dims().height);
+    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readCrop{cropedInput, gridActiveThreadsCrop};
+    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readFull{input, gridActiveThreads};
 
     fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2D = { output };
     fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2DBig = { outputBig };
 
     for (int i=0; i<100; i++) {
-        fk::cuda_transform<<<grid2D, block2D, 0, stream>>>(gridActiveThreadsCrop, readCrop, opFinal_2D);
-        fk::cuda_transform<<<grid2DBig, block2D, 0, stream>>>(gridActiveThreads, readFull, opFinal_2DBig);
+        fk::cuda_transform<<<grid2D, block2D, 0, stream>>>(readCrop, opFinal_2D);
+        fk::cuda_transform<<<grid2DBig, block2D, 0, stream>>>(readFull, opFinal_2DBig);
     }
 
     cudaError_t err = cudaStreamSynchronize(stream);
@@ -77,12 +77,12 @@ int main() {
     fk::Ptr2D<uchar> input(64,64);
     fk::Ptr2D<uint> output(64,64);
     
-    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, uchar>> read{ input };
+    dim3 gridActiveThreads(64, 64);
+    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, uchar>> read{ input, gridActiveThreads };
     fk::UnaryDeviceFunction<fk::UnaryCast<uchar, uint>> cast = {};
     fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, uint>> write { output };
 
-    dim3 gridActiveThreads(64, 64);
-    fk::cuda_transform<<<dim3(1,8),dim3(64,8),0,stream>>>(gridActiveThreads, read, cast, write);
+    fk::cuda_transform<<<dim3(1,8),dim3(64,8),0,stream>>>(read, cast, write);
 
     gpuErrchk(cudaStreamSynchronize(stream));
 

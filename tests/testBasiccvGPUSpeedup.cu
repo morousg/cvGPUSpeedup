@@ -140,8 +140,8 @@ bool testResize(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, b
             cv::cuda::resize(d_input, d_up, up, 0., 0., cv::INTER_LINEAR, cv_stream);
             cv::cuda::resize(d_input, d_down, down, 0., 0., cv::INTER_LINEAR, cv_stream);
 
-            cvGS::executeOperations<I>(cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, up, 0., 0.), cvGS::write<I>(d_up_cvGS));
-            cvGS::executeOperations<I>(cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, down, 0., 0.), cvGS::write<I>(d_down_cvGS));
+            cvGS::executeOperations(cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, up, 0., 0.), cvGS::write<I>(d_up_cvGS));
+            cvGS::executeOperations(cv_stream, cvGS::resize<I, cv::INTER_LINEAR>(d_input, down, 0., 0.), cvGS::write<I>(d_down_cvGS));
             cv::Mat h_up, h_up_cvGS;
             cv::Mat h_down, h_down_cvGS;
 
@@ -199,15 +199,15 @@ int main() {
     results["testNoDefinedOutputOperation"] = true;
     results["testResize"] = true;
 
-    /*LAUNCH_TESTS(CV_8UC1, CV_32FC1)
+    LAUNCH_TESTS(CV_8UC1, CV_32FC1)
     LAUNCH_TESTS(CV_8SC1, CV_32FC1)
     LAUNCH_TESTS(CV_16UC1, CV_32FC1)
     LAUNCH_TESTS(CV_16SC1, CV_32FC1)
     LAUNCH_TESTS(CV_32SC1, CV_32FC1)
     LAUNCH_TESTS(CV_32FC1, CV_32FC1)
-    LAUNCH_TESTS(CV_8UC2, CV_32FC2)*/
+    LAUNCH_TESTS(CV_8UC2, CV_32FC2)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
-    /*LAUNCH_TESTS(CV_8UC4, CV_32FC4)
+    LAUNCH_TESTS(CV_8UC4, CV_32FC4)
     LAUNCH_TESTS(CV_8SC2, CV_32FC2)
     LAUNCH_TESTS(CV_8SC3, CV_32FC3)
     LAUNCH_TESTS(CV_8SC4, CV_32FC4)
@@ -222,7 +222,7 @@ int main() {
     LAUNCH_TESTS(CV_32SC4, CV_32FC4)
     LAUNCH_TESTS(CV_32FC2, CV_64FC2)
     LAUNCH_TESTS(CV_32FC3, CV_64FC3)
-    LAUNCH_TESTS(CV_32FC4, CV_64FC4)*/
+    LAUNCH_TESTS(CV_32FC4, CV_64FC4)
 
     #undef LAUNCH_TESTS_NO_SPLIT
     #undef LAUNCH_TESTS
