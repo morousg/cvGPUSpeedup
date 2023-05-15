@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include <fast_kernel/cuda_vector_utils.cuh>
-#include <fast_kernel/memory_operation_types.cuh>
+#include <fused_kernel/cuda_vector_utils.cuh>
+#include <fused_kernel/memory_operations.cuh>
 #include <cv2cuda_types.h>
 
 #include <opencv2/core/cuda.hpp>
@@ -30,21 +30,21 @@ struct split_builder_t {};
 template <int I, typename PtrType, typename Operator>
 struct split_builder_t<I, PtrType, Operator, std::enable_if_t<CV_MAT_CN(I) == 2>> {
     FK_HOST_FUSE Operator build(const std::vector<PtrType>& output) {
-        return { output.at(0), output.at(1) };
+        return { {output.at(0), output.at(1)} };
     }
 };
 
 template <int I, typename PtrType, typename Operator>
 struct split_builder_t<I, PtrType, Operator, std::enable_if_t<CV_MAT_CN(I) == 3>> {
     FK_HOST_FUSE Operator build(const std::vector<PtrType>& output) {
-        return { output.at(0), output.at(1), output.at(2) };
+        return { {output.at(0), output.at(1), output.at(2)} };
     }
 };
 
 template <int I, typename PtrType, typename Operator>
 struct split_builder_t<I, PtrType, Operator, std::enable_if_t<CV_MAT_CN(I) == 4>> {
     FK_HOST_FUSE Operator build(const std::vector<PtrType>& output) {
-        return { output.at(0), output.at(1), output.at(2), output.at(3) };
+        return { {output.at(0), output.at(1), output.at(2), output.at(3)} };
     }
 };
 

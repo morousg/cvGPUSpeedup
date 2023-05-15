@@ -14,7 +14,7 @@
 
 #include <iostream>
 
-#include <fast_kernel/fast_kernel.cuh>
+#include <fused_kernel/fused_kernel.cuh>
 
 template <typename T>
 bool testPtr_2D() {
@@ -39,12 +39,17 @@ bool testPtr_2D() {
     dim3 grid2DBig(std::ceil(width / (float)block2D.x),
                    std::ceil(height / (float)block2D.y));
 
-    fk::memory_write_scalar<fk::_2D, fk::perthread_write<fk::_2D, T>, T> opFinal_2D = { output };
-    fk::memory_write_scalar<fk::_2D, fk::perthread_write<fk::_2D, T>, T> opFinal_2DBig = { outputBig };
+    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readCrop{cropedInput};
+    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readFull{input};
+    dim3 gridActiveThreadsCrop(cropedInput.dims().width, cropedInput.dims().height);
+    dim3 gridActiveThreads(input.dims().width, input.dims().height);
+
+    fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2D = { output };
+    fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2DBig = { outputBig };
 
     for (int i=0; i<100; i++) {
-        fk::cuda_transform_<<<grid2D, block2D, 0, stream>>>(cropedInput.ptr(), opFinal_2D);
-        fk::cuda_transform_<<<grid2DBig, block2D, 0, stream>>>(input.ptr(), opFinal_2DBig);
+        fk::cuda_transform<<<grid2D, block2D, 0, stream>>>(gridActiveThreadsCrop, readCrop, opFinal_2D);
+        fk::cuda_transform<<<grid2DBig, block2D, 0, stream>>>(gridActiveThreads, readFull, opFinal_2DBig);
     }
 
     cudaError_t err = cudaStreamSynchronize(stream);
@@ -72,10 +77,12 @@ int main() {
     fk::Ptr2D<uchar> input(64,64);
     fk::Ptr2D<uint> output(64,64);
     
-    fk::unary_operation_scalar<fk::unary_cast<uchar, uint>, uint> op = {};
-    fk::memory_write_scalar<fk::_2D, fk::perthread_write<fk::_2D, uint>, uint> opFinal_2D = { output };
+    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, uchar>> read{ input };
+    fk::UnaryDeviceFunction<fk::UnaryCast<uchar, uint>> cast = {};
+    fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, uint>> write { output };
 
-    fk::cuda_transform_<<<dim3(1,8),dim3(64,8),0,stream>>>(input.ptr(), op);
+    dim3 gridActiveThreads(64, 64);
+    fk::cuda_transform<<<dim3(1,8),dim3(64,8),0,stream>>>(gridActiveThreads, read, cast, write);
 
     gpuErrchk(cudaStreamSynchronize(stream));
 

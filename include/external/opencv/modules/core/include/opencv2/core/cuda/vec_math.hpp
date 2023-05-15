@@ -44,7 +44,7 @@
 
 #pragma once
 
-#include "../../../../../../../../fast_kernel/operation_types.cuh"
+#include "../../../../../../../../fused_kernel/operations.cuh"
 
 /** @file
  * @deprecated Use @ref cudev instead.
