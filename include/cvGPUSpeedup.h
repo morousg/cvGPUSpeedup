@@ -49,6 +49,17 @@ inline constexpr fk::BinaryDeviceFunction<fk::BinarySum<CUDA_T(I)>> add(const cv
     return internal::operator_builder_t<I, fk::BinaryDeviceFunction<fk::BinarySum<CUDA_T(I)>>>::build(src2);
 }
 
+template <int T, cv::ColorConversionCodes CODE>
+inline constexpr auto cvtColor() {
+    // So far, we only support reordering channels
+    static_assert(isSupportedColorConversion<CODE>, "Color conversion type not supported yet.");
+    if constexpr (CODE == cv::COLOR_BGR2RGB || CODE == cv::COLOR_RGB2BGR) {
+        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<CUDA_T(T), 2, 1, 0>> {};
+    } else if constexpr (CODE == cv::COLOR_BGRA2RGBA || CODE == cv::COLOR_RGBA2BGRA) {
+        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<CUDA_T(T), 2, 1, 0, 3>> {};
+    }
+}
+
 template <int O>
 inline constexpr auto split(const std::vector<cv::cuda::GpuMat>& output) {
     std::vector<fk::Ptr2D<BASE_CUDA_T(O)>> fk_output;
@@ -72,7 +83,7 @@ inline constexpr fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(I)>> split(
 template <int T, int INTER_F>
 inline const fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F, 1>>
     resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
-    // So far we only support fk::INTER_LINEAR
+    static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
     const fk::RawPtr<fk::_2D, CUDA_T(T)> fk_input = 
     {(CUDA_T(T)*)input.data, {(uint)input.cols, (uint)input.rows, (uint)input.step}};
@@ -91,7 +102,7 @@ inline const fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::Interpol
 template <int T, int INTER_F, int NPtr>
 inline const fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr>> 
     resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int usedPlanes) {
-    
+    static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
     fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr>> resizeArray;
     resizeArray.params.target_width = dsize.width;
     resizeArray.params.target_height = dsize.height;

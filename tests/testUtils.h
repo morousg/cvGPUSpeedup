@@ -2,6 +2,9 @@
 
 #include <opencv2/core.hpp>
 #include <string>
+#include <iostream>
+
+#include <fused_kernel/cuda_vector_utils.cuh>
 
 template <int Depth>
 std::string depthToString() { return ""; }
@@ -39,4 +42,18 @@ CHANNELS_TO_STRING(4, "C4")
 template <int T>
 std::string cvTypeToString() {
     return depthToString<CV_MAT_DEPTH(T)>() + channelsToString<CV_MAT_CN(T)>();
+}
+
+template <typename T>
+void printV(T value) {
+    if constexpr (fk::Channels<T>() >= 1) {
+        std::cout << "(" << value.x;
+    } if constexpr (fk::Channels<T>() >= 2) {
+        std::cout << ", " << value.y;
+    } if constexpr (fk::Channels<T>() >= 3) {
+        std::cout << ", " << value.z;
+    } if constexpr (fk::Channels<T>() == 4 ) {
+        std::cout << ", " << value.w;
+    }
+    std::cout << ")" << std::endl;
 }
