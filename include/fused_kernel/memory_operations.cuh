@@ -118,9 +118,9 @@ struct BatchRead {
 
 template <typename Operation, int NPtr>
 struct BatchWrite {
-    FK_DEVICE_FUSE void exec(const Point& thread,
+    FK_DEVICE_FUSE void exec(const Point& thread, const typename Operation::Type& input,
                              const typename Operation::ParamsType (&params)[NPtr]) {
-        Operation::exec(thread, params[thread.z]);
+        Operation::exec(thread, input, params[thread.z]);
     }
     using Type = typename Operation::Type;
     using ParamsType = typename Operation::ParamsType[NPtr];
