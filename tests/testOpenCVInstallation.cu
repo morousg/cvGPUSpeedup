@@ -39,7 +39,7 @@ int main() {
 
     cv_stream.waitForCompletion();
 
-    std::cout << "Test passed!!" << std::endl;
+    std::cout << "OpenCV correctly installed!!" << std::endl;
 
     return 0;
 }

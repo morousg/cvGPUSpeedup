@@ -106,6 +106,26 @@ struct SplitWrite {
     using ParamsType = SplitWriteParams<D, T>;
 };
 
+template <typename Operation, int NPtr>
+struct BatchRead {
+    FK_DEVICE_FUSE const typename Operation::Type exec(const Point& thread,
+                                                       const typename Operation::ParamsType (&params)[NPtr]) {
+        return Operation::exec(thread, params[thread.z]);
+    }
+    using Type = typename Operation::Type;
+    using ParamsType = typename Operation::ParamsType[NPtr];
+};
+
+template <typename Operation, int NPtr>
+struct BatchWrite {
+    FK_DEVICE_FUSE void exec(const Point& thread, const typename Operation::Type& input,
+                             const typename Operation::ParamsType (&params)[NPtr]) {
+        Operation::exec(thread, input, params[thread.z]);
+    }
+    using Type = typename Operation::Type;
+    using ParamsType = typename Operation::ParamsType[NPtr];
+};
+
 // The following code is a modification of the OpenCV file resize.cu
 // which has the following license
 
@@ -185,31 +205,19 @@ enum InterpolationType {
     NONE = 17
 };
 
-template <typename I, int NPtr>
-struct InterpolateParams {
-    RawPtr<_2D,I> ptr[NPtr];
-    float fx[NPtr];
-    float fy[NPtr];
-    int target_width;
-    int target_height;
-    int active_planes;
-};
-
 template <typename I>
-struct InterpolateParams<I, 1> {
-    const RawPtr<_2D,I> ptr;
-    const float fx;
-    const float fy;
-    const int target_width;
-    const int target_height;
+struct InterpolateParams {
+    RawPtr<_2D,I> ptr;
+    float fx;
+    float fy;
 };
 
-template <typename I, InterpolationType INTER_T, int NPtr>
+template <typename I, InterpolationType INTER_T>
 struct InterpolateRead;
 
 template <typename I>
-struct InterpolateRead<I, InterpolationType::INTER_LINEAR, 1> {
-    static __device__ __forceinline__ const I exec(const Point& thread, const InterpolateParams<I, 1>& params) {
+struct InterpolateRead<I, InterpolationType::INTER_LINEAR> {
+    static __device__ __forceinline__ const I exec(const Point& thread, const InterpolateParams<I>& params) {
         const RawPtr<_2D, I> ptr = params.ptr;
 
         const float src_x = thread.x * params.fx;
@@ -239,19 +247,7 @@ struct InterpolateRead<I, InterpolationType::INTER_LINEAR, 1> {
         return saturate_cast<I>(out);
     }
     using Type = I;
-    using ParamsType = InterpolateParams<I, 1>;
-};
-
-template <typename I, int NPtr>
-struct InterpolateRead<I, InterpolationType::INTER_LINEAR, NPtr> {
-    FK_DEVICE_FUSE const I exec(const Point& thread,
-                          const InterpolateParams<I, NPtr>& params) {
-        return InterpolateRead<I, InterpolationType::INTER_LINEAR, 1>
-                                ::exec(thread, {params.ptr[thread.z], params.fx[thread.z], params.fy[thread.z]});
-
-    }
-    using Type = I;
-    using ParamsType = InterpolateParams<I, NPtr>;
+    using ParamsType = InterpolateParams<I>;
 };
 
 }
