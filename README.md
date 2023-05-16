@@ -24,4 +24,4 @@ Now, same functionality but with cvGPUSpeedup and kernel execution being 38x tim
 
 The cvGPUSpeedup version, will do the same, but with a single CUDA kernel, and execute up to 38x time faster, for 50 crops of an image.
 
-A performance tip. Be carefull when using static arrays as __device__ function parameters. Unles you declare them as const &, the nvcc compiler will do bad things that will heavily affect the resulting kernel performance.
+A performance tip. Be carefull when using static arrays as \_\_device\_\_ function parameters. Unles you declare them as const &, the nvcc compiler will do bad things that will heavily affect the resulting kernel performance.
