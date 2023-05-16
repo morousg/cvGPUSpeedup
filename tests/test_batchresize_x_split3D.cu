@@ -19,7 +19,7 @@
 #include <opencv2/cudaimgproc.hpp>
 
 template <int CV_TYPE_I, int CV_TYPE_O, int CROPS>
-bool test_resize_split_N_batch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
+bool test_batchresize_x_split3D_OCVBatch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
@@ -184,11 +184,11 @@ bool test_resize_split_N_batch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Strea
         if (!passed) {
             if (!exception) {
                 std::stringstream ss;
-                ss << "test_resize_split_N<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "test_batchresize_x_split3D_OCVBatch<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
             } else {
                 std::stringstream ss;
-                ss << "test_resize_split_N<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "test_batchresize_x_split3D_OCVBatch<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
             }
         }
@@ -198,19 +198,19 @@ bool test_resize_split_N_batch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Strea
 }
 
 template <int CV_TYPE_I, int CV_TYPE_O>
-bool test_resize_split_10_30_50_100_batch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
+bool test_batchresize_x_split3D_OCVBatch_10_30_50_100(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     bool passed = true;
 
-    passed &= test_resize_split_N_batch<CV_TYPE_I, CV_TYPE_O, 10>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
-    passed &= test_resize_split_N_batch<CV_TYPE_I, CV_TYPE_O, 30>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
-    passed &= test_resize_split_N_batch<CV_TYPE_I, CV_TYPE_O, 50>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
-    passed &= test_resize_split_N_batch<CV_TYPE_I, CV_TYPE_O, 100>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
+    passed &= test_batchresize_x_split3D_OCVBatch<CV_TYPE_I, CV_TYPE_O, 10>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
+    passed &= test_batchresize_x_split3D_OCVBatch<CV_TYPE_I, CV_TYPE_O, 30>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
+    passed &= test_batchresize_x_split3D_OCVBatch<CV_TYPE_I, CV_TYPE_O, 50>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
+    passed &= test_batchresize_x_split3D_OCVBatch<CV_TYPE_I, CV_TYPE_O, 100>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
 
     return passed;
 }
 
 template <int CV_TYPE_I, int CV_TYPE_O, int CROPS>
-bool test_resize_split_N(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
+bool test_batchresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
@@ -360,11 +360,11 @@ bool test_resize_split_N(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_
         if (!passed) {
             if (!exception) {
                 std::stringstream ss;
-                ss << "test_resize_split_N<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "test_batchresize_x_split3D<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
             } else {
                 std::stringstream ss;
-                ss << "test_resize_split_N<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "test_batchresize_x_split3D<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
             }
         }
@@ -374,13 +374,13 @@ bool test_resize_split_N(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_
 }
 
 template <int CV_TYPE_I, int CV_TYPE_O>
-bool test_resize_split_10_30_50_100(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
+bool test_batchresize_x_split3D_10_30_50_100(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     bool passed = true;
 
-    passed &= test_resize_split_N<CV_TYPE_I, CV_TYPE_O, 10>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
-    passed &= test_resize_split_N<CV_TYPE_I, CV_TYPE_O, 30>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
-    passed &= test_resize_split_N<CV_TYPE_I, CV_TYPE_O, 50>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
-    passed &= test_resize_split_N<CV_TYPE_I, CV_TYPE_O, 100>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
+    passed &= test_batchresize_x_split3D<CV_TYPE_I, CV_TYPE_O, 10>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
+    passed &= test_batchresize_x_split3D<CV_TYPE_I, CV_TYPE_O, 30>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
+    passed &= test_batchresize_x_split3D<CV_TYPE_I, CV_TYPE_O, 50>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
+    passed &= test_batchresize_x_split3D<CV_TYPE_I, CV_TYPE_O, 100>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
 
     return passed;
 }
@@ -394,12 +394,12 @@ int main() {
     cv::Mat::setDefaultAllocator(cv::cuda::HostMem::getAllocator(cv::cuda::HostMem::AllocType::PAGE_LOCKED));
 
     std::unordered_map<std::string, bool> results;
-    results["test_resize_split_10_30_50_100_batch"] = true;
-    results["test_resize_split_10_30_50_100"] = true;
+    results["test_batchresize_x_split3D_OCVBatch_10_30_50_100"] = true;
+    results["test_batchresize_x_split3D_10_30_50_100"] = true;
 
     #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-    results["test_resize_split_10_30_50_100_batch"] = test_resize_split_10_30_50_100_batch<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true); \
-    results["test_resize_split_10_30_50_100"] = test_resize_split_10_30_50_100<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
+    results["test_batchresize_x_split3D_OCVBatch_10_30_50_100"] &= test_batchresize_x_split3D_OCVBatch_10_30_50_100<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true); \
+    results["test_batchresize_x_split3D_10_30_50_100"] &= test_batchresize_x_split3D_10_30_50_100<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
     LAUNCH_TESTS(CV_8UC4, CV_32FC4)
