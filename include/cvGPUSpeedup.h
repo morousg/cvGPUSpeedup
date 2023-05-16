@@ -194,21 +194,23 @@ template <int I, int Batch, typename... operations>
 inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, int activeBatch, cv::cuda::Stream& stream, const operations&... ops) {
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
-    fk::Ptr2D<CUDA_T(I)> fk_input((CUDA_T(I)*)input.data, input.cols, input.rows, input.step);
+    fk::Ptr2D<CUDA_T(I)> fk_input((CUDA_T(I)*)input[0].data, input[0].cols, input[0].rows, input[0].step);
 
     dim3 block = fk_input.getBlockSize();
     dim3 grid;
     grid.x = (unsigned int)ceil(fk_input.dims().width / (float)block.x);
     grid.y = (unsigned int)ceil(fk_input.dims().height / (float)block.y);
-    dim3 gridActiveThreads(fk_input.dims.width, fk_input.dims.height, activeBatch);
+    grid.z = activeBatch;
+    dim3 gridActiveThreads(fk_input.dims().width, fk_input.dims().height, activeBatch);
     fk::ReadDeviceFunction<fk::BatchRead<fk::PerThreadRead<fk::_2D, CUDA_T(I)>, Batch>> firstOp;
-    for (int plane=0; plane<activeBatch; plane++) {
-        fk::Ptr2D<CUDA_T(I)> fk_input((CUDA_T(I)*)input[plane].data, input[plane].cols, input[plane].rows, input[plane].step); 
-        firstOp.params[plane] = fk_input;
+    firstOp.params[0] = fk_input;
+    for (int plane=1; plane<activeBatch; plane++) {
+        fk::Ptr2D<CUDA_T(I)> fk_input_t((CUDA_T(I)*)input[plane].data, input[plane].cols, input[plane].rows, input[plane].step); 
+        firstOp.params[plane] = fk_input_t;
     }
     firstOp.activeThreads = gridActiveThreads;
-    fk::cuda_transform<<<grid, block, 0, cu_stream>>>(firstOp, ops...);
 
+    fk::cuda_transform<<<grid, block, 0, cu_stream>>>(firstOp, ops...);
     gpuErrchk(cudaGetLastError());
 }
 
@@ -232,13 +234,13 @@ inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda:
 }
 
 template <int I, int O, int Batch, typename... operations>
-inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, int activeBatch, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const operations&... ops) {
+inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const int activeBatch, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const operations&... ops) {
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
     fk::Tensor<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, input[0].cols, input[0].rows, Batch);
 
     dim3 block = fk_output.getBlockSize();
-    dim3 grid(ceil(input[0].cols / (float)block.x), ceil(input[0].rows / (float)block.y));
+    dim3 grid(ceil(input[0].cols / (float)block.x), ceil(input[0].rows / (float)block.y), activeBatch);
     dim3 gridActiveThreads(input[0].cols, input[0].rows, activeBatch);
     
     fk::ReadDeviceFunction<fk::BatchRead<fk::PerThreadRead<fk::_2D, CUDA_T(I)>, Batch>> firstOp;
