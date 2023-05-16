@@ -19,8 +19,6 @@
 
 namespace fk { // namespace Fast Kernel
 
-// START OF THE KERNEL RECURSIVITY
-
 // TODO: adapt this to RawPtr<T> instead of raw pointer
 /*template <typename I, typename O, typename I2, typename Operation, typename... operations>
 __device__ __forceinline__ void operate_noret(I i_data, binary_operation_pointer<Operation, I, I2, O> op, operations... ops) {

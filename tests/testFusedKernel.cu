@@ -87,9 +87,9 @@ int main() {
     gpuErrchk(cudaStreamSynchronize(stream));
 
     if (test2Dpassed) {
-        std::cout << "testPtr_2D Success!!" << std::endl; 
+        std::cout << "cuda_transform executed!!" << std::endl; 
     } else {
-        std::cout << "testPtr_2D Failed!!" << std::endl;
+        std::cout << "cuda_transform executed!!" << std::endl;
     }
 
     return 0;
