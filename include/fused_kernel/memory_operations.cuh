@@ -106,6 +106,26 @@ struct SplitWrite {
     using ParamsType = SplitWriteParams<D, T>;
 };
 
+template <typename Operation, int NPtr>
+struct BatchRead {
+    FK_DEVICE_FUSE const typename Operation::Type exec(const Point& thread,
+                                                       const typename Operation::ParamsType (&params)[NPtr]) {
+        return Operation::exec(thread, params[thread.z]);
+    }
+    using Type = typename Operation::Type;
+    using ParamsType = typename Operation::ParamsType[NPtr];
+};
+
+template <typename Operation, int NPtr>
+struct BatchWrite {
+    FK_DEVICE_FUSE void exec(const Point& thread,
+                             const typename Operation::ParamsType (&params)[NPtr]) {
+        Operation::exec(thread, params[thread.z]);
+    }
+    using Type = typename Operation::Type;
+    using ParamsType = typename Operation::ParamsType[NPtr];
+};
+
 // The following code is a modification of the OpenCV file resize.cu
 // which has the following license
 
@@ -228,16 +248,6 @@ struct InterpolateRead<I, InterpolationType::INTER_LINEAR> {
     }
     using Type = I;
     using ParamsType = InterpolateParams<I>;
-};
-
-template <typename Operation, int NPtr>
-struct BatchRead {
-    FK_DEVICE_FUSE const typename Operation::Type exec(const Point& thread,
-                                const typename Operation::ParamsType (&params)[NPtr]) {
-        return Operation::exec(thread, params[thread.z]);
-    }
-    using Type = typename Operation::Type;
-    using ParamsType = typename Operation::ParamsType[NPtr];
 };
 
 }

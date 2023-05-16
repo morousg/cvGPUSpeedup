@@ -128,6 +128,30 @@ inline constexpr fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>
     return { fk_output };
 }
 
+template <int O, int Batch>
+inline constexpr auto write(const std::array<cv::cuda::GpuMat, Batch>& output, int activePlanes) {
+
+    fk::WriteDeviceFunction<fk::BatchWrite<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>, Batch>> devFunction;
+    
+    for (int plane=0; plane<activePlanes; plane++) {
+        fk::Ptr2D<CUDA_T(O)> fk_output((CUDA_T(O)*)output[plane].data, output[plane].cols, output[plane].rows, output[plane].step);
+        devFunction.params[plane] = fk_output;
+    }
+    
+    return devFunction;
+}
+
+template <int O>
+inline constexpr fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, CUDA_T(O)>> write(const cv::cuda::GpuMat& output, const cv::Size& plane) {
+    fk::Tensor<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, plane.width, plane.height, output.rows);
+    return { fk_output };
+}
+
+template <typename T>
+inline constexpr fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, T>> write(const fk::Tensor<T>& output) {
+    return { output };
+}
+
 template <typename Operation, typename... operations>
 inline dim3 extractDataDims(const fk::ReadDeviceFunction<Operation>& op, const operations&... ops) {
     return op.activeThreads;
@@ -199,22 +223,23 @@ inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda:
     dim3 grid(ceil(fk_input.dims().width / (float)block.x), ceil(fk_input.dims().height / (float)block.y));
     dim3 gridActiveThreads(fk_input.dims().width, fk_input.dims().height);
     
-    fk::ReadDeviceFunction<fk::PerthreadRead<fk::_2D, CUDA_T(I)>> firstOp { fk_input, gridActiveThreads };
+    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, CUDA_T(I)>> firstOp { fk_input, gridActiveThreads };
     fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>> opFinal { fk_output };
     
     fk::cuda_transform<<<grid, block, 0, cu_stream>>>(firstOp, ops..., opFinal);
     
     gpuErrchk(cudaGetLastError());
 }
+
 template <int I, int O, int Batch, typename... operations>
 inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, int activeBatch, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const operations&... ops) {
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
-    fk::Ptr2D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);
+    fk::Tensor<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, input[0].cols, input[0].rows, Batch);
 
-    dim3 block = fk_input.getBlockSize();
-    dim3 grid(ceil(fk_input.dims().width / (float)block.x), ceil(fk_input.dims().height / (float)block.y));
-    dim3 gridActiveThreads(fk_input.dims().width, fk_input.dims().height, activeBatch);
+    dim3 block = fk_output.getBlockSize();
+    dim3 grid(ceil(input[0].cols / (float)block.x), ceil(input[0].rows / (float)block.y));
+    dim3 gridActiveThreads(input[0].cols, input[0].rows, activeBatch);
     
     fk::ReadDeviceFunction<fk::BatchRead<fk::PerThreadRead<fk::_2D, CUDA_T(I)>, Batch>> firstOp;
     for (int plane=0; plane<activeBatch; plane++) {
@@ -222,8 +247,7 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
         firstOp.params[plane] = fk_input;
     }
     firstOp.activeThreads = gridActiveThreads;
-    // TODO: need to make the write operation a TensorWrite operation, and need to create a TensorWrite operation
-    fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>> opFinal { fk_output };
+    fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, CUDA_T(O)>> opFinal { fk_output };
     
     fk::cuda_transform<<<grid, block, 0, cu_stream>>>(firstOp, ops..., opFinal);
     
