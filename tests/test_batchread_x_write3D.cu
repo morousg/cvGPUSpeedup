@@ -143,7 +143,7 @@ int main() {
     results["test_batchread_x_write3D"] = true;
 
     #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-    results["test_batchread_x_write3D"] &= test_batchread_x_write3D<CV_INPUT, CV_OUTPUT, 5>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
+    results["test_batchread_x_write3D"] &= test_batchread_x_write3D<CV_INPUT, CV_OUTPUT, 50>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
     LAUNCH_TESTS(CV_8SC1, CV_32FC1)
