@@ -69,9 +69,6 @@ bool test_read_x_write(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_st
                                             cvGS::divide<OC>(val_div),
                                             cvGS::add<OC>(val_add));
 
-            // Looking at Nsight Systems, with an RTX A2000 12GB
-            // Speedups are up to 7x, depending on the data type
-
             // Verify results
             d_output_cv.download(h_cvResults, cv_stream);
             d_output_cvGS.download(h_cvGSResults, cv_stream);

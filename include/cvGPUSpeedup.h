@@ -128,19 +128,6 @@ inline constexpr fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>
     return { fk_output };
 }
 
-template <int O, int Batch>
-inline constexpr auto write(const std::array<cv::cuda::GpuMat, Batch>& output, int activePlanes) {
-
-    fk::WriteDeviceFunction<fk::BatchWrite<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>, Batch>> devFunction;
-    
-    for (int plane=0; plane<activePlanes; plane++) {
-        fk::Ptr2D<CUDA_T(O)> fk_output((CUDA_T(O)*)output[plane].data, output[plane].cols, output[plane].rows, output[plane].step);
-        devFunction.params[plane] = fk_output;
-    }
-    
-    return devFunction;
-}
-
 template <int O>
 inline constexpr fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, CUDA_T(O)>> write(const cv::cuda::GpuMat& output, const cv::Size& plane) {
     fk::Tensor<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, plane.width, plane.height, output.rows);
