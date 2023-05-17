@@ -22,4 +22,4 @@ Now, same functionality but with cvGPUSpeedup and kernel execution being 38x tim
 
 ![alt text](https://github.com/morousg/cvGPUSpeedup/blob/2e9bfb1410c7dd8fb1bc4de279466637881b8843/cvGPUSpeedupVersion.png)
 
-The cvGPUSpeedup version, will do the same, but with a single CUDA kernel, and execute up to 38x time faster, for 50 crops of an image.
+The cvGPUSpeedup version, will do the same, but with a single CUDA kernel, and execute up to 38x times faster, for 50 crops of an image.
