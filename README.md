@@ -7,7 +7,7 @@ Whith this idea in mind, this library wants to make OpenCV code run faster on th
 The current code, implements operations that can preserve the Grid structure across different "kernels" or how we call them "operations". We do not discard to explore more complex grid patterns in the future, as hardware support for thread block communication improves.
 
 This project is in it's infancy. It is a header-based C++/CUDA library, with a dual purpose:
-1. To create a set of fusionable __device__ functions, that can be compiled only with nvcc and the cuda runtime libraries. (namespace fk) 
+1. To create a set of fusionable \_\_device\_\_ functions, that can be compiled only with nvcc and the cuda runtime libraries. (namespace fk) 
 2. To be able to use OpenCV-like code in the GPU, with far more performance in some cases. (namespace cvGS)
 
 The first main focus is on the transform operation, with an incomplete set of basic arithmetic operations to be performed on cv::cuda::GpuMat objects.
