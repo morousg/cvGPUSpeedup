@@ -210,7 +210,7 @@ namespace fk {
     };
 
     template <typename T> 
-    __host__ inline constexpr typename std::enable_if_t<std::is_class<T>::value, std::ostream&> operator<<(std::ostream& outs, const T& val) {
+    __host__ inline constexpr typename std::enable_if_t<validCUDAVec<T>, std::ostream&> operator<<(std::ostream& outs, const T& val) {
         return print_vector<T>()(outs, val);
     }
 
@@ -218,9 +218,7 @@ namespace fk {
     struct unary_vector_set_;
     
     template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<!std::is_aggregate<T>::value &&
-                                                          !std::is_class<T>::value &&
-                                                          !std::is_enum<T>::value>>{
+    struct unary_vector_set_<T, typename std::enable_if_t<!validCUDAVec<T>>>{
         // This case exists to make things easyer when we don't know if the type
         // is going to be a vector type or a normal type
         FK_HOST_DEVICE_FUSE T exec(const T& val) {
@@ -229,31 +227,17 @@ namespace fk {
     };
 
     template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<std::is_aggregate<T>::value &&
-                                                          VectorTraits<T>::cn == 1>> {
+    struct unary_vector_set_<T, typename std::enable_if_t<validCUDAVec<T>>> {
         FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
+            if constexpr (cn<T> == 1) {
                 return {val};
-        }
-    };
-
-    template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 2>> {
-        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
+            } else if constexpr (cn<T> == 2) {
                 return {val, val};
-        }
-    };
-
-    template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 3>>{
-        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
+            } else if constexpr (cn<T> == 3) {
                 return {val, val, val};
-        }
-    };
-
-    template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 4>>{
-        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
+            } else {
                 return {val, val, val, val};
+            }
         }
     };
 
