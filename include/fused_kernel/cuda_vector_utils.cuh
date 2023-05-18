@@ -78,15 +78,18 @@ namespace fk {
     __host__ __device__ __forceinline__ constexpr int Channels() { 
         static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: Channels<invalid_type>()");
         if constexpr (one_of_t<T, VOne>::value) {
-        return 1;
+            return 1;
         } else if constexpr (one_of_t<T, VTwo>::value) { 
-        return 2;
+            return 2;
         } else if constexpr (one_of_t<T, VThree>::value) { 
-        return 3;
+            return 3;
         } else {
-        return 4;
+            return 4;
         }
     }
+
+    template <typename T>
+    constexpr int cn = Channels<T>();
 
     template <int idx, typename T>
     __host__ __device__ __forceinline__ constexpr auto VectorAt(const T& vector) {
@@ -229,28 +232,28 @@ namespace fk {
     struct unary_vector_set_<T, typename std::enable_if_t<std::is_aggregate<T>::value &&
                                                           VectorTraits<T>::cn == 1>> {
         FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
-            return {val};
+                return {val};
         }
     };
 
     template <typename T>
     struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 2>> {
         FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
-            return {val, val};
+                return {val, val};
         }
     };
 
     template <typename T>
     struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 3>>{
         FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
-            return {val, val, val};
+                return {val, val, val};
         }
     };
 
     template <typename T>
     struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 4>>{
         FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
-            return {val, val, val, val};
+                return {val, val, val, val};
         }
     };
 
