@@ -25,27 +25,27 @@
 namespace cvGS {
 
 template <int I, int O>
-inline constexpr fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>> convertTo() {
-    return {};
+inline constexpr auto convertTo() {
+    return fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>{};
 }
 
 template <int I>
-inline constexpr fk::BinaryDeviceFunction<fk::BinaryMul<CUDA_T(I)>> multiply(const cv::Scalar& src2) {
+inline constexpr auto multiply(const cv::Scalar& src2) {
     return internal::operator_builder_t<I, fk::BinaryDeviceFunction<fk::BinaryMul<CUDA_T(I)>>>::build(src2);
 }
 
 template <int I>
-inline constexpr fk::BinaryDeviceFunction<fk::BinarySub<CUDA_T(I)>> subtract(const cv::Scalar& src2) {
+inline constexpr auto subtract(const cv::Scalar& src2) {
     return internal::operator_builder_t<I, fk::BinaryDeviceFunction<fk::BinarySub<CUDA_T(I)>>>::build(src2);
 }
 
 template <int I>
-inline constexpr fk::BinaryDeviceFunction<fk::BinaryDiv<CUDA_T(I)>> divide(const cv::Scalar& src2) {
+inline constexpr auto divide(const cv::Scalar& src2) {
     return internal::operator_builder_t<I, fk::BinaryDeviceFunction<fk::BinaryDiv<CUDA_T(I)>>>::build(src2);
 }
 
 template <int I>
-inline constexpr fk::BinaryDeviceFunction<fk::BinarySum<CUDA_T(I)>> add(const cv::Scalar& src2) {
+inline constexpr auto add(const cv::Scalar& src2) {
     return internal::operator_builder_t<I, fk::BinaryDeviceFunction<fk::BinarySum<CUDA_T(I)>>>::build(src2);
 }
 
@@ -70,19 +70,18 @@ inline constexpr auto split(const std::vector<cv::cuda::GpuMat>& output) {
     return internal::split_builder_t<O, fk::Ptr2D<BASE_CUDA_T(O)>, fk::WriteDeviceFunction<fk::SplitWrite<fk::_2D, CUDA_T(O)>>>::build(fk_output);
 }
 
-template <int I>
-inline constexpr fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(I)>> split(const cv::cuda::GpuMat& output, const cv::Size& planeDims) {
-    assert(output.cols % (planeDims.width * planeDims.height) == 0 && output.cols / (planeDims.width * planeDims.height) == CV_MAT_CN(I) &&
+template <int O>
+inline constexpr auto split(const cv::cuda::GpuMat& output, const cv::Size& planeDims) {
+    assert(output.cols % (planeDims.width * planeDims.height) == 0 && output.cols / (planeDims.width * planeDims.height) == CV_MAT_CN(O) &&
     "Each row of the GpuMap should contain as many planes as width / (planeDims.width * planeDims.height)");
 
-    fk::Tensor<BASE_CUDA_T(I)> t_output((BASE_CUDA_T(I)*)output.data, planeDims.width, planeDims.height, output.rows, CV_MAT_CN(I));
+    fk::Tensor<BASE_CUDA_T(O)> t_output((BASE_CUDA_T(O)*)output.data, planeDims.width, planeDims.height, output.rows, CV_MAT_CN(O));
 
-    return {t_output};
+    return fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(O)>> {t_output};
 }
 
 template <int T, int INTER_F>
-inline const fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>>
-    resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
+inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
     const fk::RawPtr<fk::_2D, CUDA_T(T)> fk_input = 
@@ -91,9 +90,11 @@ inline const fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::Interpol
     if (dsize != cv::Size()) {
         fx = static_cast<double>(dsize.width) / input.cols;
         fy = static_cast<double>(dsize.height) / input.rows;
-        return {{fk_input, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy)}, {(uint)dsize.width, (uint)dsize.height}};
+        return fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>>
+                {{fk_input, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy)}, {(uint)dsize.width, (uint)dsize.height}};
     } else {
-        return {{fk_input, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy)},
+        return fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>>
+                {{fk_input, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy)},
                  {CAROTENE_NS::internal::saturate_cast<uint>(input.cols * fx),
                   CAROTENE_NS::internal::saturate_cast<uint>(input.rows * fy)}};
     }
@@ -123,20 +124,20 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const 
 }
 
 template <int O>
-inline constexpr fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>> write(const cv::cuda::GpuMat& output) {
+inline constexpr auto write(const cv::cuda::GpuMat& output) {
     fk::Ptr2D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);
-    return { fk_output };
+    return fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>{ fk_output };
 }
 
 template <int O>
-inline constexpr fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, CUDA_T(O)>> write(const cv::cuda::GpuMat& output, const cv::Size& plane) {
+inline constexpr auto write(const cv::cuda::GpuMat& output, const cv::Size& plane) {
     fk::Tensor<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, plane.width, plane.height, output.rows);
-    return { fk_output };
+    return fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, CUDA_T(O)>>{ fk_output };
 }
 
 template <typename T>
-inline constexpr fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, T>> write(const fk::Tensor<T>& output) {
-    return { output };
+inline constexpr auto write(const fk::Tensor<T>& output) {
+    return fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, T>>{ output };
 }
 
 template <typename Operation, typename... operations>
@@ -177,6 +178,26 @@ inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda:
     gpuErrchk(cudaGetLastError());
 }
 
+template <int I, int O, typename... operations>
+inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const operations&... ops) {
+    cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
+    
+    fk::Ptr2D<CUDA_T(I)> fk_input((CUDA_T(I)*)input.data, input.cols, input.rows, input.step);
+    fk::Ptr2D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);
+
+    dim3 block = fk_input.getBlockSize();
+    dim3 grid(ceil(fk_input.dims().width / (float)block.x), ceil(fk_input.dims().height / (float)block.y));
+    dim3 gridActiveThreads(fk_input.dims().width, fk_input.dims().height);
+    
+    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, CUDA_T(I)>> firstOp { fk_input, gridActiveThreads };
+    fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>> opFinal { fk_output };
+    
+    fk::cuda_transform<<<grid, block, 0, cu_stream>>>(firstOp, ops..., opFinal);
+    
+    gpuErrchk(cudaGetLastError());
+}
+
+// Batch reads
 template <int I, int Batch, typename... operations>
 inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, int activeBatch, cv::cuda::Stream& stream, const operations&... ops) {
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
@@ -198,25 +219,6 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
     firstOp.activeThreads = gridActiveThreads;
 
     fk::cuda_transform<<<grid, block, 0, cu_stream>>>(firstOp, ops...);
-    gpuErrchk(cudaGetLastError());
-}
-
-template <int I, int O, typename... operations>
-inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const operations&... ops) {
-    cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-    
-    fk::Ptr2D<CUDA_T(I)> fk_input((CUDA_T(I)*)input.data, input.cols, input.rows, input.step);
-    fk::Ptr2D<CUDA_T(O)> fk_output((CUDA_T(O)*)output.data, output.cols, output.rows, output.step);
-
-    dim3 block = fk_input.getBlockSize();
-    dim3 grid(ceil(fk_input.dims().width / (float)block.x), ceil(fk_input.dims().height / (float)block.y));
-    dim3 gridActiveThreads(fk_input.dims().width, fk_input.dims().height);
-    
-    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, CUDA_T(I)>> firstOp { fk_input, gridActiveThreads };
-    fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>> opFinal { fk_output };
-    
-    fk::cuda_transform<<<grid, block, 0, cu_stream>>>(firstOp, ops..., opFinal);
-    
     gpuErrchk(cudaGetLastError());
 }
 
