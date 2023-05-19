@@ -216,7 +216,7 @@ inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda:
 
 // Batch reads
 template <int I, int Batch, typename... operations>
-inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, int activeBatch, cv::cuda::Stream& stream, const operations&... ops) {
+inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const int& activeBatch, const cv::cuda::Stream& stream, const operations&... ops) {
 
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
@@ -241,7 +241,7 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
 }
 
 template <int I, int O, int Batch, typename... operations>
-inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const int activeBatch, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const operations&... ops) {
+inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const int& activeBatch, const cv::cuda::GpuMat& output, const cv::cuda::Stream& stream, const operations&... ops) {
 
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 

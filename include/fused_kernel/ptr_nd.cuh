@@ -8,7 +8,7 @@ struct Point {
     uint x;
     uint y;
     uint z;
-    __device__ __forceinline__ __host__ Point(const uint x_ = 0, const uint y_ = 0, const uint z_ = 0) : x(x_), y(y_), z(z_) {}
+    FK_HOST_DEVICE_CNST Point(const uint x_ = 0, const uint y_ = 0, const uint z_ = 0) : x(x_), y(y_), z(z_) {}
 };
 
 inline constexpr uint computeDiscardedThreads(const uint width, const uint height, const uint blockDimx, const uint blockDimy) {
@@ -130,7 +130,7 @@ struct RawPtr<_1D, T> {
     T* data;
     PtrDims<_1D> dims;
     using base = typename VectorTraits<T>::base;
-    enum {cn=VectorTraits<T>::cn};
+    enum {cn=cn<T>};
 };
 
 template <typename T>
@@ -138,7 +138,7 @@ struct RawPtr<_2D, T> {
     T* data;
     PtrDims<_2D> dims;
     using base = typename VectorTraits<T>::base;
-    enum {cn=VectorTraits<T>::cn};
+    enum {cn=cn<T>};
 };
 
 template <typename T>
@@ -146,7 +146,7 @@ struct RawPtr<_3D, T> {
     T* data;
     PtrDims<_3D> dims;
     using base = typename VectorTraits<T>::base;
-    enum {cn=VectorTraits<T>::cn};
+    enum {cn=cn<T>};
 };
 
 template <ND D>
@@ -262,8 +262,11 @@ struct PtrImpl<_3D,T> {
     }
 };
 
-template <ND D, typename T, typename At>
+template <ND D, typename T>
 class Ptr{
+
+using At = PtrAccessor<D>;
+
 protected:
     struct RefPtr {
         void* ptr;
@@ -275,8 +278,8 @@ protected:
     MemType type;
     int deviceID;
 
-    __host__ inline Ptr(RawPtr<D,T> ptr_a_, RefPtr * ref_, dim3 bs_, MemType type_, int devID) : 
-                        ptr_a(ptr_a_), ref(ref_), adjusted_blockSize(bs_), type(type_), deviceID(devID) {}
+    __host__ inline constexpr Ptr(const RawPtr<D,T>& ptr_a_, RefPtr* ref_, const dim3& bs_, const MemType& type_, const int& devID) : 
+                                  ptr_a(ptr_a_), ref(ref_), adjusted_blockSize(bs_), type(type_), deviceID(devID) {}
 
     __host__ inline constexpr uint sizeInBytes() const {
         return PtrImpl<D,T>::sizeInBytes(ptr_a.dims);
@@ -285,7 +288,7 @@ protected:
         return PtrImpl<D,T>::getNumElements(ptr_a.dims);
     }
     
-    __host__ virtual void allocDevice() {
+    __host__ inline constexpr void allocDevice() {
         int currentDevice;
         gpuErrchk(cudaGetDevice(&currentDevice));
         gpuErrchk(cudaSetDevice(deviceID));
@@ -295,19 +298,19 @@ protected:
         }
     }
 
-    __host__ inline void allocHost() {
+    __host__ inline constexpr void allocHost() {
         ptr_a.dims.pitch = sizeof(T) * ptr_a.dims.width; //Here we don't support padding
         ptr_a.data = (T*)malloc(PtrImpl<D,T>::sizeInBytes(ptr_a.dims));
         PtrImpl<D,T>::h_malloc_init(ptr_a.dims);
     }
 
-    __host__ inline void allocHostPinned() {
+    __host__ inline constexpr void allocHostPinned() {
         ptr_a.dims.pitch = sizeof(T) * ptr_a.dims.width; //Here we don't support padding
         gpuErrchk(cudaMallocHost(&ptr_a.data, PtrImpl<D,T>::sizeInBytes(ptr_a.dims)));
         PtrImpl<D,T>::h_malloc_init(ptr_a.dims);
     }
 
-    __host__ inline void freePrt() {
+    __host__ inline constexpr void freePrt() {
         if (ref) {
             ref->cnt--;
             if (ref->cnt == 0) {
@@ -331,9 +334,9 @@ protected:
 
 public:
 
-    __host__ inline Ptr() {}
+    __host__ inline constexpr Ptr() {}
 
-    __host__ inline Ptr(const Ptr<D,T, At>& other) {
+    __host__ inline constexpr Ptr(const Ptr<D,T>& other) {
         ptr_a = other.ptr_a;
         adjusted_blockSize = other.adjusted_blockSize;
         type = other.type;
@@ -344,11 +347,11 @@ public:
         }
     }
 
-    __host__ inline Ptr(const PtrDims<D>& dims, MemType type_ = Device, int deviceID_ = 0) {
+    __host__ inline constexpr Ptr(const PtrDims<D>& dims, const MemType& type_ = Device, const int& deviceID_ = 0) {
         allocPtr(dims, type_, deviceID_);
     }
 
-    __host__ inline Ptr(T * data_, const PtrDims<D>& dims, MemType type_ = Device, int deviceID_ = 0) {
+    __host__ inline constexpr Ptr(T * data_, const PtrDims<D>& dims, const MemType& type_ = Device, const int& deviceID_ = 0) {
         ptr_a.data = data_;
         ptr_a.dims = dims;
         type = type_;
@@ -356,14 +359,14 @@ public:
         adjusted_blockSize = PtrImpl<D,T>::getBlockSize(ptr_a.dims);
     }
 
-    __host__ inline void allocPtr(const PtrDims<D>& dims_, const MemType type_ = Device, const int deviceID_ = 0) {
+    __host__ inline constexpr void allocPtr(const PtrDims<D>& dims_, const MemType& type_ = Device, const int& deviceID_ = 0) {
         ptr_a.dims = dims_;
         type = type_;
         deviceID = deviceID_;
         ref = (RefPtr*)malloc(sizeof(RefPtr));
         ref->cnt = 1;
 
-        switch (type_) {
+        switch (type) {
             case Device:
                 allocDevice();
                 adjusted_blockSize = PtrImpl<D,T>::getBlockSize(ptr_a.dims);
@@ -385,87 +388,89 @@ public:
         freePrt();
     }
 
-    __host__ inline RawPtr<D,T> ptr() const { return ptr_a; }
+    __host__ inline constexpr RawPtr<D,T> ptr() const { return ptr_a; }
 
-    __host__ inline operator RawPtr<D,T>() const { return ptr_a; }
+    __host__ inline constexpr operator RawPtr<D,T>() const { return ptr_a; }
 
-    __host__ inline Ptr<D,T, At> crop(Point p, PtrDims<D> newDims) {
+    __host__ inline constexpr Ptr<D,T> crop(const Point& p, const PtrDims<D>& newDims) {
         T* ptr = At::point(p, ptr_a);
         ref->cnt++;
         const RawPtr<D,T> newRawPtr = {ptr, newDims};
         return {newRawPtr, ref, PtrImpl<D,T>::getBlockSize(newDims), type, deviceID};
     }
-    __host__ inline PtrDims<D> dims() const {
+    __host__ inline constexpr PtrDims<D> dims() const {
         return ptr_a.dims;
     }
-    __host__ inline dim3 getBlockSize() const {
+    __host__ inline constexpr dim3 getBlockSize() const {
         return adjusted_blockSize;
     }
-    __host__ inline MemType getMemType() const {
+    __host__ inline constexpr MemType getMemType() const {
         return type;
     }
-    __host__ inline int getDeviceID() const {
+    __host__ inline constexpr int getDeviceID() const {
         return deviceID;
     }
 };
 
 template <typename T>
-class Ptr1D : public Ptr<_1D, T, PtrAccessor<_1D>> {
+class Ptr1D : public Ptr<_1D, T> {
 public:
-    __host__ inline Ptr1D(uint num_elems, uint size_in_bytes = 0, MemType type_ = Device, int deviceID_ = 0) : 
-                          Ptr<_1D, T, PtrAccessor<_1D>>(PtrDims<_1D>(num_elems, size_in_bytes), type_, deviceID_) {}
-    __host__ inline Ptr1D(const Ptr<_1D, T, PtrAccessor<_1D>>& other) : Ptr<_1D, T, PtrAccessor<_1D>>(other) {}
-    __host__ inline Ptr1D(T * data_, const PtrDims<_1D>& dims_, MemType type_ = Device, int deviceID_ = 0) :
-                          Ptr<_1D, T, PtrAccessor<_1D>>(data_, dims_, type_, deviceID_) {}
-    __host__ inline Ptr1D<T> crop1D(Point p, PtrDims<_1D> newDims) {
-        return Ptr<_1D, T, PtrAccessor<_1D>>::crop(p, newDims);
-    }
+    __host__ inline constexpr Ptr1D(const uint& num_elems, const uint& size_in_bytes = 0, const MemType& type_ = Device, const int& deviceID_ = 0) : 
+                                    Ptr<_1D, T>(PtrDims<_1D>(num_elems, size_in_bytes), type_, deviceID_) {}
+
+    __host__ inline constexpr Ptr1D(const Ptr<_1D, T>& other) : Ptr<_1D, T>(other) {}
+
+    __host__ inline constexpr Ptr1D(T * data_, const PtrDims<_1D>& dims_, const MemType& type_ = Device, const int& deviceID_ = 0) :
+                          Ptr<_1D, T>(data_, dims_, type_, deviceID_) {}
+
+    __host__ inline constexpr Ptr1D<T> crop1D(const Point& p, const PtrDims<_1D>& newDims) { return Ptr<_1D, T>::crop(p, newDims); }
 };
 
 template <typename T>
-class Ptr2D : public Ptr<_2D, T, PtrAccessor<_2D>> {
+class Ptr2D : public Ptr<_2D, T> {
 public:
-    __host__ inline Ptr2D(uint width_, uint height_, uint pitch_ = 0, MemType type_ = Device, int deviceID_ = 0) : 
-    Ptr<_2D, T, PtrAccessor<_2D>>(PtrDims<_2D>(width_, height_, pitch_), type_, deviceID_) {}
-    __host__ inline Ptr2D(const Ptr<_2D, T, PtrAccessor<_2D>>& other) : Ptr<_2D, T, PtrAccessor<_2D>>(other) {}
-    __host__ inline Ptr2D(T * data_, uint width_, uint height_, uint pitch_, MemType type_ = Device, int deviceID_ = 0) :
-                          Ptr<_2D, T, PtrAccessor<_2D>>(data_, PtrDims<_2D>(width_,height_,pitch_), type_, deviceID_) {}
-    __host__ inline Ptr2D<T> crop2D(Point p, PtrDims<_2D> newDims) {
-        return Ptr<_2D, T, PtrAccessor<_2D>>::crop(p, newDims);
-    }
+    __host__ inline constexpr Ptr2D(const uint& width_, const uint& height_, const uint& pitch_ = 0, const MemType& type_ = Device, const int& deviceID_ = 0) : 
+                                    Ptr<_2D, T>(PtrDims<_2D>(width_, height_, pitch_), type_, deviceID_) {}
+
+    __host__ inline constexpr Ptr2D(const Ptr<_2D, T>& other) : Ptr<_2D, T>(other) {}
+
+    __host__ inline constexpr Ptr2D(T * data_, const uint& width_, const uint& height_, const uint& pitch_, const MemType& type_ = Device, const int& deviceID_ = 0) :
+                                    Ptr<_2D, T>(data_, PtrDims<_2D>(width_,height_,pitch_), type_, deviceID_) {}
+
+    __host__ inline constexpr Ptr2D<T> crop2D(const Point& p, const PtrDims<_2D>& newDims) { return Ptr<_2D, T>::crop(p, newDims); }
 };
 
 // A Ptr3D pointer can have 2D padding on each plane, or not
 template <typename T>
-class Ptr3D : public Ptr<_3D, T, PtrAccessor<_3D>> {
+class Ptr3D : public Ptr<_3D, T> {
 public:
-    __host__ inline Ptr3D(uint width_, uint height_, uint planes_, uint color_planes_ = 1, uint pitch_ = 0, MemType type_ = Device, int deviceID_ = 0) : 
-    Ptr<_3D, T, PtrAccessor<_3D>>(PtrDims<_3D>(width_, height_, planes_, color_planes_, pitch_), type_, deviceID_) {}
-    __host__ inline Ptr3D(const Ptr<_3D, T, PtrAccessor<_3D>>& other) :
-                          Ptr<_3D, T, PtrAccessor<_3D>>(other) {}
-    __host__ inline Ptr3D(T * data_, const PtrDims<_3D>& dims_, MemType type_ = Device, int deviceID_ = 0) :
-                          Ptr<_3D, T, PtrAccessor<_3D>>(data_, dims_, type_, deviceID_) {}
-    __host__ inline Ptr3D<T> crop3D(Point p, PtrDims<_3D> newDims) {
-        return Ptr<_3D, T, PtrAccessor<_3D>>::crop(p, newDims);
-    }
+    __host__ inline constexpr Ptr3D(const uint& width_, const uint& height_, const uint& planes_, const uint& color_planes_ = 1, const uint& pitch_ = 0, const MemType& type_ = Device, const int& deviceID_ = 0) : 
+                          Ptr<_3D, T>(PtrDims<_3D>(width_, height_, planes_, color_planes_, pitch_), type_, deviceID_) {}
+
+    __host__ inline constexpr Ptr3D(const Ptr<_3D, T>& other) : Ptr<_3D, T>(other) {}
+    
+    __host__ inline constexpr Ptr3D(T * data_, const PtrDims<_3D>& dims_, const MemType& type_ = Device, const int& deviceID_ = 0) :
+                          Ptr<_3D, T>(data_, dims_, type_, deviceID_) {}
+
+    __host__ inline constexpr Ptr3D<T> crop3D(const Point& p, const PtrDims<_3D>& newDims) { return Ptr<_3D, T>::crop(p, newDims); }
 };
 
 // A Tensor pointer will never have any padding
 template <typename T>
-class Tensor : public Ptr<_3D, T, PtrAccessor<_3D>> {
+class Tensor : public Ptr<_3D, T> {
 public:
-    __host__ inline Tensor() {}
+    __host__ inline constexpr Tensor() {}
 
-    __host__ inline Tensor(const Tensor<T>& other) : Ptr<_3D, T, PtrAccessor<_3D>>(other) {}
+    __host__ inline constexpr Tensor(const Tensor<T>& other) : Ptr<_3D, T>(other) {}
     
-    __host__ inline Tensor(uint width_, uint height_, uint planes_, uint color_planes_ = 1, MemType type_ = Device, int deviceID_ = 0) : 
-    Ptr<_3D,T, PtrAccessor<_3D>>(PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_) {}
+    __host__ inline constexpr Tensor(const uint& width_, const uint& height_, const uint& planes_, const uint& color_planes_ = 1, const MemType& type_ = Device, const int& deviceID_ = 0) : 
+                                     Ptr<_3D,T>(PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_) {}
     
-    __host__ inline Tensor(T* data, uint width_, uint height_, uint planes_, uint color_planes_ = 1, MemType type_ = Device, int deviceID_ = 0) : 
-    Ptr<_3D,T, PtrAccessor<_3D>>(data, PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_) {}
+    __host__ inline constexpr Tensor(T* data, const uint& width_, const uint& height_, const uint& planes_, const uint& color_planes_ = 1, const MemType& type_ = Device, const int& deviceID_ = 0) : 
+                                     Ptr<_3D,T>(data, PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_) {}
     
-    __host__ inline void allocTensor(uint width_, uint height_, uint planes_, uint color_planes_ = 1, MemType type_ = Device, int deviceID_ = 0) {
-        this->allocPtr(PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_);
+    __host__ inline constexpr void allocTensor(const uint& width_, const uint& height_, const uint& planes_, const uint& color_planes_ = 1, const MemType& type_ = Device, const int& deviceID_ = 0) {
+                                               this->allocPtr(PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_);
     }
 };
 
