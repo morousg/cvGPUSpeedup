@@ -47,7 +47,7 @@ template <typename T>
 struct TensorSplitWrite {
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
                              const RawPtr<_3D, typename VectorTraits<T>::base>& ptr) {
-        static_assert(CN(T) >= 2, "Wrong type for split tensor write. It must be one of <type>2, <type>3 or <type>4.");
+        static_assert(cn<T> >= 2, "Wrong type for split tensor write. It must be one of <type>2, <type>3 or <type>4.");
 
         int planePixels = ptr.dims.width * ptr.dims.height;
 
@@ -55,11 +55,11 @@ struct TensorSplitWrite {
         *work_plane = input.x;
         work_plane += planePixels;
         *work_plane = input.y;
-        if constexpr (CN(T) >= 3) {
+        if constexpr (cn<T> >= 3) {
             work_plane += planePixels;
             *work_plane = input.z;
         }
-        if constexpr (CN(T) == 4) {
+        if constexpr (cn<T> == 4) {
             work_plane += planePixels;
             *work_plane = input.w;
         }
@@ -72,20 +72,20 @@ template <ND D, typename T, typename Enabler=void>
 struct SplitWriteParams {};
 
 template <ND D, typename T>
-struct SplitWriteParams<D, T, typename std::enable_if_t<CN(T) == 2>> {
+struct SplitWriteParams<D, T, typename std::enable_if_t<cn<T> == 2>> {
     RawPtr<D, decltype(T::x)> x;
     RawPtr<D, decltype(T::y)> y;
 };
 
 template <ND D, typename T>
-struct SplitWriteParams<D, T, typename std::enable_if_t<CN(T) == 3>> {
+struct SplitWriteParams<D, T, typename std::enable_if_t<cn<T> == 3>> {
     RawPtr<D, decltype(T::x)> x;
     RawPtr<D, decltype(T::y)> y;
     RawPtr<D, decltype(T::z)> z;
 };
 
 template <ND D, typename T>
-struct SplitWriteParams<D, T, typename std::enable_if_t<CN(T) == 4>> {
+struct SplitWriteParams<D, T, typename std::enable_if_t<cn<T> == 4>> {
     RawPtr<D, decltype(T::x)> x;
     RawPtr<D, decltype(T::y)> y;
     RawPtr<D, decltype(T::z)> z;
@@ -96,11 +96,11 @@ template <ND D, typename T>
 struct SplitWrite {
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
                              const SplitWriteParams<D, T>& params) {
-        static_assert(CN(T) >= 2, "Wrong type for split write. It must be one of <type>2, <type>3 or <type>4.");
+        static_assert(cn<T> >= 2, "Wrong type for split write. It must be one of <type>2, <type>3 or <type>4.");
         *PtrAccessor<D>::point(thread, params.x) = input.x;
         *PtrAccessor<D>::point(thread, params.y) = input.y;
-        if constexpr (CN(T) >= 3) *PtrAccessor<D>::point(thread, params.z) = input.z;
-        if constexpr (CN(T) == 4) *PtrAccessor<D>::point(thread, params.w) = input.w;
+        if constexpr (cn<T> >= 3) *PtrAccessor<D>::point(thread, params.z) = input.z;
+        if constexpr (cn<T> == 4) *PtrAccessor<D>::point(thread, params.w) = input.w;
     }
     using Type = T;
     using ParamsType = SplitWriteParams<D, T>;
@@ -230,7 +230,7 @@ struct InterpolateRead<I, InterpolationType::INTER_LINEAR> {
         const int x2_read = ::min(x2, ptr.dims.width - 1);
         const int y2_read = ::min(y2, ptr.dims.height - 1);
 
-        using floatcn_t = typename VectorType<float, VectorTraits<I>::cn>::type;
+        using floatcn_t = typename VectorType<float, cn<I>>::type;
         floatcn_t out = make_set<floatcn_t>(0.f);
         I src_reg = *PtrAccessor<_2D>::cr_point(Point(x1, y1), ptr);
         out = out + src_reg * ((x2 - src_x) * (y2 - src_y));

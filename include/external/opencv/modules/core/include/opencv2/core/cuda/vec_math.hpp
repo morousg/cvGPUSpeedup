@@ -92,7 +92,7 @@ namespace vec_math_detail
 
     template <typename VecD, typename VecS> static __device__ __forceinline__ constexpr VecD saturate_cast_helper(const VecS& v)
     {
-        return SatCastHelper<VectorTraits<VecD>::cn, VecD>::cast(v);
+        return SatCastHelper<cn<VecD>, VecD>::cast(v);
     }
 }
 

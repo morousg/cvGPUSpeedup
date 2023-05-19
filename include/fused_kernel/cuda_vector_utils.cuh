@@ -18,8 +18,6 @@
 
 #include "cuda_utils.cuh"
 
-#define CN(v_type) sizeof(v_type) / sizeof(decltype(v_type::x))
-
 namespace fk {
 
     template <typename BaseType, int Channels>
@@ -75,18 +73,20 @@ namespace fk {
     constexpr bool validCUDAVec = one_of_t<T, VAll>::value;
 
     template <typename T>
-    __host__ __device__ __forceinline__ constexpr int Channels() { 
-        static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: Channels<invalid_type>()");
-        if constexpr (one_of_t<T, VOne>::value) {
-        return 1;
+    __host__ __device__ __forceinline__ constexpr int Channels() {
+        if constexpr (one_of_t<T, VOne>::value || !validCUDAVec<T>) {
+            return 1;
         } else if constexpr (one_of_t<T, VTwo>::value) { 
-        return 2;
+            return 2;
         } else if constexpr (one_of_t<T, VThree>::value) { 
-        return 3;
+            return 3;
         } else {
-        return 4;
+            return 4;
         }
     }
+
+    template <typename T>
+    constexpr int cn = Channels<T>();
 
     template <int idx, typename T>
     __host__ __device__ __forceinline__ constexpr auto VectorAt(const T& vector) {
@@ -94,13 +94,13 @@ namespace fk {
         if constexpr (idx == 0) { 
             return vector.x; 
         } else if constexpr (idx == 1) { 
-            static_assert(Channels<T>() >= 2, "Vector type smaller than 2 elements has no member y"); 
+            static_assert(cn<T> >= 2, "Vector type smaller than 2 elements has no member y"); 
             return vector.y;
         } else if constexpr (idx == 2) { 
-            static_assert(Channels<T>() >= 3, "Vector type smaller than 3 elements has no member z");
+            static_assert(cn<T> >= 3, "Vector type smaller than 3 elements has no member z");
             return vector.z;
         } else if constexpr (idx == 3) {
-            static_assert(Channels<T>() == 4, "Vector type smaller than 4 elements has no member w");
+            static_assert(cn<T> == 4, "Vector type smaller than 4 elements has no member w");
             return vector.w;
         }
     }
@@ -110,7 +110,7 @@ namespace fk {
         template <typename T>
         FK_HOST_DEVICE_FUSE T exec(const T& vector) {
             static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: VReorder<...>::exec<invalid_type>(invalid_type vector)");
-            static_assert(sizeof...(idx) == Channels<T>(), "Wrong number of indexes for the cuda vetor type in VReorder.");
+            static_assert(sizeof...(idx) == cn<T>, "Wrong number of indexes for the cuda vetor type in VReorder.");
             return {VectorAt<idx>(vector)...};
         }
     };
@@ -120,15 +120,15 @@ namespace fk {
 
 #define VECTOR_TRAITS(BaseType) \
     template <> \
-    struct VectorTraits<BaseType> { using base = BaseType; enum {cn=1}; enum {bytes=sizeof(base)}; }; \
+    struct VectorTraits<BaseType> { using base = BaseType; enum {bytes=sizeof(base)}; }; \
     template <> \
-    struct VectorTraits<BaseType ## 1> { using base = BaseType; enum {cn=1}; enum {bytes=sizeof(base)}; }; \
+    struct VectorTraits<BaseType ## 1> { using base = BaseType; enum {bytes=sizeof(base)}; }; \
     template <> \
-    struct VectorTraits<BaseType ## 2> { using base = BaseType; enum {cn=2}; enum {bytes=sizeof(base)*2}; }; \
+    struct VectorTraits<BaseType ## 2> { using base = BaseType; enum {bytes=sizeof(base)*2}; }; \
     template <> \
-    struct VectorTraits<BaseType ## 3> { using base = BaseType; enum {cn=3}; enum {bytes=sizeof(base)*3}; }; \
+    struct VectorTraits<BaseType ## 3> { using base = BaseType; enum {bytes=sizeof(base)*3}; }; \
     template <> \
-    struct VectorTraits<BaseType ## 4> { using base = BaseType; enum {cn=4}; enum {bytes=sizeof(base)*4}; };
+    struct VectorTraits<BaseType ## 4> { using base = BaseType; enum {bytes=sizeof(base)*4}; };
 
     VECTOR_TRAITS(uchar)
     VECTOR_TRAITS(char)
@@ -155,69 +155,11 @@ namespace fk {
         }
     };
     
-
     template <typename T, typename Enabler=void>
-    struct to_printable;
-
-    template <typename T>
-    struct to_printable<T, std::enable_if_t<sizeof(T) == 1>> {
-        FK_HOST_FUSE int exec(T val) { return static_cast<int>(val); }
-    };
-
-    template <typename T>
-    struct to_printable<T, std::enable_if_t<(sizeof(T) > 1)>> {
-        FK_HOST_FUSE T exec(T val) { return val; }
-    };
-
-    template <typename T, typename Enabler=void>
-    struct print_vector;
-
-    template <typename T>
-    struct print_vector<T, typename std::enable_if_t<CN(T) == 1>> {
-        FK_HOST_FUSE std::ostream& exec(std::ostream& outs, T val) {
-            outs << "{" << to_printable<decltype(T::x)>()(val.x) << "}";
-            return outs;
-        }
-    };
-
-    template <typename T>
-    struct print_vector<T, typename std::enable_if_t<CN(T) == 2>> {
-        FK_HOST_FUSE std::ostream& exec(std::ostream& outs, T val) {
-            outs << "{" << to_printable<decltype(T::x)>()(val.x) << ", " << to_printable<decltype(T::y)>()(val.y) << "}";
-            return outs;
-        }
-    };
-
-    template <typename T>
-    struct print_vector<T, typename std::enable_if_t<CN(T) == 3>> {
-        FK_HOST_FUSE std::ostream& exec(std::ostream& outs, T val) {
-            outs << "{" << to_printable<decltype(T::x)>()(val.x) << ", " << to_printable<decltype(T::y)>()(val.y) <<
-            ", " << to_printable<decltype(T::z)>()(val.z) << "}";
-            return outs;
-        }
-    };
-
-    template <typename T>
-    struct print_vector<T, typename std::enable_if_t<CN(T) == 4>> {
-        FK_HOST_FUSE std::ostream& exec(std::ostream& outs, T val) {
-            outs << "{" << to_printable<decltype(T::x)>()(val.x) << ", " << to_printable<decltype(T::y)>()(val.y) << ", " <<
-            to_printable<decltype(T::z)>()(val.z) << ", " << to_printable<decltype(T::w)>()(val.w) << "}";
-            return outs;
-        }
-    };
-
-    template <typename T> 
-    __host__ inline constexpr typename std::enable_if_t<std::is_class<T>::value, std::ostream&> operator<<(std::ostream& outs, const T& val) {
-        return print_vector<T>()(outs, val);
-    }
-
-    template <typename T, typename Enabler=void>
-    struct unary_vector_set_;
+    struct UnaryVectorSet;
     
     template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<!std::is_aggregate<T>::value &&
-                                                          !std::is_class<T>::value &&
-                                                          !std::is_enum<T>::value>>{
+    struct UnaryVectorSet<T, typename std::enable_if_t<!validCUDAVec<T>>>{
         // This case exists to make things easyer when we don't know if the type
         // is going to be a vector type or a normal type
         FK_HOST_DEVICE_FUSE T exec(const T& val) {
@@ -226,41 +168,71 @@ namespace fk {
     };
 
     template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<std::is_aggregate<T>::value &&
-                                                          VectorTraits<T>::cn == 1>> {
+    struct UnaryVectorSet<T, typename std::enable_if_t<validCUDAVec<T>>> {
         FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
-            return {val};
-        }
-    };
-
-    template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 2>> {
-        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
-            return {val, val};
-        }
-    };
-
-    template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 3>>{
-        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
-            return {val, val, val};
-        }
-    };
-
-    template <typename T>
-    struct unary_vector_set_<T, typename std::enable_if_t<VectorTraits<T>::cn == 4>>{
-        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
-            return {val, val, val, val};
+            if constexpr (cn<T> == 1) {
+                return {val};
+            } else if constexpr (cn<T> == 2) {
+                return {val, val};
+            } else if constexpr (cn<T> == 3) {
+                return {val, val, val};
+            } else {
+                return {val, val, val, val};
+            }
         }
     };
 
     template <typename T>
     __device__ __forceinline__ __host__ constexpr T make_set(const typename VectorTraits<T>::base& val) {
-        return unary_vector_set_<T>::exec(val);
+        return UnaryVectorSet<T>::exec(val);
     }
 
     template <typename T>
     __device__ __forceinline__ __host__ constexpr T make_set(const T& val) {
-        return unary_vector_set_<T>::exec(val);
+        return UnaryVectorSet<T>::exec(val);
+    }
+
+    template <typename T>
+    struct to_printable {
+        FK_HOST_FUSE int exec(T val) {
+            if constexpr (sizeof(T) == 1) {
+                return static_cast<int>(val);
+            } else if constexpr (sizeof(T) > 1) {
+                return val;
+            }
+        }
+    };
+
+    template <typename T>
+    struct print_vector {
+        FK_HOST_FUSE std::ostream& exec(std::ostream& outs, T val) {
+            if constexpr (!validCUDAVec<T>) {
+                outs << val;
+                return outs;
+            } else if constexpr (cn<T> == 1) {
+                outs << "{" << to_printable<decltype(T::x)>()(val.x) << "}";
+                return outs;
+            } else if constexpr (cn<T> == 2) {
+                outs << "{" << to_printable<decltype(T::x)>()(val.x) <<
+                       ", " << to_printable<decltype(T::y)>()(val.y) << "}";
+                return outs;
+            } else if constexpr (cn<T> == 3) {
+                outs << "{" << to_printable<decltype(T::x)>()(val.x) <<
+                       ", " << to_printable<decltype(T::y)>()(val.y) <<
+                       ", " << to_printable<decltype(T::z)>()(val.z) << "}";
+                return outs;
+            } else {
+                 outs << "{" << to_printable<decltype(T::x)>()(val.x) <<
+                        ", " << to_printable<decltype(T::y)>()(val.y) <<
+                        ", " << to_printable<decltype(T::z)>()(val.z) <<
+                        ", " << to_printable<decltype(T::w)>()(val.w) << "}";
+                return outs;
+            }
+        }
+    };
+
+    template <typename T> 
+    __host__ inline constexpr typename std::enable_if_t<validCUDAVec<T>, std::ostream&> operator<<(std::ostream& outs, const T& val) {
+        return print_vector<T>()(outs, val);
     }
 }
