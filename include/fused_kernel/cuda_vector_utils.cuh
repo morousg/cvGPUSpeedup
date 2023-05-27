@@ -66,7 +66,7 @@ namespace fk {
 
     template <typename T, typename... U>
     struct one_of_t<T, TypeList<U...>> {
-        enum {value = (std::is_same<T, U>::value || ...)};
+        enum { value = std::disjunction_v<std::is_same<T,U>...> };
     };
 
     template <typename T>

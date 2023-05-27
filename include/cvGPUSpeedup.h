@@ -187,7 +187,7 @@ inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda:
     dim3 grid;
     grid.x = (unsigned int)ceil(fk_input.dims().width / (float)block.x);
     grid.y = (unsigned int)ceil(fk_input.dims().height / (float)block.y);
-    const dim3 gridActiveThreads(fk_input.dims.width, fk_input.dims.height);
+    const dim3 gridActiveThreads(fk_input.dims().width, fk_input.dims().height);
 
     fk::cuda_transform<<<grid, block, 0, cu_stream>>>(fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>{fk_input, gridActiveThreads}, ops...);
 
