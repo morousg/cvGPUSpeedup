@@ -401,7 +401,7 @@ public:
     __host__ inline constexpr PtrDims<D> dims() const {
         return ptr_a.dims;
     }
-    __host__ inline constexpr dim3 getBlockSize() const {
+    __host__ inline dim3 getBlockSize() const {
         return adjusted_blockSize;
     }
     __host__ inline constexpr MemType getMemType() const {
