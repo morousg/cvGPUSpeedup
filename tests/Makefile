@@ -15,7 +15,7 @@ debug: all
 
 fk: NVCCFLAGS += $(NVCCFLAGS_ONLY_FK)
 fk:
-	$(NVCC) $(DEBUGFLAGS) $(NVCCFLAGS) testFastKernel.cu -o $(OUTPUT_DIR)/testFastKernel
+	$(NVCC) $(DEBUGFLAGS) $(NVCCFLAGS) testFusedKernel.cu -o $(OUTPUT_DIR)/testFusedKernel
 
 all: NVCCFLAGS += $(NVCCFLAGS_ONLY_FK) $(NVCCFLAGS_ONLY_CV)
 all: $(OBJ)
