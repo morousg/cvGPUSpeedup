@@ -10,7 +10,7 @@ This project is in it's infancy. It is a header-based C++/CUDA library, with a d
 1. To create a set of fusionable \_\_device\_\_ functions, that can be compiled only with nvcc and the cuda runtime libraries. (namespace fk) 
 2. To be able to use OpenCV-like code in the GPU, with far more performance in some cases. (namespace cvGS)
 
-The first main focus is on the transform operation, with an incomplete set of basic arithmetic operations to be performed on cv::cuda::GpuMat objects.
+The first main focus is on the transform pattern, with an incomplete set of basic arithmetic operations to be performed on cv::cuda::GpuMat objects.
 
 In order to use it, you need to compile your code, along with cvGPUSpeedup library headers, with nvcc and at least C++17 support. We are testing it with CUDA version 11.8, on compute capabilities 7.5 and 8.6.
 
