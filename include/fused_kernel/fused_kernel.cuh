@@ -17,7 +17,7 @@
 #include "operations.cuh"
 #include "memory_operations.cuh"
 
-namespace fk { // namespace Fast Kernel
+namespace fk { // namespace FusedKernel
 
 // TODO: adapt this to RawPtr<T> instead of raw pointer
 /*template <typename I, typename O, typename I2, typename Operation, typename... operations>
@@ -102,4 +102,4 @@ __global__ void cuda_transform(const ReadDeviceFunction<ReadOperation> readPatte
         }
     }
 }
-} // namespace Fast Kernel
+} // namespace FusedKernel
