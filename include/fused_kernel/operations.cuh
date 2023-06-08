@@ -52,8 +52,7 @@ struct UnaryVectorReorder {
         static_assert(Channels<T>() >= 2, "Minimum number of channels is 2: UnaryVectorReorder");
         return VReorder<idxs...>::exec(input);
     }
-    using idxType = typename VectorType<int,Channels<T>()>::type;
-    DECL_TYPES_BINARY(T, idxType, T)
+    DECL_TYPES_UNARY(T, T)
 };
 
 template <typename T>
