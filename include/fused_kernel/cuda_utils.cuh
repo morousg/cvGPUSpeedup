@@ -35,6 +35,9 @@ using uint = unsigned int;
 using longlong = long long;
 using ulonglong = unsigned long long;
 
+using ushort = unsigned short;
+using ulong = unsigned long;
+
 namespace fk {
     constexpr inline void gpuAssert(cudaError_t code,
                         const char *file,

@@ -29,7 +29,7 @@ int main() {
     cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(cv_stream); 
 
     cudaStream_t stream;
-    error_t err = cudaStreamCreate(&stream);
+    cudaError_t err = cudaStreamCreate(&stream);
 
     cv::cuda::GpuMat d_input(1080, 1920, CV_32FC3);
     cv::cuda::GpuMat d_output(1080, 1920, CV_32FC3);
