@@ -126,6 +126,52 @@ struct BatchWrite {
     using ParamsType = typename Operation::ParamsType[NPtr];
 };
 
+/* The following code has the following copy right
+ 
+   Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huget)
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License. */
+
+template <typename ParamsType>
+struct CircularMemoryParams {
+    int first;
+    ParamsType params;
+};
+
+template <typename Operation, int NPtr>
+struct CircularBatchRead {
+    FK_DEVICE_FUSE const typename Operation::Type exec(const Point& thread,
+        const CircularMemoryParams<typename Operation::ParamsType[NPtr]>& c_params) {
+        const int fst = c_params.first;
+        const Point newThread{ thread.x, thread.y, fst >= thread.z ? thread.z - fst : thread.z + (NPtr - fst) };
+        return Operation::exec(newThread, c_params.params[newThread.z]);
+    }
+    using Type = typename Operation::Type;
+    using ParamsType = CircularMemoryParams<typename Operation::ParamsType[NPtr]>;
+};
+
+template <typename Operation, int NPtr>
+struct CircularBatchWrite {
+    FK_DEVICE_FUSE void exec(const Point& thread, const typename Operation::Type& input,
+        const CircularMemoryParams<typename Operation::ParamsType[NPtr]>& c_params) {
+        const int fst = c_params.first;
+        const Point newThread{ thread.x, thread.y, fst >= thread.z ? thread.z - fst : thread.z + (NPtr - fst) };
+        return Operation::exec(newThread, input, c_params.params[newThread.z]);
+    }
+    using Type = typename Operation::Type;
+    using ParamsType = CircularMemoryParams<typename Operation::ParamsType[NPtr]>;
+};
+
 // The following code is a modification of the OpenCV file resize.cu
 // which has the following license
 
