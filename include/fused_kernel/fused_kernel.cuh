@@ -18,15 +18,6 @@
 #include "memory_operations.cuh"
 
 namespace fk { // namespace FusedKernel
-
-// TODO: adapt this to RawPtr<T> instead of raw pointer
-/*template <typename I, typename O, typename I2, typename Operation, typename... operations>
-__device__ __forceinline__ void operate_noret(I i_data, binary_operation_pointer<Operation, I, I2, O> op, operations... ops) {
-    // we want to have access to I2 in order to ask for the type size for optimizing
-    O temp = op.nv_operator(i_data, op.pointer[GLOBAL_ID]);
-    operate_noret(temp, ops...);
-}*/
-
 // generic operation struct
 
 template <typename Operation>
