@@ -14,6 +14,6 @@ This was done in purpose to make it easier to join efforts with other libraries 
 
 ## Closed source friendly
 
-A company that has it's own CUDA kernels, and wants to start fusing them along with operations present in this library, they can do so by shaping their kernels into a conformant FusedKernel Operation, that can be passad as a template parameter of a DeviceFunction struct.
+A company that has it's own CUDA kernels, and wants to start fusing them along with operations present in this library, they can do so by shaping their kernels into a conformant FusedKernel Operation, that can be passed as a template parameter of a DeviceFunction struct.
 
 With this strategy, they don't need to share any of their code. They just need to make their kernels fusionable.
