@@ -154,6 +154,11 @@ namespace fk {
             return {static_cast<decltype(T::x)>(pack)...};
         }
     };
+
+    template <typename T, typename... Numbers>
+    inline constexpr T make_(const Numbers&... pack) {
+        return make::type<T>(pack...);
+    }
     
     template <typename T, typename Enabler=void>
     struct UnaryVectorSet;

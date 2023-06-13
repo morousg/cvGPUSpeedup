@@ -280,13 +280,6 @@ protected:
 
     __host__ inline constexpr Ptr(const RawPtr<D,T>& ptr_a_, RefPtr* ref_, const dim3& bs_, const MemType& type_, const int& devID) : 
                                   ptr_a(ptr_a_), ref(ref_), adjusted_blockSize(bs_), type(type_), deviceID(devID) {}
-
-    __host__ inline constexpr uint sizeInBytes() const {
-        return PtrImpl<D,T>::sizeInBytes(ptr_a.dims);
-    }
-    __host__ inline constexpr uint getNumElements() const {
-        return PtrImpl<D,T>::getNumElements(ptr_a.dims);
-    }
     
     __host__ inline constexpr void allocDevice() {
         int currentDevice;
@@ -409,6 +402,25 @@ public:
     }
     __host__ inline constexpr int getDeviceID() const {
         return deviceID;
+    }
+
+    __host__ inline constexpr uint sizeInBytes() const {
+        return PtrImpl<D, T>::sizeInBytes(ptr_a.dims);
+    }
+
+    __host__ inline constexpr uint getNumElements() const {
+        return PtrImpl<D, T>::getNumElements(ptr_a.dims);
+    }
+
+    __host__ inline constexpr void setTo(const T& val) {
+        if (type == MemType::Host || type == MemType::HostPinned) {
+            for (int i = 0; i < getNumElements(); i++) {
+                ptr_a.data[i] = val;
+            }
+        } else {
+            throw std::exception("setTo not implemented for Device memory type.");
+        }
+        
     }
 };
 
