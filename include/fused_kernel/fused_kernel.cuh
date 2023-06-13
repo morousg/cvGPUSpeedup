@@ -35,6 +35,11 @@ template <typename Operation>
 struct UnaryDeviceFunction {};
 
 template <typename Operation>
+struct MidWriteDeviceFunction {
+    typename Operation::ParamsType params;
+};
+
+template <typename Operation>
 struct WriteDeviceFunction {
     typename Operation::ParamsType params;
     using Op = Operation;
@@ -67,12 +72,18 @@ __device__ __forceinline__ constexpr auto operate(const Point& thread, const typ
 }
 
 template <typename Operation, typename... operations>
-__device__ __forceinline__ constexpr auto operate(const Point& thread, const typename Operation::Type& i_data, const WriteDeviceFunction<Operation>& op) {
+__device__ __forceinline__ constexpr auto operate(const Point& thread, const typename Operation::Type& i_data, const MidWriteDeviceFunction<Operation>& op, const operations&... ops) {
+    Operation::exec(thread, i_data, op.params);
+    return operate(thread, i_data, ops...);
+}
+
+template <typename Operation>
+__device__ __forceinline__ constexpr typename Operation::Type operate(const Point& thread, const typename Operation::Type& i_data, const WriteDeviceFunction<Operation>& op) {
     return i_data;
 }
 
 template <typename ReadOperation, typename... operations>
-__global__ void cuda_transform(const ReadDeviceFunction<ReadOperation> readPattern, const operations... ops) {
+__device__ __forceinline__ constexpr void cuda_transform_d(const ReadDeviceFunction<ReadOperation>& readPattern, const operations&... ops) {
     auto writePattern = last(ops...);
     using WriteOperation = typename decltype(writePattern)::Op;
 
@@ -93,4 +104,57 @@ __global__ void cuda_transform(const ReadDeviceFunction<ReadOperation> readPatte
         }
     }
 }
+
+template <typename... operations>
+__global__ void cuda_transform(const operations... ops) {
+    cuda_transform_d(ops...);
+}
+
+/* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License. */
+
+template <typename... Args>
+struct OperationSequence {
+    std::tuple<const Args...> args;
+};
+
+template <typename... operations>
+inline constexpr auto buildOperationSequence(const operations&... ops) {
+    return OperationSequence<operations...> {{ops...}};
+}
+
+template <int BATCH, int OpSequenceNumber, typename Operations>
+__device__ __forceinline__ constexpr void divergent_operate(const uint& z, const int (&opSeqSelector)[BATCH], const OperationSequence<Operations>& opSeq) {
+    // If the threads with this z, arrived here, we assume they have to execute this operation sequence
+    std::apply(cuda_transform_d, opSeq.args);
+}
+
+template <int BATCH, int OpSequenceNumber, typename Operations, typename... OperationSequences>
+__device__ __forceinline__ constexpr void divergent_operate(const uint& z, const int (&opSeqSelector)[BATCH], const OperationSequence<Operations>& opSeq, const OperationSequences&... opSeqs) {
+    if (OpSequenceNumber == opSeqSelector[z]) {
+        std::apply(cuda_transform_d, opSeq.args);
+    } else {
+        divergent_operate<BATCH, OpSequenceNumber + 1>(z, opSeqSelector, opSeqs...);
+    }
+}
+
+template <int BATCH, typename... OperationSequences>
+__global__ void cuda_transform_divergent_batch(const int opSeqSelector[BATCH], const OperationSequences... opSeqs) {
+    const cg::thread_block g = cg::this_thread_block();
+    const uint z = g.group_index().z;
+    divergent_operate<BATCH, 1>(z, opSeqSelector, opSeqs...);
+}
+
+
 } // namespace FusedKernel
