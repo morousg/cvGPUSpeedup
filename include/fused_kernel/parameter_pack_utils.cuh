@@ -48,6 +48,13 @@ namespace fk { // namespace fused kernel
         return OperationSequence<operations...> {{ops...}};
     }
 
+    template <typename... operations>
+    inline constexpr auto buildOperationSequence_tup(const thrust::tuple<operations...>& ops) {
+        return fk::apply([](const auto&... args) { 
+                            return buildOperationSequence(args...); 
+                         }, ops);
+    }
+
     // Util to get the last parameter of a parameter pack
     template <typename T>
     __device__ __forceinline__ constexpr T last(const T& t) {
