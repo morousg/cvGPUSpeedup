@@ -185,7 +185,15 @@ int main() {
     auto p1 = thrust::make_tuple(1, 2, 3);
     auto [head, tail] = thrust::make_tuple(1, 2, 3, 4, 5, 6);
 
-    auto test = fk::insert_before_last(7, 1, 2, 3);
+    int size = thrust::tuple_size<decltype(tail)>::value;
+
+    thrust::tuple_size<decltype(p1)>::value;
+
+    auto p2 = fk::tuple_cat(p1, thrust::make_tuple(4));
+
+    auto p3 = fk::insert_before_last_tup(5, p2);
+
+    auto p4 = fk::insert_before_last(5, 1, 2, 3, 4, 6);
 
     return 0;
 }

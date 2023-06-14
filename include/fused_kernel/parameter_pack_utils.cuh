@@ -58,14 +58,29 @@ namespace fk { // namespace fused kernel
         return last(args...);
     }
 
-    template <typename... Args>
-    __host__ __device__ __forceinline__ constexpr auto tuple_cat(Args&&... args) {
-        return thrust::make_tuple(std::forward<Args>(args)...);
+    template <typename Tuple1, typename Tuple2, int... I1, int... I2>
+    __host__ __device__ __forceinline__ constexpr
+    auto tuple_cat_impl(const Tuple1& t1, std::integer_sequence<int, I1...>, const Tuple2& t2, std::integer_sequence<int, I2...>) {
+        static_assert(thrust::tuple_size<Tuple1>::value + thrust::tuple_size<Tuple2>::value <= 10,
+                      "thrust::tuple max size is 10, you are trying to create a bigger tuple");
+        return thrust::make_tuple(thrust::get<I1>(t1)..., thrust::get<I2>(t2)...);
     }
 
-    template <typename T, typename... Args>
-    __host__ __device__ __forceinline__ constexpr auto insert_before_last_tup(const T& t, const thrust::tuple<Args...>& args) {
-        return args;
+    template <typename Tuple1, typename Tuple2>
+    __host__ __device__ __forceinline__ constexpr
+    auto tuple_cat(const Tuple1& t1, const Tuple2& t2) {
+        return tuple_cat_impl(t1, std::make_integer_sequence<int, thrust::tuple_size<Tuple1>::value>(),
+            t2, std::make_integer_sequence<int, thrust::tuple_size<Tuple2>::value>());
+    }
+
+    template <typename T, typename Tuple>
+    __host__ __device__ __forceinline__ constexpr auto insert_before_last_tup(const T& t, const Tuple& args) {
+        if constexpr (thrust::tuple_size<Tuple>::value == 1) {
+            return fk::tuple_cat(thrust::make_tuple(t), args);
+        } else {
+            const auto [head, tail] = args;
+            return fk::tuple_cat(thrust::make_tuple(head), insert_before_last_tup(t, tail));
+        }
     }
 
     template<typename T, typename... Args>
