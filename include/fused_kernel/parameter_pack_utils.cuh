@@ -66,6 +66,7 @@ namespace fk { // namespace fused kernel
         return last(args...);
     }
 
+    // Util to concatenate thrust::tuple
     template <typename Tuple1, typename Tuple2, int... I1, int... I2>
     __host__ __device__ __forceinline__ constexpr
     auto tuple_cat_impl(const Tuple1& t1, std::integer_sequence<int, I1...>, const Tuple2& t2, std::integer_sequence<int, I2...>) {
@@ -81,6 +82,7 @@ namespace fk { // namespace fused kernel
             t2, std::make_integer_sequence<int, thrust::tuple_size<Tuple2>::value>());
     }
 
+    // Util to insert an element before the last element of a tuple
     template <typename T, typename Tuple>
     __host__ __device__ __forceinline__ constexpr auto insert_before_last_tup(const T& t, const Tuple& args) {
         if constexpr (thrust::tuple_size<Tuple>::value == 1) {
@@ -93,8 +95,7 @@ namespace fk { // namespace fused kernel
 
     template<typename T, typename... Args>
     __host__ __device__ __forceinline__ constexpr auto insert_before_last(const T& t, const Args&... args) {
-        thrust::tuple<const Args...> paramPack{args...};
-        return insert_before_last_tup(t, paramPack);
+        return insert_before_last_tup(t, thrust::tuple<const Args...>{args...});
     }
 
 } // namespace fused kernel

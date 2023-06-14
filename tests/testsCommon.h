@@ -1,7 +1,7 @@
 
 
 #include "testUtils.h"
-#include <cv2cuda_types.h>
+#include <cv2cuda_types.cuh>
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>

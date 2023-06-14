@@ -15,7 +15,7 @@
 #include <sstream>
 
 #include "testsCommon.h"
-#include <cvGPUSpeedup.h>
+#include <cvGPUSpeedup.cuh>
 
 template <int I, int OC>
 bool test_read_x_write(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
