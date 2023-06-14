@@ -1,4 +1,5 @@
 /* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
+   Copyright 2023 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
