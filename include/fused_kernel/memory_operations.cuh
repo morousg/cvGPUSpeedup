@@ -153,8 +153,13 @@ struct CircularBatchRead {
     FK_DEVICE_FUSE const typename Operation::Type exec(const Point& thread,
         const CircularMemoryParams<typename Operation::ParamsType[NPtr]>& c_params) {
         const int fst = c_params.first;
-        const Point newThread{ thread.x, thread.y, fst >= thread.z ? thread.z - fst : thread.z + (NPtr - fst) };
-        return Operation::exec(newThread, c_params.params[newThread.z]);
+        if (thread.z >= fst) {
+            const Point newThreadIdx{ thread.x, thread.y, thread.z - fst };
+            return Operation::exec(newThreadIdx, c_params.params[newThreadIdx.z]);
+        } else {
+            const Point newThreadIdx{ thread.x, thread.y, thread.z + (NPtr - fst) };
+            return Operation::exec(newThreadIdx, c_params.params[newThreadIdx.z]);
+        }
     }
     using Type = typename Operation::Type;
     using ParamsType = CircularMemoryParams<typename Operation::ParamsType[NPtr]>;
@@ -165,7 +170,7 @@ struct CircularBatchWrite {
     FK_DEVICE_FUSE void exec(const Point& thread, const typename Operation::Type& input,
         const CircularMemoryParams<typename Operation::ParamsType[NPtr]>& c_params) {
         const int fst = c_params.first;
-        const Point newThread{ thread.x, thread.y, fst >= thread.z ? thread.z - fst : thread.z + (NPtr - fst) };
+        const Point newThread{ thread.x, thread.y, thread.z >= fst ? thread.z - fst : thread.z + (NPtr - fst) };
         return Operation::exec(newThread, input, c_params.params[newThread.z]);
     }
     using Type = typename Operation::Type;

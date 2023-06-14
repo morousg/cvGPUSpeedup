@@ -12,7 +12,7 @@ find_package(OpenCV REQUIRED)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(NVCCFLAGS_ONLY_FK "-gencode arch=compute_86,code=sm_86 -gencode arch=compute_75,code=sm_75 --expt-relaxed-constexpr")
+set(NVCCFLAGS_ONLY_FK "-gencode arch=compute_86,code=sm_86 -gencode arch=compute_75,code=sm_75")
 set(NVCCFLAGS_ONLY_CV "-lopencv_core -lopencv_cudaarithm -lopencv_imgproc -lopencv_cudaimgproc -lopencv_cudawarping")
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -std=c++17 ${NVCCFLAGS_ONLY_FK} ${NVCCFLAGS_ONLY_CV})
 

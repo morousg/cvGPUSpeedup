@@ -16,6 +16,7 @@
 
 #include "operations.cuh"
 #include "memory_operations.cuh"
+#include "parameter_pack_utils.cuh"
 
 namespace fk { // namespace FusedKernel
 // generic operation struct
@@ -44,16 +45,6 @@ struct WriteDeviceFunction {
     typename Operation::ParamsType params;
     using Op = Operation;
 };
-
-// Util to get the last parameter of a parameter pack
-template <typename T>
-__device__ __forceinline__ constexpr T last(const T& t) {
-    return t;
-}
-template <typename T, typename... Args>
-__device__ __forceinline__ constexpr auto last(const T& t, const Args&... args) {
-    return last(args...);
-}
 
 // Recursive operate function
 template <typename T>
@@ -125,37 +116,30 @@ __global__ void cuda_transform(const operations... ops) {
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-template <typename... Args>
-struct OperationSequence {
-    std::tuple<const Args...> args;
+template <int NumSequences>
+struct OperationSequenceSelector {
+    int select[NumSequences];
 };
 
-template <typename... operations>
-inline constexpr auto buildOperationSequence(const operations&... ops) {
-    return OperationSequence<operations...> {{ops...}};
-}
-
-template <int OpSequenceNumber, typename ReadOperation, typename... Operations>
-__device__ __forceinline__ constexpr void divergent_operate(const uint& z, const int *opSeqSelector, const OperationSequence<ReadDeviceFunction<ReadOperation>, Operations...>& opSeq) {
+template <int BATCH, int OpSequenceNumber, typename ReadOperation, typename... Operations>
+__device__ __forceinline__ constexpr void divergent_operate(const uint& z, const OperationSequenceSelector<BATCH>& opSeqSelector, const OperationSequence<ReadDeviceFunction<ReadOperation>, Operations...>& opSeq) {
     // If the threads with this z, arrived here, we assume they have to execute this operation sequence
-    // The usage of std::apply here implies enabling experimental features with the nvcc flag --expt-relaxed-constexpr
-    std::apply(cuda_transform_d<ReadOperation, Operations...>, opSeq.args);
+    fk::apply(cuda_transform_d<ReadOperation, Operations...>, opSeq.args);
 }
 
-template <int OpSequenceNumber, typename ReadOperation, typename... Operations, typename... OperationSequences>
-__device__ __forceinline__ constexpr void divergent_operate(const uint& z, const int *opSeqSelector, const OperationSequence<ReadDeviceFunction<ReadOperation>, Operations...>& opSeq, const OperationSequences&... opSeqs) {
-    if (OpSequenceNumber == opSeqSelector[z]) {
-        // The usage of std::apply here implies enabling experimental features with the nvcc flag --expt-relaxed-constexpr
-        std::apply(cuda_transform_d<ReadOperation, Operations...>, opSeq.args);
+template <int BATCH, int OpSequenceNumber, typename ReadOperation, typename... Operations, typename... OperationSequences>
+__device__ __forceinline__ constexpr void divergent_operate(const uint& z, const OperationSequenceSelector<BATCH>& opSeqSelector, const OperationSequence<ReadDeviceFunction<ReadOperation>, Operations...>& opSeq, const OperationSequences&... opSeqs) {
+    if (OpSequenceNumber == opSeqSelector.select[z]) {
+        fk::apply(cuda_transform_d<ReadOperation, Operations...>, opSeq.args);
     } else {
-        divergent_operate<OpSequenceNumber + 1>(z, opSeqSelector, opSeqs...);
+        divergent_operate<BATCH, OpSequenceNumber + 1>(z, opSeqSelector, opSeqs...);
     }
 }
 
 template <int BATCH, typename... OperationSequences>
-__global__ void cuda_transform_divergent_batch(const int opSeqSelector[BATCH], const OperationSequences... opSeqs) {
+__global__ void cuda_transform_divergent_batch(const OperationSequenceSelector<BATCH> opSeqSelector, const OperationSequences... opSeqs) {
     const cg::thread_block g = cg::this_thread_block();
     const uint z = g.group_index().z;
-    divergent_operate<1>(z, opSeqSelector, opSeqs...);
+    divergent_operate<BATCH, 1>(z, opSeqSelector, opSeqs...);
 }
 } // namespace FusedKernel

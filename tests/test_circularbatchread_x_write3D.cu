@@ -19,9 +19,10 @@
 #include <opencv2/cudaimgproc.hpp>
 
 bool testCircularBatchRead() {
-    constexpr int WIDTH = 1;
-    constexpr int HEIGHT = 1;
+    constexpr int WIDTH = 32;
+    constexpr int HEIGHT = 32;
     constexpr int BATCH = 15;
+    constexpr int FIRST = 4;
 
     cudaStream_t stream;
 
@@ -30,30 +31,35 @@ bool testCircularBatchRead() {
     std::vector<fk::Ptr2D<uchar3>> h_inputAllocations;
 
     for (uint i = 0; i < BATCH; i++) {
-        fk::Ptr2D<uchar3> temp(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
-        for (uint y = 0; y < HEIGHT; y++) {
-            for (uint x = 0; x < WIDTH; x++) {
-                const fk::Point p{ x, y, 0 };
-                *fk::PtrAccessor<fk::_2D>::point(p, temp.ptr()) = fk::make_<uchar3>(i, i, i);
-            }
-        }
-        h_inputAllocations.push_back(temp);
+        
     }
 
     std::vector<fk::Ptr2D<uchar3>> inputAllocations;
     std::array<fk::RawPtr<fk::_2D, uchar3>, BATCH> input;
     fk::Tensor<uchar3> output;
+    fk::Tensor<uchar3> h_output;
 
     for (int i = 0; i < BATCH; i++) {
+        fk::Ptr2D<uchar3> h_temp(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
+        for (uint y = 0; y < HEIGHT; y++) {
+            for (uint x = 0; x < WIDTH; x++) {
+                const fk::Point p{ x, y, 0 };
+                *fk::PtrAccessor<fk::_2D>::point(p, h_temp.ptr()) = fk::make_<uchar3>(i, i, i);
+            }
+        }
+        h_inputAllocations.push_back(h_temp);
         fk::Ptr2D<uchar3> temp(WIDTH, HEIGHT);
         inputAllocations.push_back(temp);
         input[i] = temp;
+        gpuErrchk(cudaMemcpy2DAsync(temp.ptr().data, temp.dims().pitch, h_temp.ptr().data, h_temp.dims().pitch,
+            h_temp.dims().width * sizeof(uchar3), h_temp.dims().height, cudaMemcpyHostToDevice, stream));
     }
     output.allocTensor(WIDTH, HEIGHT, BATCH);
+    h_output.allocTensor(WIDTH, HEIGHT, BATCH, 1, fk::MemType::HostPinned);
 
     fk::ReadDeviceFunction<fk::CircularBatchRead<fk::PerThreadRead<fk::_2D, uchar3>, BATCH>> circularBatchRead;
     circularBatchRead.activeThreads = {WIDTH, HEIGHT, BATCH};
-    circularBatchRead.params.first = 4;
+    circularBatchRead.params.first = FIRST;
     for (int i = 0; i < BATCH; i++) {
         circularBatchRead.params.params[i] = input[i];
     }
@@ -63,14 +69,29 @@ bool testCircularBatchRead() {
     dim3 grid{ (uint)ceil((float)WIDTH / (float)block.x), (uint)ceil((float)HEIGHT / (float)block.y), BATCH };
     fk::cuda_transform << <grid, block, 0, stream >> > (circularBatchRead, write3D);
 
+    gpuErrchk(cudaMemcpyAsync(h_output.ptr().data, output.ptr().data, output.sizeInBytes(), cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaStreamSynchronize(stream));
 
-    return true;
+    bool correct = true;
+    for (uint z = 0; z < BATCH; z++) {
+        for (uint y = 0; y < HEIGHT; y++) {
+            for (uint x = 0; x < WIDTH; x++) {
+                fk::Point p{ x, y, z };
+                uchar3 res = *fk::PtrAccessor<fk::_3D>::point(p, h_output.ptr());
+                uchar3 gt  = z >= FIRST ? fk::make_set<uchar3>(z - FIRST) : fk::make_set<uchar3>(z + (BATCH - FIRST));
+                correct &= res.x == gt.x;
+                correct &= res.y == gt.y;
+                correct &= res.z == gt.z;
+            }
+        }
+    }
+
+    return correct;
 }
 
 bool testDivergentBatch() {
-    constexpr int WIDTH = 1;
-    constexpr int HEIGHT = 1;
+    constexpr int WIDTH = 32;
+    constexpr int HEIGHT = 32;
     constexpr int BATCH = 2;
     constexpr int VAL_SUM = 3;
 
@@ -127,30 +148,21 @@ bool testDivergentBatch() {
                                              fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, uint>> { output.ptr() });
 
     dim3 block = inputAllocations[0].getBlockSize();
-    dim3 grid{ (uint)ceil((float)WIDTH / (float)block.x), (uint)ceil((float)HEIGHT / (float)WIDTH), BATCH };
-    const int opSeqSelection[BATCH] = { 1, 2 };
+    dim3 grid{ (uint)ceil((float)WIDTH / (float)block.x), (uint)ceil((float)HEIGHT / (float)block.y), BATCH };
+    const fk::OperationSequenceSelector<BATCH> opSeqSelection{ {1, 2} };
     fk::cuda_transform_divergent_batch<BATCH><<<grid, block, 0, stream>>>(opSeqSelection, opSeq1, opSeq2);
-    gpuErrchk(cudaDeviceSynchronize());
 
     gpuErrchk(cudaMemcpyAsync(h_output.ptr().data, output.ptr().data, output.sizeInBytes(), cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaStreamSynchronize(stream));
 
     bool correct = true;
     for (uint z = 0; z < BATCH; z++) {
-        if (z == 0) {
-            for (uint y = 0; y < HEIGHT; y++) {
-                for (uint x = 0; x < HEIGHT; x++) {
-                    const fk::Point p{x, y, z};
-                    correct &= *fk::PtrAccessor<fk::_3D>::point(p, h_groundTruth.ptr()) == VAL_SUM;
-                }
-            }
-        }
-        else {
-            for (uint y = 0; y < HEIGHT; y++) {
-                for (uint x = 0; x < HEIGHT; x++) {
-                    const fk::Point p{x, y, z};
-                    correct &= *fk::PtrAccessor<fk::_3D>::point(p, h_groundTruth.ptr()) == z;
-                }
+        for (uint y = 0; y < HEIGHT; y++) {
+            for (uint x = 0; x < HEIGHT; x++) {
+                const fk::Point p{x, y, z};
+                const uint gt = *fk::PtrAccessor<fk::_3D>::point(p, h_groundTruth.ptr());
+                const uint res = *fk::PtrAccessor<fk::_3D>::point(p, h_output.ptr());
+                correct &= gt == res;
             }
         }
     }
@@ -159,16 +171,21 @@ bool testDivergentBatch() {
 }
 
 int main() {
-    /*if (testCircularBatchRead()) {
+    if (testCircularBatchRead()) {
         std::cout << "testCircularBatchRead OK" << std::endl;
     } else {
         std::cout << "testCircularBatchRead Failed!" << std::endl;
-    }*/
+    }
     if (testDivergentBatch()) {
         std::cout << "testDivergentBatch OK" << std::endl;
     } else {
         std::cout << "testDivergentBatch Failed!" << std::endl;
     }
+
+    auto p1 = thrust::make_tuple(1, 2, 3);
+    auto [head, tail] = thrust::make_tuple(1, 2, 3, 4, 5, 6);
+
+    auto test = fk::insert_before_last(7, 1, 2, 3);
 
     return 0;
 }
