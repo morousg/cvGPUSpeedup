@@ -19,8 +19,7 @@
 #include "parameter_pack_utils.cuh"
 
 namespace fk { // namespace FusedKernel
-// generic operation struct
-
+// generic operation structs
 template <typename Operation>
 struct ReadDeviceFunction {
     typename Operation::ParamsType params;

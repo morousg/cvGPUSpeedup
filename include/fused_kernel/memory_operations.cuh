@@ -44,24 +44,65 @@ struct PerThreadWrite {
 };
 
 template <typename T>
+struct TensorRead {
+    FK_DEVICE_FUSE T exec(const Point& thread, const RawPtr<_3D, T>& ptr) {
+        return *PtrAccessor<_3D>::cr_point(thread, ptr);
+    }
+    using Type = T;
+    using ParamsType = RawPtr<_3D, T>;
+};
+
+template <typename T>
+struct TensorWrite {
+    FK_DEVICE_FUSE void exec(const Point& thread, const T& input, const RawPtr<_3D, T>& output) {
+        *PtrAccessor<_3D>::point(thread, output) = input;
+    }
+    using Type = T;
+    using ParamsType = RawPtr<_3D, T>;
+};
+
+
+template <typename T>
 struct TensorSplitWrite {
     FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
                              const RawPtr<_3D, typename VectorTraits<T>::base>& ptr) {
         static_assert(cn<T> >= 2, "Wrong type for split tensor write. It must be one of <type>2, <type>3 or <type>4.");
 
-        int planePixels = ptr.dims.width * ptr.dims.height;
+        const int planePixels = ptr.dims.width * ptr.dims.height;
 
-        typename VectorTraits<T>::base* work_plane = PtrAccessor<_3D>::point(thread, ptr);
+        typename VectorTraits<T>::base* const work_plane = PtrAccessor<_3D>::point(thread, ptr);
         *work_plane = input.x;
-        work_plane += planePixels;
-        *work_plane = input.y;
+        *(work_plane + planePixels) = input.y;
         if constexpr (cn<T> >= 3) {
-            work_plane += planePixels;
-            *work_plane = input.z;
+            *(work_plane + (planePixels * 2)) = input.z;
         }
         if constexpr (cn<T> == 4) {
-            work_plane += planePixels;
-            *work_plane = input.w;
+            *(work_plane + (planePixels * 3)) = input.w;
+        }
+    }
+    using Type = T;
+    using ParamsType = RawPtr<_3D, typename VectorTraits<T>::base>;
+};
+
+template <typename T>
+struct TensorSplitRead {
+    FK_DEVICE_FUSE T exec(const Point& thread,
+                          const RawPtr<_3D, typename VectorTraits<T>::base>& ptr) {
+        static_assert(cn<T> >= 2, "Wrong type for split tensor read. It must be one of <type>2, <type>3 or <type>4.");
+
+        const int planePixels = ptr.dims.width * ptr.dims.height;
+
+        const typename VectorTraits<T>::base* const work_plane = PtrAccessor<_3D>::cr_point(thread, ptr);
+        if constexpr (cn<T> == 2) {
+            return make_<T>(*work_plane, *(work_plane + planePixels));
+        } else if constexpr (cn<T> == 3) {
+            return make_<T>(*work_plane, *(work_plane + planePixels),
+                            *(work_plane + (planePixels * 2)));
+        } else {
+            return make_<T>(*work_plane,
+                            *(work_plane + planePixels),
+                            *(work_plane + (planePixels * 2)),
+                            *(work_plane + (planePixels * 3)));
         }
     }
     using Type = T;
@@ -148,33 +189,52 @@ struct CircularMemoryParams {
     ParamsType params;
 };
 
-template <typename Operation, int NPtr>
+template <typename Operation, int BATCH>
 struct CircularBatchRead {
     FK_DEVICE_FUSE const typename Operation::Type exec(const Point& thread,
-        const CircularMemoryParams<typename Operation::ParamsType[NPtr]>& c_params) {
+        const CircularMemoryParams<typename Operation::ParamsType[BATCH]>& c_params) {
         const int fst = c_params.first;
-        if (thread.z >= fst) {
-            const Point newThreadIdx{ thread.x, thread.y, thread.z - fst };
-            return Operation::exec(newThreadIdx, c_params.params[newThreadIdx.z]);
-        } else {
-            const Point newThreadIdx{ thread.x, thread.y, thread.z + (NPtr - fst) };
-            return Operation::exec(newThreadIdx, c_params.params[newThreadIdx.z]);
-        }
+        const Point newThreadIdx{ thread.x, thread.y, thread.z >= fst ? thread.z - fst : thread.z + (BATCH - fst) };
+        return Operation::exec(newThreadIdx, c_params.params[newThreadIdx.z]);
     }
     using Type = typename Operation::Type;
-    using ParamsType = CircularMemoryParams<typename Operation::ParamsType[NPtr]>;
+    using ParamsType = CircularMemoryParams<typename Operation::ParamsType[BATCH]>;
 };
 
-template <typename Operation, int NPtr>
+template <typename Operation, int BATCH>
 struct CircularBatchWrite {
     FK_DEVICE_FUSE void exec(const Point& thread, const typename Operation::Type& input,
-        const CircularMemoryParams<typename Operation::ParamsType[NPtr]>& c_params) {
+        const CircularMemoryParams<typename Operation::ParamsType[BATCH]>& c_params) {
         const int fst = c_params.first;
-        const Point newThread{ thread.x, thread.y, thread.z >= fst ? thread.z - fst : thread.z + (NPtr - fst) };
-        return Operation::exec(newThread, input, c_params.params[newThread.z]);
+        const Point newThreadIdx{ thread.x, thread.y, thread.z >= fst ? thread.z - fst : thread.z + (BATCH - fst) };
+        Operation::exec(newThreadIdx, input, c_params.params[newThreadIdx.z]);
     }
     using Type = typename Operation::Type;
-    using ParamsType = CircularMemoryParams<typename Operation::ParamsType[NPtr]>;
+    using ParamsType = CircularMemoryParams<typename Operation::ParamsType[BATCH]>;
+};
+
+template <typename Operation, int BATCH>
+struct CircularTensorRead {
+    FK_DEVICE_FUSE const typename Operation::Type exec(const Point& thread,
+        const CircularMemoryParams<RawPtr<_3D, typename Operation::Type>>& c_params) {
+        const int fst = c_params.first;
+        const Point newThreadIdx{ thread.x, thread.y, thread.z >= fst ? thread.z - fst : thread.z + (BATCH - fst) };
+        return Operation::exec(newThreadIdx, c_params.params);
+    }
+    using Type = typename Operation::Type;
+    using ParamsType = CircularMemoryParams<RawPtr<_3D, typename Operation::Type>>;
+};
+
+template <typename Operation, int BATCH>
+struct CircularTensorWrite {
+    FK_DEVICE_FUSE void exec(const Point& thread, const typename Operation::Type& input,
+        const CircularMemoryParams<RawPtr<_3D, typename Operation::Type>>& c_params) {
+        const int fst = c_params.first;
+        const Point newThreadIdx{ thread.x, thread.y, thread.z >= fst ? thread.z - fst : thread.z + (BATCH - fst) };
+        Operation::exec(newThreadIdx, input, c_params.params);
+    }
+    using Type = typename Operation::Type;
+    using ParamsType = CircularMemoryParams<RawPtr<_3D, typename Operation::Type>>;
 };
 
 // The following code is a modification of the OpenCV file resize.cu

@@ -17,6 +17,7 @@
 #pragma once
 
 #include "cuda_utils.cuh"
+#include <tuple>
 
 namespace fk {
 
@@ -71,6 +72,36 @@ namespace fk {
 
     template <typename T>
     constexpr bool validCUDAVec = one_of_t<T, VAll>::value;
+
+    template <typename T, typename TypeList_t>
+    struct TypeIndex;
+
+    template <typename T, typename... Types>
+    struct TypeIndex<T, TypeList<T, Types...>> {
+        static_assert(one_of_t<T, TypeList<T, Types...>>::value == true, "The type is not on the type list");
+        static constexpr std::size_t value = 0;
+    };
+
+    template <typename T, typename U, typename... Types>
+    struct TypeIndex<T, TypeList<U, Types...>> {
+        static_assert(one_of_t<T, TypeList<U, Types...>>::value == true, "The type is not on the type list");
+        static constexpr std::size_t value = 1 + TypeIndex<T, TypeList<Types...>>::value;
+    };
+
+    template <typename T, typename TypeList_t>
+    constexpr size_t TypeIndex_v = TypeIndex<T, TypeList_t>::value;
+
+    template <int Idx, typename TypeList_t>
+    struct TypeFromIndex;
+
+    template <int Idx, typename... Types>
+    struct TypeFromIndex<Idx, TypeList<Types...>> {
+        static_assert(Idx < sizeof...(Types), "Index out of range");
+        using type = std::tuple_element_t<Idx, std::tuple<Types...>>;
+    };
+
+    template <int Idx, typename TypeList_t>
+    using TypeFromIndex_t = typename TypeFromIndex<Idx, TypeList_t>::type;
 
     template <typename T>
     __host__ __device__ __forceinline__ constexpr int Channels() {

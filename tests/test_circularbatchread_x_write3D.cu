@@ -203,5 +203,12 @@ int main() {
     auto p6 = ([](const auto& elem, const auto&... args)
         { return fk::insert_before_last(elem, args...); })(C{}, A{}, B{}, D{});
 
+    std::cout << fk::TypeIndex<uchar1, fk::VOne>::value << " " <<
+        fk::TypeIndex_v<long2, fk::VTwo> << " " <<
+        fk::TypeIndex_v<ushort1, fk::VOne> << std::endl;
+
+    std::cout << typeid(fk::TypeFromIndex<0, fk::VOne>::type).name() << std::endl;
+    std::cout << typeid(fk::TypeFromIndex_t<2, fk::VOne>).name() << std::endl;
+
     return 0;
 }
