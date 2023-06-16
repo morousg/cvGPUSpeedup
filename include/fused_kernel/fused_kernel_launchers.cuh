@@ -24,19 +24,15 @@ template <typename T, int BATCH>
 using WriteOperations = TypeList<WriteDeviceFunction<CircularTensorWrite<TensorWrite<T>, BATCH>>,
                                  WriteDeviceFunction<CircularTensorWrite<TensorSplitWrite<T>, BATCH>>;
 
-template <typename WriteOperation, typename T, int BATCH>
-struct equivalenReadOperation {
-    using type = TypeFromIndex_t<TypeIndex_v<WriteOperation, WriteOperations<T, BATCH>>, ReadOperations<T, BATCH>>;
-};
-
 template <typename I, typename O, int BATCH, typename... UpdateOperations>
-inline constexpr void update_circular_batch(const Ptr2D<I>& newPlane, const int& newPlaneIdx, const Tensor<O>& previousOutput,
-                                            const Tensor<O>& newOutput, UpdateOperations... ops) {
+inline constexpr void update_circular_batch(const Ptr2D<I>& newPlane, const int& newPlaneIdx,
+                                            const Tensor<O>& previousOutput, UpdateOperations... ops) {
     auto writeOperation = last(ops...);
     using writeType = decltype(writeOperation);
-    using equivalentReadType = typename equivalenReadOperation<decltype(writeOperation), O, BATCH>::type;
+    using equivalentReadType = EquivalentType_t<writeType, WriteOperations<T, BATCH>, ReadOperations<T, BATCH>>;
      
     OperationSequence<UpdateOperations...> ops1 = buildOperationSequence(ops...);
-    OperationSequence<equivalentReadType, writeType> ops2 = buildOperationSequence(equivalentReadType{previousOutput},);
+    OperationSequence<equivalentReadType, writeType> ops2 = buildOperationSequence(equivalentReadType{newPlaneIdx, {previousOutput}},
+                                                                                   writeOperation);
 }
 }

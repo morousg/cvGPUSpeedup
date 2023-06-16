@@ -486,4 +486,9 @@ public:
     }
 };
 
+template <typename T, int BATCH>
+class CircularTensor : public Tensor<T> {
+
+};
+
 }

@@ -1,5 +1,4 @@
 /* Copyright 2023 Oscar Amoros Huguet
-   Copyright 2023 David Del Rio Astorga
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -17,7 +16,7 @@
 #pragma once
 
 #include "cuda_utils.cuh"
-#include <tuple>
+#include "type_lists.cuh"
 
 namespace fk {
 
@@ -48,68 +47,22 @@ namespace fk {
     VECTOR_TYPE(double)
 #undef VECTOR_TYPE
 
-    template <typename... Types>
-    struct TypeList {};
-
-    template<typename... Args1, typename... Args2, typename... Args3, typename... Args4>
-    struct TypeList<TypeList<Args1...>, TypeList<Args2...>, TypeList<Args3...>, TypeList<Args4...>> {
-        using type = TypeList<Args1..., Args2..., Args3..., Args4...>;
-    };
-
     using VOne   = TypeList<uchar1, char1, ushort1, short1, uint1, int1, ulong1, long1, ulonglong1, longlong1, float1, double1>;
     using VTwo   = TypeList<uchar2, char2, ushort2, short2, uint2, int2, ulong2, long2, ulonglong2, longlong2, float2, double2>;
     using VThree = TypeList<uchar3, char3, ushort3, short3, uint3, int3, ulong3, long3, ulonglong3, longlong3, float3, double3>;
     using VFour  = TypeList<uchar4, char4, ushort4, short4, uint4, int4, ulong4, long4, ulonglong4, longlong4, float4, double4>;
     using VAll   = typename TypeList<VOne, VTwo, VThree, VFour>::type;
 
-    template <typename... Args>
-    struct one_of_t {};
-
-    template <typename T, typename... U>
-    struct one_of_t<T, TypeList<U...>> {
-        enum { value = std::disjunction_v<std::is_same<T,U>...> };
-    };
-
     template <typename T>
-    constexpr bool validCUDAVec = one_of_t<T, VAll>::value;
-
-    template <typename T, typename TypeList_t>
-    struct TypeIndex;
-
-    template <typename T, typename... Types>
-    struct TypeIndex<T, TypeList<T, Types...>> {
-        static_assert(one_of_t<T, TypeList<T, Types...>>::value == true, "The type is not on the type list");
-        static constexpr std::size_t value = 0;
-    };
-
-    template <typename T, typename U, typename... Types>
-    struct TypeIndex<T, TypeList<U, Types...>> {
-        static_assert(one_of_t<T, TypeList<U, Types...>>::value == true, "The type is not on the type list");
-        static constexpr std::size_t value = 1 + TypeIndex<T, TypeList<Types...>>::value;
-    };
-
-    template <typename T, typename TypeList_t>
-    constexpr size_t TypeIndex_v = TypeIndex<T, TypeList_t>::value;
-
-    template <int Idx, typename TypeList_t>
-    struct TypeFromIndex;
-
-    template <int Idx, typename... Types>
-    struct TypeFromIndex<Idx, TypeList<Types...>> {
-        static_assert(Idx < sizeof...(Types), "Index out of range");
-        using type = std::tuple_element_t<Idx, std::tuple<Types...>>;
-    };
-
-    template <int Idx, typename TypeList_t>
-    using TypeFromIndex_t = typename TypeFromIndex<Idx, TypeList_t>::type;
+    constexpr bool validCUDAVec = one_of<T, VAll>::value;
 
     template <typename T>
     __host__ __device__ __forceinline__ constexpr int Channels() {
-        if constexpr (one_of_t<T, VOne>::value || !validCUDAVec<T>) {
+        if constexpr (one_of_v<T, VOne> || !validCUDAVec<T>) {
             return 1;
-        } else if constexpr (one_of_t<T, VTwo>::value) { 
+        } else if constexpr (one_of_v<T, VTwo>) { 
             return 2;
-        } else if constexpr (one_of_t<T, VThree>::value) { 
+        } else if constexpr (one_of_v<T, VThree>) { 
             return 3;
         } else {
             return 4;
