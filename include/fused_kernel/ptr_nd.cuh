@@ -418,7 +418,7 @@ public:
                 ptr_a.data[i] = val;
             }
         } else {
-            throw std::exception("setTo not implemented for Device memory type.");
+            throw std::exception();
         }
         
     }

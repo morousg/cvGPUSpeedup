@@ -18,6 +18,7 @@
 #pragma once
 
 #include <iostream>
+#include <exception>
 
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -45,7 +46,7 @@ namespace fk {
                         bool abort = true) {
         if (code != cudaSuccess) {
             std::cout << "GPUassert: " << cudaGetErrorString(code) << " File: " << file << " Line:" << line << std::endl;
-            if (abort) throw std::exception("CUDA ERROR");
+            if (abort) throw std::exception();
         }
     }
 
