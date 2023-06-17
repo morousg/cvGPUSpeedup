@@ -216,25 +216,25 @@ struct CircularBatchWrite {
 template <typename Operation, int BATCH>
 struct CircularTensorRead {
     FK_DEVICE_FUSE const typename Operation::Type exec(const Point& thread,
-        const CircularMemoryParams<RawPtr<_3D, typename Operation::Type>>& c_params) {
+        const CircularMemoryParams<typename Operation::ParamsType>& c_params) {
         const int fst = c_params.first;
         const Point newThreadIdx{ thread.x, thread.y, thread.z >= fst ? thread.z - fst : thread.z + (BATCH - fst) };
         return Operation::exec(newThreadIdx, c_params.params);
     }
     using Type = typename Operation::Type;
-    using ParamsType = CircularMemoryParams<RawPtr<_3D, typename Operation::Type>>;
+    using ParamsType = CircularMemoryParams<typename Operation::ParamsType>;
 };
 
 template <typename Operation, int BATCH>
 struct CircularTensorWrite {
     FK_DEVICE_FUSE void exec(const Point& thread, const typename Operation::Type& input,
-        const CircularMemoryParams<RawPtr<_3D, typename Operation::Type>>& c_params) {
+        const CircularMemoryParams<typename Operation::ParamsType>& c_params) {
         const int fst = c_params.first;
         const Point newThreadIdx{ thread.x, thread.y, thread.z >= fst ? thread.z - fst : thread.z + (BATCH - fst) };
         Operation::exec(newThreadIdx, input, c_params.params);
     }
     using Type = typename Operation::Type;
-    using ParamsType = CircularMemoryParams<RawPtr<_3D, typename Operation::Type>>;
+    using ParamsType = CircularMemoryParams<typename Operation::ParamsType>;
 };
 
 // The following code is a modification of the OpenCV file resize.cu

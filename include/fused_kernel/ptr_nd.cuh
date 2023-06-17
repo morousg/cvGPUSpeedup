@@ -1,6 +1,9 @@
 #pragma once
 
+#include <array>
+
 #include "cuda_vector_utils.cuh"
+#include "parameter_pack_utils.cuh"
 
 namespace fk {
 
@@ -155,8 +158,8 @@ struct PtrAccessor;
 template <>
 struct PtrAccessor<_1D> {
     template <typename T>
-    FK_HOST_DEVICE_FUSE T*__restrict__ cr_point(const Point& p, const RawPtr<_1D, T>& ptr) {
-        return ptr.data + p.x;
+    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const Point& p, const RawPtr<_1D, T>& ptr) {
+        return (const T*)(ptr.data + p.x);
     }
 
     template <typename T>
@@ -181,7 +184,7 @@ struct PtrAccessor<_2D> {
 template <>
 struct PtrAccessor<_3D> {
     template <typename T>
-    FK_HOST_DEVICE_FUSE T*__restrict__ cr_point(const Point& p, const RawPtr<_3D, T>& ptr) {
+    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const Point& p, const RawPtr<_3D, T>& ptr) {
         return (const T*)((const char*)ptr.data + ((ptr.dims.plane_pitch * ptr.dims.color_planes * p.z) + (p.y * ptr.dims.pitch))) + p.x;
     }
 
@@ -485,10 +488,4 @@ public:
                                                this->allocPtr(PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_);
     }
 };
-
-template <typename T, int BATCH>
-class CircularTensor : public Tensor<T> {
-
-};
-
 }

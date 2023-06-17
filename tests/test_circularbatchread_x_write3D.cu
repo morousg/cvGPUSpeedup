@@ -15,8 +15,7 @@
 #include <sstream>
 
 #include "testsCommon.h"
-#include <cvGPUSpeedup.cuh>
-#include <opencv2/cudaimgproc.hpp>
+#include <fused_kernel/fused_kernel_launchers.cuh>
 
 bool testCircularBatchRead() {
     constexpr int WIDTH = 32;
@@ -149,7 +148,7 @@ bool testDivergentBatch() {
 
     dim3 block = inputAllocations[0].getBlockSize();
     dim3 grid{ (uint)ceil((float)WIDTH / (float)block.x), (uint)ceil((float)HEIGHT / (float)block.y), BATCH };
-    const fk::OperationSequenceSelector<BATCH> opSeqSelection{ {1, 2} };
+    const fk::Array<int, BATCH> opSeqSelection{ {1, 2} };
     fk::cuda_transform_divergent_batch<BATCH><<<grid, block, 0, stream>>>(opSeqSelection, opSeq1, opSeq2);
 
     gpuErrchk(cudaMemcpyAsync(h_output.ptr().data, output.ptr().data, output.sizeInBytes(), cudaMemcpyDeviceToHost, stream));
@@ -207,8 +206,29 @@ int main() {
         fk::TypeIndex_v<long2, fk::VTwo> << " " <<
         fk::TypeIndex_v<ushort1, fk::VOne> << std::endl;
 
-    std::cout << typeid(fk::TypeFromIndex<0, fk::VOne>::type).name() << std::endl;
-    std::cout << typeid(fk::TypeFromIndex_t<2, fk::VOne>).name() << std::endl;
+    std::cout << typeid(fk::TypeAt<0, fk::VOne>::type).name() << std::endl;
+    std::cout << typeid(fk::TypeAt_t<2, fk::VOne>).name() << std::endl;
+
+    using Operation = fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, uint>>::Op;
+
+    static_assert(std::is_same_v<Operation, fk::PerThreadRead<fk::_2D, uint>>, "It does not work!");
+    
+    constexpr uint BATCH = 15;
+
+    auto MyArray = fk::make_array<int, BATCH>(1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2);
+
+    fk::CircularTensor<float, 3, BATCH> myTensor(128, 128);
+    fk::Ptr2D<uchar3> input(128,128);
+
+    cudaStream_t stream;
+    gpuErrchk(cudaStreamCreate(&stream));
+
+    for (int i=0; i<100; i++)
+    myTensor.update(stream, fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, uchar3>> {input.ptr(), { 128, 128, 1 }},
+                            fk::UnaryDeviceFunction<fk::UnaryCast<uchar3, float3>> {},
+                            fk::WriteDeviceFunction<fk::TensorSplitWrite<float3>> {myTensor.ptr()});
+
+    gpuErrchk(cudaStreamSynchronize(stream));
 
     return 0;
 }

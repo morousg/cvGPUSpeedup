@@ -13,22 +13,22 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
+#pragma once
+
 #include <thrust/tuple.h>
 #include <thrust/functional.h>
 
 namespace fk { // namespace fused kernel
 
     template <typename F, typename Tuple, size_t... I>
-    __host__ __device__ __forceinline__ constexpr
-    auto apply_impl(F&& f, Tuple&& t, std::index_sequence<I...>)
+    FK_HOST_DEVICE_CNST auto apply_impl(F&& f, Tuple&& t, std::index_sequence<I...>)
         -> decltype(std::forward<F>(f)(thrust::get<I>(std::forward<Tuple>(t))...))
     {
         return std::forward<F>(f)(thrust::get<I>(std::forward<Tuple>(t))...);
     }
 
     template <typename F, typename Tuple>
-    __host__ __device__ __forceinline__ constexpr
-    auto apply(F&& f, Tuple&& t)
+    FK_HOST_DEVICE_CNST auto apply(F&& f, Tuple&& t)
         -> decltype(apply_impl(std::forward<F>(f), std::forward<Tuple>(t),
             std::make_index_sequence<thrust::tuple_size<typename std::decay<Tuple>::type>::value>()))
     {
@@ -44,12 +44,12 @@ namespace fk { // namespace fused kernel
 
     // Function that fills the OperationSequence struct, from a parameter pack
     template <typename... operations>
-    inline constexpr auto buildOperationSequence(const operations&... ops) {
+    FK_HOST_DEVICE_CNST auto buildOperationSequence(const operations&... ops) {
         return OperationSequence<operations...> {{ops...}};
     }
 
     template <typename... operations>
-    inline constexpr auto buildOperationSequence_tup(const thrust::tuple<operations...>& ops) {
+    FK_HOST_DEVICE_CNST auto buildOperationSequence_tup(const thrust::tuple<operations...>& ops) {
         return fk::apply([](const auto&... args) { 
                             return buildOperationSequence(args...); 
                          }, ops);
@@ -57,18 +57,18 @@ namespace fk { // namespace fused kernel
 
     // Util to get the last parameter of a parameter pack
     template <typename T>
-    __device__ __forceinline__ constexpr T last(const T& t) {
+    FK_HOST_DEVICE_CNST T last(const T& t) {
         return t;
     }
 
     template <typename T, typename... Args>
-    __device__ __forceinline__ constexpr auto last(const T& t, const Args&... args) {
+    FK_HOST_DEVICE_CNST auto last(const T& t, const Args&... args) {
         return last(args...);
     }
 
     // Util to concatenate thrust::tuple
     template <typename Tuple1, typename Tuple2, int... I1, int... I2>
-    __host__ __device__ __forceinline__ constexpr
+    FK_HOST_DEVICE_CNST
     auto tuple_cat_impl(const Tuple1& t1, std::integer_sequence<int, I1...>, const Tuple2& t2, std::integer_sequence<int, I2...>) {
         static_assert(thrust::tuple_size<Tuple1>::value + thrust::tuple_size<Tuple2>::value <= 10,
                       "thrust::tuple max size is 10, you are trying to create a bigger tuple");
@@ -76,7 +76,7 @@ namespace fk { // namespace fused kernel
     }
 
     template <typename Tuple1, typename Tuple2>
-    __host__ __device__ __forceinline__ constexpr
+    FK_HOST_DEVICE_CNST
     auto tuple_cat(const Tuple1& t1, const Tuple2& t2) {
         return tuple_cat_impl(t1, std::make_integer_sequence<int, thrust::tuple_size<Tuple1>::value>(),
             t2, std::make_integer_sequence<int, thrust::tuple_size<Tuple2>::value>());
@@ -84,7 +84,7 @@ namespace fk { // namespace fused kernel
 
     // Util to insert an element before the last element of a tuple
     template <typename T, typename Tuple>
-    __host__ __device__ __forceinline__ constexpr auto insert_before_last_tup(const T& t, const Tuple& args) {
+    FK_HOST_DEVICE_CNST auto insert_before_last_tup(const T& t, const Tuple& args) {
         if constexpr (thrust::tuple_size<Tuple>::value == 1) {
             return fk::tuple_cat(thrust::make_tuple(t), args);
         } else {
@@ -94,7 +94,7 @@ namespace fk { // namespace fused kernel
     }
 
     template<typename T, typename... Args>
-    __host__ __device__ __forceinline__ constexpr auto insert_before_last(const T& t, const Args&... args) {
+    FK_HOST_DEVICE_CNST auto insert_before_last(const T& t, const Args&... args) {
         return insert_before_last_tup(t, thrust::tuple<const Args...>{args...});
     }
 

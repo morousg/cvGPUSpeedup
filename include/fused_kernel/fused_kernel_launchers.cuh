@@ -15,24 +15,75 @@
 #include "fused_kernel.cuh"
 
 namespace fk {
+    struct OpSelectorType {
+        FK_HOST_DEVICE_FUSE uint at(const uint& index) {
+            if (index > 0) return 2u;
+            else return 1u;
+        }
+    };
 
-template <typename T, int BATCH>
-using ReadOperations = TypeList<ReadDeviceFunction<CircularTensorRead<TensorRead<T>, BATCH>>,
-                                ReadDeviceFunction<CircularTensorRead<TensorSplitRead<T>, BATCH>>;
+    template <typename T, int COLOR_PLANES, int BATCH>
+    class CircularTensor : public Tensor<T> {
 
-template <typename T, int BATCH>
-using WriteOperations = TypeList<WriteDeviceFunction<CircularTensorWrite<TensorWrite<T>, BATCH>>,
-                                 WriteDeviceFunction<CircularTensorWrite<TensorSplitWrite<T>, BATCH>>;
+        using SourceT = typename VectorType<T, COLOR_PLANES>::type;
 
-template <typename I, typename O, int BATCH, typename... UpdateOperations>
-inline constexpr void update_circular_batch(const Ptr2D<I>& newPlane, const int& newPlaneIdx,
-                                            const Tensor<O>& previousOutput, UpdateOperations... ops) {
-    auto writeOperation = last(ops...);
-    using writeType = decltype(writeOperation);
-    using equivalentReadType = EquivalentType_t<writeType, WriteOperations<T, BATCH>, ReadOperations<T, BATCH>>;
-     
-    OperationSequence<UpdateOperations...> ops1 = buildOperationSequence(ops...);
-    OperationSequence<equivalentReadType, writeType> ops2 = buildOperationSequence(equivalentReadType{newPlaneIdx, {previousOutput}},
-                                                                                   writeOperation);
-}
-}
+        using ReadDeviceFunctions = TypeList<ReadDeviceFunction<CircularTensorRead<TensorRead<SourceT>, BATCH>>,
+                                             ReadDeviceFunction<CircularTensorRead<TensorSplitRead<SourceT>, BATCH>>>;
+
+        using WriteDeviceFunctions = TypeList<WriteDeviceFunction<TensorWrite<SourceT>>,
+                                              WriteDeviceFunction<TensorSplitWrite<SourceT>>>;
+
+    public:
+        __host__ inline constexpr CircularTensor() {};
+
+        __host__ inline constexpr CircularTensor(const uint& width_, const uint& height_, const int& deviceID_ = 0) :
+            Tensor<T>(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_),
+            m_tempTensor(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_) {};
+
+        __host__ inline constexpr void Alloc(const uint& width_, const uint& height_, const int& deviceID_ = 0) {
+            allocTensor(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_);
+            m_tempTensor.allocTensor(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_);
+        }
+
+        template <typename... Operations>
+        __host__ inline constexpr void update(const cudaStream_t& stream, const Operations&... ops) {
+            const auto writeOp = last(ops...);
+            // assert writeOp is one of TesorWrite or TesorSplitWrite
+            using writeDFType = std::decay_t<decltype(writeOp)>;
+            using writeOpType = typename writeDFType::Op;
+            using equivalentReadDFType = EquivalentType_t<writeDFType, WriteDeviceFunctions, ReadDeviceFunctions>;
+
+            MidWriteDeviceFunction<CircularTensorWrite<writeOpType, BATCH>> updateWriteToTemp;
+            updateWriteToTemp.params.first = m_nextUpdateIdx;
+            updateWriteToTemp.params.params = m_tempTensor.ptr();
+
+            const auto updateOps = buildOperationSequence_tup(insert_before_last(updateWriteToTemp, ops...));
+
+            equivalentReadDFType nonUpdateRead;
+            nonUpdateRead.params.first = m_nextUpdateIdx;
+            nonUpdateRead.params.params = m_tempTensor.ptr();
+            nonUpdateRead.activeThreads.x = ptr_a.dims.width;
+            nonUpdateRead.activeThreads.y = ptr_a.dims.height;
+            nonUpdateRead.activeThreads.z = BATCH;
+
+            const auto copyOps = buildOperationSequence(nonUpdateRead, writeOp);
+
+            dim3 grid((uint)ceil((float)ptr_a.dims.width / (float)adjusted_blockSize.x),
+                (uint)ceil((float)ptr_a.dims.height / (float)adjusted_blockSize.y),
+                BATCH);
+            /*Array<int, BATCH> selectorArr;
+            selectorArr.at[0] = 1;
+            for (int i = 1; i < BATCH; i++) {
+                selectorArr.at[i] = 2;
+            }*/
+            cuda_transform_divergent_batch<OpSelectorType, BATCH> << <grid, adjusted_blockSize, 0, stream >> >(updateOps, copyOps);
+            m_nextUpdateIdx = (m_nextUpdateIdx + 1) % BATCH;
+            gpuErrchk(cudaGetLastError());
+        }
+
+    private:
+        Tensor<T> m_tempTensor;
+        int m_nextUpdateIdx{ BATCH - 1 };
+    };
+
+};

@@ -140,7 +140,7 @@ namespace fk {
     };
 
     template <typename T, typename... Numbers>
-    inline constexpr T make_(const Numbers&... pack) {
+    FK_HOST_DEVICE_CNST T make_(const Numbers&... pack) {
         return make::type<T>(pack...);
     }
     
