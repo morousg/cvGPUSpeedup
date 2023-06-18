@@ -242,16 +242,14 @@ struct PtrImpl<_2D,T> {
 template <typename T>
 struct PtrImpl<_3D,T> {
     FK_HOST_FUSE size_t sizeInBytes(const PtrDims<_3D>& dims) {
-        return dims.pitch * dims.height * dims.planes;
+        return dims.pitch * dims.height * dims.planes * dims.color_planes;
     }
     FK_HOST_FUSE uint getNumElements(const PtrDims<_3D>& dims) {
-        return dims.width * dims.height * dims.planes;
+        return dims.width * dims.height * dims.planes * dims.color_planes;
     }
     FK_HOST_FUSE void d_malloc(RawPtr<_3D,T>& ptr_a) {
         if (ptr_a.dims.pitch == 0) {
-            size_t pitch;
-            gpuErrchk(cudaMallocPitch(&ptr_a.data, &pitch, sizeof(T) * ptr_a.dims.width, ptr_a.dims.height * ptr_a.dims.planes));
-            ptr_a.dims.pitch = pitch;
+            throw std::exception(); // Not supported to have 2D pitch in a 3D pointer
         } else {
             gpuErrchk(cudaMalloc(&ptr_a.data, PtrImpl<_3D,T>::sizeInBytes(ptr_a.dims)));
         }

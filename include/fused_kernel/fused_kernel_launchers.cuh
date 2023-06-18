@@ -22,13 +22,26 @@ namespace fk {
         }
     };
 
+    template <typename T, typename Enabler=void>
+    struct TempType;
+
+    template <typename T>
+    struct TempType<T, std::enable_if_t<cn<T> == 3>> {
+        using type = typename VectorType<typename VectorTraits<T>::base, 4>::type;
+    };
+
+    template <typename T>
+    struct TempType<T, std::enable_if_t<cn<T> != 3>> {
+        using type = T;
+    };
+
     template <typename T, int COLOR_PLANES, int BATCH>
     class CircularTensor : public Tensor<T> {
 
         using SourceT = typename VectorType<T, COLOR_PLANES>::type;
 
-        using ReadDeviceFunctions = TypeList<ReadDeviceFunction<CircularTensorRead<TensorRead<SourceT>, BATCH>>,
-                                             ReadDeviceFunction<CircularTensorRead<TensorSplitRead<SourceT>, BATCH>>>;
+        using ReadDeviceFunctions = TypeList<ReadDeviceFunction<CircularTensorRead<CircularDirection::Descendent, TensorRead<SourceT>, BATCH>>,
+                                             ReadDeviceFunction<CircularTensorRead<CircularDirection::Descendent, TensorSplitRead<SourceT>, BATCH>>>;
 
         using WriteDeviceFunctions = TypeList<WriteDeviceFunction<TensorWrite<SourceT>>,
                                               WriteDeviceFunction<TensorSplitWrite<SourceT>>>;
@@ -48,17 +61,18 @@ namespace fk {
         template <typename... Operations>
         __host__ inline constexpr void update(const cudaStream_t& stream, const Operations&... ops) {
             const auto writeOp = last(ops...);
-            // assert writeOp is one of TesorWrite or TesorSplitWrite
             using writeDFType = std::decay_t<decltype(writeOp)>;
             using writeOpType = typename writeDFType::Op;
             using equivalentReadDFType = EquivalentType_t<writeDFType, WriteDeviceFunctions, ReadDeviceFunctions>;
 
-            MidWriteDeviceFunction<CircularTensorWrite<writeOpType, BATCH>> updateWriteToTemp;
+            MidWriteDeviceFunction<CircularTensorWrite<CircularDirection::Ascendent, writeOpType, BATCH>> updateWriteToTemp;
             updateWriteToTemp.params.first = m_nextUpdateIdx;
             updateWriteToTemp.params.params = m_tempTensor.ptr();
 
+            // TODO: in the case of types of channel 3, add another operation to convert from type3 to type4, before updateWriteToTemp
             const auto updateOps = buildOperationSequence_tup(insert_before_last(updateWriteToTemp, ops...));
-
+            
+            // Build copy pipeline
             equivalentReadDFType nonUpdateRead;
             nonUpdateRead.params.first = m_nextUpdateIdx;
             nonUpdateRead.params.params = m_tempTensor.ptr();
@@ -71,19 +85,21 @@ namespace fk {
             dim3 grid((uint)ceil((float)ptr_a.dims.width / (float)adjusted_blockSize.x),
                 (uint)ceil((float)ptr_a.dims.height / (float)adjusted_blockSize.y),
                 BATCH);
-            /*Array<int, BATCH> selectorArr;
-            selectorArr.at[0] = 1;
-            for (int i = 1; i < BATCH; i++) {
-                selectorArr.at[i] = 2;
-            }*/
-            cuda_transform_divergent_batch<OpSelectorType, BATCH> << <grid, adjusted_blockSize, 0, stream >> >(updateOps, copyOps);
+
+            cuda_transform_divergent_batch<OpSelectorType, BATCH> << <grid, adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
+           
             m_nextUpdateIdx = (m_nextUpdateIdx + 1) % BATCH;
             gpuErrchk(cudaGetLastError());
         }
-
+        
     private:
+        // TODO: create convert type3 to type4 and type4 to type3, inventing and discarding the alpha channel respectively
+        // and convert T to typename TempType<T>::type.
+        // Even better, create a ConvertAndWrite<WriteOperation, sourceType, destinationType> that converts and writes.
+        // Then we can do WidWriteDeviceFunction<ConvertAndWrite<WriteOperation, sourceType, destinationType>> and we return the
+        // element without converting.
         Tensor<T> m_tempTensor;
-        int m_nextUpdateIdx{ BATCH - 1 };
+        int m_nextUpdateIdx{0};
     };
 
 };

@@ -183,54 +183,63 @@ struct BatchWrite {
    See the License for the specific language governing permissions and
    limitations under the License. */
 
+enum CircularDirection { Ascendent, Descendent };
+
 template <typename ParamsType>
 struct CircularMemoryParams {
-    int first;
+    uint first;
     ParamsType params;
 };
 
-template <typename Operation, int BATCH>
+template <CircularDirection direction, int BATCH>
+FK_HOST_DEVICE_CNST Point computeCircularThreadIx(const Point& currentIdx, const uint& fst) {
+    if constexpr (direction == CircularDirection::Ascendent) {
+        const uint z = currentIdx.z + fst;
+        return { currentIdx.x, currentIdx.y, z >= BATCH ? z - BATCH : z };
+    } else {
+        const int z = fst - currentIdx.z;
+        return { currentIdx.x, currentIdx.y, z < 0 ? static_cast<uint>(BATCH + z) : static_cast<uint>(z) };
+    }
+}
+
+template <CircularDirection direction, typename Operation, int BATCH>
 struct CircularBatchRead {
     FK_DEVICE_FUSE const typename Operation::Type exec(const Point& thread,
-        const CircularMemoryParams<typename Operation::ParamsType[BATCH]>& c_params) {
-        const int fst = c_params.first;
-        const Point newThreadIdx{ thread.x, thread.y, thread.z >= fst ? thread.z - fst : thread.z + (BATCH - fst) };
+                                                       const CircularMemoryParams<typename Operation::ParamsType[BATCH]>& c_params) {
+        const Point newThreadIdx = computeCircularThreadIx<direction, BATCH>(thread, c_params.first);
         return Operation::exec(newThreadIdx, c_params.params[newThreadIdx.z]);
     }
     using Type = typename Operation::Type;
     using ParamsType = CircularMemoryParams<typename Operation::ParamsType[BATCH]>;
 };
 
-template <typename Operation, int BATCH>
+template <CircularDirection direction, typename Operation, int BATCH>
 struct CircularBatchWrite {
     FK_DEVICE_FUSE void exec(const Point& thread, const typename Operation::Type& input,
-        const CircularMemoryParams<typename Operation::ParamsType[BATCH]>& c_params) {
-        const int fst = c_params.first;
-        const Point newThreadIdx{ thread.x, thread.y, thread.z >= fst ? thread.z - fst : thread.z + (BATCH - fst) };
+                             const CircularMemoryParams<typename Operation::ParamsType[BATCH]>& c_params) {
+        const Point newThreadIdx = computeCircularThreadIx<direction, BATCH>(thread, c_params.first);
         Operation::exec(newThreadIdx, input, c_params.params[newThreadIdx.z]);
     }
     using Type = typename Operation::Type;
     using ParamsType = CircularMemoryParams<typename Operation::ParamsType[BATCH]>;
 };
 
-template <typename Operation, int BATCH>
+template <CircularDirection direction, typename Operation, int BATCH>
 struct CircularTensorRead {
     FK_DEVICE_FUSE const typename Operation::Type exec(const Point& thread,
-        const CircularMemoryParams<typename Operation::ParamsType>& c_params) {
-        const int fst = c_params.first;
-        const Point newThreadIdx{ thread.x, thread.y, thread.z >= fst ? thread.z - fst : thread.z + (BATCH - fst) };
+                                                       const CircularMemoryParams<typename Operation::ParamsType>& c_params) {
+        const Point newThreadIdx = computeCircularThreadIx<direction, BATCH>(thread, c_params.first);
         return Operation::exec(newThreadIdx, c_params.params);
     }
     using Type = typename Operation::Type;
     using ParamsType = CircularMemoryParams<typename Operation::ParamsType>;
 };
 
-template <typename Operation, int BATCH>
+template <CircularDirection direction, typename Operation, int BATCH>
 struct CircularTensorWrite {
     FK_DEVICE_FUSE void exec(const Point& thread, const typename Operation::Type& input,
-        const CircularMemoryParams<typename Operation::ParamsType>& c_params) {
-        const int fst = c_params.first;
-        const Point newThreadIdx{ thread.x, thread.y, thread.z >= fst ? thread.z - fst : thread.z + (BATCH - fst) };
+                             const CircularMemoryParams<typename Operation::ParamsType>& c_params) {
+        const Point newThreadIdx = computeCircularThreadIx<direction, BATCH>(thread, c_params.first);
         Operation::exec(newThreadIdx, input, c_params.params);
     }
     using Type = typename Operation::Type;

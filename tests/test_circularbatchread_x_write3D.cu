@@ -56,7 +56,7 @@ bool testCircularBatchRead() {
     output.allocTensor(WIDTH, HEIGHT, BATCH);
     h_output.allocTensor(WIDTH, HEIGHT, BATCH, 1, fk::MemType::HostPinned);
 
-    fk::ReadDeviceFunction<fk::CircularBatchRead<fk::PerThreadRead<fk::_2D, uchar3>, BATCH>> circularBatchRead;
+    fk::ReadDeviceFunction<fk::CircularBatchRead<fk::CircularDirection::Ascendent, fk::PerThreadRead<fk::_2D, uchar3>, BATCH>> circularBatchRead;
     circularBatchRead.activeThreads = {WIDTH, HEIGHT, BATCH};
     circularBatchRead.params.first = FIRST;
     for (int i = 0; i < BATCH; i++) {
@@ -169,13 +169,31 @@ bool testDivergentBatch() {
     return correct;
 }
 
+template <typename T>
+void printTensor(const fk::Tensor<T>& tensor) {
+    std::stringstream ss;
+
+    for (int z = 0; z < tensor.ptr().dims.planes; z++) {
+        const float* plane = fk::PtrAccessor<fk::_3D>::cr_point(fk::Point(0, 0, z), tensor.ptr());
+        for (int y = 0; y < tensor.ptr().dims.height; y++) {
+            for (int x = 0; x < tensor.ptr().dims.width * tensor.ptr().dims.color_planes; x++) {
+                ss << plane[x + (y * tensor.ptr().dims.width)] << " ";
+            }
+            ss << std::endl;
+        }
+        ss << std::endl;
+    }
+
+    std::cout << ss.str() << std::endl;
+}
+
 struct A {};
 struct B {};
 struct C {};
 struct D {};
 
 int main() {
-    if (testCircularBatchRead()) {
+    /*if (testCircularBatchRead()) {
         std::cout << "testCircularBatchRead OK" << std::endl;
     } else {
         std::cout << "testCircularBatchRead Failed!" << std::endl;
@@ -213,22 +231,48 @@ int main() {
 
     static_assert(std::is_same_v<Operation, fk::PerThreadRead<fk::_2D, uint>>, "It does not work!");
     
+    auto MyArray = fk::make_array<int, BATCH>(1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2);*/
+
+    using IT = uchar4;
+    using OT = float4;
+    using TensorOT = float;
+
     constexpr uint BATCH = 15;
+    constexpr uint WIDTH = 128;
+    constexpr uint HEIGHT = 128;
+    constexpr uint COLOR_PLANES = fk::cn<IT>;
 
-    auto MyArray = fk::make_array<int, BATCH>(1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2);
+    fk::CircularTensor<TensorOT, COLOR_PLANES, BATCH> myTensor(WIDTH, HEIGHT);
+    fk::Tensor<TensorOT> h_myTensor(WIDTH, HEIGHT, BATCH, COLOR_PLANES, fk::MemType::HostPinned);
+    fk::Tensor<TensorOT> h_myTempTensor(WIDTH, HEIGHT, BATCH, COLOR_PLANES, fk::MemType::HostPinned);
+    fk::Ptr2D<IT> input(WIDTH, HEIGHT);
+    fk::Ptr2D<IT> h_input(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
 
-    fk::CircularTensor<float, 3, BATCH> myTensor(128, 128);
-    fk::Ptr2D<uchar3> input(128,128);
+    h_myTensor.setTo(10.0f);
 
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
 
-    for (int i=0; i<100; i++)
-    myTensor.update(stream, fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, uchar3>> {input.ptr(), { 128, 128, 1 }},
-                            fk::UnaryDeviceFunction<fk::UnaryCast<uchar3, float3>> {},
-                            fk::WriteDeviceFunction<fk::TensorSplitWrite<float3>> {myTensor.ptr()});
+    gpuErrchk(cudaMemcpyAsync(myTensor.ptr().data, h_myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
+
+    for (int i = 0; i < 100; i++) {
+        h_input.setTo(fk::make_<IT>(i + 1, i + 1, i + 1));
+        gpuErrchk(cudaMemcpy2DAsync(input.ptr().data, input.ptr().dims.pitch,
+                                    h_input.ptr().data, h_input.ptr().dims.pitch,
+                                    h_input.ptr().dims.width * sizeof(IT),
+                                    h_input.ptr().dims.height,
+                                    cudaMemcpyHostToDevice, stream));
+        myTensor.update(stream, fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, IT>> {input.ptr(), {WIDTH, HEIGHT, 1}},
+                                fk::UnaryDeviceFunction<fk::UnaryCast<IT, OT>> {},
+                                fk::WriteDeviceFunction<fk::TensorSplitWrite<OT>> {myTensor.ptr()});
+        gpuErrchk(cudaStreamSynchronize(stream));
+    }
+
+    gpuErrchk(cudaMemcpyAsync(h_myTensor.ptr().data, myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
 
     gpuErrchk(cudaStreamSynchronize(stream));
+
+    //printTensor(h_myTensor);
 
     return 0;
 }
