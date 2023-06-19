@@ -69,9 +69,8 @@ namespace fk {
             updateWriteToTemp.params.first = m_nextUpdateIdx;
             updateWriteToTemp.params.params = m_tempTensor.ptr();
 
-            // TODO: in the case of types of channel 3, add another operation to convert from type3 to type4, before updateWriteToTemp
             const auto updateOps = buildOperationSequence_tup(insert_before_last(updateWriteToTemp, ops...));
-            
+
             // Build copy pipeline
             equivalentReadDFType nonUpdateRead;
             nonUpdateRead.params.first = m_nextUpdateIdx;
@@ -83,8 +82,8 @@ namespace fk {
             const auto copyOps = buildOperationSequence(nonUpdateRead, writeOp);
 
             dim3 grid((uint)ceil((float)ptr_a.dims.width / (float)adjusted_blockSize.x),
-                (uint)ceil((float)ptr_a.dims.height / (float)adjusted_blockSize.y),
-                BATCH);
+                      (uint)ceil((float)ptr_a.dims.height / (float)adjusted_blockSize.y),
+                      BATCH);
 
             cuda_transform_divergent_batch<OpSelectorType, BATCH> << <grid, adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
            
@@ -93,11 +92,6 @@ namespace fk {
         }
         
     private:
-        // TODO: create convert type3 to type4 and type4 to type3, inventing and discarding the alpha channel respectively
-        // and convert T to typename TempType<T>::type.
-        // Even better, create a ConvertAndWrite<WriteOperation, sourceType, destinationType> that converts and writes.
-        // Then we can do WidWriteDeviceFunction<ConvertAndWrite<WriteOperation, sourceType, destinationType>> and we return the
-        // element without converting.
         Tensor<T> m_tempTensor;
         int m_nextUpdateIdx{0};
     };

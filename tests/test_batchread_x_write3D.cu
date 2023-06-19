@@ -14,7 +14,7 @@
 
 #include <sstream>
 
-#include "testsCommon.h"
+#include "testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 

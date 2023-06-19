@@ -1,3 +1,17 @@
+/* Copyright 2023 Oscar Amoros Huguet
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License. */
+
 #pragma once
 
 #include <opencv2/core.hpp>
@@ -5,6 +19,7 @@
 #include <iostream>
 
 #include <fused_kernel/cuda_vector_utils.cuh>
+#include <fused_kernel/ptr_nd.cuh>
 
 template <int Depth>
 std::string depthToString() { return ""; }
@@ -56,4 +71,24 @@ void printV(T value) {
         std::cout << ", " << value.w;
     }
     std::cout << ")" << std::endl;
+}
+
+namespace fk {
+    template <typename T>
+    void printTensor(const fk::Tensor<T>& tensor) {
+        std::stringstream ss;
+
+        for (int z = 0; z < tensor.ptr().dims.planes; z++) {
+            const T* plane = fk::PtrAccessor<fk::_3D>::cr_point(fk::Point(0, 0, z), tensor.ptr());
+            for (int y = 0; y < tensor.ptr().dims.height; y++) {
+                for (int x = 0; x < tensor.ptr().dims.width * tensor.ptr().dims.color_planes; x++) {
+                    ss << plane[x + (y * tensor.ptr().dims.width)] << " ";
+                }
+                ss << std::endl;
+            }
+            ss << std::endl;
+        }
+
+        std::cout << ss.str() << std::endl;
+    }
 }

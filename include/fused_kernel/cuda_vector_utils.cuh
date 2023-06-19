@@ -199,22 +199,22 @@ namespace fk {
                 outs << val;
                 return outs;
             } else if constexpr (cn<T> == 1) {
-                outs << "{" << to_printable<decltype(T::x)>()(val.x) << "}";
+                outs << "{" << to_printable<decltype(T::x)>::exec(val.x) << "}";
                 return outs;
             } else if constexpr (cn<T> == 2) {
-                outs << "{" << to_printable<decltype(T::x)>()(val.x) <<
-                       ", " << to_printable<decltype(T::y)>()(val.y) << "}";
+                outs << "{" << to_printable<decltype(T::x)>::exec(val.x) <<
+                       ", " << to_printable<decltype(T::y)>::exec(val.y) << "}";
                 return outs;
             } else if constexpr (cn<T> == 3) {
-                outs << "{" << to_printable<decltype(T::x)>()(val.x) <<
-                       ", " << to_printable<decltype(T::y)>()(val.y) <<
-                       ", " << to_printable<decltype(T::z)>()(val.z) << "}";
+                outs << "{" << to_printable<decltype(T::x)>::exec(val.x) <<
+                       ", " << to_printable<decltype(T::y)>::exec(val.y) <<
+                       ", " << to_printable<decltype(T::z)>::exec(val.z) << "}";
                 return outs;
             } else {
-                 outs << "{" << to_printable<decltype(T::x)>()(val.x) <<
-                        ", " << to_printable<decltype(T::y)>()(val.y) <<
-                        ", " << to_printable<decltype(T::z)>()(val.z) <<
-                        ", " << to_printable<decltype(T::w)>()(val.w) << "}";
+                 outs << "{" << to_printable<decltype(T::x)>::exec(val.x) <<
+                        ", " << to_printable<decltype(T::y)>::exec(val.y) <<
+                        ", " << to_printable<decltype(T::z)>::exec(val.z) <<
+                        ", " << to_printable<decltype(T::w)>::exec(val.w) << "}";
                 return outs;
             }
         }
@@ -222,6 +222,6 @@ namespace fk {
 
     template <typename T> 
     __host__ inline constexpr typename std::enable_if_t<validCUDAVec<T>, std::ostream&> operator<<(std::ostream& outs, const T& val) {
-        return print_vector<T>()(outs, val);
+        return print_vector<T>::exec(outs, val);
     }
 }

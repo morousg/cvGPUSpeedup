@@ -12,9 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#include <sstream>
-
-#include "testsCommon.h"
+#include "testsCommon.cuh"
 #include <fused_kernel/fused_kernel_launchers.cuh>
 
 bool testCircularBatchRead() {
@@ -28,10 +26,6 @@ bool testCircularBatchRead() {
     gpuErrchk(cudaStreamCreate(&stream));
 
     std::vector<fk::Ptr2D<uchar3>> h_inputAllocations;
-
-    for (uint i = 0; i < BATCH; i++) {
-        
-    }
 
     std::vector<fk::Ptr2D<uchar3>> inputAllocations;
     std::array<fk::RawPtr<fk::_2D, uchar3>, BATCH> input;
@@ -77,7 +71,8 @@ bool testCircularBatchRead() {
             for (uint x = 0; x < WIDTH; x++) {
                 fk::Point p{ x, y, z };
                 uchar3 res = *fk::PtrAccessor<fk::_3D>::point(p, h_output.ptr());
-                uchar3 gt  = z >= FIRST ? fk::make_set<uchar3>(z - FIRST) : fk::make_set<uchar3>(z + (BATCH - FIRST));
+                uchar newZ = (z + FIRST);
+                uchar3 gt  = newZ >= BATCH ? fk::make_set<uchar3>(newZ - BATCH) : fk::make_set<uchar3>(newZ);
                 correct &= res.x == gt.x;
                 correct &= res.y == gt.y;
                 correct &= res.z == gt.z;
@@ -157,7 +152,7 @@ bool testDivergentBatch() {
     bool correct = true;
     for (uint z = 0; z < BATCH; z++) {
         for (uint y = 0; y < HEIGHT; y++) {
-            for (uint x = 0; x < HEIGHT; x++) {
+            for (uint x = 0; x < WIDTH; x++) {
                 const fk::Point p{x, y, z};
                 const uint gt = *fk::PtrAccessor<fk::_3D>::point(p, h_groundTruth.ptr());
                 const uint res = *fk::PtrAccessor<fk::_3D>::point(p, h_output.ptr());
@@ -169,78 +164,14 @@ bool testDivergentBatch() {
     return correct;
 }
 
-template <typename T>
-void printTensor(const fk::Tensor<T>& tensor) {
-    std::stringstream ss;
-
-    for (int z = 0; z < tensor.ptr().dims.planes; z++) {
-        const float* plane = fk::PtrAccessor<fk::_3D>::cr_point(fk::Point(0, 0, z), tensor.ptr());
-        for (int y = 0; y < tensor.ptr().dims.height; y++) {
-            for (int x = 0; x < tensor.ptr().dims.width * tensor.ptr().dims.color_planes; x++) {
-                ss << plane[x + (y * tensor.ptr().dims.width)] << " ";
-            }
-            ss << std::endl;
-        }
-        ss << std::endl;
-    }
-
-    std::cout << ss.str() << std::endl;
-}
-
-struct A {};
-struct B {};
-struct C {};
-struct D {};
-
-int main() {
-    /*if (testCircularBatchRead()) {
-        std::cout << "testCircularBatchRead OK" << std::endl;
-    } else {
-        std::cout << "testCircularBatchRead Failed!" << std::endl;
-    }
-    if (testDivergentBatch()) {
-        std::cout << "testDivergentBatch OK" << std::endl;
-    } else {
-        std::cout << "testDivergentBatch Failed!" << std::endl;
-    }
-
-    auto p1 = thrust::make_tuple(1, 2, 3);
-    auto [head, tail] = thrust::make_tuple(1, 2, 3, 4, 5, 6);
-
-    int size = thrust::tuple_size<decltype(tail)>::value;
-
-    auto p2 = fk::tuple_cat(p1, thrust::make_tuple(4));
-
-    auto p3 = fk::insert_before_last_tup(5, p2);
-
-    auto p4 = fk::insert_before_last(5, 1, 2, 3, 4, 6);
-
-    auto p5 = fk::buildOperationSequence_tup(p4);
-
-    auto p6 = ([](const auto& elem, const auto&... args)
-        { return fk::insert_before_last(elem, args...); })(C{}, A{}, B{}, D{});
-
-    std::cout << fk::TypeIndex<uchar1, fk::VOne>::value << " " <<
-        fk::TypeIndex_v<long2, fk::VTwo> << " " <<
-        fk::TypeIndex_v<ushort1, fk::VOne> << std::endl;
-
-    std::cout << typeid(fk::TypeAt<0, fk::VOne>::type).name() << std::endl;
-    std::cout << typeid(fk::TypeAt_t<2, fk::VOne>).name() << std::endl;
-
-    using Operation = fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, uint>>::Op;
-
-    static_assert(std::is_same_v<Operation, fk::PerThreadRead<fk::_2D, uint>>, "It does not work!");
-    
-    auto MyArray = fk::make_array<int, BATCH>(1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2);*/
-
-    using IT = uchar4;
-    using OT = float4;
-    using TensorOT = float;
-
+template <typename IT, typename OT>
+bool testCircularTensor() {
+    using TensorOT = typename fk::VectorTraits<OT>::base;
     constexpr uint BATCH = 15;
     constexpr uint WIDTH = 128;
     constexpr uint HEIGHT = 128;
     constexpr uint COLOR_PLANES = fk::cn<IT>;
+    constexpr int ITERS = 100;
 
     fk::CircularTensor<TensorOT, COLOR_PLANES, BATCH> myTensor(WIDTH, HEIGHT);
     fk::Tensor<TensorOT> h_myTensor(WIDTH, HEIGHT, BATCH, COLOR_PLANES, fk::MemType::HostPinned);
@@ -255,16 +186,16 @@ int main() {
 
     gpuErrchk(cudaMemcpyAsync(myTensor.ptr().data, h_myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
 
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < ITERS; i++) {
         h_input.setTo(fk::make_<IT>(i + 1, i + 1, i + 1));
         gpuErrchk(cudaMemcpy2DAsync(input.ptr().data, input.ptr().dims.pitch,
-                                    h_input.ptr().data, h_input.ptr().dims.pitch,
-                                    h_input.ptr().dims.width * sizeof(IT),
-                                    h_input.ptr().dims.height,
-                                    cudaMemcpyHostToDevice, stream));
-        myTensor.update(stream, fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, IT>> {input.ptr(), {WIDTH, HEIGHT, 1}},
-                                fk::UnaryDeviceFunction<fk::UnaryCast<IT, OT>> {},
-                                fk::WriteDeviceFunction<fk::TensorSplitWrite<OT>> {myTensor.ptr()});
+            h_input.ptr().data, h_input.ptr().dims.pitch,
+            h_input.ptr().dims.width * sizeof(IT),
+            h_input.ptr().dims.height,
+            cudaMemcpyHostToDevice, stream));
+        myTensor.update(stream, fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, IT>> {input.ptr(), { WIDTH, HEIGHT, 1 }},
+            fk::UnaryDeviceFunction<fk::UnaryCast<IT, OT>> {},
+            fk::WriteDeviceFunction<fk::TensorSplitWrite<OT>> {myTensor.ptr()});
         gpuErrchk(cudaStreamSynchronize(stream));
     }
 
@@ -272,7 +203,37 @@ int main() {
 
     gpuErrchk(cudaStreamSynchronize(stream));
 
-    //printTensor(h_myTensor);
+    bool correct = true;
+    for (uint z = 0; z < BATCH; z++) {
+        const TensorOT value = ITERS - z;
+        for (uint y = 0; y < HEIGHT; y++) {
+            for (uint x = 0; x < WIDTH; x++) {
+                const fk::Point p{x, y, z};
+                const TensorOT res = *fk::PtrAccessor<fk::_3D>::point(p, h_myTensor.ptr());
+                correct &= value == res;
+            }
+        }
+    }
+
+    return correct;
+}
+
+int main() {
+    if (testCircularBatchRead()) {
+        std::cout << "testCircularBatchRead OK" << std::endl;
+    } else {
+        std::cout << "testCircularBatchRead Failed!" << std::endl;
+    }
+    if (testDivergentBatch()) {
+        std::cout << "testDivergentBatch OK" << std::endl;
+    } else {
+        std::cout << "testDivergentBatch Failed!" << std::endl;
+    }
+    if (testCircularTensor<uchar3, float3>()) {
+        std::cout << "testCircularTensor<uchar3, float3> OK" << std::endl;
+    } else {
+        std::cout << "testCircularTensor<uchar3, float3> Failed!" << std::endl;
+    }
 
     return 0;
 }
