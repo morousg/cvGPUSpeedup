@@ -14,8 +14,8 @@
 
 #include <sstream>
 
-#include "testsCommon.h"
-#include <cvGPUSpeedup.h>
+#include "testsCommon.cuh"
+#include <cvGPUSpeedup.cuh>
 
 template <int I, int O>
 bool test_resize_write(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {

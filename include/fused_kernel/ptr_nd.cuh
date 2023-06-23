@@ -1,6 +1,9 @@
 #pragma once
 
+#include <array>
+
 #include "cuda_vector_utils.cuh"
+#include "parameter_pack_utils.cuh"
 
 namespace fk {
 
@@ -155,8 +158,8 @@ struct PtrAccessor;
 template <>
 struct PtrAccessor<_1D> {
     template <typename T>
-    FK_HOST_DEVICE_FUSE T*__restrict__ cr_point(const Point& p, const RawPtr<_1D, T>& ptr) {
-        return ptr.data + p.x;
+    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const Point& p, const RawPtr<_1D, T>& ptr) {
+        return (const T*)(ptr.data + p.x);
     }
 
     template <typename T>
@@ -181,7 +184,7 @@ struct PtrAccessor<_2D> {
 template <>
 struct PtrAccessor<_3D> {
     template <typename T>
-    FK_HOST_DEVICE_FUSE T*__restrict__ cr_point(const Point& p, const RawPtr<_3D, T>& ptr) {
+    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const Point& p, const RawPtr<_3D, T>& ptr) {
         return (const T*)((const char*)ptr.data + ((ptr.dims.plane_pitch * ptr.dims.color_planes * p.z) + (p.y * ptr.dims.pitch))) + p.x;
     }
 
@@ -239,16 +242,14 @@ struct PtrImpl<_2D,T> {
 template <typename T>
 struct PtrImpl<_3D,T> {
     FK_HOST_FUSE size_t sizeInBytes(const PtrDims<_3D>& dims) {
-        return dims.pitch * dims.height * dims.planes;
+        return dims.pitch * dims.height * dims.planes * dims.color_planes;
     }
     FK_HOST_FUSE uint getNumElements(const PtrDims<_3D>& dims) {
-        return dims.width * dims.height * dims.planes;
+        return dims.width * dims.height * dims.planes * dims.color_planes;
     }
     FK_HOST_FUSE void d_malloc(RawPtr<_3D,T>& ptr_a) {
         if (ptr_a.dims.pitch == 0) {
-            size_t pitch;
-            gpuErrchk(cudaMallocPitch(&ptr_a.data, &pitch, sizeof(T) * ptr_a.dims.width, ptr_a.dims.height * ptr_a.dims.planes));
-            ptr_a.dims.pitch = pitch;
+            throw std::exception(); // Not supported to have 2D pitch in a 3D pointer
         } else {
             gpuErrchk(cudaMalloc(&ptr_a.data, PtrImpl<_3D,T>::sizeInBytes(ptr_a.dims)));
         }
@@ -280,13 +281,6 @@ protected:
 
     __host__ inline constexpr Ptr(const RawPtr<D,T>& ptr_a_, RefPtr* ref_, const dim3& bs_, const MemType& type_, const int& devID) : 
                                   ptr_a(ptr_a_), ref(ref_), adjusted_blockSize(bs_), type(type_), deviceID(devID) {}
-
-    __host__ inline constexpr uint sizeInBytes() const {
-        return PtrImpl<D,T>::sizeInBytes(ptr_a.dims);
-    }
-    __host__ inline constexpr uint getNumElements() const {
-        return PtrImpl<D,T>::getNumElements(ptr_a.dims);
-    }
     
     __host__ inline constexpr void allocDevice() {
         int currentDevice;
@@ -410,6 +404,25 @@ public:
     __host__ inline constexpr int getDeviceID() const {
         return deviceID;
     }
+
+    __host__ inline constexpr uint sizeInBytes() const {
+        return PtrImpl<D, T>::sizeInBytes(ptr_a.dims);
+    }
+
+    __host__ inline constexpr uint getNumElements() const {
+        return PtrImpl<D, T>::getNumElements(ptr_a.dims);
+    }
+
+    __host__ inline constexpr void setTo(const T& val) {
+        if (type == MemType::Host || type == MemType::HostPinned) {
+            for (int i = 0; i < getNumElements(); i++) {
+                ptr_a.data[i] = val;
+            }
+        } else {
+            throw std::exception();
+        }
+        
+    }
 };
 
 template <typename T>
@@ -473,5 +486,4 @@ public:
                                                this->allocPtr(PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_);
     }
 };
-
 }

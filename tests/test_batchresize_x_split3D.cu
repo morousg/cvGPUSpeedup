@@ -14,8 +14,8 @@
 
 #include <sstream>
 
-#include "testsCommon.h"
-#include <cvGPUSpeedup.h>
+#include "testsCommon.cuh"
+#include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
 template <int CV_TYPE_I, int CV_TYPE_O, int CROPS>

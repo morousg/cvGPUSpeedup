@@ -1,5 +1,4 @@
 /* Copyright 2023 Oscar Amoros Huguet
-   Copyright 2023 David Del Rio Astorga
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -17,6 +16,7 @@
 #pragma once
 
 #include "cuda_utils.cuh"
+#include "type_lists.cuh"
 
 namespace fk {
 
@@ -47,38 +47,22 @@ namespace fk {
     VECTOR_TYPE(double)
 #undef VECTOR_TYPE
 
-    template <typename... Types>
-    struct TypeList {};
-
-    template<typename... Args1, typename... Args2, typename... Args3, typename... Args4>
-    struct TypeList<TypeList<Args1...>, TypeList<Args2...>, TypeList<Args3...>, TypeList<Args4...>> {
-        using type = TypeList<Args1..., Args2..., Args3..., Args4...>;
-    };
-
     using VOne   = TypeList<uchar1, char1, ushort1, short1, uint1, int1, ulong1, long1, ulonglong1, longlong1, float1, double1>;
     using VTwo   = TypeList<uchar2, char2, ushort2, short2, uint2, int2, ulong2, long2, ulonglong2, longlong2, float2, double2>;
     using VThree = TypeList<uchar3, char3, ushort3, short3, uint3, int3, ulong3, long3, ulonglong3, longlong3, float3, double3>;
     using VFour  = TypeList<uchar4, char4, ushort4, short4, uint4, int4, ulong4, long4, ulonglong4, longlong4, float4, double4>;
     using VAll   = typename TypeList<VOne, VTwo, VThree, VFour>::type;
 
-    template <typename... Args>
-    struct one_of_t {};
-
-    template <typename T, typename... U>
-    struct one_of_t<T, TypeList<U...>> {
-        enum { value = std::disjunction_v<std::is_same<T,U>...> };
-    };
-
     template <typename T>
-    constexpr bool validCUDAVec = one_of_t<T, VAll>::value;
+    constexpr bool validCUDAVec = one_of<T, VAll>::value;
 
     template <typename T>
     __host__ __device__ __forceinline__ constexpr int Channels() {
-        if constexpr (one_of_t<T, VOne>::value || !validCUDAVec<T>) {
+        if constexpr (one_of_v<T, VOne> || !validCUDAVec<T>) {
             return 1;
-        } else if constexpr (one_of_t<T, VTwo>::value) { 
+        } else if constexpr (one_of_v<T, VTwo>) { 
             return 2;
-        } else if constexpr (one_of_t<T, VThree>::value) { 
+        } else if constexpr (one_of_v<T, VThree>) { 
             return 3;
         } else {
             return 4;
@@ -154,6 +138,11 @@ namespace fk {
             return {static_cast<decltype(T::x)>(pack)...};
         }
     };
+
+    template <typename T, typename... Numbers>
+    FK_HOST_DEVICE_CNST T make_(const Numbers&... pack) {
+        return make::type<T>(pack...);
+    }
     
     template <typename T, typename Enabler=void>
     struct UnaryVectorSet;
@@ -210,22 +199,22 @@ namespace fk {
                 outs << val;
                 return outs;
             } else if constexpr (cn<T> == 1) {
-                outs << "{" << to_printable<decltype(T::x)>()(val.x) << "}";
+                outs << "{" << to_printable<decltype(T::x)>::exec(val.x) << "}";
                 return outs;
             } else if constexpr (cn<T> == 2) {
-                outs << "{" << to_printable<decltype(T::x)>()(val.x) <<
-                       ", " << to_printable<decltype(T::y)>()(val.y) << "}";
+                outs << "{" << to_printable<decltype(T::x)>::exec(val.x) <<
+                       ", " << to_printable<decltype(T::y)>::exec(val.y) << "}";
                 return outs;
             } else if constexpr (cn<T> == 3) {
-                outs << "{" << to_printable<decltype(T::x)>()(val.x) <<
-                       ", " << to_printable<decltype(T::y)>()(val.y) <<
-                       ", " << to_printable<decltype(T::z)>()(val.z) << "}";
+                outs << "{" << to_printable<decltype(T::x)>::exec(val.x) <<
+                       ", " << to_printable<decltype(T::y)>::exec(val.y) <<
+                       ", " << to_printable<decltype(T::z)>::exec(val.z) << "}";
                 return outs;
             } else {
-                 outs << "{" << to_printable<decltype(T::x)>()(val.x) <<
-                        ", " << to_printable<decltype(T::y)>()(val.y) <<
-                        ", " << to_printable<decltype(T::z)>()(val.z) <<
-                        ", " << to_printable<decltype(T::w)>()(val.w) << "}";
+                 outs << "{" << to_printable<decltype(T::x)>::exec(val.x) <<
+                        ", " << to_printable<decltype(T::y)>::exec(val.y) <<
+                        ", " << to_printable<decltype(T::z)>::exec(val.z) <<
+                        ", " << to_printable<decltype(T::w)>::exec(val.w) << "}";
                 return outs;
             }
         }
@@ -233,6 +222,6 @@ namespace fk {
 
     template <typename T> 
     __host__ inline constexpr typename std::enable_if_t<validCUDAVec<T>, std::ostream&> operator<<(std::ostream& outs, const T& val) {
-        return print_vector<T>()(outs, val);
+        return print_vector<T>::exec(outs, val);
     }
 }
