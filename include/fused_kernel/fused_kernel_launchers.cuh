@@ -54,7 +54,7 @@ namespace fk {
             m_tempTensor(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_) {};
 
         __host__ inline constexpr void Alloc(const uint& width_, const uint& height_, const int& deviceID_ = 0) {
-            allocTensor(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_);
+            this->allocTensor(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_);
             m_tempTensor.allocTensor(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_);
         }
 
@@ -75,17 +75,17 @@ namespace fk {
             equivalentReadDFType nonUpdateRead;
             nonUpdateRead.params.first = m_nextUpdateIdx;
             nonUpdateRead.params.params = m_tempTensor.ptr();
-            nonUpdateRead.activeThreads.x = ptr_a.dims.width;
-            nonUpdateRead.activeThreads.y = ptr_a.dims.height;
+            nonUpdateRead.activeThreads.x = this->ptr_a.dims.width;
+            nonUpdateRead.activeThreads.y = this->ptr_a.dims.height;
             nonUpdateRead.activeThreads.z = BATCH;
 
             const auto copyOps = buildOperationSequence(nonUpdateRead, writeOp);
 
-            dim3 grid((uint)ceil((float)ptr_a.dims.width / (float)adjusted_blockSize.x),
-                      (uint)ceil((float)ptr_a.dims.height / (float)adjusted_blockSize.y),
+            dim3 grid((uint)ceil((float)this->ptr_a.dims.width / (float)this->adjusted_blockSize.x),
+                      (uint)ceil((float)this->ptr_a.dims.height / (float)this->adjusted_blockSize.y),
                       BATCH);
 
-            cuda_transform_divergent_batch<OpSelectorType, BATCH> << <grid, adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
+            cuda_transform_divergent_batch<OpSelectorType, BATCH> << <grid, this->adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
            
             m_nextUpdateIdx = (m_nextUpdateIdx + 1) % BATCH;
             gpuErrchk(cudaGetLastError());
