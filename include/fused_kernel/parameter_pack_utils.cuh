@@ -37,22 +37,22 @@ namespace fk { // namespace fused kernel
     }
 
     // Struct to hold a parameter pack, and be able to pass it arround
-    template <typename... Args>
-    struct OperationSequence {
-        thrust::tuple<const Args...> args;
+    template <typename... DeviceFunctionTypes>
+    struct DeviceFunctionSequence {
+        thrust::tuple<const DeviceFunctionTypes...> deviceFunctions;
     };
 
     // Function that fills the OperationSequence struct, from a parameter pack
-    template <typename... operations>
-    FK_HOST_DEVICE_CNST auto buildOperationSequence(const operations&... ops) {
-        return OperationSequence<operations...> {{ops...}};
+    template <typename... DeviceFunctionTypes>
+    FK_HOST_DEVICE_CNST auto buildOperationSequence(const DeviceFunctionTypes&... deviceFunctionInstances) {
+        return DeviceFunctionSequence<DeviceFunctionTypes...> {{deviceFunctionInstances...}};
     }
 
-    template <typename... operations>
-    FK_HOST_DEVICE_CNST auto buildOperationSequence_tup(const thrust::tuple<operations...>& ops) {
+    template <typename... DeviceFunctionTypes>
+    FK_HOST_DEVICE_CNST auto buildOperationSequence_tup(const thrust::tuple<DeviceFunctionTypes...>& deviceFunctionInstances) {
         return fk::apply([](const auto&... args) { 
                             return buildOperationSequence(args...); 
-                         }, ops);
+                         }, deviceFunctionInstances);
     }
 
     // Util to get the last parameter of a parameter pack
