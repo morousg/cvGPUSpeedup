@@ -8,7 +8,7 @@ The goal is to allow programmers that are used to OpenCV, to very easily and int
 
 ## Fusion and inclusion
 
-The way the FusedKernel library is implemented, allows not only to use the already implemented Operations and data types like Ptr2D or Tensor, but alse the fusion can be performend using any code that conforms to the FusedKernel interface (the DeviceFunction structs and the operate function types) and those operations can use any data type that the user wants to use.
+The way the FusedKernel library is implemented, allows not only to use the already implemented Operations and data types like Ptr2D or Tensor, but also the fusion can be performend using any code that conforms to the FusedKernel interface (the DeviceFunction structs and the operate function types) and those operations can use any data type that the user wants to use.
 
 This was done in purpose to make it easier to join efforts with other libraries that already exist and are also OpenSource and want to take advantage of the FusedKernel strategy.
 
