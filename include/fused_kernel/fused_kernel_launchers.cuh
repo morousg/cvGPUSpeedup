@@ -62,7 +62,7 @@ namespace fk {
         __host__ inline constexpr void update(const cudaStream_t& stream, const Operations&... ops) {
             const auto writeOp = last(ops...);
             using writeDFType = std::decay_t<decltype(writeOp)>;
-            using writeOpType = typename writeDFType::Op;
+            using writeOpType = typename writeDFType::Operation;
             using equivalentReadDFType = EquivalentType_t<writeDFType, WriteDeviceFunctions, ReadDeviceFunctions>;
 
             MidWriteDeviceFunction<CircularTensorWrite<CircularDirection::Ascendent, writeOpType, BATCH>> updateWriteToTemp;
