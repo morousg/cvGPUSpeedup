@@ -15,7 +15,7 @@
 #include "fused_kernel.cuh"
 
 namespace fk {
-    struct OpSelectorType {
+    struct SequenceSelectorType {
         FK_HOST_DEVICE_FUSE uint at(const uint& index) {
             if (index > 0) return 2u;
             else return 1u;
@@ -58,18 +58,19 @@ namespace fk {
             m_tempTensor.allocTensor(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_);
         }
 
-        template <typename... Operations>
-        __host__ inline constexpr void update(const cudaStream_t& stream, const Operations&... ops) {
-            const auto writeOp = last(ops...);
-            using writeDFType = std::decay_t<decltype(writeOp)>;
-            using writeOpType = typename writeDFType::Op;
+        template <typename... DeviceFunctionTypes>
+        __host__ inline constexpr void update(const cudaStream_t& stream,
+                                              const DeviceFunctionTypes&... deviceFunctionInstances) {
+            const auto writeDeviceFunction = last(deviceFunctionInstances...);
+            using writeDFType = std::decay_t<decltype(writeDeviceFunction)>;
+            using writeOpType = typename writeDFType::Operation;
             using equivalentReadDFType = EquivalentType_t<writeDFType, WriteDeviceFunctions, ReadDeviceFunctions>;
 
             MidWriteDeviceFunction<CircularTensorWrite<CircularDirection::Ascendent, writeOpType, BATCH>> updateWriteToTemp;
             updateWriteToTemp.params.first = m_nextUpdateIdx;
             updateWriteToTemp.params.params = m_tempTensor.ptr();
 
-            const auto updateOps = buildOperationSequence_tup(insert_before_last(updateWriteToTemp, ops...));
+            const auto updateOps = buildOperationSequence_tup(insert_before_last(updateWriteToTemp, deviceFunctionInstances...));
 
             // Build copy pipeline
             equivalentReadDFType nonUpdateRead;
@@ -79,13 +80,13 @@ namespace fk {
             nonUpdateRead.activeThreads.y = this->ptr_a.dims.height;
             nonUpdateRead.activeThreads.z = BATCH;
 
-            const auto copyOps = buildOperationSequence(nonUpdateRead, writeOp);
+            const auto copyOps = buildOperationSequence(nonUpdateRead, writeDeviceFunction);
 
             dim3 grid((uint)ceil((float)this->ptr_a.dims.width / (float)this->adjusted_blockSize.x),
                       (uint)ceil((float)this->ptr_a.dims.height / (float)this->adjusted_blockSize.y),
                       BATCH);
 
-            cuda_transform_divergent_batch<OpSelectorType, BATCH> << <grid, this->adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
+            cuda_transform_divergent_batch<SequenceSelectorType, BATCH> << <grid, this->adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
            
             m_nextUpdateIdx = (m_nextUpdateIdx + 1) % BATCH;
             gpuErrchk(cudaGetLastError());
