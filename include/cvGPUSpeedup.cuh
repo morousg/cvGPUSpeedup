@@ -88,6 +88,11 @@ inline constexpr auto split(const cv::cuda::GpuMat& output, const cv::Size& plan
     return fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(O)>> {t_output};
 }
 
+template <int O>
+inline constexpr auto split(const fk::RawPtr<fk::_3D, typename fk::VectorTraits<CUDA_T(O)>::base>& output) {
+    return fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(O)>> {output};
+}
+
 template <int T, int INTER_F>
 inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
 
@@ -160,7 +165,7 @@ inline dim3 extractDataDims(const fk::ReadDeviceFunction<Operation>& op, const o
 }
 
 template <typename... operations>
-inline constexpr void executeOperations(cv::cuda::Stream& stream, const operations&... ops) {
+inline constexpr void executeOperations(const cv::cuda::Stream& stream, const operations&... ops) {
 
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
@@ -309,7 +314,7 @@ public:
     }
 
     inline constexpr CUDA_T(O)* data() {
-        return this->ptr_a().data;
+        return this->ptr_a.data;
     }
 };
 } // namespace cvGS
