@@ -13,7 +13,7 @@
    limitations under the License. */
 
 #include "testsCommon.cuh"
-#include <fused_kernel/fused_kernel_launchers.cuh>
+#include <cvGPUSpeedup.cuh>
 
 bool testCircularBatchRead() {
     constexpr int WIDTH = 32;
@@ -218,6 +218,61 @@ bool testCircularTensor() {
     return correct;
 }
 
+template <int IT, int OT>
+bool testCircularTensorcvGS() {
+    using TensorOT = typename fk::VectorTraits<CUDA_T(OT)>::base;
+    constexpr uint BATCH = 15;
+    constexpr uint WIDTH = 128;
+    constexpr uint HEIGHT = 128;
+    constexpr uint COLOR_PLANES = CV_MAT_CN(IT);
+    constexpr int ITERS = 100;
+
+    cvGS::CircularTensor<IT, CV_MAT_DEPTH(OT), COLOR_PLANES, BATCH> myTensor(WIDTH, HEIGHT);
+    fk::Tensor<TensorOT> h_myTensor(WIDTH, HEIGHT, BATCH, COLOR_PLANES, fk::MemType::HostPinned);
+    fk::Tensor<TensorOT> h_myTempTensor(WIDTH, HEIGHT, BATCH, COLOR_PLANES, fk::MemType::HostPinned);
+    cv::cuda::GpuMat input(HEIGHT, WIDTH, IT);
+    fk::Ptr2D<CUDA_T(IT)> h_input(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
+
+    h_myTensor.setTo(10.0f);
+
+    cudaStream_t stream;
+    gpuErrchk(cudaStreamCreate(&stream));
+    cv::cuda::Stream cv_stream = cv::cuda::StreamAccessor::wrapStream(stream);
+
+    gpuErrchk(cudaMemcpyAsync(myTensor.ptr().data, h_myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
+
+    for (int i = 0; i < ITERS; i++) {
+        h_input.setTo(fk::make_<CUDA_T(IT)>(i + 1, i + 1, i + 1));
+        gpuErrchk(cudaMemcpy2DAsync(input.data, input.step,
+            h_input.ptr().data, h_input.ptr().dims.pitch,
+            h_input.ptr().dims.width * sizeof(CUDA_T(IT)),
+            h_input.ptr().dims.height,
+            cudaMemcpyHostToDevice, stream));
+        myTensor.update(cv_stream, input,
+                        fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(IT), CUDA_T(OT)>> {},
+                        fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(OT)>> {myTensor.ptr()});
+        gpuErrchk(cudaStreamSynchronize(stream));
+    }
+
+    gpuErrchk(cudaMemcpyAsync(h_myTensor.ptr().data, myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
+
+    gpuErrchk(cudaStreamSynchronize(stream));
+
+    bool correct = true;
+    for (uint z = 0; z < BATCH; z++) {
+        const TensorOT value = ITERS - z;
+        for (uint y = 0; y < HEIGHT; y++) {
+            for (uint x = 0; x < WIDTH; x++) {
+                const fk::Point p{x, y, z};
+                const TensorOT res = *fk::PtrAccessor<fk::_3D>::point(p, h_myTensor.ptr());
+                correct &= value == res;
+            }
+        }
+    }
+
+    return correct;
+}
+
 int main() {
     if (testCircularBatchRead()) {
         std::cout << "testCircularBatchRead OK" << std::endl;
@@ -233,6 +288,11 @@ int main() {
         std::cout << "testCircularTensor<uchar3, float3> OK" << std::endl;
     } else {
         std::cout << "testCircularTensor<uchar3, float3> Failed!" << std::endl;
+    }
+    if (testCircularTensorcvGS<CV_8UC3, CV_32FC3>()) {
+        std::cout << "testCircularTensorcvGS<CV_8UC3, CV_32FC3> OK" << std::endl;
+    } else {
+        std::cout << "testCircularTensorcvGS<CV_8UC3, CV_32FC3> Failed!" << std::endl;
     }
 
     return 0;

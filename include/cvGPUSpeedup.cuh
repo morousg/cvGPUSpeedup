@@ -16,7 +16,7 @@
 
 #include <external/carotene/saturate_cast.hpp>
 #include <cvGPUSpeedupHelpers.cuh>
-#include <fused_kernel/fused_kernel.cuh>
+#include <fused_kernel/fused_kernel_launchers.cuh>
 #include <fused_kernel/ptr_nd.cuh>
 
 #include <opencv2/core.hpp>
@@ -86,6 +86,11 @@ inline constexpr auto split(const cv::cuda::GpuMat& output, const cv::Size& plan
     const fk::Tensor<BASE_CUDA_T(O)> t_output((BASE_CUDA_T(O)*)output.data, planeDims.width, planeDims.height, output.rows, CV_MAT_CN(O));
 
     return fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(O)>> {t_output};
+}
+
+template <int O>
+inline constexpr auto split(const fk::RawPtr<fk::_3D, typename fk::VectorTraits<CUDA_T(O)>::base>& output) {
+    return fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(O)>> {output};
 }
 
 template <int T, int INTER_F>
@@ -160,7 +165,7 @@ inline dim3 extractDataDims(const fk::ReadDeviceFunction<Operation>& op, const o
 }
 
 template <typename... operations>
-inline constexpr void executeOperations(cv::cuda::Stream& stream, const operations&... ops) {
+inline constexpr void executeOperations(const cv::cuda::Stream& stream, const operations&... ops) {
 
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
 
@@ -263,4 +268,53 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
     
     gpuErrchk(cudaGetLastError());
 }
+
+/* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License. */
+
+template <int I, int O, int COLOR_PLANES, int BATCH>
+class CircularTensor : public fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH> {
+public:
+    inline constexpr CircularTensor() {};
+
+    inline constexpr CircularTensor(const uint& width_, const uint& height_, const int& deviceID_ = 0) :
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH>(width_, height_, deviceID_) {};
+
+    inline constexpr void Alloc(const uint& width_, const uint& height_, const int& deviceID_ = 0) {
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH>::Alloc(width_, height_, deviceID_);
+    }
+
+    template <typename... DeviceFunctionTypes>
+    inline constexpr void update(const cv::cuda::Stream& stream, const cv::cuda::GpuMat& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH>::update(cv::cuda::StreamAccessor::getStream(stream),
+            const fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>{ { (CUDA_T(I)*)input.data, { static_cast<uint>(input.cols),
+                                                                                                             static_cast<uint>(input.rows),
+                                                                                                             static_cast<uint>(input.step)
+            }
+                },
+            { static_cast<uint>(input.cols), static_cast<uint>(input.rows), 1 }
+        },
+            deviceFunctionInstances...);
+    }
+
+    template <typename... DeviceFunctionTypes>
+    inline constexpr void update(const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctionInstances) {
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH>::update(cv::cuda::StreamAccessor::getStream(stream), deviceFunctionInstances...);
+    }
+
+    inline constexpr CUDA_T(O)* data() {
+        return this->ptr_a.data;
+    }
+};
 } // namespace cvGS
