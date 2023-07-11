@@ -23,3 +23,9 @@ Now, same functionality but with cvGPUSpeedup and kernel execution being 38x tim
 ![alt text](https://github.com/morousg/cvGPUSpeedup/blob/2e9bfb1410c7dd8fb1bc4de279466637881b8843/cvGPUSpeedupVersion.png)
 
 The cvGPUSpeedup version, will do the same, but with a single CUDA kernel, and execute up to 38x times faster, for 50 crops of an image.
+
+# cvGPUSpeedup at Mediapro
+
+We used cvGPUSpeedup at AutomaticTV (Mediapro) for the preprocessing of Deep Neural Networks, and we obtained speedups of up to 167x compared to OpenCV-CUDA. At AutomaticTV we are developing DL networks and will continue to add functionality to cvGPUSPeedup.
+
+If you are interested in investing in cvGPUSpeedup for your own usage, please contact us at oamoros@mediapro.tv
