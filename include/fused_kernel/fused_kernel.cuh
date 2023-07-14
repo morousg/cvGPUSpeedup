@@ -105,29 +105,29 @@ __global__ void cuda_transform(const DeviceFunctionTypes... deviceFunctionInstan
     cuda_transform_d(deviceFunctionInstances...);
 }
 
-template <typename SequenceSelector, int BATCH, int OpSequenceNumber, typename ReadOperation, typename... DeviceFunctionTypes>
+template <typename SequenceSelector, int OpSequenceNumber, typename ReadOperation, typename... DeviceFunctionTypes>
 __device__ __forceinline__ constexpr void divergent_operate(const uint& z,
                                                             const DeviceFunctionSequence<ReadDeviceFunction<ReadOperation>, DeviceFunctionTypes...>& dfSeq) {
     // If the threads with this z, arrived here, we assume they have to execute this operation sequence
     fk::apply(cuda_transform_d<ReadOperation, DeviceFunctionTypes...>, dfSeq.deviceFunctions);
 }
 
-template <typename SequenceSelector, int BATCH, int OpSequenceNumber, typename ReadOperation, typename... DeviceFunctionTypes, typename... DeviceFunctionSequenceTypes>
+template <typename SequenceSelector, int OpSequenceNumber, typename ReadOperation, typename... DeviceFunctionTypes, typename... DeviceFunctionSequenceTypes>
 __device__ __forceinline__ constexpr void divergent_operate(const uint& z,
                                                             const DeviceFunctionSequence<ReadDeviceFunction<ReadOperation>, DeviceFunctionTypes...>& dfSeq,
                                                             const DeviceFunctionSequenceTypes&... dfSequenceInstances) {
     if (OpSequenceNumber == SequenceSelector::at(z)) {
         fk::apply(cuda_transform_d<ReadOperation, DeviceFunctionTypes...>, dfSeq.deviceFunctions);
     } else {
-        divergent_operate<SequenceSelector, BATCH, OpSequenceNumber + 1>(z, dfSequenceInstances...);
+        divergent_operate<SequenceSelector, OpSequenceNumber + 1>(z, dfSequenceInstances...);
     }
 }
 
-template <typename SequenceSelector, int BATCH, typename... DeviceFunctionSequenceTypes>
+template <typename SequenceSelector, typename... DeviceFunctionSequenceTypes>
 __global__ void cuda_transform_divergent_batch(const DeviceFunctionSequenceTypes... dfSequenceInstances) {
     const cg::thread_block g = cg::this_thread_block();
     const uint z = g.group_index().z;
-    divergent_operate<SequenceSelector, BATCH, 1>(z, dfSequenceInstances...);
+    divergent_operate<SequenceSelector, 1>(z, dfSequenceInstances...);
 }
 
 /* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)

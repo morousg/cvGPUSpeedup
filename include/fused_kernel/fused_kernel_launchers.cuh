@@ -86,7 +86,7 @@ namespace fk {
                       (uint)ceil((float)this->ptr_a.dims.height / (float)this->adjusted_blockSize.y),
                       BATCH);
 
-            cuda_transform_divergent_batch<SequenceSelectorType, BATCH> << <grid, this->adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
+            cuda_transform_divergent_batch<SequenceSelectorType> << <grid, this->adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
            
             m_nextUpdateIdx = (m_nextUpdateIdx + 1) % BATCH;
             gpuErrchk(cudaGetLastError());
