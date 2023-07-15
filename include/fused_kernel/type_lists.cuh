@@ -129,9 +129,10 @@ namespace fk { // namespace fused kernel
         T at[SIZE];
     };
 
-    template <typename T, int BATCH, typename... Vals>
-    FK_HOST_DEVICE_CNST Array<T, BATCH> make_array(Vals... pars) {
-        static_assert(sizeof...(Vals) == BATCH, "Too many or too few elements for the array size.");
+    template <typename T, int BATCH, typename... Types>
+    FK_HOST_DEVICE_CNST Array<T, BATCH> make_array(Types... pars) {
+        static_assert(sizeof...(Types) == BATCH, "Too many or too few elements for the array size.");
+        static_assert(std::disjunction_v<std::is_same<T, Types>...>, "All the types should be the same");
         return { {pars...} };
     }
 
