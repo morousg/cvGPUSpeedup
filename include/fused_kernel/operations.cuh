@@ -61,7 +61,7 @@ struct BinaryVectorReorder {
         static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: UnaryVectorReorder");
         static_assert(Channels<T>() >= 2, "Minimum number of channels is 2: UnaryVectorReorder");
         using baseType = typename VectorTraits<T>::base;
-        baseType* temp = (baseType*)&input; 
+        const baseType* const temp = (baseType*)&input; 
         if constexpr (Channels<T>() == 2) {
             return {temp[idx.x], temp[idx.y]};
         } else if constexpr (Channels<T>() == 3) {
