@@ -113,7 +113,7 @@ bool test_batchresize_x_split3D_OCVBatch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::c
             // cvGPUSpeedup version
             if constexpr (CV_MAT_CN(CV_TYPE_O) == 3 && correctDept) {
                 cvGS::executeOperations(cv_stream,
-                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
+                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS, false>(crops, up, CROPS, fk::make_set<CUDA_T(CV_TYPE_I)>(0u)),
                                         cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
                                         cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGB2BGR>(),
                                         cvGS::multiply<CV_TYPE_O>(val_alpha),
@@ -122,7 +122,7 @@ bool test_batchresize_x_split3D_OCVBatch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::c
                                         cvGS::split<CV_TYPE_O>(d_tensor_output, up));
             } else if constexpr (CV_MAT_CN(CV_TYPE_O) == 4 && correctDept) {
                 cvGS::executeOperations(cv_stream,
-                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
+                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS, false>(crops, up, CROPS, fk::make_set<CUDA_T(CV_TYPE_I)>(0u)),
                                         cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
                                         cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGBA2BGRA>(),
                                         cvGS::multiply<CV_TYPE_O>(val_alpha),
@@ -131,7 +131,7 @@ bool test_batchresize_x_split3D_OCVBatch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::c
                                         cvGS::split<CV_TYPE_O>(d_tensor_output, up));
             } else {
                 cvGS::executeOperations(cv_stream,
-                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
+                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS, false>(crops, up, CROPS, fk::make_set<CUDA_T(CV_TYPE_I)>(0u)),
                                         cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
                                         cvGS::multiply<CV_TYPE_O>(val_alpha),
                                         cvGS::subtract<CV_TYPE_O>(val_sub),
@@ -289,7 +289,7 @@ bool test_batchresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stre
             // cvGPUSpeedup
             if constexpr (CV_MAT_CN(CV_TYPE_I) == 3 && correctDept) {
                 cvGS::executeOperations(cv_stream,
-                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
+                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS, false>(crops, up, CROPS, fk::make_set<CUDA_T(CV_TYPE_I)>(0u)),
                                         cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
                                         cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGB2BGR>(),
                                         cvGS::multiply<CV_TYPE_O>(val_alpha),
@@ -298,7 +298,7 @@ bool test_batchresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stre
                                         cvGS::split<CV_TYPE_O>(d_tensor_output, up));
             } else if constexpr (CV_MAT_CN(CV_TYPE_I) == 4 && correctDept) {
                 cvGS::executeOperations(cv_stream,
-                                       cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
+                                       cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS, false>(crops, up, CROPS, fk::make_set<CUDA_T(CV_TYPE_I)>(0u)),
                                        cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
                                        cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGBA2BGRA>(),
                                        cvGS::multiply<CV_TYPE_O>(val_alpha),
@@ -307,7 +307,7 @@ bool test_batchresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stre
                                        cvGS::split<CV_TYPE_O>(d_tensor_output, up));
             } else {
                 cvGS::executeOperations(cv_stream,
-                                       cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS>(crops, up, CROPS),
+                                       cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS, false>(crops, up, CROPS, fk::make_set<CUDA_T(CV_TYPE_I)>(0u)),
                                        cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
                                        cvGS::multiply<CV_TYPE_O>(val_alpha),
                                        cvGS::subtract<CV_TYPE_O>(val_sub),

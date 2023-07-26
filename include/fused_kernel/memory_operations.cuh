@@ -332,6 +332,27 @@ struct InterpolateParams {
     float fy;
 };
 
+template <typename Operation>
+struct AspectRatioParams {
+    typename Operation::ParamsType params;
+    int width;
+    int height;
+    typename Operation::Type defaultValue;
+};
+
+template <typename Operation>
+struct AspectRatio {
+    static __device__ __forceinline__ const typename Operation::Type exec(const Point& thread, const AspectRatioParams<Operation>& params) {
+        if( thread.x < params.width && thread.y < params.height){
+            return Operation::exec(thread, params.params);
+        } else {
+            return params.defaultValue;
+        }   
+    }
+    using Type = typename Operation::Type;
+    using ParamsType = AspectRatioParams<Operation>;
+};
+
 template <typename I, InterpolationType INTER_T>
 struct InterpolateRead;
 
