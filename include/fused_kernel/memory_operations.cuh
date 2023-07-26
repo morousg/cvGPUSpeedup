@@ -170,6 +170,7 @@ struct BatchWrite {
 /* The following code has the following copy right
  
    Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huget)
+   Copyright 2023 Mediaproduccion S.L.U. (Guillermo Oyarzun Altamirano)
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -244,6 +245,28 @@ struct CircularTensorWrite {
     }
     using Type = typename Operation::Type;
     using ParamsType = CircularMemoryParams<typename Operation::ParamsType>;
+};
+
+template <typename Operation>
+struct ComputeOrDefaultParams {
+    typename Operation::ParamsType params;
+    int width;
+    int height;
+    typename Operation::Type defaultValue;
+};
+
+template <typename Operation>
+struct ComputeOrDefault {
+    static __device__ __forceinline__ const typename Operation::Type exec(const Point& thread, const ComputeOrDefaultParams<Operation>& params) {
+        if (thread.x < params.width && thread.y < params.height) {
+            return Operation::exec(thread, params.params);
+        }
+        else {
+            return params.defaultValue;
+        }
+    }
+    using Type = typename Operation::Type;
+    using ParamsType = ComputeOrDefaultParams<Operation>;
 };
 
 // The following code is a modification of the OpenCV file resize.cu
@@ -330,27 +353,6 @@ struct InterpolateParams {
     RawPtr<_2D,I> ptr;
     float fx;
     float fy;
-};
-
-template <typename Operation>
-struct AspectRatioParams {
-    typename Operation::ParamsType params;
-    int width;
-    int height;
-    typename Operation::Type defaultValue;
-};
-
-template <typename Operation>
-struct AspectRatio {
-    static __device__ __forceinline__ const typename Operation::Type exec(const Point& thread, const AspectRatioParams<Operation>& params) {
-        if( thread.x < params.width && thread.y < params.height){
-            return Operation::exec(thread, params.params);
-        } else {
-            return params.defaultValue;
-        }   
-    }
-    using Type = typename Operation::Type;
-    using ParamsType = AspectRatioParams<Operation>;
 };
 
 template <typename I, InterpolationType INTER_T>

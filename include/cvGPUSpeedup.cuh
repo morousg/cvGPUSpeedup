@@ -24,6 +24,8 @@
 
 namespace cvGS {
 
+enum AspectRatio { PRESERVE_AR, IGNORE_AR };
+
 template <int I, int O>
 inline constexpr auto convertTo() {
 
@@ -114,12 +116,12 @@ inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, d
     }
 }
 
-template <int T, int INTER_F, int NPtr, bool PreserveAR>
+template <int T, int INTER_F, int NPtr, AspectRatio AR = IGNORE_AR>
 inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int usedPlanes, CUDA_T(T) backgroundValue = fk::make_set<CUDA_T(T)>(0)) {
 
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
-    if constexpr (PreserveAR) {
-        fk::ReadDeviceFunction<fk::BatchRead<fk::AspectRatio<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>>, NPtr>> resizeArray;
+    if constexpr (AR == PRESERVE_AR) {
+        fk::ReadDeviceFunction<fk::BatchRead<fk::ComputeOrDefault<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>>, NPtr>> resizeArray;
         resizeArray.activeThreads.x = dsize.width;
         resizeArray.activeThreads.y = dsize.height;
         resizeArray.activeThreads.z = usedPlanes;
