@@ -115,7 +115,7 @@ inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, d
 }
 
 template <int T, int INTER_F, int NPtr, bool PreserveAR>
-inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int usedPlanes, CUDA_T(T) backgroundValue) {
+inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int usedPlanes, CUDA_T(T) backgroundValue = fk::make_set<CUDA_T(T)>(0)) {
 
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
     if constexpr (PreserveAR) {
