@@ -24,7 +24,7 @@
 
 namespace cvGS {
 
-enum AspectRatio { PRESERVE_AR, IGNORE_AR };
+enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1 };
 
 template <int I, int O>
 inline constexpr auto convertTo() {
@@ -117,58 +117,53 @@ inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, d
 }
 
 template <int T, int INTER_F, int NPtr, AspectRatio AR = IGNORE_AR>
-inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int usedPlanes, CUDA_T(T) backgroundValue = fk::make_set<CUDA_T(T)>(0)) {
+inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int& usedPlanes, const CUDA_T(T)& backgroundValue = fk::make_set<CUDA_T(T)>(0)) {
+    using ResizeArrayIgnoreType = fk::ReadDeviceFunction<fk::BatchRead<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>, NPtr>>;
+    using ResizeArrayPreserveType = fk::ReadDeviceFunction<fk::BatchRead<fk::ComputeOrDefault<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>>, NPtr>>;
+    using ResizeArrayType = fk::TypeAt_t<AR, fk::TypeList<ResizeArrayPreserveType, ResizeArrayIgnoreType>>;
 
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
-    if constexpr (AR == PRESERVE_AR) {
-        fk::ReadDeviceFunction<fk::BatchRead<fk::ComputeOrDefault<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>>, NPtr>> resizeArray;
-        resizeArray.activeThreads.x = dsize.width;
-        resizeArray.activeThreads.y = dsize.height;
-        resizeArray.activeThreads.z = usedPlanes;
+    
+    ResizeArrayType resizeArray;
+    // dsize is the size of the destination pointer, for each image
+    resizeArray.activeThreads.x = dsize.width;
+    resizeArray.activeThreads.y = dsize.height;
+    resizeArray.activeThreads.z = usedPlanes;
 
-        for (int i=0; i<usedPlanes; i++) {
-            // So far we only support fk::INTER_LINEAR
-            fk::PtrDims<fk::_2D> dims;
-            dims.width = (uint)input[i].cols;
-            dims.height = (uint)input[i].rows;
-            dims.pitch = (uint)input[i].step;
+    for (int i=0; i<usedPlanes; i++) {
+        // So far we only support fk::INTER_LINEAR
+        fk::PtrDims<fk::_2D> dims;
+        dims.width = (uint)input[i].cols;
+        dims.height = (uint)input[i].rows;
+        dims.pitch = (uint)input[i].step;
+
+        // targetWidth and targetHieght are the dimensions for the resized image
+        int targetWidth, targetHeight;
+        fk::InterpolateParams<CUDA_T(T)>* interParams;
+        if constexpr (AR == PRESERVE_AR) {
             float scaleFactor = dsize.height / (float)dims.height;
-            int newHeight = dsize.height;
-            int newWidth = static_cast<int> (scaleFactor*dims.width);
-            if (newWidth > dsize.width){
-                scaleFactor = dsize.width / (float) dims.width;
-                newWidth = dsize.width;
-                newHeight =  static_cast<int> (scaleFactor*dims.height);
+            targetHeight = dsize.height;
+            targetWidth = static_cast<int> (scaleFactor * dims.width);
+            if (targetWidth > dsize.width) {
+                scaleFactor = dsize.width / (float)dims.width;
+                targetWidth = dsize.width;
+                targetHeight = static_cast<int> (scaleFactor * dims.height);
             }
-            resizeArray.params[i].params.ptr = {(CUDA_T(T)*)input[i].data, dims};
-            resizeArray.params[i].params.fx = static_cast<float>(1.0 / (static_cast<double>(newWidth) / (double)input[i].cols));
-            resizeArray.params[i].params.fy = static_cast<float>(1.0 / (static_cast<double>(newHeight) / (double)input[i].rows));
-            resizeArray.params[i].width  = newWidth;
-            resizeArray.params[i].height = newHeight;
+            resizeArray.params[i].width = targetWidth;
+            resizeArray.params[i].height = targetHeight;
             resizeArray.params[i].defaultValue = backgroundValue;
+            interParams = &resizeArray.params[i].params;
+        } else {
+            targetWidth = dsize.width;
+            targetHeight = dsize.height;
+            interParams = &resizeArray.params[i];
         }
-
-        return resizeArray;
-
-    } else {
-        fk::ReadDeviceFunction<fk::BatchRead<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>, NPtr>> resizeArray;
-        resizeArray.activeThreads.x = dsize.width;
-        resizeArray.activeThreads.y = dsize.height;
-        resizeArray.activeThreads.z = usedPlanes;
-
-        for (int i=0; i<usedPlanes; i++) {
-            // So far we only support fk::INTER_LINEAR
-            fk::PtrDims<fk::_2D> dims;
-            dims.width = (uint)input[i].cols;
-            dims.height = (uint)input[i].rows;
-            dims.pitch = (uint)input[i].step;
-            resizeArray.params[i].ptr = {(CUDA_T(T)*)input[i].data, dims};
-            resizeArray.params[i].fx = static_cast<float>(1.0 / (static_cast<double>(dsize.width) / input[i].cols));
-            resizeArray.params[i].fy = static_cast<float>(1.0 / (static_cast<double>(dsize.height) / input[i].rows));
+        interParams->ptr = {(CUDA_T(T)*)input[i].data, dims};
+        interParams->fx = static_cast<float>(1.0 / (static_cast<double>(targetWidth) / (double)input[i].cols));
+        interParams->fy = static_cast<float>(1.0 / (static_cast<double>(targetHeight) / (double)input[i].rows));
     }
 
     return resizeArray;
-    }
 }
 
 template <int O>
