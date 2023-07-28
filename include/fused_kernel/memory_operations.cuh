@@ -250,16 +250,17 @@ struct CircularTensorWrite {
 template <typename Operation>
 struct ComputeOrDefaultParams {
     typename Operation::ParamsType params;
-    int width;
-    int height;
+	int x1, y1;
+	int x2, y2;
     typename Operation::Type defaultValue;
 };
 
 template <typename Operation>
 struct ComputeOrDefault {
     static __device__ __forceinline__ const typename Operation::Type exec(const Point& thread, const ComputeOrDefaultParams<Operation>& params) {
-        if (thread.x < params.width && thread.y < params.height) {
-            return Operation::exec(thread, params.params);
+        if (thread.x >= params.x1  && thread.x <= params.x2 && thread.y >= params.y1 && thread.y <= params.y2) {
+			const Point roiThread(thread.x - params.x1, thread.y - params.y1, thread.z);
+            return Operation::exec(roiThread, params.params);
         }
         else {
             return params.defaultValue;
