@@ -119,7 +119,7 @@ inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, d
 template <int T, int INTER_F, int NPtr, AspectRatio AR = IGNORE_AR>
 inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int& usedPlanes, const CUDA_T(T)& backgroundValue = fk::make_set<CUDA_T(T)>(0)) {
     using ResizeArrayIgnoreType = fk::ReadDeviceFunction<fk::BatchRead<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>, NPtr>>;
-    using ResizeArrayPreserveType = fk::ReadDeviceFunction<fk::BatchRead<fk::ComputeOrDefault<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>>, NPtr>>;
+    using ResizeArrayPreserveType = fk::ReadDeviceFunction<fk::BatchRead<fk::ApplyROI<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>, fk::OFFSET_THREADS>, NPtr>>;
     using ResizeArrayType = fk::TypeAt_t<AR, fk::TypeList<ResizeArrayPreserveType, ResizeArrayIgnoreType>>;
 
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");

@@ -247,27 +247,33 @@ struct CircularTensorWrite {
     using ParamsType = CircularMemoryParams<typename Operation::ParamsType>;
 };
 
-template <typename Operation>
-struct ComputeOrDefaultParams {
-    typename Operation::ParamsType params;
-	int x1, y1;
-	int x2, y2;
-    typename Operation::Type defaultValue;
-};
+enum ROI { OFFSET_THREADS, KEEP_THREAD_IDX };
 
 template <typename Operation>
-struct ComputeOrDefault {
-    static __device__ __forceinline__ const typename Operation::Type exec(const Point& thread, const ComputeOrDefaultParams<Operation>& params) {
+struct ApplyROIParams {
+	int x1, y1; // Top left
+	int x2, y2; // Bottom right
+    typename Operation::Type defaultValue;
+    typename Operation::ParamsType params;
+};
+
+template <typename Operation, ROI USE>
+struct ApplyROI {
+    static __device__ __forceinline__ const typename Operation::Type exec(const Point& thread, const ApplyROIParams<Operation>& params) {
         if (thread.x >= params.x1  && thread.x <= params.x2 && thread.y >= params.y1 && thread.y <= params.y2) {
-			const Point roiThread(thread.x - params.x1, thread.y - params.y1, thread.z);
-            return Operation::exec(roiThread, params.params);
-        }
-        else {
+            if constexpr (USE == OFFSET_THREADS) {
+                const Point roiThread(thread.x - params.x1, thread.y - params.y1, thread.z);
+                return Operation::exec(roiThread, params.params);
+            } else {
+                return Operation::exec(thread, params.params);
+            }
+        } else {
             return params.defaultValue;
         }
     }
+
     using Type = typename Operation::Type;
-    using ParamsType = ComputeOrDefaultParams<Operation>;
+    using ParamsType = ApplyROIParams<Operation>;
 };
 
 // The following code is a modification of the OpenCV file resize.cu
