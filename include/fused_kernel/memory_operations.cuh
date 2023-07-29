@@ -251,8 +251,8 @@ enum ROI { OFFSET_THREADS, KEEP_THREAD_IDX };
 
 template <typename Operation>
 struct ApplyROIParams {
-	int x1, y1; // Top left
-	int x2, y2; // Bottom right
+    int x1, y1; // Top left
+    int x2, y2; // Bottom right
     typename Operation::Type defaultValue;
     typename Operation::ParamsType params;
 };
