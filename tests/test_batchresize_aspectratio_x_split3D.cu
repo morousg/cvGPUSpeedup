@@ -100,7 +100,10 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
             
             // OpenCV version
             for (int crop_i=0; crop_i<CROPS; crop_i++) {
-                cv::cuda::GpuMat d_auxUp(newHeight, newWidth, CV_TYPE_I, d_up.data, d_up.step);
+                const int xOffset = (up.width - upAspectRatio.width) / 2;
+                const int yOffset = (up.height - upAspectRatio.height) / 2;
+                uchar* data = (uchar*)((CUDA_T(CV_TYPE_I)*)(d_up.data + (yOffset * d_up.step)) + xOffset);
+                cv::cuda::GpuMat d_auxUp(newHeight, newWidth, CV_TYPE_I, data, d_up.step);
                 cv::cuda::resize(crops[crop_i], d_auxUp, upAspectRatio, 0., 0., cv::INTER_LINEAR, cv_stream);
                
                 d_up.convertTo(d_temp, CV_TYPE_O, alpha, cv_stream);

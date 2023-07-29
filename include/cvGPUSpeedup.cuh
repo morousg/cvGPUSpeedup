@@ -119,7 +119,7 @@ inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, d
 template <int T, int INTER_F, int NPtr, AspectRatio AR = IGNORE_AR>
 inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int& usedPlanes, const CUDA_T(T)& backgroundValue = fk::make_set<CUDA_T(T)>(0)) {
     using ResizeArrayIgnoreType = fk::ReadDeviceFunction<fk::BatchRead<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>, NPtr>>;
-    using ResizeArrayPreserveType = fk::ReadDeviceFunction<fk::BatchRead<fk::ComputeOrDefault<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>>, NPtr>>;
+    using ResizeArrayPreserveType = fk::ReadDeviceFunction<fk::BatchRead<fk::ApplyROI<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>, fk::OFFSET_THREADS>, NPtr>>;
     using ResizeArrayType = fk::TypeAt_t<AR, fk::TypeList<ResizeArrayPreserveType, ResizeArrayIgnoreType>>;
 
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
@@ -137,7 +137,7 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const 
         dims.height = (uint)input[i].rows;
         dims.pitch = (uint)input[i].step;
 
-        // targetWidth and targetHieght are the dimensions for the resized image
+        // targetWidth and targetHeight are the dimensions for the resized image
         int targetWidth, targetHeight;
         fk::InterpolateParams<CUDA_T(T)>* interParams;
         if constexpr (AR == PRESERVE_AR) {
@@ -149,8 +149,11 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const 
                 targetWidth = dsize.width;
                 targetHeight = static_cast<int> (scaleFactor * dims.height);
             }
-            resizeArray.params[i].width = targetWidth;
-            resizeArray.params[i].height = targetHeight;
+			resizeArray.activeThreads.z = NPtr;
+			resizeArray.params[i].x1 = (dsize.width - targetWidth) / 2;
+			resizeArray.params[i].x2 = resizeArray.params[i].x1 + targetWidth - 1;
+			resizeArray.params[i].y1 = (dsize.height - targetHeight) / 2;
+			resizeArray.params[i].y2 = resizeArray.params[i].y1 + targetHeight - 1;
             resizeArray.params[i].defaultValue = backgroundValue;
             interParams = &resizeArray.params[i].params;
         } else {
@@ -163,6 +166,15 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const 
         interParams->fy = static_cast<float>(1.0 / (static_cast<double>(targetHeight) / (double)input[i].rows));
     }
 
+	if constexpr (AR == PRESERVE_AR) {
+		for (int i = usedPlanes; i < NPtr; i++) {
+			resizeArray.params[i].x1 = -1;
+			resizeArray.params[i].x2 = -1;
+			resizeArray.params[i].y1 = -1;
+			resizeArray.params[i].y2 = -1;
+			resizeArray.params[i].defaultValue = backgroundValue;
+		}
+	}
     return resizeArray;
 }
 
