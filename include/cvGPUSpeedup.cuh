@@ -54,24 +54,24 @@ inline constexpr auto convertTo() {
 
 template <int I>
 inline constexpr auto multiply(const cv::Scalar& src2) {
-    return fk::BinaryDeviceFunction<fk::BinaryMul<CUDA_T(I)>> { internal::cvScalar2CUDAV<I>::get(src2) };
+    return fk::BinaryDeviceFunction<fk::BinaryMul<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
 template <int I>
 inline constexpr auto subtract(const cv::Scalar& src2) {
 
-    return fk::BinaryDeviceFunction<fk::BinarySub<CUDA_T(I)>> { internal::cvScalar2CUDAV<I>::get(src2) };
+    return fk::BinaryDeviceFunction<fk::BinarySub<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
 template <int I>
 inline constexpr auto divide(const cv::Scalar& src2) {
-    return fk::BinaryDeviceFunction<fk::BinaryDiv<CUDA_T(I)>> { internal::cvScalar2CUDAV<I>::get(src2) };
+    return fk::BinaryDeviceFunction<fk::BinaryDiv<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
 template <int I>
 inline constexpr auto add(const cv::Scalar& src2) {
 
-    return fk::BinaryDeviceFunction<fk::BinarySum<CUDA_T(I)>> { internal::cvScalar2CUDAV<I>::get(src2) };
+    return fk::BinaryDeviceFunction<fk::BinarySum<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
 template <int T, cv::ColorConversionCodes CODE>
@@ -118,12 +118,12 @@ inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, d
 }
 
 template <int T, int INTER_F, int NPtr, AspectRatio AR = IGNORE_AR>
-inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int& usedPlanes, const CUDA_T(T)& backgroundValue = fk::make_set<CUDA_T(T)>(0)) {
+inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int& usedPlanes, const cv::Scalar& backgroundValue = cvScalar_set<T>(0)) {
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
     const std::array<fk::Ptr2D<CUDA_T(T)>, NPtr> fk_input{ gpuMat2Ptr2D<CUDA_T(T)>(input) };
     const fk::Size dSize{dsize.width, dsize.height};
-    return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr, (fk::AspectRatio)AR>(fk_input, dSize, usedPlanes, backgroundValue);
+    return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr, (fk::AspectRatio)AR>(fk_input, dSize, usedPlanes, cvScalar2CUDAV<T>::get(backgroundValue));
 }
 
 template <int O>
