@@ -21,6 +21,11 @@
 
 namespace fk {
 
+struct Size {
+    int width;
+    int height;
+};
+
 struct Point {
     uint x;
     uint y;
@@ -456,6 +461,7 @@ public:
 template <typename T>
 class Ptr2D : public Ptr<_2D, T> {
 public:
+    __host__ inline constexpr Ptr2D() {}
     __host__ inline constexpr Ptr2D(const uint& width_, const uint& height_, const uint& pitch_ = 0, const MemType& type_ = Device, const int& deviceID_ = 0) : 
                                     Ptr<_2D, T>(PtrDims<_2D>(width_, height_, pitch_), type_, deviceID_) {}
 

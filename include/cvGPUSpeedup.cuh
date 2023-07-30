@@ -17,10 +17,12 @@
 #include <external/carotene/saturate_cast.hpp>
 #include <cvGPUSpeedupHelpers.cuh>
 #include <fused_kernel/fused_kernel_launchers.cuh>
-#include <fused_kernel/ptr_nd.cuh>
+#include <fused_kernel/device_function_builders.cuh>
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>
+
+#include <algorithm>
 
 namespace cvGS {
 
@@ -58,7 +60,6 @@ inline constexpr auto add(const cv::Scalar& src2) {
 
 template <int T, cv::ColorConversionCodes CODE>
 inline constexpr auto cvtColor() {
-
     // So far, we only support reordering channels
     static_assert(isSupportedColorConversion<CODE>, "Color conversion type not supported yet.");
     if constexpr (CODE == cv::COLOR_BGR2RGB || CODE == cv::COLOR_RGB2BGR) {
@@ -70,7 +71,6 @@ inline constexpr auto cvtColor() {
 
 template <int O>
 inline constexpr auto split(const std::vector<cv::cuda::GpuMat>& output) {
-
     std::vector<fk::Ptr2D<BASE_CUDA_T(O)>> fk_output;
     for (auto& mat : output) {
         const fk::Ptr2D<BASE_CUDA_T(O)> o_ptr((BASE_CUDA_T(O)*)mat.data, mat.cols, mat.rows, mat.step);
@@ -81,7 +81,6 @@ inline constexpr auto split(const std::vector<cv::cuda::GpuMat>& output) {
 
 template <int O>
 inline constexpr auto split(const cv::cuda::GpuMat& output, const cv::Size& planeDims) {
-
     assert(output.cols % (planeDims.width * planeDims.height) == 0 && output.cols / (planeDims.width * planeDims.height) == CV_MAT_CN(O) &&
     "Each row of the GpuMap should contain as many planes as width / (planeDims.width * planeDims.height)");
 
@@ -97,85 +96,30 @@ inline constexpr auto split(const fk::RawPtr<fk::_3D, typename fk::VectorTraits<
 
 template <int T, int INTER_F>
 inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
-
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
     const fk::RawPtr<fk::_2D, CUDA_T(T)> fk_input = 
     {(CUDA_T(T)*)input.data, {(uint)input.cols, (uint)input.rows, (uint)input.step}};
 
-    if (dsize != cv::Size()) {
-        fx = static_cast<double>(dsize.width) / input.cols;
-        fy = static_cast<double>(dsize.height) / input.rows;
-        return fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>>
-                {{fk_input, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy)}, {(uint)dsize.width, (uint)dsize.height}};
-    } else {
-        return fk::ReadDeviceFunction<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>>
-                {{fk_input, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy)},
-                 {CAROTENE_NS::internal::saturate_cast<uint>(input.cols * fx),
-                  CAROTENE_NS::internal::saturate_cast<uint>(input.rows * fy)}};
-    }
+    const fk::Size dSize{dsize.width, dsize.height};
+    return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F>(fk_input, dSize, (const double)fx, (const double)fy);
 }
 
 template <int T, int INTER_F, int NPtr, AspectRatio AR = IGNORE_AR>
 inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int& usedPlanes, const CUDA_T(T)& backgroundValue = fk::make_set<CUDA_T(T)>(0)) {
-    using ResizeArrayIgnoreType = fk::ReadDeviceFunction<fk::BatchRead<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>, NPtr>>;
-    using ResizeArrayPreserveType = fk::ReadDeviceFunction<fk::BatchRead<fk::ApplyROI<fk::InterpolateRead<CUDA_T(T), (fk::InterpolationType)INTER_F>, fk::OFFSET_THREADS>, NPtr>>;
-    using ResizeArrayType = fk::TypeAt_t<AR, fk::TypeList<ResizeArrayPreserveType, ResizeArrayIgnoreType>>;
-
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
-    
-    ResizeArrayType resizeArray;
-    // dsize is the size of the destination pointer, for each image
-    resizeArray.activeThreads.x = dsize.width;
-    resizeArray.activeThreads.y = dsize.height;
-    resizeArray.activeThreads.z = usedPlanes;
 
-    for (int i=0; i<usedPlanes; i++) {
-        // So far we only support fk::INTER_LINEAR
-        fk::PtrDims<fk::_2D> dims;
-        dims.width = (uint)input[i].cols;
-        dims.height = (uint)input[i].rows;
-        dims.pitch = (uint)input[i].step;
+    const std::array<fk::Ptr2D<CUDA_T(T)>, NPtr> fk_input{ [](const std::array<cv::cuda::GpuMat, NPtr>& input) {
+            std::array<fk::Ptr2D<CUDA_T(T)>, NPtr> temp;
+            std::transform(input.begin(), input.end(), temp.begin(), [](const cv::cuda::GpuMat& i) {
+                    return fk::Ptr2D((CUDA_T(T)*)i.data, i.cols, i.rows, i.step);
+                });
+            return temp;
+        }(input)};
 
-        // targetWidth and targetHeight are the dimensions for the resized image
-        int targetWidth, targetHeight;
-        fk::InterpolateParams<CUDA_T(T)>* interParams;
-        if constexpr (AR == PRESERVE_AR) {
-            float scaleFactor = dsize.height / (float)dims.height;
-            targetHeight = dsize.height;
-            targetWidth = static_cast<int> (scaleFactor * dims.width);
-            if (targetWidth > dsize.width) {
-                scaleFactor = dsize.width / (float)dims.width;
-                targetWidth = dsize.width;
-                targetHeight = static_cast<int> (scaleFactor * dims.height);
-            }
-			resizeArray.activeThreads.z = NPtr;
-			resizeArray.params[i].x1 = (dsize.width - targetWidth) / 2;
-			resizeArray.params[i].x2 = resizeArray.params[i].x1 + targetWidth - 1;
-			resizeArray.params[i].y1 = (dsize.height - targetHeight) / 2;
-			resizeArray.params[i].y2 = resizeArray.params[i].y1 + targetHeight - 1;
-            resizeArray.params[i].defaultValue = backgroundValue;
-            interParams = &resizeArray.params[i].params;
-        } else {
-            targetWidth = dsize.width;
-            targetHeight = dsize.height;
-            interParams = &resizeArray.params[i];
-        }
-        interParams->ptr = {(CUDA_T(T)*)input[i].data, dims};
-        interParams->fx = static_cast<float>(1.0 / (static_cast<double>(targetWidth) / (double)input[i].cols));
-        interParams->fy = static_cast<float>(1.0 / (static_cast<double>(targetHeight) / (double)input[i].rows));
-    }
+    const fk::Size dSize{dsize.width, dsize.height};
 
-	if constexpr (AR == PRESERVE_AR) {
-		for (int i = usedPlanes; i < NPtr; i++) {
-			resizeArray.params[i].x1 = -1;
-			resizeArray.params[i].x2 = -1;
-			resizeArray.params[i].y1 = -1;
-			resizeArray.params[i].y2 = -1;
-			resizeArray.params[i].defaultValue = backgroundValue;
-		}
-	}
-    return resizeArray;
+    return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr, (fk::AspectRatio)AR>(fk_input, dSize, usedPlanes, backgroundValue);
 }
 
 template <int O>
