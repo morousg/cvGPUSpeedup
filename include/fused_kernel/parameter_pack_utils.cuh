@@ -66,6 +66,11 @@ namespace fk { // namespace fused kernel
         return last(args...);
     }
 
+    template <typename T, typename... Args>
+    FK_HOST_DEVICE_CNST T first(const T& t, const Args&... args) {
+        return t;
+    }
+
     // Util to concatenate thrust::tuple
     template <typename Tuple1, typename Tuple2, int... I1, int... I2>
     FK_HOST_DEVICE_CNST

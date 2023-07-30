@@ -21,6 +21,11 @@
 
 namespace fk {
 
+struct Size {
+    int width;
+    int height;
+};
+
 struct Point {
     uint x;
     uint y;
@@ -242,7 +247,7 @@ struct PtrImpl<_2D,T> {
         if (ptr_a.dims.pitch == 0) {
             size_t pitch;
             gpuErrchk(cudaMallocPitch(&ptr_a.data, &pitch, sizeof(T) * ptr_a.dims.width, ptr_a.dims.height));
-            ptr_a.dims.pitch = pitch;
+            ptr_a.dims.pitch = (int)pitch;
         } else {
             gpuErrchk(cudaMalloc(&ptr_a.data, PtrImpl<_2D,T>::sizeInBytes(ptr_a.dims)));
         }
@@ -419,7 +424,7 @@ public:
         return deviceID;
     }
 
-    __host__ inline constexpr uint sizeInBytes() const {
+    __host__ inline constexpr size_t sizeInBytes() const {
         return PtrImpl<D, T>::sizeInBytes(ptr_a.dims);
     }
 
@@ -429,7 +434,7 @@ public:
 
     __host__ inline constexpr void setTo(const T& val) {
         if (type == MemType::Host || type == MemType::HostPinned) {
-            for (int i = 0; i < getNumElements(); i++) {
+            for (int i = 0; i < (int)getNumElements(); i++) {
                 ptr_a.data[i] = val;
             }
         } else {
@@ -456,6 +461,7 @@ public:
 template <typename T>
 class Ptr2D : public Ptr<_2D, T> {
 public:
+    __host__ inline constexpr Ptr2D() {}
     __host__ inline constexpr Ptr2D(const uint& width_, const uint& height_, const uint& pitch_ = 0, const MemType& type_ = Device, const int& deviceID_ = 0) : 
                                     Ptr<_2D, T>(PtrDims<_2D>(width_, height_, pitch_), type_, deviceID_) {}
 

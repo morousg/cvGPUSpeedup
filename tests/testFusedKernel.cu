@@ -34,10 +34,10 @@ bool testPtr_2D() {
     gpuErrchk(cudaStreamCreate(&stream));
 
     dim3 block2D(32,8);
-    dim3 grid2D(std::ceil(width_crop / (float)block2D.x),
-                std::ceil(height_crop / (float)block2D.y));
-    dim3 grid2DBig(std::ceil(width / (float)block2D.x),
-                   std::ceil(height / (float)block2D.y));
+    dim3 grid2D((uint)std::ceil(width_crop / (float)block2D.x),
+                (uint)std::ceil(height_crop / (float)block2D.y));
+    dim3 grid2DBig((uint)std::ceil(width / (float)block2D.x),
+                   (uint)std::ceil(height / (float)block2D.y));
 
     dim3 gridActiveThreadsCrop(cropedInput.dims().width, cropedInput.dims().height);
     dim3 gridActiveThreads(input.dims().width, input.dims().height);

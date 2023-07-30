@@ -58,23 +58,21 @@ bool test_batchresize_x_split3D_OCVBatch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::c
 
             std::array<std::vector<cv::Mat>, CROPS> h_cvResults;
             std::array<std::vector<cv::Mat>, CROPS> h_cvGSResults;
-            cv::cuda::GpuMat d_tensor_output(CROPS, 
-                                             up.width * up.height * CV_MAT_CN(CV_TYPE_O),
-                                             CV_MAT_DEPTH(CV_TYPE_O),
-                                             up.width * up.height * CV_MAT_CN(CV_TYPE_O) * sizeof(BASE_CUDA_T(CV_TYPE_O)));
-            cv::cuda::GpuMat d_resize_output(CROPS, 
-                                             up.width * up.height,
-                                             CV_TYPE_I,
-                                             up.width * up.height * CV_MAT_CN(CV_TYPE_I) * sizeof(BASE_CUDA_T(CV_TYPE_I)));
+
+            cv::cuda::GpuMat d_tensor_output(CROPS, up.width * up.height * CV_MAT_CN(CV_TYPE_O), CV_MAT_DEPTH(CV_TYPE_O));
+            d_tensor_output.step = up.width * up.height * CV_MAT_CN(CV_TYPE_O) * sizeof(BASE_CUDA_T(CV_TYPE_O));
+            
+            cv::cuda::GpuMat d_resize_output(CROPS, up.width* up.height, CV_TYPE_I);
+            d_resize_output.step = up.width * up.height * CV_MAT_CN(CV_TYPE_I) * sizeof(BASE_CUDA_T(CV_TYPE_I));
+
             std::array<cv::cuda::GpuMat, CROPS> d_resized_array;
-            cv::cuda::GpuMat d_temp(CROPS, 
-                                    up.width * up.height,
-                                    CV_TYPE_O,
-                                    up.width * up.height * CV_MAT_CN(CV_TYPE_O) * sizeof(BASE_CUDA_T(CV_TYPE_O)));
-            cv::cuda::GpuMat d_temp2(CROPS,
-                                     up.width * up.height,
-                                     CV_TYPE_O,
-                                     up.width * up.height * CV_MAT_CN(CV_TYPE_O) * sizeof(BASE_CUDA_T(CV_TYPE_O)));
+
+            cv::cuda::GpuMat d_temp(CROPS, up.width* up.height, CV_TYPE_O);
+            d_temp.step = up.width * up.height * CV_MAT_CN(CV_TYPE_O) * sizeof(BASE_CUDA_T(CV_TYPE_O));
+
+            cv::cuda::GpuMat d_temp2(CROPS, up.width* up.height, CV_TYPE_O);
+            d_temp2.step = up.width* up.height* CV_MAT_CN(CV_TYPE_O) * sizeof(BASE_CUDA_T(CV_TYPE_O));
+
             std::array<std::vector<cv::cuda::GpuMat>, CROPS> d_output_cv;
 
             cv::Mat diff(up, CV_MAT_DEPTH(CV_TYPE_O));
@@ -253,10 +251,9 @@ bool test_batchresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stre
             std::array<std::vector<cv::cuda::GpuMat>, CROPS> d_output_cvGS;
             std::array<std::vector<cv::Mat>, CROPS> h_cvResults;
             std::array<std::vector<cv::Mat>, CROPS> h_cvGSResults;
-            cv::cuda::GpuMat d_tensor_output(CROPS, 
-                                             up.width * up.height * CV_MAT_CN(CV_TYPE_O),
-                                             CV_MAT_DEPTH(CV_TYPE_O),
-                                             up.width * up.height * CV_MAT_CN(CV_TYPE_O) * sizeof(BASE_CUDA_T(CV_TYPE_O)));
+
+            cv::cuda::GpuMat d_tensor_output(CROPS, up.width* up.height* CV_MAT_CN(CV_TYPE_O), CV_MAT_DEPTH(CV_TYPE_O));
+            d_tensor_output.step = up.width * up.height * CV_MAT_CN(CV_TYPE_O) * sizeof(BASE_CUDA_T(CV_TYPE_O));
 
             cv::Mat diff(up, CV_MAT_DEPTH(CV_TYPE_O));
             cv::Mat h_tensor_output(CROPS, up.width * up.height * CV_MAT_CN(CV_TYPE_O), CV_MAT_DEPTH(CV_TYPE_O));
