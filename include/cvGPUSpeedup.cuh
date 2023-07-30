@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include <external/carotene/saturate_cast.hpp>
 #include <cvGPUSpeedupHelpers.cuh>
 #include <fused_kernel/fused_kernel_launchers.cuh>
 #include <fused_kernel/device_function_builders.cuh>

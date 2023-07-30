@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "ptr_nd.cuh"
+#include <external/carotene/saturate_cast.hpp>
 #include "device_functions.cuh"
 #include "memory_operations.cuh"
 
