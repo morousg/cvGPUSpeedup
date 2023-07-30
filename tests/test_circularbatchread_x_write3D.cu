@@ -205,7 +205,7 @@ bool testCircularTensor() {
 
     bool correct = true;
     for (uint z = 0; z < BATCH; z++) {
-        const TensorOT value = ITERS - z;
+        const TensorOT value = (TensorOT)(ITERS - z);
         for (uint y = 0; y < HEIGHT; y++) {
             for (uint x = 0; x < WIDTH; x++) {
                 const fk::Point p{x, y, z};
@@ -260,7 +260,7 @@ bool testCircularTensorcvGS() {
 
     bool correct = true;
     for (uint z = 0; z < BATCH; z++) {
-        const TensorOT value = ITERS - z;
+        const TensorOT value = (TensorOT)(ITERS - z);
         for (uint y = 0; y < HEIGHT; y++) {
             for (uint x = 0; x < WIDTH; x++) {
                 const fk::Point p{x, y, z};
