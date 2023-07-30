@@ -15,6 +15,32 @@
 #include "fused_kernel.cuh"
 
 namespace fk {
+
+    template <typename... DeviceFunctionTypes>
+    inline constexpr void executeOperations(const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
+        const auto readDeviceFunction = first(deviceFunctions...);
+        const dim3 dataDims = { readDeviceFunction.activeThreads };
+        const dim3 block{ fk::getBlockSize(dataDims.x, dataDims.y) };
+        const dim3 grid{ (unsigned int)ceil(dataDims.x / (float)block.x),
+                         (unsigned int)ceil(dataDims.y / (float)block.y),
+                         dataDims.z };
+
+        cuda_transform<<<grid, block, 0, stream >>>(deviceFunctions...);
+        gpuErrchk(cudaGetLastError());
+    }
+
+    template <typename I, typename... DeviceFunctionTypes>
+    inline constexpr void executeOperations(const Ptr2D<I>& input, cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
+        const dim3 block = input.getBlockSize();
+        const dim3 grid{ grid.x = (unsigned int)ceil(input.dims().width / (float)block.x),
+                         grid.y = (unsigned int)ceil(input.dims().height / (float)block.y) };
+        const dim3 gridActiveThreads(input.dims().width, input.dims().height);
+
+        cuda_transform<<<grid, block, 0, stream>>>(ReadDeviceFunction<PerThreadRead<_2D, I>>{input, gridActiveThreads}, deviceFunctions...);
+
+        gpuErrchk(cudaGetLastError());
+    }
+
     struct SequenceSelectorType {
         FK_HOST_DEVICE_FUSE uint at(const uint& index) {
             if (index > 0) return 2u;
