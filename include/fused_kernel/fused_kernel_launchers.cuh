@@ -30,7 +30,7 @@ namespace fk {
     }
 
     template <typename I, typename... DeviceFunctionTypes>
-    inline constexpr void executeOperations(const Ptr2D<I>& input, cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
+    inline constexpr void executeOperations(const Ptr2D<I>& input, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
         const dim3 block = input.getBlockSize();
         const dim3 grid{ grid.x = (uint)ceil(input.dims().width / (float)block.x),
                          grid.y = (uint)ceil(input.dims().height / (float)block.y) };
