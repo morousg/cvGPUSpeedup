@@ -32,8 +32,8 @@ namespace fk {
     template <typename I, typename... DeviceFunctionTypes>
     inline constexpr void executeOperations(const Ptr2D<I>& input, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
         const dim3 block = input.getBlockSize();
-        const dim3 grid{ grid.x = (uint)ceil(input.dims().width / (float)block.x),
-                         grid.y = (uint)ceil(input.dims().height / (float)block.y) };
+        const dim3 grid{ (uint)ceil(input.dims().width / (float)block.x),
+                         (uint)ceil(input.dims().height / (float)block.y) };
         const dim3 gridActiveThreads(input.dims().width, input.dims().height);
 
         cuda_transform<<<grid, block, 0, stream>>>(ReadDeviceFunction<PerThreadRead<_2D, I>>{input, gridActiveThreads}, deviceFunctions...);
