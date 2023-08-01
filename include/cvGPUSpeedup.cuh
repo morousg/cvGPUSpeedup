@@ -82,6 +82,10 @@ inline constexpr auto cvtColor() {
         return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<CUDA_T(T), 2, 1, 0>> {};
     } else if constexpr (CODE == cv::COLOR_BGRA2RGBA || CODE == cv::COLOR_RGBA2BGRA) {
         return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<CUDA_T(T), 2, 1, 0, 3>> {};
+    } else if constexpr (CODE == cv::COLOR_BGRA2RGB || CODE == cv::COLOR_RGBA2BGR) {
+        using FirstOperation = fk::UnaryVectorReorder<CUDA_T(T), 2, 1, 0, 3>;
+        using SecondOperation = fk::UnaryDiscard<CUDA_T(T), typename fk::VectorType<BASE_CUDA_T(I), 3>::type>;
+        return fk::UnaryDeviceFunction<fk::UnaryExecutableSequence<FirstOperation, SecondOperation>> {};
     }
 }
 
