@@ -38,7 +38,7 @@ With cvGPUSpeedup since the syntax is pretty similar to OpenCV, and all the para
 
 <img src="https://github.com/morousg/cvGPUSpeedup/blob/main/images/NsightSystemsTimeline2.png" />
 
-In this other case, we are updating a temporal Tensor of 15 images, with a new image that needs to be resized and normalized, and other 14 images that where normalized in previous iterations, that need to be copied in diferent positions of the output tensor. Some threads will be doing the normalization, and some others will be just copying the old images, all in parallel.
+In this other case, we are updating a temporal Tensor of 15 images, with a new image that needs to be resized and normalized, and other 14 images that where normalized in previous iterations, that need to be split to planar mode and copied in diferent positions of the output tensor. Some threads will be doing the normalization, and some others will be just copying the old images, all in parallel.
 
 As you can see, the resulting performance makes the pre-processing virtually free, when before it was more than 25% of the total time for the inference.
 
