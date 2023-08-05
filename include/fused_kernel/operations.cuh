@@ -113,7 +113,7 @@ struct UnaryExecutableSequence {
         return UnaryExecutableSequence<OperationTypes...>::next_exec<RemainingOperations...>(Operation::exec(input));
     }
     FK_HOST_DEVICE_FUSE typename LastType_t<OperationTypes...>::OutputType exec(const typename FirstType_t<OperationTypes...>::InputType& input) {
-        return UnaryExecutableSequence<OperationTypes...>::next_exec<OperationTypes...>(FirstType_t<OperationTypes...>::exec(input));
+        return UnaryExecutableSequence<OperationTypes...>::next_exec<OperationTypes...>(input);
     }
     DECL_TYPES_UNARY(typename FirstType_t<OperationTypes...>::InputType, typename LastType_t<OperationTypes...>::OutputType)
 };
