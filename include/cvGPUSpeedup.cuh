@@ -74,18 +74,18 @@ inline constexpr auto add(const cv::Scalar& src2) {
     return fk::BinaryDeviceFunction<fk::BinarySum<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
-template <int T, cv::ColorConversionCodes CODE>
+template <int I, cv::ColorConversionCodes CODE>
 inline constexpr auto cvtColor() {
     // So far, we only support reordering channels
     static_assert(isSupportedColorConversion<CODE>, "Color conversion type not supported yet.");
     if constexpr (CODE == cv::COLOR_BGR2RGB || CODE == cv::COLOR_RGB2BGR) {
-        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<CUDA_T(T), 2, 1, 0>> {};
+        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<CUDA_T(I), 2, 1, 0>> {};
     } else if constexpr (CODE == cv::COLOR_BGRA2RGBA || CODE == cv::COLOR_RGBA2BGRA) {
-        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<CUDA_T(T), 2, 1, 0, 3>> {};
+        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<CUDA_T(I), 2, 1, 0, 3>> {};
     } else if constexpr (CODE == cv::COLOR_BGRA2RGB || CODE == cv::COLOR_RGBA2BGR) {
-        using FirstOperation = fk::UnaryVectorReorder<CUDA_T(T), 2, 1, 0, 3>;
-        using SecondOperation = fk::UnaryDiscard<CUDA_T(T), typename fk::VectorType<BASE_CUDA_T(I), 3>::type>;
-        return fk::UnaryDeviceFunction<fk::UnaryExecutableSequence<FirstOperation, SecondOperation>> {};
+        using FirstOperation = fk::UnaryVectorReorder<CUDA_T(I), 2, 1, 0, 3>;
+        using SecondOperation = fk::UnaryDiscard<CUDA_T(I), typename fk::VectorType<BASE_CUDA_T(I), 3>::type>;
+        return fk::UnaryDeviceFunction<fk::UnaryOperationSequence<FirstOperation, SecondOperation>> {};
     }
 }
 
@@ -145,35 +145,41 @@ inline constexpr auto write(const fk::Tensor<T>& output) {
     return fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, T>>{ output };
 }
 
-template <typename... operations>
-inline constexpr void executeOperations(const cv::cuda::Stream& stream, const operations&... ops) {
+template <typename... DeviceFunctionTypes>
+inline constexpr void executeOperations(const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-    fk::executeOperations(cu_stream, ops...);
+    fk::executeOperations(cu_stream, deviceFunctions...);
 }
 
-template <int I, typename... operations>
-inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, const operations&... ops) {
+template <typename... DeviceFunctionTypes>
+inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-    fk::executeOperations(gpuMat2Ptr2D<CUDA_T(I)>(input), cu_stream, ops...);
+    using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
+    fk::executeOperations(gpuMat2Ptr2D<InputType>(input), cu_stream, deviceFunctions...);
 }
 
-template <int I, int O, typename... operations>
-inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const operations&... ops) {
+template <typename... DeviceFunctionTypes>
+inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-    fk::executeOperations(gpuMat2Ptr2D<CUDA_T(I)>(input), gpuMat2Ptr2D<CUDA_T(O)>(output), cu_stream, ops...);
+    using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
+    using OutputType = fk::LastDeviceFunctionOutputType_t<DeviceFunctionTypes...>;
+    fk::executeOperations(gpuMat2Ptr2D<InputType>(input), gpuMat2Ptr2D<OutputType>(output), cu_stream, deviceFunctions...);
 }
 
 // Batch reads
-template <int I, int Batch, typename... operations>
-inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const int& activeBatch, const cv::cuda::Stream& stream, const operations&... ops) {
+template <int Batch, typename... DeviceFunctionTypes>
+inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const int& activeBatch, const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-    fk::executeOperations(gpuMat2Ptr2D<CUDA_T(I)>(input), activeBatch, cu_stream, ops...);
+    using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
+    fk::executeOperations(gpuMat2Ptr2D<InputType>(input), activeBatch, cu_stream, deviceFunctions...);
 }
 
-template <int I, int O, int Batch, typename... operations>
-inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const int& activeBatch, const cv::cuda::GpuMat& output, const cv::Size& outputPlane, const cv::cuda::Stream& stream, const operations&... ops) {
+template <int Batch, typename... DeviceFunctionTypes>
+inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const int& activeBatch, const cv::cuda::GpuMat& output, const cv::Size& outputPlane, const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-    fk::executeOperations(gpuMat2Ptr2D<CUDA_T(I)>(input), activeBatch, gpuMat2Tensor<CUDA_T(O)>(output, outputPlane, 1), cu_stream, ops...);
+    using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
+    using OutputType = fk::LastDeviceFunctionOutputType_t<DeviceFunctionTypes...>;
+    fk::executeOperations(gpuMat2Ptr2D<InputType>(input), activeBatch, gpuMat2Tensor<OutputType>(output, outputPlane, 1), cu_stream, deviceFunctions...);
 }
 
 /* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)

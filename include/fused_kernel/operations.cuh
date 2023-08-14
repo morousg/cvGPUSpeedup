@@ -103,17 +103,17 @@ struct UnaryDiscard {
 };
 
 template <typename... OperationTypes>
-struct UnaryExecutableSequence {
+struct UnaryOperationSequence {
     template <typename Operation>
     FK_HOST_DEVICE_FUSE typename Operation::OutputType next_exec(const Operation::InputType& input) {
         return Operation::exec(input);
     }
     template <typename Operation, typename... RemainingOperations>
     FK_HOST_DEVICE_FUSE typename LastType_t<RemainingOperations...>::OutputType next_exec(const Operation::InputType& input) {
-        return UnaryExecutableSequence<OperationTypes...>::next_exec<RemainingOperations...>(Operation::exec(input));
+        return UnaryOperationSequence<OperationTypes...>::next_exec<RemainingOperations...>(Operation::exec(input));
     }
     FK_HOST_DEVICE_FUSE typename LastType_t<OperationTypes...>::OutputType exec(const typename FirstType_t<OperationTypes...>::InputType& input) {
-        return UnaryExecutableSequence<OperationTypes...>::next_exec<OperationTypes...>(input);
+        return UnaryOperationSequence<OperationTypes...>::next_exec<OperationTypes...>(input);
     }
     DECL_TYPES_UNARY(typename FirstType_t<OperationTypes...>::InputType, typename LastType_t<OperationTypes...>::OutputType)
 };
