@@ -149,7 +149,7 @@ namespace fk {
     
     template <typename T>
     struct UnaryVectorSet<T, typename std::enable_if_t<!validCUDAVec<T>>>{
-        // This case exists to make things easyer when we don't know if the type
+        // This case exists to make things easier when we don't know if the type
         // is going to be a vector type or a normal type
         FK_HOST_DEVICE_FUSE T exec(const T& val) {
             return val;

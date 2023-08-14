@@ -112,6 +112,18 @@ namespace fk { // namespace fused kernel
     template <std::size_t n, typename TypeList_t>
     using TypeAt_t = typename TypeAt<n, TypeList_t>::type;
 
+    template <typename... Types>
+    using FirstType_t = TypeAt_t<0, TypeList<Types...>>;
+
+    template <typename... Types>
+    using LastType_t = TypeAt_t<sizeof...(Types)-1, TypeList<Types...>>;
+
+    template <typename... Types>
+    using FirstDeviceFunctionInputType_t = typename FirstType_t<Types...>::Operation::InputType;
+
+    template <typename... Types>
+    using LastDeviceFunctionOutputType_t = typename LastType_t<Types...>::Operation::OutputType;
+
     // Find the index of T in TypeList1 and obtain the tyoe for that index
     // in TypeList2. All this at compile time. This can be used when you want to automatically derive
     // a type from another type.

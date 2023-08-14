@@ -74,7 +74,10 @@ namespace cvGS {
     template <int code, int otherCode, int... codes>
     struct one_of_c<code, CodesList<otherCode, codes...>> : one_of_c<code, CodesList<codes...>> {};
 
-    using SupportedColorConversions = CodesList<cv::COLOR_BGR2RGB, cv::COLOR_RGB2BGR, cv::COLOR_BGRA2RGBA, cv::COLOR_RGBA2BGRA>;
+    using SupportedColorConversions =
+        CodesList<cv::COLOR_BGR2RGB, cv::COLOR_RGB2BGR,
+                  cv::COLOR_BGRA2RGBA, cv::COLOR_RGBA2BGRA,
+                  cv::COLOR_RGBA2BGR, cv::COLOR_BGRA2RGB>;
     using SupportedInterpolations = CodesList<cv::INTER_LINEAR>;
 
     template <int code>

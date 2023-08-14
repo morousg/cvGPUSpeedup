@@ -17,6 +17,8 @@
 #include "testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 
+#include <opencv2/cudaimgproc.hpp>
+
 template <int I, int OC>
 bool test_read_x_write(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
@@ -62,7 +64,7 @@ bool test_read_x_write(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_st
             cv::cuda::add(d_output_cv, val_add, d_output_cv, cv::noArray(), -1, cv_stream);     
 
             // cvGPUSpeedup version
-            cvGS::executeOperations<I, OC>(d_input, d_output_cvGS, cv_stream, 
+            cvGS::executeOperations(d_input, d_output_cvGS, cv_stream, 
                                             cvGS::convertTo<I, OC>(),
                                             cvGS::subtract<OC>(val_sub),
                                             cvGS::multiply<OC>(val_mul),
@@ -100,7 +102,59 @@ bool test_read_x_write(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_st
     return passed;
 }
 
+bool testCvtColor(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
+    std::stringstream error_s;
+    bool passed = true;
+    bool exception = false;
 
+    if (enabled) {
+        try {
+            cv::cuda::GpuMat d_input4(NUM_ELEMS_Y, NUM_ELEMS_X, CV_8UC4, cv::Scalar(1u,2u,3u,4u));
+            cv::cuda::GpuMat d_input3(NUM_ELEMS_Y, NUM_ELEMS_X, CV_8UC3, cv::Scalar(1u, 2u, 3u));
+            cv::cuda::GpuMat d_output(NUM_ELEMS_Y, NUM_ELEMS_X, CV_8UC3);
+            cv::cuda::GpuMat d_cvGSoutput(NUM_ELEMS_Y, NUM_ELEMS_X, CV_8UC3);
+
+            cv::cuda::cvtColor(d_input4, d_output, cv::COLOR_RGBA2BGR, 0, cv_stream);
+            cvGS::executeOperations(d_input4, d_cvGSoutput, cv_stream, cvGS::cvtColor<CV_8UC4, cv::COLOR_RGBA2BGR>());
+
+            cv_stream.waitForCompletion();
+
+            cv::Mat h_output(d_output);
+            cv::Mat h_cvGSoutput(d_cvGSoutput);
+
+            passed = compareAndCheck<CV_8UC3>(NUM_ELEMS_X, NUM_ELEMS_Y, h_output, h_cvGSoutput);
+
+            cv::cuda::cvtColor(d_input3, d_output, cv::COLOR_RGB2BGR, 0, cv_stream);
+            cvGS::executeOperations(d_input3, d_cvGSoutput, cv_stream, cvGS::cvtColor<CV_8UC3, cv::COLOR_RGB2BGR>());
+            d_output.download(h_output, cv_stream);
+            d_cvGSoutput.download(h_cvGSoutput, cv_stream);
+
+            cv_stream.waitForCompletion();
+
+            passed &= compareAndCheck<CV_8UC3>(NUM_ELEMS_X, NUM_ELEMS_Y, h_output, h_cvGSoutput);
+
+        } catch (const std::exception& e) {
+            error_s << e.what();
+            passed = false;
+            exception = true;
+        }
+
+        if (!passed) {
+            if (!exception) {
+                std::stringstream ss;
+                ss << "testCvtColor";
+                std::cout << ss.str() << " failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
+            }
+            else {
+                std::stringstream ss;
+                ss << "testCvtColor";
+                std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
+            }
+        }
+    }
+
+    return passed;
+}
 
 int main() {
     constexpr size_t NUM_ELEMS_X = 3840;
@@ -112,6 +166,7 @@ int main() {
 
     std::unordered_map<std::string, bool> results;
     results["test_read_x_write"] = true;
+    results["testCvtColor"] = true;
 
     #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
     results["test_read_x_write"] &= test_read_x_write<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
@@ -142,6 +197,8 @@ int main() {
     LAUNCH_TESTS(CV_32FC4, CV_64FC4)
 
     #undef LAUNCH_TESTS
+
+    results["testCvtColor"] &= testCvtColor(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
     for (const auto& [key, passed] : results) {
         if (passed) {

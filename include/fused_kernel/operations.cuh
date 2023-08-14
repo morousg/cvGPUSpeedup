@@ -80,6 +80,44 @@ struct UnaryCast {
     DECL_TYPES_UNARY(I, O)
 };
 
+template <typename I, typename O>
+struct UnaryDiscard {
+    FK_HOST_DEVICE_FUSE O exec(const I& input) {
+        static_assert(cn<I> > cn<O>, "Output type should at least have one channel less");
+        static_assert(std::is_same_v<typename VectorTraits<I>::base,
+                                     typename VectorTraits<O>::base>,
+                                     "Base types should be the same");
+        if constexpr (cn<O> == 1) {
+            if constexpr (std::is_aggregate_v<O>) {
+                return {input.x};
+            } else {
+                return input.x;
+            }
+        } else if constexpr (cn<O> == 2) {
+            return { input.x, input.y };
+        } else if constexpr (cn<O> == 3) {
+            return { input.x, input.y, input.z };
+        }
+    }
+    DECL_TYPES_UNARY(I, O)
+};
+
+template <typename... OperationTypes>
+struct UnaryOperationSequence {
+    template <typename Operation>
+    FK_HOST_DEVICE_FUSE typename Operation::OutputType next_exec(const Operation::InputType& input) {
+        return Operation::exec(input);
+    }
+    template <typename Operation, typename... RemainingOperations>
+    FK_HOST_DEVICE_FUSE typename LastType_t<RemainingOperations...>::OutputType next_exec(const Operation::InputType& input) {
+        return UnaryOperationSequence<OperationTypes...>::next_exec<RemainingOperations...>(Operation::exec(input));
+    }
+    FK_HOST_DEVICE_FUSE typename LastType_t<OperationTypes...>::OutputType exec(const typename FirstType_t<OperationTypes...>::InputType& input) {
+        return UnaryOperationSequence<OperationTypes...>::next_exec<OperationTypes...>(input);
+    }
+    DECL_TYPES_UNARY(typename FirstType_t<OperationTypes...>::InputType, typename LastType_t<OperationTypes...>::OutputType)
+};
+
 }
 
 #undef DECL_TYPES_UNARY

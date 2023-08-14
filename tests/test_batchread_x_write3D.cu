@@ -80,7 +80,7 @@ bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
 
             // cvGPUSpeedup
             // Assuming we use all the batch
-            cvGS::executeOperations<CV_TYPE_I, BATCH>(crops, BATCH, cv_stream,
+            cvGS::executeOperations(crops, BATCH, cv_stream,
                                                 cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
                                                 cvGS::multiply<CV_TYPE_O>(val_alpha),
                                                 cvGS::subtract<CV_TYPE_O>(val_sub),
