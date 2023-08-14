@@ -28,4 +28,18 @@ The cvGPUSpeedup version, will do the same, but with a single CUDA kernel, and e
 
 We used cvGPUSpeedup at AutomaticTV (Mediapro) for the preprocessing of Deep Neural Networks, and we obtained speedups of up to 167x compared to OpenCV-CUDA. At AutomaticTV we are developing DL networks and will continue to add functionality to cvGPUSPeedup.
 
+<img src="https://github.com/morousg/cvGPUSpeedup/blob/main/images/NSightSystemsTimeline1.png" />
+
+In the image above, we show two NSight Systems timelines, where before the execution of the neural network, we have to do some crops, resize, normalization and split of the color channels. 
+
+In the case of OpenCV-CUDA, despite using the GPU you can see that OpenCV is launching many small kernels. This is wasting a lot of compute time in scheduling and memory accesses. You can even see some small Device to Device copies, which the DL programmers thought they needed.
+
+With cvGPUSpeedup since the syntax is pretty similar to OpenCV, and all the parameters passed are OpenCV types, they managed to do the same operations but in 1/167th of the time, and reduced the amount of memory required in the GPU.
+
+<img src="https://github.com/morousg/cvGPUSpeedup/blob/main/images/NsightSystemsTimeline2.png" />
+
+In this other case, we are updating a temporal Tensor of 15 images, with a new image that needs to be resized and normalized, and other 14 images that where normalized in previous iterations, that need to be split to planar mode and copied in diferent positions of the temporal Tensor. Some CUDA threads will be doing the normalization, and some others will be just copying the old images, all in parallel.
+
+As you can see, the resulting performance makes the pre-processing virtually free, when before it was more than 25% of the total time for the inference.
+
 If you are interested in investing in cvGPUSpeedup development for your own usage, please contact us at oamoros@mediapro.tv
