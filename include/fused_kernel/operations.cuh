@@ -75,6 +75,28 @@ struct BinaryVectorReorder {
 };
 
 template <typename I, typename O>
+struct BinaryAddLast {
+    FK_HOST_DEVICE_FUSE O exec(const I& input, const typename VectorTraits<I>::base& newElem) {
+        static_assert(cn<I> == cn<O> - 1, "Output type should have one channel more");
+        static_assert(std::is_same_v<typename VectorTraits<I>::base, typename VectorTraits<O>::base>,
+                                     "Base types should be the same");
+        if constexpr (cn<I> == 1) {
+            if constexpr (std::is_aggregate_v<I>) {
+                return { input.x, newElem };
+            }
+            else {
+                return { input, newElem };
+            }
+        } else if constexpr (cn<I> == 2) {
+            return { input.x, input.y, newElem };
+        } else if constexpr (cn<I> == 3) {
+            return { input.x, input.y, input.z, newElem };
+        }
+    }
+    DECL_TYPES_BINARY(I, typename VectorTraits<I>::base, O)
+};
+
+template <typename I, typename O>
 struct UnaryCast {
     FK_HOST_DEVICE_FUSE O exec(const I& input) { return saturate_cast<O>(input); }
     DECL_TYPES_UNARY(I, O)

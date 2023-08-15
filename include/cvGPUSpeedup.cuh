@@ -76,16 +76,43 @@ inline constexpr auto add(const cv::Scalar& src2) {
 
 template <int I, cv::ColorConversionCodes CODE>
 inline constexpr auto cvtColor() {
-    // So far, we only support reordering channels
+    static_assert(CV_MAT_DEPTH(I) == CV_8U || CV_MAT_DEPTH(I) == CV_16U || CV_MAT_DEPTH(I) == CV_32F,
+        "Wrong CV_TYPE_DEPTH, it has to be CV_8U, or CV_16U or CV_32F");
     static_assert(isSupportedColorConversion<CODE>, "Color conversion type not supported yet.");
-    if constexpr (CODE == cv::COLOR_BGR2RGB || CODE == cv::COLOR_RGB2BGR) {
-        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<CUDA_T(I), 2, 1, 0>> {};
-    } else if constexpr (CODE == cv::COLOR_BGRA2RGBA || CODE == cv::COLOR_RGBA2BGRA) {
-        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<CUDA_T(I), 2, 1, 0, 3>> {};
+    using InputType = CUDA_T(I);
+    using BaseIT = BASE_CUDA_T(I);
+    if constexpr (CODE == cv::COLOR_BGR2BGRA || CODE == cv::COLOR_RGB2RGBA) {
+        using DeviceFunctionType = fk::BinaryDeviceFunction<fk::BinaryAddLast<InputType, typename fk::VectorType<BaseIT, fk::cn<InputType> +1>::type>>;
+        if constexpr (CV_MAT_DEPTH(I) == CV_8U) {
+            return DeviceFunctionType{ 255u };
+        } else if constexpr (CV_MAT_DEPTH(I) == CV_16U) {
+            return DeviceFunctionType{ 65535u };
+        } else if constexpr (CV_MAT_DEPTH(I) == CV_32F) {
+            return DeviceFunctionType{ 1.f };
+        }
+    } else if constexpr (CODE == cv::COLOR_BGRA2BGR || CODE == cv::COLOR_RGBA2RGB) {
+        return fk::UnaryDeviceFunction<fk::UnaryDiscard<InputType, typename fk::VectorType<BaseIT, 3>::type>>{};
+    } else if constexpr (CODE == cv::COLOR_BGR2RGBA || CODE == cv::COLOR_RGB2BGRA) {
+        using FirstDeviceFunctionType = fk::UnaryDeviceFunction<fk::UnaryVectorReorder<InputType, 2, 1, 0>>;
+        using SecondDeviceFunctionType = 
+            fk::BinaryDeviceFunction<fk::BinaryAddLast<InputType, typename fk::VectorType<BaseIT, fk::cn<InputType> +1>::type>>;
+        using DeviceFunctionType = 
+            fk::BinaryDeviceFunction<fk::BinaryDeviceFunctionChain<FirstDeviceFunctionType, SecondDeviceFunctionType>>;
+        if constexpr (CV_MAT_DEPTH(I) == CV_8U) {
+            return DeviceFunctionType{ {{}, {255u}} };
+        } else if constexpr (CV_MAT_DEPTH(I) == CV_16U) {
+            return DeviceFunctionType{ {{}, {65535u}} };
+        } else if constexpr (CV_MAT_DEPTH(I) == CV_32F) {
+            return DeviceFunctionType{ {{}, {1.f}} };
+        }
     } else if constexpr (CODE == cv::COLOR_BGRA2RGB || CODE == cv::COLOR_RGBA2BGR) {
-        using FirstOperation = fk::UnaryVectorReorder<CUDA_T(I), 2, 1, 0, 3>;
-        using SecondOperation = fk::UnaryDiscard<CUDA_T(I), typename fk::VectorType<BASE_CUDA_T(I), 3>::type>;
+        using FirstOperation = fk::UnaryVectorReorder<InputType, 2, 1, 0, 3>;
+        using SecondOperation = fk::UnaryDiscard<InputType, typename fk::VectorType<BaseIT, 3>::type>;
         return fk::UnaryDeviceFunction<fk::UnaryOperationSequence<FirstOperation, SecondOperation>> {};
+    } else if constexpr (CODE == cv::COLOR_BGR2RGB || CODE == cv::COLOR_RGB2BGR) {
+        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<InputType, 2, 1, 0>> {};
+    } else if constexpr (CODE == cv::COLOR_BGRA2RGBA || CODE == cv::COLOR_RGBA2BGRA) {
+        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<InputType, 2, 1, 0, 3>> {};
     }
 }
 

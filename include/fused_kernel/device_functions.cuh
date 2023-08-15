@@ -47,4 +47,42 @@ namespace fk { // namespace FusedKernel
         typename Operation_t::ParamsType params;
         using Operation = Operation_t;
     };
+
+    // This is actually a Binary Operation, but it needs the DeviceFunctions definition to work
+    template <typename... DeviceFunctionTypes>
+    struct BinaryDeviceFunctionChain {
+        using InputType = FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
+        using ParamsType = thrust::tuple<DeviceFunctionTypes...>;
+        using OutputType = LastDeviceFunctionOutputType_t<DeviceFunctionTypes...>;
+    private:
+        template <typename Operation>
+        FK_HOST_DEVICE_FUSE auto operate(const typename Operation::InputType& i_data,
+                                               const BinaryDeviceFunction<Operation>& df) {
+            return Operation::exec(i_data, df.params);
+        }
+
+        template <typename Operation>
+        FK_HOST_DEVICE_FUSE auto operate(const typename Operation::InputType& i_data,
+                                               const UnaryDeviceFunction<Operation>& df) {
+            return Operation::exec(i_data);
+        }
+
+        template <typename I, typename Tuple>
+        FK_HOST_DEVICE_FUSE OutputType apply_operate(const I& i_data,
+                                                     const Tuple& deviceFunctionInstances) {
+            if constexpr (thrust::tuple_size<Tuple>::value == 1) {
+                return BinaryDeviceFunctionChain<DeviceFunctionTypes...>::operate(i_data, thrust::get<0>(deviceFunctionInstances));
+            } else {
+                const auto [firstDF, restOfDF] = deviceFunctionInstances;
+                const auto result = BinaryDeviceFunctionChain<DeviceFunctionTypes...>::operate(i_data, firstDF);
+                return BinaryDeviceFunctionChain<DeviceFunctionTypes...>::apply_operate(result, restOfDF);
+            }
+        }
+
+    public:
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input,
+                                            const thrust::tuple<DeviceFunctionTypes...>& params) {
+            return BinaryDeviceFunctionChain<DeviceFunctionTypes...>::apply_operate(input, params);
+        }
+    };
 } // namespace FusedKernel
