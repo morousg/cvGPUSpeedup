@@ -99,9 +99,6 @@ bool test_resize_write(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_st
     return passed;
 }
 
-#define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-results["test_resize_write"] &= test_resize_write<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
-
 int main() {
     constexpr size_t NUM_ELEMS_X = 3840;
     constexpr size_t NUM_ELEMS_Y = 2160;
@@ -112,6 +109,9 @@ int main() {
 
     std::unordered_map<std::string, bool> results;
     results["test_resize_write"] = true;
+
+    #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
+    results["test_resize_write"] &= test_resize_write<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
     LAUNCH_TESTS(CV_8SC1, CV_32FC1)

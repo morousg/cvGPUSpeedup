@@ -148,7 +148,7 @@ bool testCvtColor(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream,
             else {
                 std::stringstream ss;
                 ss << "testCvtColor";
-                std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
+                std::cout << ss.str() << " failed!! EXCEPTION: " << error_s.str() << std::endl;
             }
         }
     }
