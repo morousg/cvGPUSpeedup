@@ -26,86 +26,86 @@ namespace fk {
 
 template <ND D, typename T>
 struct PerThreadRead {
-    FK_DEVICE_FUSE T exec(const Point& thread, const RawPtr<D,T>& ptr) {
+    using Type = T;
+    using ParamsType = RawPtr<D, T>;
+    FK_DEVICE_FUSE Type exec(const Point& thread, const ParamsType& ptr) {
         return *PtrAccessor<D>::cr_point(thread, ptr);
     }
-    using Type = T;
-    using ParamsType = RawPtr<D,T>;
 };
 
 template <ND D, typename T>
 struct PerThreadWrite {
-    FK_DEVICE_FUSE void exec(const Point& thread, const T& input, const RawPtr<D,T>& output) {
+    using Type = T;
+    using ParamsType = RawPtr<D, T>;
+    FK_DEVICE_FUSE void exec(const Point& thread, const Type& input, const ParamsType& output) {
         *PtrAccessor<D>::point(thread, output) = input;
     }
-    using Type = T;
-    using ParamsType = RawPtr<D,T>;
 };
 
 template <typename T>
 struct TensorRead {
-    FK_DEVICE_FUSE T exec(const Point& thread, const RawPtr<_3D, T>& ptr) {
-        return *PtrAccessor<_3D>::cr_point(thread, ptr);
-    }
     using Type = T;
     using ParamsType = RawPtr<_3D, T>;
+    FK_DEVICE_FUSE Type exec(const Point& thread, const ParamsType& ptr) {
+        return *PtrAccessor<_3D>::cr_point(thread, ptr);
+    }
 };
 
 template <typename T>
 struct TensorWrite {
-    FK_DEVICE_FUSE void exec(const Point& thread, const T& input, const RawPtr<_3D, T>& output) {
-        *PtrAccessor<_3D>::point(thread, output) = input;
-    }
     using Type = T;
     using ParamsType = RawPtr<_3D, T>;
+    FK_DEVICE_FUSE void exec(const Point& thread, const Type& input, const ParamsType& output) {
+        *PtrAccessor<_3D>::point(thread, output) = input;
+    }
 };
 
 
 template <typename T>
 struct TensorSplitWrite {
-    FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
-                             const RawPtr<_3D, typename VectorTraits<T>::base>& ptr) {
-        static_assert(cn<T> >= 2, "Wrong type for split tensor write. It must be one of <type>2, <type>3 or <type>4.");
+    using Type = T;
+    using ParamsType = RawPtr<_3D, typename VectorTraits<T>::base>;
+    FK_DEVICE_FUSE void exec(const Point& thread, const Type& input, const ParamsType& ptr) {
+        static_assert(cn<Type> >= 2, "Wrong type for split tensor write. It must be one of <type>2, <type>3 or <type>4.");
 
         const int planePixels = ptr.dims.width * ptr.dims.height;
 
-        typename VectorTraits<T>::base* const work_plane = PtrAccessor<_3D>::point(thread, ptr);
+        using OutputType = typename VectorTraits<Type>::base;
+        OutputType* const work_plane = PtrAccessor<_3D>::point(thread, ptr);
         *work_plane = input.x;
         *(work_plane + planePixels) = input.y;
-        if constexpr (cn<T> >= 3) {
+        if constexpr (cn<Type> >= 3) {
             *(work_plane + (planePixels * 2)) = input.z;
         }
-        if constexpr (cn<T> == 4) {
+        if constexpr (cn<Type> == 4) {
             *(work_plane + (planePixels * 3)) = input.w;
         }
     }
-    using Type = T;
-    using ParamsType = RawPtr<_3D, typename VectorTraits<T>::base>;
 };
 
 template <typename T>
 struct TensorSplitRead {
-    FK_DEVICE_FUSE T exec(const Point& thread,
-                          const RawPtr<_3D, typename VectorTraits<T>::base>& ptr) {
-        static_assert(cn<T> >= 2, "Wrong type for split tensor read. It must be one of <type>2, <type>3 or <type>4.");
+    using Type = T;
+    using ParamsType = RawPtr<_3D, typename VectorTraits<T>::base>;
+    FK_DEVICE_FUSE Type exec(const Point& thread, const ParamsType& ptr) {
+        static_assert(cn<Type> >= 2, "Wrong type for split tensor read. It must be one of <type>2, <type>3 or <type>4.");
 
         const int planePixels = ptr.dims.width * ptr.dims.height;
 
-        const typename VectorTraits<T>::base* const work_plane = PtrAccessor<_3D>::cr_point(thread, ptr);
-        if constexpr (cn<T> == 2) {
-            return make_<T>(*work_plane, *(work_plane + planePixels));
-        } else if constexpr (cn<T> == 3) {
-            return make_<T>(*work_plane, *(work_plane + planePixels),
-                            *(work_plane + (planePixels * 2)));
+        using OutputType = typename VectorTraits<Type>::base;
+        const OutputType* const work_plane = PtrAccessor<_3D>::cr_point(thread, ptr);
+        if constexpr (cn<Type> == 2) {
+            return make_<Type>(*work_plane, *(work_plane + planePixels));
+        } else if constexpr (cn<Type> == 3) {
+            return make_<Type>(*work_plane, *(work_plane + planePixels),
+                               *(work_plane + (planePixels * 2)));
         } else {
-            return make_<T>(*work_plane,
-                            *(work_plane + planePixels),
-                            *(work_plane + (planePixels * 2)),
-                            *(work_plane + (planePixels * 3)));
+            return make_<Type>(*work_plane,
+                               *(work_plane + planePixels),
+                               *(work_plane + (planePixels * 2)),
+                               *(work_plane + (planePixels * 3)));
         }
     }
-    using Type = T;
-    using ParamsType = RawPtr<_3D, typename VectorTraits<T>::base>;
 };
 
 template <ND D, typename T, typename Enabler=void>
@@ -134,36 +134,33 @@ struct SplitWriteParams<D, T, typename std::enable_if_t<cn<T> == 4>> {
 
 template <ND D, typename T>
 struct SplitWrite {
-    FK_DEVICE_FUSE void exec(const Point& thread, const T& input,
-                             const SplitWriteParams<D, T>& params) {
-        static_assert(cn<T> >= 2, "Wrong type for split write. It must be one of <type>2, <type>3 or <type>4.");
-        *PtrAccessor<D>::point(thread, params.x) = input.x;
-        *PtrAccessor<D>::point(thread, params.y) = input.y;
-        if constexpr (cn<T> >= 3) *PtrAccessor<D>::point(thread, params.z) = input.z;
-        if constexpr (cn<T> == 4) *PtrAccessor<D>::point(thread, params.w) = input.w;
-    }
     using Type = T;
     using ParamsType = SplitWriteParams<D, T>;
+    FK_DEVICE_FUSE void exec(const Point& thread, const Type& input, const ParamsType& params) {
+        static_assert(cn<Type> >= 2, "Wrong type for split write. It must be one of <type>2, <type>3 or <type>4.");
+        *PtrAccessor<D>::point(thread, params.x) = input.x;
+        *PtrAccessor<D>::point(thread, params.y) = input.y;
+        if constexpr (cn<Type> >= 3) *PtrAccessor<D>::point(thread, params.z) = input.z;
+        if constexpr (cn<Type> == 4) *PtrAccessor<D>::point(thread, params.w) = input.w;
+    }
 };
 
 template <typename Operation, int NPtr>
 struct BatchRead {
-    FK_DEVICE_FUSE const typename Operation::Type exec(const Point& thread,
-                                                       const typename Operation::ParamsType (&params)[NPtr]) {
-        return Operation::exec(thread, params[thread.z]);
-    }
     using Type = typename Operation::Type;
     using ParamsType = typename Operation::ParamsType[NPtr];
+    FK_DEVICE_FUSE const Type exec(const Point& thread, const typename Operation::ParamsType (&params)[NPtr]) {
+        return Operation::exec(thread, params[thread.z]);
+    }
 };
 
 template <typename Operation, int NPtr>
 struct BatchWrite {
-    FK_DEVICE_FUSE void exec(const Point& thread, const typename Operation::Type& input,
-                             const typename Operation::ParamsType (&params)[NPtr]) {
-        Operation::exec(thread, input, params[thread.z]);
-    }
     using Type = typename Operation::Type;
     using ParamsType = typename Operation::ParamsType[NPtr];
+    FK_DEVICE_FUSE void exec(const Point& thread, const Type& input, const typename Operation::ParamsType (&params)[NPtr]) {
+        Operation::exec(thread, input, params[thread.z]);
+    }
 };
 
 template <typename I>
@@ -178,7 +175,6 @@ struct ResizeRead {
     using Type = typename VectorType<float, cn<I>>::type;
     using ParamsType = ResizeReadParams<I>;
     using InterpolationOp = BinaryInterpolate<I, INTER_T>;
-
     static __device__ __forceinline__ const Type exec(const Point& thread, const ParamsType& params) {
         // This is what makes the interpolation a resize operation
         const float src_x = thread.x * params.fx;
@@ -227,46 +223,42 @@ FK_HOST_DEVICE_CNST Point computeCircularThreadIdx(const Point& currentIdx, cons
 
 template <CircularDirection direction, typename Operation, int BATCH>
 struct CircularBatchRead {
-    FK_DEVICE_FUSE const typename Operation::Type exec(const Point& thread,
-                                                       const CircularMemoryParams<typename Operation::ParamsType[BATCH]>& c_params) {
+    using Type = typename Operation::Type;
+    using ParamsType = CircularMemoryParams<typename Operation::ParamsType[BATCH]>;
+    FK_DEVICE_FUSE const Type exec(const Point& thread, const ParamsType& c_params) {
         const Point newThreadIdx = computeCircularThreadIdx<direction, BATCH>(thread, c_params.first);
         return Operation::exec(newThreadIdx, c_params.params[newThreadIdx.z]);
     }
-    using Type = typename Operation::Type;
-    using ParamsType = CircularMemoryParams<typename Operation::ParamsType[BATCH]>;
 };
 
 template <CircularDirection direction, typename Operation, int BATCH>
 struct CircularBatchWrite {
-    FK_DEVICE_FUSE void exec(const Point& thread, const typename Operation::Type& input,
-                             const CircularMemoryParams<typename Operation::ParamsType[BATCH]>& c_params) {
+    using Type = typename Operation::Type;
+    using ParamsType = CircularMemoryParams<typename Operation::ParamsType[BATCH]>;
+    FK_DEVICE_FUSE void exec(const Point& thread, const Type& input, const ParamsType& c_params) {
         const Point newThreadIdx = computeCircularThreadIdx<direction, BATCH>(thread, c_params.first);
         Operation::exec(newThreadIdx, input, c_params.params[newThreadIdx.z]);
     }
-    using Type = typename Operation::Type;
-    using ParamsType = CircularMemoryParams<typename Operation::ParamsType[BATCH]>;
 };
 
 template <CircularDirection direction, typename Operation, int BATCH>
 struct CircularTensorRead {
-    FK_DEVICE_FUSE const typename Operation::Type exec(const Point& thread,
-                                                       const CircularMemoryParams<typename Operation::ParamsType>& c_params) {
+    using Type = typename Operation::Type;
+    using ParamsType = CircularMemoryParams<typename Operation::ParamsType>;
+    FK_DEVICE_FUSE const Type exec(const Point& thread, const ParamsType& c_params) {
         const Point newThreadIdx = computeCircularThreadIdx<direction, BATCH>(thread, c_params.first);
         return Operation::exec(newThreadIdx, c_params.params);
     }
-    using Type = typename Operation::Type;
-    using ParamsType = CircularMemoryParams<typename Operation::ParamsType>;
 };
 
 template <CircularDirection direction, typename Operation, int BATCH>
 struct CircularTensorWrite {
-    FK_DEVICE_FUSE void exec(const Point& thread, const typename Operation::Type& input,
-                             const CircularMemoryParams<typename Operation::ParamsType>& c_params) {
+    using Type = typename Operation::Type;
+    using ParamsType = CircularMemoryParams<typename Operation::ParamsType>;
+    FK_DEVICE_FUSE void exec(const Point& thread, const Type& input, const ParamsType& c_params) {
         const Point newThreadIdx = computeCircularThreadIdx<direction, BATCH>(thread, c_params.first);
         Operation::exec(newThreadIdx, input, c_params.params);
     }
-    using Type = typename Operation::Type;
-    using ParamsType = CircularMemoryParams<typename Operation::ParamsType>;
 };
 
 enum ROI { OFFSET_THREADS, KEEP_THREAD_IDX };
@@ -283,7 +275,6 @@ template <typename Operation, ROI USE>
 struct ApplyROI {
     using Type = typename Operation::Type;
     using ParamsType = ApplyROIParams<Operation>;
-
     static __device__ __forceinline__ const typename Type exec(const Point& thread, const ParamsType& params) {
         if (thread.x >= params.x1  && thread.x <= params.x2 && thread.y >= params.y1 && thread.y <= params.y2) {
             if constexpr (USE == OFFSET_THREADS) {
