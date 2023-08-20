@@ -34,7 +34,7 @@ inline constexpr fk::Ptr2D<T> gpuMat2Ptr2D(const cv::cuda::GpuMat& source) {
 }
 
 template <typename T, int Batch>
-inline constexpr std::array<fk::Ptr2D<T>, Batch> gpuMat2Ptr2D(const std::array<cv::cuda::GpuMat, Batch>& source) {
+inline constexpr std::array<fk::Ptr2D<T>, Batch> gpuMat2Ptr2D_arr(const std::array<cv::cuda::GpuMat, Batch>& source) {
     std::array<fk::Ptr2D<T>, Batch> temp;
     std::transform(source.begin(), source.end(), temp.begin(),
                         [](const cv::cuda::GpuMat& i) { return gpuMat2Ptr2D<T>(i); });
@@ -145,14 +145,14 @@ inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, d
 
     const fk::RawPtr<fk::_2D, CUDA_T(T)> fk_input = gpuMat2Ptr2D<CUDA_T(T)>(input);
     const fk::Size dSize{dsize.width, dsize.height};
-    return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F>(fk_input, dSize, (const double)fx, (const double)fy);
+    return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F>(fk_input, dSize, fx, fy);
 }
 
 template <int T, int INTER_F, int NPtr, AspectRatio AR = IGNORE_AR>
 inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int& usedPlanes, const cv::Scalar& backgroundValue = cvScalar_set<CV_MAKETYPE(CV_32F, CV_MAT_CN(T))>(0)) {
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
-    const std::array<fk::Ptr2D<CUDA_T(T)>, NPtr> fk_input{ gpuMat2Ptr2D<CUDA_T(T)>(input) };
+    const std::array<fk::Ptr2D<CUDA_T(T)>, NPtr> fk_input{ gpuMat2Ptr2D_arr<CUDA_T(T), NPtr>(input) };
     const fk::Size dSize{dsize.width, dsize.height};
     constexpr int defaultType = CV_MAKETYPE(CV_32F, CV_MAT_CN(T));
     return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr, (fk::AspectRatio)AR>(fk_input, dSize, usedPlanes, cvScalar2CUDAV<defaultType>::get(backgroundValue));
@@ -199,7 +199,9 @@ template <int Batch, typename... DeviceFunctionTypes>
 inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const int& activeBatch, const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
     using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
-    fk::executeOperations(gpuMat2Ptr2D<InputType>(input), activeBatch, cu_stream, deviceFunctions...);
+    // On Linux (gcc 11.4) it is necessary to pass the InputType and Batch as a template parameter
+    // On Windows (VS2022 Community) it is not needed, it is deduced from the parameters being passed
+    fk::executeOperations<InputType, Batch>(gpuMat2Ptr2D_arr<InputType, Batch>(input), activeBatch, cu_stream, deviceFunctions...);
 }
 
 template <int Batch, typename... DeviceFunctionTypes>
@@ -207,7 +209,7 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
     using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
     using OutputType = fk::LastDeviceFunctionOutputType_t<DeviceFunctionTypes...>;
-    fk::executeOperations(gpuMat2Ptr2D<InputType>(input), activeBatch, gpuMat2Tensor<OutputType>(output, outputPlane, 1), cu_stream, deviceFunctions...);
+    fk::executeOperations(gpuMat2Ptr2D_arr<InputType>(input), activeBatch, gpuMat2Tensor<OutputType>(output, outputPlane, 1), cu_stream, deviceFunctions...);
 }
 
 /* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)

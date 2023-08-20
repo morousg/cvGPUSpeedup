@@ -68,11 +68,11 @@ struct UnaryOperationSequence {
         return UnaryOperationSequence<OperationTypes...>::next_exec<OperationTypes...>(input);
     }
     template <typename Operation>
-    FK_HOST_DEVICE_FUSE typename Operation::OutputType next_exec(const Operation::InputType& input) {
+    FK_HOST_DEVICE_FUSE typename Operation::OutputType next_exec(const typename Operation::InputType& input) {
         return Operation::exec(input);
     }
     template <typename Operation, typename... RemainingOperations>
-    FK_HOST_DEVICE_FUSE typename LastType_t<RemainingOperations...>::OutputType next_exec(const Operation::InputType& input) {
+    FK_HOST_DEVICE_FUSE typename LastType_t<RemainingOperations...>::OutputType next_exec(const typename Operation::InputType& input) {
         return UnaryOperationSequence<OperationTypes...>::next_exec<RemainingOperations...>(Operation::exec(input));
     }
 };
@@ -168,6 +168,8 @@ struct BinaryAddLast {
     }
 };
 
+#undef BINARY_DECL_EXEC
+
 enum InterpolationType {
     // bilinear interpolation
     INTER_LINEAR = 1,
@@ -179,9 +181,10 @@ struct BinaryInterpolate;
 
 template <typename I>
 struct BinaryInterpolate<I, InterpolationType::INTER_LINEAR> {
-    using TmpParams = RawPtr<_2D, I>;
-    using TmpOutput = VectorType_t<float, cn<I>>;
-    BINARY_DECL_EXEC(TmpOutput, float2, TmpParams) {
+    using OutputType = VectorType_t<float, cn<I>>;
+    using InputType = float2;
+    using ParamsType = RawPtr<_2D, I>;
+    static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
         const float src_x = input.x;
         const float src_y = input.y;
 
@@ -205,5 +208,4 @@ struct BinaryInterpolate<I, InterpolationType::INTER_LINEAR> {
         return out;
     }
 };
-#undef BINARY_DECL_EXEC
 } //namespace fk

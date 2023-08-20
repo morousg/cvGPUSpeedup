@@ -275,7 +275,7 @@ template <typename Operation, ROI USE>
 struct ApplyROI {
     using Type = typename Operation::Type;
     using ParamsType = ApplyROIParams<Operation>;
-    static __device__ __forceinline__ const typename Type exec(const Point& thread, const ParamsType& params) {
+    static __device__ __forceinline__ const Type exec(const Point& thread, const ParamsType& params) {
         if (thread.x >= params.x1  && thread.x <= params.x2 && thread.y >= params.y1 && thread.y <= params.y2) {
             if constexpr (USE == OFFSET_THREADS) {
                 const Point roiThread(thread.x - params.x1, thread.y - params.y1, thread.z);

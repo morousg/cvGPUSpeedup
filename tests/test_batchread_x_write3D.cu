@@ -80,7 +80,9 @@ bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
 
             // cvGPUSpeedup
             // Assuming we use all the batch
-            cvGS::executeOperations(crops, BATCH, cv_stream,
+            // On Linux it is necessary to pass the BATCH as a template parameter
+            // On Windows (VS2022 Community) it is not needed, it is deduced from crops 
+            cvGS::executeOperations<BATCH>(crops, BATCH, cv_stream,
                                                 cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
                                                 cvGS::multiply<CV_TYPE_O>(val_alpha),
                                                 cvGS::subtract<CV_TYPE_O>(val_sub),
