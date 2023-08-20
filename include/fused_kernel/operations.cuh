@@ -192,16 +192,16 @@ struct BinaryInterpolate<I, InterpolationType::INTER_LINEAR> {
         const int x2_read = BinaryMin<int>::exec(x2, params.dims.width - 1);
         const int y2_read = BinaryMin<int>::exec(y2, params.dims.height - 1);
 
-        OutputType out = make_set<OutputType>(0.f);
-        I src_reg = *PtrAccessor<_2D>::cr_point(Point(x1, y1), params);
-        out = out + src_reg * ((x2 - src_x) * (y2 - src_y));
-        src_reg = *PtrAccessor<_2D>::cr_point(Point(x2_read, y1), params);
-        out = out + src_reg * ((src_x - x1) * (y2 - src_y));
-        src_reg = *PtrAccessor<_2D>::cr_point(Point(x1, y2_read), params);
-        out = out + src_reg * ((x2 - src_x) * (src_y - y1));
-        src_reg = *PtrAccessor<_2D>::cr_point(Point(x2_read, y2_read), params);
-        out = out + src_reg * ((src_x - x1) * (src_y - y1));
+        
+        const I src_reg0x0 = *PtrAccessor<_2D>::cr_point(Point(x1, y1), params);
+        const I src_reg1x0 = *PtrAccessor<_2D>::cr_point(Point(x2_read, y1), params);
+        const I src_reg0x1 = *PtrAccessor<_2D>::cr_point(Point(x1, y2_read), params);
+        const I src_reg1x1 = *PtrAccessor<_2D>::cr_point(Point(x2_read, y2_read), params);
 
+        const OutputType out = (src_reg0x0 * ((x2 - src_x) * (y2 - src_y))) +
+                               (src_reg1x0 * ((src_x - x1) * (y2 - src_y))) +
+                               (src_reg0x1 * ((x2 - src_x) * (src_y - y1))) +
+                               (src_reg1x1 * ((src_x - x1) * (src_y - y1)));
         return out;
     }
 };
