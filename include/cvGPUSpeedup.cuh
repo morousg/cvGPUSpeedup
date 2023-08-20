@@ -149,12 +149,13 @@ inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, d
 }
 
 template <int T, int INTER_F, int NPtr, AspectRatio AR = IGNORE_AR>
-inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int& usedPlanes, const cv::Scalar& backgroundValue = cvScalar_set<T>(0)) {
+inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int& usedPlanes, const cv::Scalar& backgroundValue = cvScalar_set<CV_MAKETYPE(CV_32F, CV_MAT_CN(T))>(0)) {
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
     const std::array<fk::Ptr2D<CUDA_T(T)>, NPtr> fk_input{ gpuMat2Ptr2D<CUDA_T(T)>(input) };
     const fk::Size dSize{dsize.width, dsize.height};
-    return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr, (fk::AspectRatio)AR>(fk_input, dSize, usedPlanes, cvScalar2CUDAV<T>::get(backgroundValue));
+    constexpr int defaultType = CV_MAKETYPE(CV_32F, CV_MAT_CN(T));
+    return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr, (fk::AspectRatio)AR>(fk_input, dSize, usedPlanes, cvScalar2CUDAV<defaultType>::get(backgroundValue));
 }
 
 template <int O>

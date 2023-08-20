@@ -78,7 +78,6 @@ bool test_resize_split_one(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& c
             // cvGPUSpeedup version
             cvGS::executeOperations(cv_stream,
                                     cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR>(d_input(crop), up, 0., 0.),
-                                    cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
                                     cvGS::multiply<CV_TYPE_O>(val_alpha),
                                     cvGS::subtract<CV_TYPE_O>(val_sub),
                                     cvGS::divide<CV_TYPE_O>(val_div),
@@ -147,8 +146,6 @@ int main() {
     LAUNCH_TESTS(CV_16UC4, CV_32FC4)
     LAUNCH_TESTS(CV_16SC3, CV_32FC3)
     LAUNCH_TESTS(CV_16SC4, CV_32FC4)
-    LAUNCH_TESTS(CV_32FC3, CV_64FC3)
-    LAUNCH_TESTS(CV_32FC4, CV_64FC4)
 
     #undef LAUNCH_TESTS
 

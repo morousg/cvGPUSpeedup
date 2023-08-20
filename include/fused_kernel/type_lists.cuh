@@ -171,4 +171,6 @@ namespace fk { // namespace fused kernel
         using result = typename generate_array_impl<N - 1, F>::result;
     };
 
+    template<typename T, typename... Ts>
+    constexpr bool all_types_are_same = std::conjunction_v<std::is_same<T, Ts>...>;
 }; // namespace fused kernel
