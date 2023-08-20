@@ -1,6 +1,4 @@
 /* 
-   Some device functions are modifications of other libraries
-
    Copyright 2023 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
