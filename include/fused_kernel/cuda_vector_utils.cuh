@@ -47,6 +47,9 @@ namespace fk {
     VECTOR_TYPE(double)
 #undef VECTOR_TYPE
 
+    template <typename BaseType, int Channels>
+    using VectorType_t = typename VectorType<BaseType, Channels>::type;
+
     using VOne   = TypeList<uchar1, char1, ushort1, short1, uint1, int1, ulong1, long1, ulonglong1, longlong1, float1, double1>;
     using VTwo   = TypeList<uchar2, char2, ushort2, short2, uint2, int2, ulong2, long2, ulonglong2, longlong2, float2, double2>;
     using VThree = TypeList<uchar3, char3, ushort3, short3, uint3, int3, ulong3, long3, ulonglong3, longlong3, float3, double3>;

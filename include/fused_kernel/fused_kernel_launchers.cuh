@@ -98,19 +98,6 @@ namespace fk {
         }
     };
 
-    template <typename T, typename Enabler=void>
-    struct TempType;
-
-    template <typename T>
-    struct TempType<T, std::enable_if_t<cn<T> == 3>> {
-        using type = typename VectorType<typename VectorTraits<T>::base, 4>::type;
-    };
-
-    template <typename T>
-    struct TempType<T, std::enable_if_t<cn<T> != 3>> {
-        using type = T;
-    };
-
     template <typename T, int COLOR_PLANES, int BATCH>
     class CircularTensor : public Tensor<T> {
 
