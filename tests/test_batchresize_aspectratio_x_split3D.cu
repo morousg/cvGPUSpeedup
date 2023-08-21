@@ -120,7 +120,6 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
             // cvGPUSpeedup
             if constexpr (CV_MAT_CN(CV_TYPE_I) == 3 && correctDept) {
                 cvGS::executeOperations(cv_stream,
-                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS, cvGS::PRESERVE_AR>(crops, up, CROPS, cvGS::cvScalar_set<CV_TYPE_O>(fk::saturate_cast<float>((uchar)128u))),
                                         cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS, cvGS::PRESERVE_AR>(crops, up, CROPS, cvGS::cvScalar_set<CV_TYPE_O>(128.f)),
                                         cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGB2BGR>(),
                                         cvGS::multiply<CV_TYPE_O>(val_alpha),
