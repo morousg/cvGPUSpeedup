@@ -61,7 +61,7 @@ namespace fk { // namespace FusedKernel
                 const uint z = g.group_index().z; // So far we only consider the option of using the z dimension to specify n (x*y) thread planes
                 const Point thread{ x, y, z };
 
-                if (x < readDeviceFunction.activeThreads.x && y < readDeviceFunction.activeThreads.y && z < readDeviceFunction.activeThreads.z) {
+                if (x < readDeviceFunction.activeThreads.x && y < readDeviceFunction.activeThreads.y) {
                     const auto tempI = ReadOperation::exec(thread, readDeviceFunction.params);
                     if constexpr (sizeof...(deviceFunctionInstances) > 1) {
                         const auto tempO = TransformGridPattern::operate(thread, tempI, deviceFunctionInstances...);
