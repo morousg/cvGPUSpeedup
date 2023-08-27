@@ -196,7 +196,7 @@ bool test_batchresize_x_split3D_OCVBatch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::c
     return passed;
 }
 
-template <int CV_TYPE_I, int CV_TYPE_O, int... Is>
+template <int CV_TYPE_I, int CV_TYPE_O, size_t... Is>
 bool test_batchresize_x_split3D_OCVBatch(int NUM_ELEMS_X, int NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream& cv_stream, bool enabled) {
     bool passed = true;
     int dummy[] = {(passed &= test_batchresize_x_split3D_OCVBatch<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)...};
@@ -364,8 +364,8 @@ bool test_batchresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stre
     return passed;
 }
 
-template <int CV_TYPE_I, int CV_TYPE_O, int... Is>
-bool test_batchresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream& cv_stream, bool enabled) {
+template <int CV_TYPE_I, int CV_TYPE_O, size_t... Is>
+bool test_batchresize_x_split3D(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream cv_stream, bool enabled) {
     bool passed = true;
     int dummy[] = { (passed &= test_batchresize_x_split3D<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
     return passed;
@@ -382,6 +382,7 @@ int main() {
     std::unordered_map<std::string, bool> results;
     results["test_batchresize_x_split3D_OCVBatch"] = true;
     results["test_batchresize_x_split3D_10_30_50_100"] = true;
+    std::make_index_sequence<batchValues.size()> iSeq {}; 
 
 #ifdef ENABLE_BENCHMARK
     // Warming up for the benchmarks
@@ -389,8 +390,8 @@ int main() {
 #endif
 
     #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-    results["test_batchresize_x_split3D_OCVBatch"] &= test_batchresize_x_split3D_OCVBatch<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, std::make_index_sequence<batchValues.size()>{}, cv_stream, true); \
-    results["test_batchresize_x_split3D"] &= test_batchresize_x_split3D<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, std::make_index_sequence<batchValues.size()>{}, cv_stream, true);
+    results["test_batchresize_x_split3D_OCVBatch"] &= test_batchresize_x_split3D_OCVBatch<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true); \
+    results["test_batchresize_x_split3D"] &= test_batchresize_x_split3D<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
 
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
     LAUNCH_TESTS(CV_8UC4, CV_32FC4)

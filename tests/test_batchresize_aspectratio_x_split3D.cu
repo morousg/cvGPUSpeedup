@@ -207,7 +207,7 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
     return passed;
 }
 
-template <int CV_TYPE_I, int CV_TYPE_O, int... Is>
+template <int CV_TYPE_I, int CV_TYPE_O, size_t... Is>
 bool launch_test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream& cv_stream, bool enabled) {
     bool passed = true;
     int dummy[] = { (passed &= test_batchaspectratioresize_x_split3D<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };

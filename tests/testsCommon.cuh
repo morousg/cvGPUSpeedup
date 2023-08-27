@@ -81,7 +81,7 @@ struct BenchmarkResultsNumbers {
     float cvGSelapsedTimeAcum;
 };
 
-template <int ITERATIONS>
+template <size_t ITERATIONS>
 float computeVariance(const float& mean, const std::array<float, ITERATIONS>& times) {
     float sumOfDiff = 0.f;
     for (int i = 0; i < ITERATIONS; i++) {

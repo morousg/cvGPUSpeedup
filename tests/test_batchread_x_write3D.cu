@@ -139,8 +139,8 @@ bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
     return passed;
 }
 
-template <int CV_TYPE_I, int CV_TYPE_O, int... Is>
-bool launch_test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream& cv_stream, bool enabled) {
+template <int CV_TYPE_I, int CV_TYPE_O, size_t... Is>
+bool launch_test_batchread_x_write3D(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream cv_stream, bool enabled) {
     bool passed = true;
 
     int dummy[] = { (passed &= test_batchread_x_write3D<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
@@ -159,9 +159,9 @@ int main() {
 
     std::unordered_map<std::string, bool> results;
     results["test_batchread_x_write3D"] = true;
-
+    std::make_index_sequence<batchValues.size()> iSeq {};
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-    results["test_batchread_x_write3D"] &= launch_test_batchread_x_write3D<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y,std::make_index_sequence<batchValues.size()>{}, cv_stream, true);
+    results["test_batchread_x_write3D"] &= launch_test_batchread_x_write3D<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
 
 #ifdef ENABLE_BENCHMARK
     // Warming up for the benchmarks
