@@ -19,6 +19,7 @@
 #include <fstream>
 #include <iostream>
 #include <unordered_map>
+#include <array>
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -62,6 +63,9 @@ bool compareAndCheck(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& cvVersion, cv::M
     return passed;
 }
 
+// Uncomment to enable benchmark
+//#define ENABLE_BENCHMARK
+
 #ifdef ENABLE_BENCHMARK
 std::unordered_map<std::string, std::stringstream> benchmarkResultsText;
 std::unordered_map < std::string, std::ofstream> currentFile;
@@ -87,14 +91,18 @@ float computeVariance(const float& mean, const std::array<float, ITERATIONS>& ti
     return sumOfDiff / (ITERATIONS - 1);
 }
 
-template <int CV_INPUT_TYPE, int CV_OUTPUT_TYPE, int BATCH, int ITERATIONS>
+template <int CV_INPUT_TYPE, int CV_OUTPUT_TYPE, int BATCH, int ITERATIONS, int NUM_BATCH_VALUES, const std::array<int, NUM_BATCH_VALUES>& batchValues>
 void processExecution(const BenchmarkResultsNumbers& resF, const std::string& functionName,
     const std::array<float, ITERS>& OCVelapsedTime, const std::array<float, ITERS>& cvGSelapsedTime) {
     if constexpr (BATCH == 1) {
         const std::string fileName = functionName + std::string(".csv");
         if (currentFile.find(fileName) == currentFile.end()) {
             currentFile[fileName].open(path + fileName);
-            currentFile[fileName] << "Number of images, Avg1, Var1, Avg10, Var10, Avg30, Var30, Avg50, Var50, Avg100, Var100\n";
+            currentFile[fileName] << "Number of images";
+            for (const auto& i : batchValues) {
+                currentFile[fileName] << ", Avg" << i << ", Var" << i;
+            }
+            currentFile[fileName] << "\n";
         }
         benchmarkResultsText.clear();
         benchmarkResultsText["SpeedupLine"] << "Speedup " << cvTypeToString<CV_INPUT_TYPE>() << "_" << cvTypeToString<CV_OUTPUT_TYPE>();
@@ -106,7 +114,8 @@ void processExecution(const BenchmarkResultsNumbers& resF, const std::string& fu
 
     benchmarkResultsText["SpeedupLine"] << ", " << (ocvMean / cvgsMean);
     benchmarkResultsText["SpeedupLine"] << ", " << (ocvVariance / cvgsVariance);
-    if constexpr (BATCH == 100) {
+
+    if constexpr (BATCH == batchValues[NUM_BATCH_VALUES - 1]) {
         const std::string fileName = functionName + std::string(".csv");
         currentFile[fileName] << benchmarkResultsText["SpeedupLine"].str() << std::endl;
     }
@@ -149,7 +158,7 @@ gpuErrchk(cudaEventElapsedTime(&cvGSelapsedTime[i], start, stop)); \
 resF.cvGSelapsedTimeMax = resF.cvGSelapsedTimeMax < cvGSelapsedTime[i] ? cvGSelapsedTime[i] : resF.cvGSelapsedTimeMax; \
 resF.cvGSelapsedTimeAcum += cvGSelapsedTime[i]; \
 } \
-processExecution<CV_TYPE_I, CV_TYPE_O, BATCH, ITERS>(resF, __func__, OCVelapsedTime, cvGSelapsedTime);
+processExecution<CV_TYPE_I, CV_TYPE_O, BATCH, ITERS, batchValues.size(), batchValues>(resF, __func__, OCVelapsedTime, cvGSelapsedTime);
 #else
 #define STOP_CVGS_BENCHMARK
 #endif

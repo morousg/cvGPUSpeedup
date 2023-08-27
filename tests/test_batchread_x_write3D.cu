@@ -18,6 +18,8 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
+constexpr std::array<int, 5> batchValues{ 1, 10, 30, 50, 100 };
+
 template <int CV_TYPE_I, int CV_TYPE_O, int BATCH>
 bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
@@ -93,7 +95,7 @@ bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
 
             STOP_CVGS_BENCHMARK
 
-                d_tensor_output.download(h_tensor_output, cv_stream);
+            d_tensor_output.download(h_tensor_output, cv_stream);
 
             // Verify results
             for (int crop_i = 0; crop_i < BATCH; crop_i++) {
@@ -137,6 +139,16 @@ bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
     return passed;
 }
 
+template <int CV_TYPE_I, int CV_TYPE_O, int... Is>
+bool launch_test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream& cv_stream, bool enabled) {
+    bool passed = true;
+
+    int dummy[] = { (passed &= test_batchread_x_write3D<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
+    (void)dummy;
+
+    return passed;
+}
+
 int main() {
     constexpr size_t NUM_ELEMS_X = 3840;
     constexpr size_t NUM_ELEMS_Y = 2160;
@@ -149,11 +161,7 @@ int main() {
     results["test_batchread_x_write3D"] = true;
 
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-    results["test_batchread_x_write3D"] &= test_batchread_x_write3D<CV_INPUT, CV_OUTPUT, 1>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true); \
-    results["test_batchread_x_write3D"] &= test_batchread_x_write3D<CV_INPUT, CV_OUTPUT, 10>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true); \
-    results["test_batchread_x_write3D"] &= test_batchread_x_write3D<CV_INPUT, CV_OUTPUT, 30>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true); \
-    results["test_batchread_x_write3D"] &= test_batchread_x_write3D<CV_INPUT, CV_OUTPUT, 50>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true); \
-    results["test_batchread_x_write3D"] &= test_batchread_x_write3D<CV_INPUT, CV_OUTPUT, 100>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
+    results["test_batchread_x_write3D"] &= launch_test_batchread_x_write3D<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y,std::make_index_sequence<batchValues.size()>{}, cv_stream, true);
 
 #ifdef ENABLE_BENCHMARK
     // Warming up for the benchmarks

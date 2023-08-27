@@ -18,7 +18,12 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
-template <int CV_TYPE_I, int CV_TYPE_O, int CROPS>
+// It is 50, because otherwise we surpass the 4KB parameter limit
+// in CUDA 11.8. This limitations will be removed when migrating
+// to CUDA 12.
+constexpr std::array<int, 4> batchValues{ 1, 10, 30, 50 };
+
+template <int CV_TYPE_I, int CV_TYPE_O, const int BATCH>
 bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
     bool passed = true;
@@ -51,10 +56,10 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
         try {
             cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_I, val_init);
 
-            std::array<cv::Rect2d, CROPS> crops_2d;
+            std::array<cv::Rect2d, BATCH> crops_2d;
             constexpr int cropWidth = 30;
             constexpr int cropHeight = 120;
-            for (int crop_i = 0; crop_i<CROPS; crop_i++) {
+            for (int crop_i = 0; crop_i<BATCH; crop_i++) {
                 crops_2d[crop_i] = cv::Rect2d(cv::Point2d(crop_i, crop_i), cv::Point2d(crop_i+cropWidth, crop_i+cropHeight));
             }
 
@@ -73,22 +78,22 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
             cv::cuda::GpuMat d_temp(up, CV_TYPE_O);
             cv::cuda::GpuMat d_temp2(up, CV_TYPE_O);
 
-            std::array<std::vector<cv::cuda::GpuMat>, CROPS> d_output_cv;
-            std::array<std::vector<cv::cuda::GpuMat>, CROPS> d_output_cvGS;
-            std::array<std::vector<cv::Mat>, CROPS> h_cvResults;
-            std::array<std::vector<cv::Mat>, CROPS> h_cvGSResults;
+            std::array<std::vector<cv::cuda::GpuMat>, BATCH> d_output_cv;
+            std::array<std::vector<cv::cuda::GpuMat>, BATCH> d_output_cvGS;
+            std::array<std::vector<cv::Mat>, BATCH> h_cvResults;
+            std::array<std::vector<cv::Mat>, BATCH> h_cvGSResults;
             
-            cv::cuda::GpuMat d_tensor_output(CROPS, 
+            cv::cuda::GpuMat d_tensor_output(BATCH, 
                                              up.width * up.height * CV_MAT_CN(CV_TYPE_O),
                                              CV_MAT_DEPTH(CV_TYPE_O));
             d_tensor_output.step = up.width * up.height * CV_MAT_CN(CV_TYPE_O) * sizeof(BASE_CUDA_T(CV_TYPE_O));
             d_tensor_output.setTo(cv::Scalar(0.f,0.f,0.f));
             cv::Mat diff(up, CV_MAT_DEPTH(CV_TYPE_O));
-            cv::Mat h_tensor_output(CROPS, up.width * up.height * CV_MAT_CN(CV_TYPE_O), CV_MAT_DEPTH(CV_TYPE_O));
+            cv::Mat h_tensor_output(BATCH, up.width * up.height * CV_MAT_CN(CV_TYPE_O), CV_MAT_DEPTH(CV_TYPE_O));
 
-            std::array<cv::cuda::GpuMat, CROPS> crops;
+            std::array<cv::cuda::GpuMat, BATCH> crops;
             d_up.setTo(val_init_output);
-            for (int crop_i=0; crop_i<CROPS; crop_i++) {
+            for (int crop_i=0; crop_i<BATCH; crop_i++) {
                 crops[crop_i] = d_input(crops_2d[crop_i]);
                 for (int i=0; i<CV_MAT_CN(CV_TYPE_I); i++) {
                     d_output_cv.at(crop_i).emplace_back(up, CV_MAT_DEPTH(CV_TYPE_O));
@@ -98,8 +103,9 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
 
             constexpr bool correctDept = CV_MAT_DEPTH(CV_TYPE_O) == CV_32F;
             
+            START_OCV_BENCHMARK
             // OpenCV version
-            for (int crop_i=0; crop_i<CROPS; crop_i++) {
+            for (int crop_i=0; crop_i<BATCH; crop_i++) {
                 const int xOffset = (up.width - upAspectRatio.width) / 2;
                 const int yOffset = (up.height - upAspectRatio.height) / 2;
                 uchar* data = (uchar*)((CUDA_T(CV_TYPE_I)*)(d_up.data + (yOffset * d_up.step)) + xOffset);
@@ -117,10 +123,11 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
                 cv::cuda::split(d_temp, d_output_cv[crop_i], cv_stream);
             }
 
+            STOP_OCV_START_CVGS_BENCHMARK
             // cvGPUSpeedup
             if constexpr (CV_MAT_CN(CV_TYPE_I) == 3 && correctDept) {
                 cvGS::executeOperations(cv_stream,
-                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS, cvGS::PRESERVE_AR>(crops, up, CROPS, cvGS::cvScalar_set<CV_TYPE_O>(128.f)),
+                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH, cvGS::PRESERVE_AR>(crops, up, BATCH, cvGS::cvScalar_set<CV_TYPE_O>(128.f)),
                                         cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGB2BGR>(),
                                         cvGS::multiply<CV_TYPE_O>(val_alpha),
                                         cvGS::subtract<CV_TYPE_O>(val_sub),
@@ -128,7 +135,7 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
                                         cvGS::split<CV_TYPE_O>(d_tensor_output, up));
             } else if constexpr (CV_MAT_CN(CV_TYPE_I) == 4 && correctDept) {
                 cvGS::executeOperations(cv_stream,
-                                       cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS, cvGS::PRESERVE_AR>(crops, up, CROPS, cvGS::cvScalar_set<CV_TYPE_O>(128.f)),
+                                       cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH, cvGS::PRESERVE_AR>(crops, up, BATCH, cvGS::cvScalar_set<CV_TYPE_O>(128.f)),
                                        cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGBA2BGRA>(),
                                        cvGS::multiply<CV_TYPE_O>(val_alpha),
                                        cvGS::subtract<CV_TYPE_O>(val_sub),
@@ -136,24 +143,24 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
                                        cvGS::split<CV_TYPE_O>(d_tensor_output, up));
             } else {
                 cvGS::executeOperations(cv_stream,
-                                       cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, CROPS, cvGS::PRESERVE_AR>(crops, up, CROPS, cvGS::cvScalar_set<CV_TYPE_O>(128.f)),
+                                       cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH, cvGS::PRESERVE_AR>(crops, up, BATCH, cvGS::cvScalar_set<CV_TYPE_O>(128.f)),
                                        cvGS::multiply<CV_TYPE_O>(val_alpha),
                                        cvGS::subtract<CV_TYPE_O>(val_sub),
                                        cvGS::divide<CV_TYPE_O>(val_div),
                                        cvGS::split<CV_TYPE_O>(d_tensor_output, up));
             }
-          
+            STOP_CVGS_BENCHMARK
             d_tensor_output.download(h_tensor_output, cv_stream);
 
             // Verify results
-            for (int crop_i=0; crop_i<CROPS; crop_i++) {
+            for (int crop_i=0; crop_i<BATCH; crop_i++) {
                 for (int i=0; i<CV_MAT_CN(CV_TYPE_O); i++) {
                     d_output_cv[crop_i].at(i).download(h_cvResults[crop_i].at(i), cv_stream);
                 }
             }
 
             cv_stream.waitForCompletion();
-            for (int crop_i=0; crop_i<CROPS; crop_i++) {
+            for (int crop_i=0; crop_i<BATCH; crop_i++) {
                 cv::Mat row = h_tensor_output.row(crop_i);
                 for (int i=0; i<CV_MAT_CN(CV_TYPE_I); i++) {
                     int planeStart = i * up.width*up.height;
@@ -163,7 +170,7 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
                 }
             }
             
-            for (int crop_i=0; crop_i<CROPS; crop_i++) {
+            for (int crop_i=0; crop_i<BATCH; crop_i++) {
                 for (int i=0; i<CV_MAT_CN(CV_TYPE_O); i++) {
                     cv::Mat cvRes = h_cvResults[crop_i].at(i);
                     cv::Mat cvGSRes = h_cvGSResults[crop_i].at(i);
@@ -200,14 +207,11 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
     return passed;
 }
 
-template <int CV_TYPE_I, int CV_TYPE_O>
-bool test_batchaspectratioresize_x_split3D_10_30_50(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
+template <int CV_TYPE_I, int CV_TYPE_O, int... Is>
+bool launch_test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream& cv_stream, bool enabled) {
     bool passed = true;
-
-    passed &= test_batchaspectratioresize_x_split3D<CV_TYPE_I, CV_TYPE_O, 10>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
-    passed &= test_batchaspectratioresize_x_split3D<CV_TYPE_I, CV_TYPE_O, 30>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
-    passed &= test_batchaspectratioresize_x_split3D<CV_TYPE_I, CV_TYPE_O, 50>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled);
-
+    int dummy[] = { (passed &= test_batchaspectratioresize_x_split3D<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
+    (void)dummy;
     return passed;
 }
 
@@ -220,10 +224,15 @@ int main() {
     cv::Mat::setDefaultAllocator(cv::cuda::HostMem::getAllocator(cv::cuda::HostMem::AllocType::PAGE_LOCKED));
 
     std::unordered_map<std::string, bool> results;
-    results["test_batchaspectratioresize_x_split3D_10_30_50"] = true;
+    results["test_batchaspectratioresize_x_split3D"] = true;
+
+#ifdef ENABLE_BENCHMARK
+    // Warming up for the benchmarks
+    results["test_batchaspectratioresize_x_split3D"] &= test_batchaspectratioresize_x_split3D<CV_8UC3, CV_32FC3, 5>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
+#endif
 
     #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-    results["test_batchaspectratioresize_x_split3D_10_30_50"] &= test_batchaspectratioresize_x_split3D_10_30_50<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
+    results["test_batchaspectratioresize_x_split3D"] &= launch_test_batchaspectratioresize_x_split3D<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, std::make_index_sequence<batchValues.size()>{}, cv_stream, true);
 
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
     LAUNCH_TESTS(CV_8UC4, CV_32FC4)
@@ -233,6 +242,8 @@ int main() {
     LAUNCH_TESTS(CV_16SC4, CV_32FC4)
 
     #undef LAUNCH_TESTS
+
+    CLOSE_BENCHMARK
 
     for (const auto& [key, passed] : results) {
         if (passed) {
