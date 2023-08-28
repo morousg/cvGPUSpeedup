@@ -100,7 +100,7 @@ void processExecution(const BenchmarkResultsNumbers& resF, const std::string& fu
             currentFile[fileName].open(path + fileName);
         }
         currentFile[fileName] << "Number of images (" << cvTypeToString<CV_INPUT_TYPE>() << "X"
-            << cvTypeToString<CV_OUTPUT_TYPE>();
+            << cvTypeToString<CV_OUTPUT_TYPE>() << ")";
         for (const auto& i : batchValues) {
             currentFile[fileName] << ", " << i;
         }
