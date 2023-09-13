@@ -268,12 +268,12 @@ template <>
 struct PtrAccessor<T3D> {
     template <typename T>
     FK_HOST_DEVICE_FUSE const T* __restrict__ cr_point(const Point& p, const RawPtr<T3D, T>& ptr, const uint& color_plane = 0) {
-        return (const T*)((const char*)ptr.data + (color_plane * ptr.dims.color_plane_pitch) + (ptr.dims.plane_pitch * p.z) + (ptr.dims.pitch * p.y)) + p.x;
+        return (const T*)((const char*)ptr.data + (color_plane * ptr.dims.color_planes_pitch) + (ptr.dims.plane_pitch * p.z) + (ptr.dims.pitch * p.y)) + p.x;
     }
 
     template <typename T>
     static __device__ __forceinline__ __host__ T* point(const Point& p, const RawPtr<T3D, T>& ptr, const uint& color_plane = 0) {
-        return (T*)((char*)ptr.data + (color_plane * ptr.dims.color_plane_pitch) + (ptr.dims.plane_pitch * p.z) + (ptr.dims.pitch * p.y)) + p.x;
+        return (T*)((char*)ptr.data + (color_plane * ptr.dims.color_planes_pitch) + (ptr.dims.plane_pitch * p.z) + (ptr.dims.pitch * p.y)) + p.x;
     }
 };
 
@@ -292,7 +292,9 @@ struct PtrImpl<_1D,T> {
         gpuErrchk(cudaMalloc(&ptr_a.data, sizeof(T) * ptr_a.dims.width));
         ptr_a.dims.pitch = sizeof(T) * ptr_a.dims.width;
     }
-    FK_HOST_FUSE void h_malloc_init(PtrDims<_1D>& dims) {}
+    FK_HOST_FUSE void h_malloc_init(PtrDims<_1D>& dims) {
+        dims.pitch = sizeof(T) * dims.width;
+    }
     FK_HOST_FUSE dim3 getBlockSize(const PtrDims<_1D>& dims) {
         return fk::getBlockSize(dims.width, 1);
     }
@@ -315,7 +317,9 @@ struct PtrImpl<_2D,T> {
             gpuErrchk(cudaMalloc(&ptr_a.data, PtrImpl<_2D,T>::sizeInBytes(ptr_a.dims)));
         }
     }
-    FK_HOST_FUSE void h_malloc_init(PtrDims<_2D>& dims) {}
+    FK_HOST_FUSE void h_malloc_init(PtrDims<_2D>& dims) {
+        dims.pitch = sizeof(T) * dims.width;
+    }
     FK_HOST_FUSE dim3 getBlockSize(const PtrDims<_2D>& dims) {
         return fk::getBlockSize(dims.width, dims.height);
     }
@@ -338,6 +342,7 @@ struct PtrImpl<_3D,T> {
         ptr_a.dims.plane_pitch = ptr_a.dims.pitch * ptr_a.dims.height;
     }
     FK_HOST_FUSE void h_malloc_init(PtrDims<_3D>& dims) {
+        dims.pitch = sizeof(T) * dims.width;
         dims.plane_pitch = dims.pitch * dims.height;
     }
     FK_HOST_FUSE dim3 getBlockSize(const PtrDims<_3D>& dims) {
@@ -354,15 +359,13 @@ struct PtrImpl<T3D, T> {
         return dims.width * dims.height * dims.planes * dims.color_planes;
     }
     FK_HOST_FUSE void d_malloc(RawPtr<T3D, T>& ptr_a) {
-        ptr_a.dims.pitch = sizeof(T) * ptr_a.dims.width;
-        ptr_a.dims.plane_pitch = ptr_a.dims.pitch * ptr_a.dims.height;
-        ptr_a.dims.color_planes_pitch = ptr_a.dims.plane_pitch * ptr_a.dims.color_planes;
+        PtrImpl<T3D, T>::h_malloc_init(ptr_a.dims);
         gpuErrchk(cudaMalloc(&ptr_a.data, PtrImpl<T3D, T>::sizeInBytes(ptr_a.dims)));
     }
     FK_HOST_FUSE void h_malloc_init(PtrDims<T3D>& dims) {
         dims.pitch = sizeof(T) * dims.width;
         dims.plane_pitch = dims.pitch * dims.height;
-        dims.color_planes_pitch = dims.plane_pitch * dims.color_planes;
+        dims.color_planes_pitch = dims.plane_pitch * dims.planes;
     }
     FK_HOST_FUSE dim3 getBlockSize(const PtrDims<T3D>& dims) {
         return fk::getBlockSize(dims.width, dims.height);
@@ -399,15 +402,14 @@ protected:
     }
 
     __host__ inline constexpr void allocHost() {
-        ptr_a.dims.pitch = sizeof(T) * ptr_a.dims.width; //Here we don't support padding
+        PtrImpl<D, T>::h_malloc_init(ptr_a.dims);
         ptr_a.data = (T*)malloc(PtrImpl<D,T>::sizeInBytes(ptr_a.dims));
-        PtrImpl<D,T>::h_malloc_init(ptr_a.dims);
+        
     }
 
     __host__ inline constexpr void allocHostPinned() {
-        ptr_a.dims.pitch = sizeof(T) * ptr_a.dims.width; //Here we don't support padding
+        PtrImpl<D, T>::h_malloc_init(ptr_a.dims);
         gpuErrchk(cudaMallocHost(&ptr_a.data, PtrImpl<D,T>::sizeInBytes(ptr_a.dims)));
-        PtrImpl<D,T>::h_malloc_init(ptr_a.dims);
     }
 
     __host__ inline constexpr void freePrt() {
@@ -590,7 +592,7 @@ public:
     __host__ inline constexpr PtrT3D<T> crop3D(const Point& p, const PtrDims<T3D>& newDims) { return Ptr<T3D, T>::crop(p, newDims); }
 };
 
-// A Tensor pointer will never have any padding
+// A Tensor pointer
 template <typename T>
 class Tensor : public Ptr<_3D, T> {
 public:
@@ -606,6 +608,25 @@ public:
     
     __host__ inline constexpr void allocTensor(const uint& width_, const uint& height_, const uint& planes_, const uint& color_planes_ = 1, const MemType& type_ = Device, const int& deviceID_ = 0) {
                                                this->allocPtr(PtrDims<_3D>(width_, height_, planes_, color_planes_, sizeof(T)*width_), type_, deviceID_);
+    }
+};
+
+// A color-planes-transposed Tensor pointer
+template <typename T>
+class TensorT : public Ptr<T3D, T> {
+public:
+    __host__ inline constexpr TensorT() {}
+
+    __host__ inline constexpr TensorT(const TensorT<T>& other) : Ptr<T3D, T>(other) {}
+
+    __host__ inline constexpr TensorT(const uint& width_, const uint& height_, const uint& planes_, const uint& color_planes_ = 1, const MemType& type_ = Device, const int& deviceID_ = 0) :
+        Ptr<T3D, T>(PtrDims<T3D>(width_, height_, planes_, color_planes_), type_, deviceID_) {}
+
+    __host__ inline constexpr TensorT(T* data, const uint& width_, const uint& height_, const uint& planes_, const uint& color_planes_ = 1, const MemType& type_ = Device, const int& deviceID_ = 0) :
+        Ptr<T3D, T>(data, PtrDims<T3D>(width_, height_, planes_, color_planes_), type_, deviceID_) {}
+
+    __host__ inline constexpr void allocTensor(const uint& width_, const uint& height_, const uint& planes_, const uint& color_planes_ = 1, const MemType& type_ = Device, const int& deviceID_ = 0) {
+        this->allocPtr(PtrDims<T3D>(width_, height_, planes_, color_planes_), type_, deviceID_);
     }
 };
 }
