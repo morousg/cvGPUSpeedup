@@ -104,10 +104,12 @@ namespace fk {
         using SourceT = typename VectorType<T, COLOR_PLANES>::type;
 
         using ReadDeviceFunctions = TypeList<ReadDeviceFunction<CircularTensorRead<CircularDirection::Descendent, TensorRead<SourceT>, BATCH>>,
-                                             ReadDeviceFunction<CircularTensorRead<CircularDirection::Descendent, TensorSplitRead<SourceT>, BATCH>>>;
+                                             ReadDeviceFunction<CircularTensorRead<CircularDirection::Descendent, TensorSplitRead<SourceT>, BATCH>>,
+                                             ReadDeviceFunction<CircularTensorRead<CircularDirection::Descendent, TensorTSplitRead<SourceT>, BATCH>>>;
 
         using WriteDeviceFunctions = TypeList<WriteDeviceFunction<TensorWrite<SourceT>>,
-                                              WriteDeviceFunction<TensorSplitWrite<SourceT>>>;
+                                              WriteDeviceFunction<TensorSplitWrite<SourceT>>,
+                                              WriteDeviceFunction<TensorTSplitWrite<SourceT>>>;
 
     public:
         __host__ inline constexpr CircularTensor() {};

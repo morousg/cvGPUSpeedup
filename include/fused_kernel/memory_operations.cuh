@@ -82,6 +82,25 @@ struct TensorSplitWrite {
 };
 
 template <typename T>
+struct TensorTSplitWrite {
+    using Type = T;
+    using ParamsType = RawPtr<T3D, typename VectorTraits<T>::base>;
+    FK_DEVICE_FUSE void exec(const Point& thread, const Type& input, const ParamsType& ptr) {
+        static_assert(cn<Type> >= 2, "Wrong type for split tensor write. It must be one of <type>2, <type>3 or <type>4.");
+
+        using OutputType = typename VectorTraits<Type>::base;
+        *PtrAccessor<T3D>::point(thread, ptr, 0) = input.x;
+        *PtrAccessor<T3D>::point(thread, ptr, 1) = input.y;
+        if constexpr (cn<Type> >= 3) {
+            *PtrAccessor<T3D>::point(thread, ptr, 2) = input.z;
+        }
+        if constexpr (cn<Type> == 4) {
+            *PtrAccessor<T3D>::point(thread, ptr, 3) = input.w;
+        }
+    }
+};
+
+template <typename T>
 struct TensorSplitRead {
     using Type = T;
     using ParamsType = RawPtr<_3D, typename VectorTraits<T>::base>;
@@ -102,6 +121,31 @@ struct TensorSplitRead {
                                *(work_plane + planePixels),
                                *(work_plane + (planePixels * 2)),
                                *(work_plane + (planePixels * 3)));
+        }
+    }
+};
+
+template <typename T>
+struct TensorTSplitRead {
+    using Type = T;
+    using ParamsType = RawPtr<T3D, typename VectorTraits<T>::base>;
+    FK_DEVICE_FUSE Type exec(const Point& thread, const ParamsType& ptr) {
+        static_assert(cn<Type> >= 2, "Wrong type for split tensor read. It must be one of <type>2, <type>3 or <type>4.");
+
+        using OutputType = typename VectorTraits<Type>::base;
+        const OutputType x = *PtrAccessor<T3D>::cr_point(thread, ptr, 0);
+        if constexpr (cn<Type> == 2) {
+            const OutputType y = *PtrAccessor<T3D>::cr_point(thread, ptr, 1);
+            return make_<Type>(x, y);
+        } else if constexpr (cn<Type> == 3) {
+            const OutputType y = *PtrAccessor<T3D>::cr_point(thread, ptr, 1);
+            const OutputType z = *PtrAccessor<T3D>::cr_point(thread, ptr, 2);
+            return make_<Type>(x, y, z);
+        } else {
+            const OutputType y = *PtrAccessor<T3D>::cr_point(thread, ptr, 1);
+            const OutputType z = *PtrAccessor<T3D>::cr_point(thread, ptr, 2);
+            const OutputType w = *PtrAccessor<T3D>::cr_point(thread, ptr, 3);
+            return make_<Type>(x, y, z, w);
         }
     }
 };
