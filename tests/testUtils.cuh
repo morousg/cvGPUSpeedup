@@ -78,17 +78,86 @@ namespace fk {
     void printTensor(const fk::Tensor<T>& tensor) {
         std::stringstream ss;
 
-        for (int z = 0; z < tensor.ptr().dims.planes; z++) {
-            const T* plane = fk::PtrAccessor<fk::_3D>::cr_point(fk::Point(0, 0, z), tensor.ptr());
-            for (int y = 0; y < tensor.ptr().dims.height; y++) {
-                for (int x = 0; x < tensor.ptr().dims.width * tensor.ptr().dims.color_planes; x++) {
-                    ss << plane[x + (y * tensor.ptr().dims.width)] << " ";
+        const auto dims = tensor.dims();
+        const size_t plane_pixels = dims.width * dims.height;
+
+        for (int z = 0; z < dims.planes; z++) {
+            for (int y = 0; y < dims.height; y++) {
+                for (int cp = 0; cp < dims.color_planes; cp++) {
+                    const T* plane = fk::PtrAccessor<fk::_3D>::cr_point(fk::Point(0, 0, z), tensor.ptr())
+                        + (plane_pixels * cp);
+
+                    for (int x = 0; x < dims.width; x++) {
+                        ss << plane[x + (y * dims.width)] << " ";
+                    }
+                    ss << "| ";
                 }
                 ss << std::endl;
             }
-            ss << std::endl;
+            ss << "------------------" << std::endl;
         }
-
         std::cout << ss.str() << std::endl;
+    }
+
+    template <typename T>
+    void printTensor(const fk::TensorT<T>& tensor) {
+        std::stringstream ss;
+
+        const auto dims = tensor.dims();
+        const size_t plane_pixels = dims.width * dims.height;
+
+        for (int cp = 0; cp < dims.color_planes; cp++) {
+            for (int y = 0; y < dims.height; y++) {
+                for (int z = 0; z < dims.planes; z++) {
+                    const T* plane = fk::PtrAccessor<fk::T3D>::cr_point(fk::Point(0, 0, z), tensor.ptr())
+                        + (plane_pixels * dims.planes * cp);
+                    for (int x = 0; x < dims.width; x++) {
+                        ss << plane[x + (y * dims.width)] << " ";
+                    }
+                    ss << "| ";
+                }
+                ss << std::endl;
+            }
+            ss << "------------------" << std::endl;
+        }
+        std::cout << ss.str() << std::endl;
+    }
+
+    template <typename T>
+    void printTensorImagePerRow(const fk::Tensor<T>& tensor) {
+        const auto dims = tensor.dims();
+        const size_t elements_per_image = dims.width * dims.height * dims.color_planes;
+        for (int i = 0; i < tensor.getNumElements(); i++) {
+            if (i > 0 && i % elements_per_image == 0) {
+                std::cout << std::endl;
+            }
+            std::cout << tensor.ptr().data[i];
+        }
+        std::cout << std::endl;
+    }
+
+    template <typename T>
+    void printTensorImagePerRow(const fk::TensorT<T>& tensor) {
+        const auto dims = tensor.dims();
+        const size_t elements_per_image = dims.width * dims.height * dims.planes;
+        for (int i = 0; i < tensor.getNumElements(); i++) {
+            if (i > 0 && i % elements_per_image == 0) {
+                std::cout << std::endl;
+            }
+            std::cout << tensor.ptr().data[i];
+        }
+        std::cout << std::endl;
+    }
+
+    template <typename TensorType>
+    bool compareTensors(const TensorType& tensor1, const TensorType& tensor2) {
+        bool correct = tensor1.getNumElements() == tensor2.getNumElements();
+        if (!correct) {
+            std::cout << "Tensors don't have the same number of elements!!" << std::endl;
+        }
+        for (int i = 0; i < tensor1.getNumElements(); i++) {
+            correct &= tensor1.ptr().data[i] == tensor2.ptr().data[i];
+        }
+        return correct;
     }
 }

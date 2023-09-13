@@ -381,7 +381,7 @@ int main() {
 
     std::unordered_map<std::string, bool> results;
     results["test_batchresize_x_split3D_OCVBatch"] = true;
-    results["test_batchresize_x_split3D_10_30_50_100"] = true;
+    results["test_batchresize_x_split3D"] = true;
     std::make_index_sequence<batchValues.size()> iSeq {}; 
 
 #ifdef ENABLE_BENCHMARK

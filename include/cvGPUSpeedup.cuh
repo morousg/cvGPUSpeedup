@@ -139,12 +139,17 @@ inline constexpr auto split(const fk::RawPtr<fk::_3D, typename fk::VectorTraits<
     return fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(O)>> {output};
 }
 
+template <int O>
+inline constexpr auto splitT(const fk::RawPtr<fk::T3D, typename fk::VectorTraits<CUDA_T(O)>::base>& output) {
+    return fk::WriteDeviceFunction<fk::TensorTSplitWrite<CUDA_T(O)>> {output};
+}
+
 template <int T, int INTER_F>
 inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
     const fk::RawPtr<fk::_2D, CUDA_T(T)> fk_input = gpuMat2Ptr2D<CUDA_T(T)>(input);
-    const fk::Size dSize{dsize.width, dsize.height};
+    const fk::Size dSize{ dsize.width, dsize.height };
     return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F>(fk_input, dSize, fx, fy);
 }
 
@@ -153,7 +158,7 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const 
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
     const std::array<fk::Ptr2D<CUDA_T(T)>, NPtr> fk_input{ gpuMat2Ptr2D_arr<CUDA_T(T), NPtr>(input) };
-    const fk::Size dSize{dsize.width, dsize.height};
+    const fk::Size dSize{ dsize.width, dsize.height };
     constexpr int defaultType = CV_MAKETYPE(CV_32F, CV_MAT_CN(T));
     return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr, (fk::AspectRatio)AR>(fk_input, dSize, usedPlanes, cvScalar2CUDAV<defaultType>::get(backgroundValue));
 }
@@ -226,16 +231,16 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-template <int I, int O, int COLOR_PLANES, int BATCH>
-class CircularTensor : public fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH> {
+template <int I, int O, int COLOR_PLANES, int BATCH, fk::ColorPlanes CP_MODE = fk::ColorPlanes::Standard>
+class CircularTensor : public fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CP_MODE> {
 public:
     inline constexpr CircularTensor() {};
 
     inline constexpr CircularTensor(const uint& width_, const uint& height_, const int& deviceID_ = 0) :
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH>(width_, height_, deviceID_) {};
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CP_MODE>(width_, height_, deviceID_) {};
 
     inline constexpr void Alloc(const uint& width_, const uint& height_, const int& deviceID_ = 0) {
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH>::Alloc(width_, height_, deviceID_);
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CP_MODE>::Alloc(width_, height_, deviceID_);
     }
 
     template <typename... DeviceFunctionTypes>
@@ -244,12 +249,12 @@ public:
             { (CUDA_T(I)*)input.data, { static_cast<uint>(input.cols), static_cast<uint>(input.rows), static_cast<uint>(input.step) } },
             { static_cast<uint>(input.cols), static_cast<uint>(input.rows), 1 }
         };
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH>::update(cv::cuda::StreamAccessor::getStream(stream), readDeviceFunction, deviceFunctionInstances...);
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CP_MODE>::update(cv::cuda::StreamAccessor::getStream(stream), readDeviceFunction, deviceFunctionInstances...);
     }
 
     template <typename... DeviceFunctionTypes>
     inline constexpr void update(const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctionInstances) {
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH>::update(cv::cuda::StreamAccessor::getStream(stream), deviceFunctionInstances...);
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CP_MODE>::update(cv::cuda::StreamAccessor::getStream(stream), deviceFunctionInstances...);
     }
 
     inline constexpr CUDA_T(O)* data() {
