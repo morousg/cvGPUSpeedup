@@ -231,16 +231,16 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-template <int I, int O, int COLOR_PLANES, int BATCH, fk::ColorPlanes CP_MODE = fk::ColorPlanes::Standard>
-class CircularTensor : public fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CP_MODE> {
+template <int I, int O, int COLOR_PLANES, int BATCH, fk::CircularTensorOrder CT_ORDER, fk::ColorPlanes CP_MODE = fk::ColorPlanes::Standard>
+class CircularTensor : public fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE> {
 public:
     inline constexpr CircularTensor() {};
 
     inline constexpr CircularTensor(const uint& width_, const uint& height_, const int& deviceID_ = 0) :
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CP_MODE>(width_, height_, deviceID_) {};
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>(width_, height_, deviceID_) {};
 
     inline constexpr void Alloc(const uint& width_, const uint& height_, const int& deviceID_ = 0) {
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CP_MODE>::Alloc(width_, height_, deviceID_);
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>::Alloc(width_, height_, deviceID_);
     }
 
     template <typename... DeviceFunctionTypes>
@@ -249,12 +249,12 @@ public:
             { (CUDA_T(I)*)input.data, { static_cast<uint>(input.cols), static_cast<uint>(input.rows), static_cast<uint>(input.step) } },
             { static_cast<uint>(input.cols), static_cast<uint>(input.rows), 1 }
         };
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CP_MODE>::update(cv::cuda::StreamAccessor::getStream(stream), readDeviceFunction, deviceFunctionInstances...);
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>::update(cv::cuda::StreamAccessor::getStream(stream), readDeviceFunction, deviceFunctionInstances...);
     }
 
     template <typename... DeviceFunctionTypes>
     inline constexpr void update(const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctionInstances) {
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CP_MODE>::update(cv::cuda::StreamAccessor::getStream(stream), deviceFunctionInstances...);
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>::update(cv::cuda::StreamAccessor::getStream(stream), deviceFunctionInstances...);
     }
 
     inline constexpr CUDA_T(O)* data() {

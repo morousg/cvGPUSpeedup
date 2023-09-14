@@ -98,6 +98,24 @@ namespace fk {
         }
     };
 
+    enum CircularTensorOrder { NewestFirst, OldestFirst };
+
+    template <CircularTensorOrder CT_ORDER>
+    struct CTReadDirection;
+
+    template <>
+    struct CTReadDirection<CircularTensorOrder::NewestFirst> {
+        static const CircularDirection dir{ Descendent };
+    };
+
+    template <>
+    struct CTReadDirection<CircularTensorOrder::OldestFirst> {
+        static const CircularDirection dir{ Ascendent };
+    };
+
+    template <CircularTensorOrder CT_ORDER>
+    static constexpr CircularDirection CTReadDirection_v = CTReadDirection<CT_ORDER>::dir;
+
     enum ColorPlanes {Standard, Transposed};
 
     template <typename T, ColorPlanes CP_MODE>
@@ -116,16 +134,16 @@ namespace fk {
     template <typename T, ColorPlanes CP_MODE>
     using CoreType_t = typename CoreType<T, CP_MODE>::type;
 
-    template <typename T, int COLOR_PLANES, int BATCH, ColorPlanes CP_MODE>
+    template <typename T, int COLOR_PLANES, int BATCH, CircularTensorOrder CT_ORDER, ColorPlanes CP_MODE>
     class CircularTensor : public CoreType_t<T, CP_MODE> {
 
         using ParentType = CoreType_t<T, CP_MODE>;
 
         using SourceT = typename VectorType<T, COLOR_PLANES>::type;
 
-        using ReadDeviceFunctions = TypeList<ReadDeviceFunction<CircularTensorRead<CircularDirection::Descendent, TensorRead<SourceT>, BATCH>>,
-                                             ReadDeviceFunction<CircularTensorRead<CircularDirection::Descendent, TensorSplitRead<SourceT>, BATCH>>,
-                                             ReadDeviceFunction<CircularTensorRead<CircularDirection::Descendent, TensorTSplitRead<SourceT>, BATCH>>>;
+        using ReadDeviceFunctions = TypeList<ReadDeviceFunction<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorRead<SourceT>, BATCH>>,
+                                             ReadDeviceFunction<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorSplitRead<SourceT>, BATCH>>,
+                                             ReadDeviceFunction<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorTSplitRead<SourceT>, BATCH>>>;
 
         using WriteDeviceFunctions = TypeList<WriteDeviceFunction<TensorWrite<SourceT>>,
                                               WriteDeviceFunction<TensorSplitWrite<SourceT>>,

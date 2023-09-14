@@ -16,10 +16,10 @@
 #include <cvGPUSpeedup.cuh>
 
 bool testCircularBatchRead() {
-    constexpr int WIDTH = 32;
-    constexpr int HEIGHT = 32;
-    constexpr int BATCH = 15;
-    constexpr int FIRST = 4;
+    constexpr uint WIDTH = 32;
+    constexpr uint HEIGHT = 32;
+    constexpr uint BATCH = 15;
+    constexpr uint FIRST = 4;
 
     cudaStream_t stream;
 
@@ -84,10 +84,10 @@ bool testCircularBatchRead() {
 }
 
 bool testDivergentBatch() {
-    constexpr int WIDTH = 32;
-    constexpr int HEIGHT = 32;
-    constexpr int BATCH = 2;
-    constexpr int VAL_SUM = 3;
+    constexpr uint WIDTH = 32;
+    constexpr uint HEIGHT = 32;
+    constexpr uint BATCH = 2;
+    constexpr uint VAL_SUM = 3;
 
     cudaStream_t stream;
 
@@ -173,7 +173,7 @@ bool testCircularTensor() {
     constexpr uint COLOR_PLANES = fk::cn<IT>;
     constexpr int ITERS = 100;
 
-    fk::CircularTensor<TensorOT, COLOR_PLANES, BATCH, fk::ColorPlanes::Standard> myTensor(WIDTH, HEIGHT);
+    fk::CircularTensor<TensorOT, COLOR_PLANES, BATCH, fk::CircularTensorOrder::NewestFirst, fk::ColorPlanes::Standard> myTensor(WIDTH, HEIGHT);
     fk::Tensor<TensorOT> h_myTensor(WIDTH, HEIGHT, BATCH, COLOR_PLANES, fk::MemType::HostPinned);
     fk::Ptr2D<IT> input(WIDTH, HEIGHT);
     fk::Ptr2D<IT> h_input(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
@@ -226,7 +226,7 @@ bool testCircularTensorcvGS() {
     constexpr uint COLOR_PLANES = CV_MAT_CN(IT);
     constexpr int ITERS = 100;
 
-    cvGS::CircularTensor<IT, CV_MAT_DEPTH(OT), COLOR_PLANES, BATCH> myTensor(WIDTH, HEIGHT);
+    cvGS::CircularTensor<IT, CV_MAT_DEPTH(OT), COLOR_PLANES, BATCH, fk::CircularTensorOrder::NewestFirst> myTensor(WIDTH, HEIGHT);
     fk::Tensor<TensorOT> h_myTensor(WIDTH, HEIGHT, BATCH, COLOR_PLANES, fk::MemType::HostPinned);
     cv::cuda::GpuMat input(HEIGHT, WIDTH, IT);
     fk::Ptr2D<CUDA_T(IT)> h_input(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
@@ -286,7 +286,7 @@ bool testTransposedCircularTensorcvGS() {
     constexpr uint COLOR_PLANES = CV_MAT_CN(IT);
     constexpr int ITERS = 100;
 
-    cvGS::CircularTensor<IT, CV_MAT_DEPTH(OT), COLOR_PLANES, BATCH, fk::ColorPlanes::Transposed> myTensor(WIDTH, HEIGHT);
+    cvGS::CircularTensor<IT, CV_MAT_DEPTH(OT), COLOR_PLANES, BATCH, fk::CircularTensorOrder::NewestFirst, fk::ColorPlanes::Transposed> myTensor(WIDTH, HEIGHT);
     fk::TensorT<TensorOT> h_myTensor(WIDTH, HEIGHT, BATCH, COLOR_PLANES, fk::MemType::HostPinned);
     fk::TensorT<TensorOT> h_myInternalTensor(WIDTH, HEIGHT, BATCH, COLOR_PLANES, fk::MemType::HostPinned);
     cv::cuda::GpuMat input(HEIGHT, WIDTH, IT);
