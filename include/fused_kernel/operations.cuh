@@ -208,4 +208,30 @@ struct BinaryInterpolate<I, InterpolationType::INTER_LINEAR> {
         return out;
     }
 };
+
+enum ColorDepth { p8bit, p10bit, p12bit };
+enum ColorRange { Limited, Full };
+enum ColorPrimitves { bt601, bt709 };
+
+template <ColorDepth cd, bool ALPHA>
+struct YUV420ToRGB;
+
+using ColorDepths = TypeList<YUV420ToRGB<p8bit, true>, YUV420ToRGB<p8bit, false>,
+                             YUV420ToRGB<p10bit, true>, YUV420ToRGB<p10bit, false>,
+                             YUV420ToRGB<p12bit, true>, YUV420ToRGB<p12bit, false>>;
+
+using UCYTR_OutputTypes = TypeList<uchar4, uchar3, ushort4, ushort3, ushort4, ushort3>;
+
+template <ColorDepth CD, ColorRange CR, ColorPrimitves CP, bool ALPHA>
+struct UnaryConvertYUV420ToRGB;
+
+template <ColorRange CR, ColorPrimitves CP, bool ALPHA>
+struct UnaryConvertYUV420ToRGB<p8bit, CR, CP, ALPHA> {
+    using InputType = uchar3;
+    using OutputType = EquivalentType_t<YUV420ToRGB<p8bit, ALPHA>, ColorDepths, UCYTR_OutputTypes>;
+    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        return make_set<OutputType>(0);
+    }
+};
+
 } //namespace fk
