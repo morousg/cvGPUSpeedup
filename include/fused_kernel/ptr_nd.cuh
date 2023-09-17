@@ -118,9 +118,9 @@ struct PtrDims<_1D> {
 
 template <>
 struct PtrDims<_2D> {
-    int width;
-    int height;
-    int pitch;
+    uint width;
+    uint height;
+    uint pitch;
 
     __host__ __device__ __forceinline__ PtrDims() : pitch(0) {}
     __host__ __device__ __forceinline__

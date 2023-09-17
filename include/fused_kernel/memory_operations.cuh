@@ -227,6 +227,57 @@ struct ResizeRead {
     }
 };
 
+template <PixelFormat PF>
+struct ReadYUV {
+    using Type = VectorType_t<YUVChannelType<PixelFormatTraits<PF>::depth>, PixelFormatTraits<PF>::cn>;
+    using ParamsType = RawPtr<_2D, YUVChannelType<PixelFormatTraits<PF>::depth>>;
+    static __device__ __forceinline__ const Type exec(const Point& thread, const ParamsType& params) {
+        if constexpr (PF == NV12 || PF == P010 || PF == P016 || PF == P210 || PF == P216) {
+            // Planar luma
+            const YUVChannelType<PixelFormatTraits<PF>::depth> Y = *PtrAccessor<_2D>::cr_point(thread, params);
+
+            // Packed chroma
+            const PtrDims<_2D> dims = params.dims;
+            const RawPtr<_2D, VectorType_t<YUVChannelType<PixelFormatTraits<PF>::depth>, 2>> chromaPlane{
+                (VectorType_t<YUVChannelType<PixelFormatTraits<PF>::depth>, 2>*)((uchar*)params.data + dims.pitch * dims.height),
+                { dims.width >> 1, dims.height >> 1, dims.pitch }
+            };
+            const ColorSpace CS = PixelFormatTraits<PF>::space;
+            const uchar2 UV =
+                *PtrAccessor<_2D>::cr_point({thread.x >> 1, CS == YUV420 ? thread.y >> 1 : thread.y, thread.z}, chromaPlane);
+
+            return { Y, UV.x, UV.y };
+        } else if constexpr (PF == NV21) {
+            // Planar luma
+            const uchar Y = *PtrAccessor<_2D>::cr_point(thread, params);
+
+            // Packed chroma
+            const PtrDims<_2D> dims = params.dims;
+            const RawPtr<_2D, uchar2> chromaPlane{
+                (uchar2*)((uchar*)params.data + dims.pitch * dims.height), { dims.width >> 1, dims.height >> 1, dims.pitch }
+            };
+            const uchar2 VU = *PtrAccessor<_2D>::cr_point({ thread.x >> 1, thread.y >> 1, thread.z }, chromaPlane);
+
+            return { Y, VU.y, VU.x };
+        } else if constexpr (PF == Y216 || PF == Y210) {
+            const PtrDims<_2D> dims = params.dims;
+            const RawPtr<_2D, ushort4> image{ (ushort4*)params.data, {dims.width >> 1, dims.height, dims.pitch} };
+            const ushort4 pixel = *PtrAccessor<_2D>::cr_point({thread.x >> 1, thread.y, thread.z}, image);
+            const bool isEvenThread = UnaryIsEven<uint>::exec(thread.x);
+
+            return { isEvenThread ? pixel.x : pixel.z, pixel.y, pixel.w };
+        } else if constexpr (PF == Y416) {
+            // AVYU
+            // We use ushort as the type, to be compatible with the rest of the cases
+            const RawPtr<_2D, ushort4> readImage{params.data, params.dims};
+            const ushort4 pixel = *PtrAccessor<_2D>::cr_point(thread, params);
+            return { pixel.z, pixel.w, pixel.y, pixel.x };
+        } else {
+            static_assert(false, "Pixel Format not suported for ReadYUV memory operation.");
+        }
+    }
+};
+
 /* The following code has the following copy right
  
    Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huget)

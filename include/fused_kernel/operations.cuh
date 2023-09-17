@@ -209,29 +209,142 @@ struct BinaryInterpolate<I, InterpolationType::INTER_LINEAR> {
     }
 };
 
-enum ColorDepth { p8bit, p10bit, p12bit };
+enum ColorSpace { YUV420, YUV422, YUV444 };
+template <ColorSpace CS>
+struct CS_t { ColorSpace value{ CS }; };
+
 enum ColorRange { Limited, Full };
 enum ColorPrimitves { bt601, bt709 };
 
-template <ColorDepth cd, bool ALPHA>
-struct YUV420ToRGB;
+enum ColorDepth { p8bit, p10bit, p12bit };
+template <ColorDepth CD>
+struct CD_t { ColorDepth value{ CD }; };
+using ColorDepthTypes = TypeList<CD_t<p8bit>, CD_t<p10bit>, CD_t<p12bit>>;
+using ColorDepthChannelTypes = TypeList<uchar, ushort, ushort>;
+using ColorDepthPixelTypes = TypeList<uchar3, ushort3, ushort3>;
 
-using ColorDepths = TypeList<YUV420ToRGB<p8bit, true>, YUV420ToRGB<p8bit, false>,
-                             YUV420ToRGB<p10bit, true>, YUV420ToRGB<p10bit, false>,
-                             YUV420ToRGB<p12bit, true>, YUV420ToRGB<p12bit, false>>;
+enum PixelFormat { NV12, NV21, YV12, P010, P016, P216, P210, Y216, Y210, Y416 };
+template <PixelFormat PF>
+struct PixelFormatTraits;
+template <> struct PixelFormatTraits<NV12> { enum { space = YUV420, depth = p8bit, cn = 3 }; };
+template <> struct PixelFormatTraits<NV21> { enum { space = YUV420, depth = p8bit, cn = 3 }; };
+template <> struct PixelFormatTraits<YV12> { enum { space = YUV420, depth = p8bit, cn = 3 }; };
+template <> struct PixelFormatTraits<P010> { enum { space = YUV420, depth = p10bit, cn = 3 }; };
+template <> struct PixelFormatTraits<P210> { enum { space = YUV422, depth = p10bit, cn = 3 }; };
+template <> struct PixelFormatTraits<Y210> { enum { space = YUV422, depth = p10bit, cn = 3 }; };
+template <> struct PixelFormatTraits<Y416> { enum { space = YUV444, depth = p10bit, cn = 4 }; };
 
-using UCYTR_OutputTypes = TypeList<uchar4, uchar3, ushort4, ushort3, ushort4, ushort3>;
+template <ColorDepth CD>
+using YUVChannelType = EquivalentType_t<CD_t<CD>, ColorDepthTypes, ColorDepthChannelTypes>;
+template <ColorDepth CD>
+using YUVInputPixelType = EquivalentType_t<CD_t<CD>, ColorDepthTypes, ColorDepthPixelTypes>;
+template <PixelFormat PF, bool ALPHA>
+using YUVOutputPixelType = VectorType_t<YUVChannelType<PixelFormatTraits<PF>::depth>, ALPHA ? 4 : PixelFormatTraits<PF>::cn>;
 
-template <ColorDepth CD, ColorRange CR, ColorPrimitves CP, bool ALPHA>
-struct UnaryConvertYUV420ToRGB;
+template <typename T>
+struct SubCoefficients {
+    T luma;
+    T chroma;
+};
 
-template <ColorRange CR, ColorPrimitves CP, bool ALPHA>
-struct UnaryConvertYUV420ToRGB<p8bit, CR, CP, ALPHA> {
-    using InputType = uchar3;
-    using OutputType = EquivalentType_t<YUV420ToRGB<p8bit, ALPHA>, ColorDepths, UCYTR_OutputTypes>;
+template <ColorDepth CD>
+constexpr SubCoefficients<YUVChannelType<CD>> subCoefficients;
+template <> constexpr SubCoefficients<uchar> subCoefficients<p8bit>{ 16u, 128u };
+template <> constexpr SubCoefficients<ushort> subCoefficients<p10bit>{ 64u, 512u };
+template <> constexpr SubCoefficients<ushort> subCoefficients<p12bit>{ 64u, 2048u };
+
+struct MulCoefficients {
+    float R1; float R2;
+    float G1; float G2; float G3;
+    float B1; float B2;
+};
+
+template <ColorRange CR, ColorPrimitves CP>
+constexpr MulCoefficients mulCoefficients;
+template <> constexpr MulCoefficients mulCoefficients<Full,    bt601>{ 1.164f,  1.596f, 1.164f,  0.813f,  0.391f, 1.164f,  2.018f };
+template <> constexpr MulCoefficients mulCoefficients<Limited, bt601>{ 1.164f,  1.596f, 1.164f,  0.813f,  0.391f, 1.164f,  2.018f };
+template <> constexpr MulCoefficients mulCoefficients<Full,    bt709>{ 1.5748f, 0.f,    0.1873f, 0.4681f, 0.f,    1.8556f, 0.f    };
+template <> constexpr MulCoefficients mulCoefficients<Limited, bt709>{ 1.4746f, 0.f,    0.1646f, 0.5713f, 0.f,    1.8814f, 0.f    };
+
+// Y -> input.x
+// U -> input.y
+// V -> input.z
+template <ColorSpace CS, ColorDepth CD, ColorRange CR, ColorPrimitves CP>
+struct ComputeR {
+    using InputType = YUVInputPixelType<CD>;
+    using OutputType = YUVChannelType<CD>;
     static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-        return make_set<OutputType>(0);
+        if constexpr (CS == YUV420 && CP == bt601) {
+            return mulCoefficients<CR, CP>.R1 * (input.x - subCoefficients<CD>.luma) + mulCoefficients<CR, CP>.R2 * (input.z - subCoefficients<CD>.chroma);
+        } else if constexpr (CS == YUV420 && CP == bt709) {
+            return input.x + (mulCoefficients<CR, CP>.R1 * (input.z - subCoefficients<CD>.chroma));
+        }
     }
 };
 
+template <ColorSpace CS, ColorDepth CD, ColorRange CR, ColorPrimitves CP>
+struct ComputeG {
+    using InputType = YUVInputPixelType<CD>;
+    using OutputType = YUVChannelType<CD>;
+    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        if constexpr (CS == YUV420 && CP == bt601) {
+            return mulCoefficients<CR, CP>.G1 * (input.x - subCoefficients<CD>.luma) - mulCoefficients<CR, CP>.G2 * (input.y - subCoefficients<CD>.chroma) - mulCoefficients<CR, CP>.G3 * (input.z - subCoefficients<CD>.chroma);
+        } else if constexpr (CS == YUV420 && CP == bt709) {
+            return input.x - (mulCoefficients<CR, CP>.G1 * (input.y - subCoefficients<CD>.chroma)) - (mulCoefficients<CR, CP>.G2 * (input.z - subCoefficients<CD>.chroma));
+        }
+    }
+};
+
+template <ColorSpace CS, ColorDepth CD, ColorRange CR, ColorPrimitves CP>
+struct ComputeB {
+    using InputType = YUVInputPixelType<CD>;
+    using OutputType = YUVChannelType<CD>;
+    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        if constexpr (CS == YUV420 && CP == bt601) {
+            return mulCoefficients<CR, CP>.B1 * (input.x - subCoefficients<CD>.luma) + mulCoefficients<CR, CP>.B2 * (input.y - subCoefficients<CD>.chroma);
+        } else if constexpr (CS == YUV420 && CP == bt709) {
+            return input.x + (mulCoefficients<CR, CP>.B1 * (input.y - subCoefficients<CD>.chroma));
+        }
+    }
+};
+
+template <ColorDepth CD> struct AlphaValue { YUVChannelType<CD> value; };
+template <ColorDepth CD> constexpr AlphaValue<CD> alphaValue;
+template <> constexpr AlphaValue<p8bit> alphaValue<p8bit>{ 255u };
+template <> constexpr AlphaValue<p10bit> alphaValue<p10bit>{ 1023u };
+template <> constexpr AlphaValue<p12bit> alphaValue<p12bit>{ 4095u };
+
+template <PixelFormat PF, ColorRange CR, ColorPrimitves CP, bool ALPHA>
+struct UnaryConvertYUVToRGB {
+    using InputType = YUVInputPixelType<PixelFormatTraits<PF>::depth>;
+    using OutputType = YUVOutputPixelType<PF, ALPHA>;
+    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        if constexpr (ALPHA && PF != Y416) {
+            return { ComputeR<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     ComputeG<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     ComputeB<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     alphaValue<PixelFormatTraits<PF>::depth> };
+        } else if constexpr (PF == Y416) {
+            return { ComputeR<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     ComputeG<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     ComputeB<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     input.w };
+        } else {
+            return { ComputeR<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     ComputeG<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     ComputeB<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input) };
+        }
+    }
+};
+
+template <typename I>
+struct UnaryIsEven {
+    using InputType = I;
+    using OutputType = bool;
+    using AcceptedTypes = TypeList<uchar, ushort, uint>;
+    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        static_assert( one_of_v<InputType, AcceptedTypes> ,"Input type not valid for UnaryIsEven");
+        return (input & 1u) == 0;
+    }
+};
 } //namespace fk
