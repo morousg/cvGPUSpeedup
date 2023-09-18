@@ -52,6 +52,27 @@ inline constexpr auto convertTo() {
     return fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>{};
 }
 
+template <int I, int O>
+inline constexpr auto convertTo(float alpha) {
+    using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
+    using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
+
+    using FirstOp = fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>;
+    using SecondOp = fk::BinaryDeviceFunction<fk::BinaryMul<CUDA_T(O)>>;
+    return fk::BinaryDeviceFunction<fk::ComposedOperation<FirstOp, SecondOp>>{{{}, { fk::make_set<CUDA_T(O)>(alpha) }}};
+}
+
+template <int I, int O>
+inline constexpr auto convertTo(float alpha, float beta) {
+    using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
+    using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
+
+    using FirstOp = fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>;
+    using SecondOp = fk::BinaryDeviceFunction<fk::BinaryMul<CUDA_T(O)>>;
+    using ThirdOp = fk::BinaryDeviceFunction<fk::BinarySum<CUDA_T(O)>>;
+    return fk::BinaryDeviceFunction<fk::ComposedOperation<FirstOp, SecondOp, ThirdOp>>{{{}, { fk::make_set<CUDA_T(O)>(alpha) }, { fk::make_set<CUDA_T(O)>(beta) }}};
+}
+
 template <int I>
 inline constexpr auto multiply(const cv::Scalar& src2) {
     return fk::BinaryDeviceFunction<fk::BinaryMul<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
@@ -97,7 +118,7 @@ inline constexpr auto cvtColor() {
         using SecondDeviceFunctionType = 
             fk::BinaryDeviceFunction<fk::BinaryAddLast<InputType, typename fk::VectorType<BaseIT, fk::cn<InputType> +1>::type>>;
         using DeviceFunctionType = 
-            fk::BinaryDeviceFunction<fk::BinaryDeviceFunctionChain<FirstDeviceFunctionType, SecondDeviceFunctionType>>;
+            fk::BinaryDeviceFunction<fk::ComposedOperation<FirstDeviceFunctionType, SecondDeviceFunctionType>>;
         if constexpr (CV_MAT_DEPTH(I) == CV_8U) {
             return DeviceFunctionType{ {{}, {255u}} };
         } else if constexpr (CV_MAT_DEPTH(I) == CV_16U) {
