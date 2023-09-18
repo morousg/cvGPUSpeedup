@@ -34,7 +34,7 @@ bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
             cv::Scalar val_div;
         };
 
-        double alpha = 1;
+        double alpha = 1.0;
 
         std::vector<Parameters> params = {
             {{1u}, {alpha}, {1.f}, {3.2f}},
@@ -87,8 +87,7 @@ bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
             // On Linux it is necessary to pass the BATCH as a template parameter
             // On Windows (VS2022 Community) it is not needed, it is deduced from crops 
             cvGS::executeOperations<BATCH>(crops, BATCH, cv_stream,
-                cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
-                cvGS::multiply<CV_TYPE_O>(val_alpha),
+                cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(alpha),
                 cvGS::subtract<CV_TYPE_O>(val_sub),
                 cvGS::divide<CV_TYPE_O>(val_div),
                 cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
