@@ -91,14 +91,18 @@ namespace fk {
         gpuErrchk(cudaGetLastError());
     }
 
+    enum CircularTensorOrder { NewestFirst, OldestFirst };
+
+    template <CircularTensorOrder CTO, int BATCH>
     struct SequenceSelectorType {
         FK_HOST_DEVICE_FUSE uint at(const uint& index) {
-            if (index > 0) return 2u;
-            else return 1u;
+            if constexpr (CTO == NewestFirst) {
+                return index > 0 ? 2u : 1u;
+            } else {
+                return index != BATCH - 1 ? 2u : 1u;
+            }
         }
     };
-
-    enum CircularTensorOrder { NewestFirst, OldestFirst };
 
     template <CircularTensorOrder CT_ORDER>
     struct CTReadDirection;
@@ -193,7 +197,7 @@ namespace fk {
                       (uint)ceil((float)this->ptr_a.dims.height / (float)this->adjusted_blockSize.y),
                       BATCH);
 
-            cuda_transform_divergent_batch<SequenceSelectorType> << <grid, this->adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
+            cuda_transform_divergent_batch<SequenceSelectorType<CT_ORDER, BATCH>> << <grid, this->adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
            
             m_nextUpdateIdx = (m_nextUpdateIdx + 1) % BATCH;
             gpuErrchk(cudaGetLastError());

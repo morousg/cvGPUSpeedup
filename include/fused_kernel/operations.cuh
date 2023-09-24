@@ -170,6 +170,24 @@ struct BinaryAddLast {
 
 #undef BINARY_DECL_EXEC
 
+template <typename I, typename O = I>
+struct UnarySaturateFloat {
+    using InputType = I;
+    using OutputType = O;
+    using Base = typename VectorTraits<I>::base;
+
+    static constexpr __device__ __forceinline__ float saturate_channel(const float& input) {
+        return BinaryMax<Base>::exec(0.f, BinaryMin<Base>::exec(input, 1.f));
+    }
+
+    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        static_assert(std::is_same_v<I, O>, "Input and Output types should be the same");
+        static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnarySaturateFloat");
+        static_assert(std::is_same_v<Base, float>, "This function only works with floats");
+        UNARY_EXECUTE_PER_CHANNEL(saturate_channel)
+    } 
+};
+
 enum InterpolationType {
     // bilinear interpolation
     INTER_LINEAR = 1,

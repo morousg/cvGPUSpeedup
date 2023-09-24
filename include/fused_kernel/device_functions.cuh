@@ -50,7 +50,7 @@ namespace fk { // namespace FusedKernel
 
     // This is actually a Binary Operation, but it needs the DeviceFunctions definition to work
     template <typename... DeviceFunctionTypes>
-    struct BinaryDeviceFunctionChain {
+    struct ComposedOperation {
         using InputType = FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
         using ParamsType = thrust::tuple<DeviceFunctionTypes...>;
         using OutputType = LastDeviceFunctionOutputType_t<DeviceFunctionTypes...>;
@@ -71,18 +71,18 @@ namespace fk { // namespace FusedKernel
         FK_HOST_DEVICE_FUSE OutputType apply_operate(const I& i_data,
                                                      const Tuple& deviceFunctionInstances) {
             if constexpr (thrust::tuple_size<Tuple>::value == 1) {
-                return BinaryDeviceFunctionChain<DeviceFunctionTypes...>::operate(i_data, thrust::get<0>(deviceFunctionInstances));
+                return ComposedOperation<DeviceFunctionTypes...>::operate(i_data, thrust::get<0>(deviceFunctionInstances));
             } else {
                 const auto [firstDF, restOfDF] = deviceFunctionInstances;
-                const auto result = BinaryDeviceFunctionChain<DeviceFunctionTypes...>::operate(i_data, firstDF);
-                return BinaryDeviceFunctionChain<DeviceFunctionTypes...>::apply_operate(result, restOfDF);
+                const auto result = ComposedOperation<DeviceFunctionTypes...>::operate(i_data, firstDF);
+                return ComposedOperation<DeviceFunctionTypes...>::apply_operate(result, restOfDF);
             }
         }
 
     public:
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input,
                                             const thrust::tuple<DeviceFunctionTypes...>& params) {
-            return BinaryDeviceFunctionChain<DeviceFunctionTypes...>::apply_operate(input, params);
+            return ComposedOperation<DeviceFunctionTypes...>::apply_operate(input, params);
         }
     };
 } // namespace FusedKernel

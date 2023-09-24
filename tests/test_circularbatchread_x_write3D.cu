@@ -335,6 +335,64 @@ bool testTransposedCircularTensorcvGS() {
     return correct;
 }
 
+template <int IT, int OT>
+bool testTransposedOldestFirstCircularTensorcvGS() {
+    using TensorOT = typename fk::VectorTraits<CUDA_T(OT)>::base;
+    constexpr uint BATCH = 15;
+    constexpr uint WIDTH = 128;
+    constexpr uint HEIGHT = 128;
+    constexpr uint COLOR_PLANES = CV_MAT_CN(IT);
+    constexpr int ITERS = 100;
+
+    cvGS::CircularTensor<IT, CV_MAT_DEPTH(OT), COLOR_PLANES, BATCH, fk::CircularTensorOrder::OldestFirst, fk::ColorPlanes::Transposed> myTensor(WIDTH, HEIGHT);
+    fk::TensorT<TensorOT> h_myTensor(WIDTH, HEIGHT, BATCH, COLOR_PLANES, fk::MemType::HostPinned);
+    fk::TensorT<TensorOT> h_myInternalTensor(WIDTH, HEIGHT, BATCH, COLOR_PLANES, fk::MemType::HostPinned);
+    cv::cuda::GpuMat input(HEIGHT, WIDTH, IT);
+    fk::Ptr2D<CUDA_T(IT)> h_input(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
+
+    h_myTensor.setTo(10.0f);
+
+    cudaStream_t stream;
+    gpuErrchk(cudaStreamCreate(&stream));
+    cv::cuda::Stream cv_stream = cv::cuda::StreamAccessor::wrapStream(stream);
+
+    gpuErrchk(cudaMemcpyAsync(myTensor.ptr().data, h_myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
+
+    for (int i = 0; i < ITERS; i++) {
+        h_input.setTo(fk::make_<CUDA_T(IT)>(i + 1, i + 1, i + 1));
+        gpuErrchk(cudaMemcpy2DAsync(input.data, input.step,
+            h_input.ptr().data, h_input.ptr().dims.pitch,
+            h_input.ptr().dims.width * sizeof(CUDA_T(IT)),
+            h_input.ptr().dims.height,
+            cudaMemcpyHostToDevice, stream));
+        myTensor.update(cv_stream, input,
+            fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(IT), CUDA_T(OT)>> {},
+            fk::WriteDeviceFunction<fk::TensorTSplitWrite<CUDA_T(OT)>> {myTensor.ptr()});
+        gpuErrchk(cudaStreamSynchronize(stream));
+    }
+
+    gpuErrchk(cudaMemcpyAsync(h_myTensor.ptr().data, myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
+
+    gpuErrchk(cudaStreamSynchronize(stream));
+
+    bool correct = true;
+    const auto dims = h_myTensor.dims();
+    const size_t plane_pixels = dims.width * dims.height;
+    for (int cp = 0; cp < dims.color_planes; cp++) {
+        for (int y = 0; y < dims.height; y++) {
+            for (int z = 0; z < BATCH; z++) {
+                const auto* plane = fk::PtrAccessor<fk::T3D>::cr_point(fk::Point(0, 0, z), h_myTensor.ptr())
+                    + (plane_pixels * dims.planes * cp);
+                for (int x = 0; x < dims.width; x++) {
+                    correct &= ITERS - (BATCH - z - 1) == plane[x + (y * dims.width)];
+                }
+            }
+        }
+    }
+
+    return correct;
+}
+
 int main() {
     if (testCircularBatchRead()) {
         std::cout << "testCircularBatchRead OK" << std::endl;
@@ -356,11 +414,15 @@ int main() {
     } else {
         std::cout << "testCircularTensorcvGS<CV_8UC3, CV_32FC3> Failed!" << std::endl;
     }
-
     if (testTransposedCircularTensorcvGS<CV_8UC3, CV_32FC3>()) {
         std::cout << "testTransposedCircularTensorcvGS<CV_8UC3, CV_32FC3> OK" << std::endl;
     } else {
         std::cout << "testTransposedCircularTensorcvGS <CV_8UC3, CV_32FC3> Failed!" << std::endl;
+    }
+    if (testTransposedOldestFirstCircularTensorcvGS<CV_8UC3, CV_32FC3>()) {
+        std::cout << "testTransposedOldestFirstCircularTensorcvGS<CV_8UC3, CV_32FC3> OK" << std::endl;
+    } else {
+        std::cout << "testTransposedOldestFirstCircularTensorcvGS <CV_8UC3, CV_32FC3> Failed!" << std::endl;
     }
 
     return 0;
