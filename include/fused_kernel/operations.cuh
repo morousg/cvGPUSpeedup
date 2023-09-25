@@ -170,21 +170,25 @@ struct BinaryAddLast {
 
 #undef BINARY_DECL_EXEC
 
-template <typename I, typename O = I>
+template <typename T>
 struct UnarySaturateFloat {
-    using InputType = I;
-    using OutputType = O;
-    using Base = typename VectorTraits<I>::base;
+    using InputType = T;
+    using OutputType = T;
+    using Base = typename VectorTraits<T>::base;
 
     static constexpr __device__ __forceinline__ float saturate_channel(const float& input) {
         return BinaryMax<Base>::exec(0.f, BinaryMin<Base>::exec(input, 1.f));
     }
 
     static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-        static_assert(std::is_same_v<I, O>, "Input and Output types should be the same");
-        static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnarySaturateFloat");
-        static_assert(std::is_same_v<Base, float>, "This function only works with floats");
-        UNARY_EXECUTE_PER_CHANNEL(saturate_channel)
+        if constexpr (std::is_same_v<InputType, float>) {
+            return UnarySaturateFloat<T>::saturate_channel(input);
+        } else {
+            static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnarySaturateFloat");
+            static_assert(std::is_same_v<Base, float>, "This function only works with floats");
+            using I = T; using O = T;
+            UNARY_EXECUTE_PER_CHANNEL(saturate_channel)
+        }
     } 
 };
 
@@ -257,19 +261,18 @@ using YUVChannelType = EquivalentType_t<CD_t<CD>, ColorDepthTypes, ColorDepthCha
 template <ColorDepth CD>
 using YUVInputPixelType = EquivalentType_t<CD_t<CD>, ColorDepthTypes, ColorDepthPixelTypes>;
 template <PixelFormat PF, bool ALPHA>
-using YUVOutputPixelType = VectorType_t<YUVChannelType<PixelFormatTraits<PF>::depth>, ALPHA ? 4 : PixelFormatTraits<PF>::cn>;
+using YUVOutputPixelType = VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, ALPHA ? 4 : PixelFormatTraits<PF>::cn>;
 
-template <typename T>
 struct SubCoefficients {
-    T luma;
-    T chroma;
+    float luma;
+    float chroma;
 };
 
 template <ColorDepth CD>
-constexpr SubCoefficients<YUVChannelType<CD>> subCoefficients;
-template <> constexpr SubCoefficients<uchar> subCoefficients<p8bit>{ 16u, 128u };
-template <> constexpr SubCoefficients<ushort> subCoefficients<p10bit>{ 64u, 512u };
-template <> constexpr SubCoefficients<ushort> subCoefficients<p12bit>{ 64u, 2048u };
+constexpr SubCoefficients subCoefficients{};
+template <> constexpr SubCoefficients subCoefficients<p8bit>{ 16.f, 128.f };
+template <> constexpr SubCoefficients subCoefficients<p10bit>{ 64.f, 512.f };
+template <> constexpr SubCoefficients subCoefficients<p12bit>{ 64.f, 2048.f };
 
 struct MulCoefficients {
     float R1; float R2;
@@ -278,11 +281,44 @@ struct MulCoefficients {
 };
 
 template <ColorRange CR, ColorPrimitves CP>
-constexpr MulCoefficients mulCoefficients;
+constexpr MulCoefficients mulCoefficients{};
 template <> constexpr MulCoefficients mulCoefficients<Full,    bt601>{ 1.164f,  1.596f, 1.164f,  0.813f,  0.391f, 1.164f,  2.018f };
 template <> constexpr MulCoefficients mulCoefficients<Limited, bt601>{ 1.164f,  1.596f, 1.164f,  0.813f,  0.391f, 1.164f,  2.018f };
 template <> constexpr MulCoefficients mulCoefficients<Full,    bt709>{ 1.5748f, 0.f,    0.1873f, 0.4681f, 0.f,    1.8556f, 0.f    };
 template <> constexpr MulCoefficients mulCoefficients<Limited, bt709>{ 1.4746f, 0.f,    0.1646f, 0.5713f, 0.f,    1.8814f, 0.f    };
+
+template <typename T, ColorDepth CD>
+struct UnarySaturate {
+    using InputType = T;
+    using OutputType = T;
+    using Base = typename VectorTraits<T>::base;
+
+    static constexpr __device__ __forceinline__ float saturate_channel(const float& input) {
+        if constexpr (CD == p8bit) {
+            return BinaryMax<Base>::exec(0.f, BinaryMin<Base>::exec(input, 255.f));
+        } else if constexpr (CD == p10bit) {
+            // TODO: check if this is correct, because if values are shifted to the most significant
+            // bits, then, we have to consider the maximum value for ushort/uint16_t
+            return BinaryMax<Base>::exec(0.f, BinaryMin<Base>::exec(input, 1023.f));
+        } else if constexpr (CD == p12bit) {
+            // TODO: check if this is correct, because if values are shifted to the most significant
+            // bits, then, we have to consider the maximum value for ushort/uint16_t
+            return BinaryMax<Base>::exec(0.f, BinaryMin<Base>::exec(input, 4095.f));
+        }
+    }
+
+    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        if constexpr (std::is_same_v<InputType, float>) {
+            return UnarySaturate<T, CD>::saturate_channel(input);
+        }
+        else {
+            static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnarySaturateFloat");
+            static_assert(std::is_same_v<Base, float>, "This function only works with floats");
+            using I = T; using O = T;
+            UNARY_EXECUTE_PER_CHANNEL(saturate_channel)
+        }
+    }
+};
 
 // Y -> input.x
 // U -> input.y
@@ -295,7 +331,12 @@ struct ComputeR {
         if constexpr (CS == YUV420 && CP == bt601) {
             return mulCoefficients<CR, CP>.R1 * (input.x - subCoefficients<CD>.luma) + mulCoefficients<CR, CP>.R2 * (input.z - subCoefficients<CD>.chroma);
         } else if constexpr (CS == YUV420 && CP == bt709) {
-            return input.x + (mulCoefficients<CR, CP>.R1 * (input.z - subCoefficients<CD>.chroma));
+            const float Y = input.x;
+            const float V = input.z;
+            const float RedMult = mulCoefficients<CR, CP>.R1;
+            const float ChromaSub = subCoefficients<CD>.chroma;
+
+            return fk::UnarySaturate<float, CD>::exec(Y + (RedMult * (V - ChromaSub)));
         }
     }
 };
@@ -308,7 +349,14 @@ struct ComputeG {
         if constexpr (CS == YUV420 && CP == bt601) {
             return mulCoefficients<CR, CP>.G1 * (input.x - subCoefficients<CD>.luma) - mulCoefficients<CR, CP>.G2 * (input.y - subCoefficients<CD>.chroma) - mulCoefficients<CR, CP>.G3 * (input.z - subCoefficients<CD>.chroma);
         } else if constexpr (CS == YUV420 && CP == bt709) {
-            return input.x - (mulCoefficients<CR, CP>.G1 * (input.y - subCoefficients<CD>.chroma)) - (mulCoefficients<CR, CP>.G2 * (input.z - subCoefficients<CD>.chroma));
+            const float Y = input.x;
+            const float U = input.y;
+            const float V = input.z;
+            const float GreenMul1 = mulCoefficients<CR, CP>.G1;
+            const float GreenMul2 = mulCoefficients<CR, CP>.G2;
+            const float ChromaSub = subCoefficients<CD>.chroma;
+
+            return fk::UnarySaturate<float, CD>::exec(Y - (GreenMul1 * (U - ChromaSub)) - (GreenMul2 * (V - ChromaSub)));
         }
     }
 };
@@ -321,36 +369,41 @@ struct ComputeB {
         if constexpr (CS == YUV420 && CP == bt601) {
             return mulCoefficients<CR, CP>.B1 * (input.x - subCoefficients<CD>.luma) + mulCoefficients<CR, CP>.B2 * (input.y - subCoefficients<CD>.chroma);
         } else if constexpr (CS == YUV420 && CP == bt709) {
-            return input.x + (mulCoefficients<CR, CP>.B1 * (input.y - subCoefficients<CD>.chroma));
+            const float Y = input.x;
+            const float U = input.y;
+            const float BlueMul = mulCoefficients<CR, CP>.B1;
+            const float ChromaSub = subCoefficients<CD>.chroma;
+
+            return fk::UnarySaturate<float, CD>::exec(Y + (BlueMul * (U - ChromaSub)));
         }
     }
 };
 
 template <ColorDepth CD> struct AlphaValue { YUVChannelType<CD> value; };
-template <ColorDepth CD> constexpr AlphaValue<CD> alphaValue;
+template <ColorDepth CD> constexpr AlphaValue<CD> alphaValue{};
 template <> constexpr AlphaValue<p8bit> alphaValue<p8bit>{ 255u };
 template <> constexpr AlphaValue<p10bit> alphaValue<p10bit>{ 1023u };
 template <> constexpr AlphaValue<p12bit> alphaValue<p12bit>{ 4095u };
 
 template <PixelFormat PF, ColorRange CR, ColorPrimitves CP, bool ALPHA>
 struct UnaryConvertYUVToRGB {
-    using InputType = YUVInputPixelType<PixelFormatTraits<PF>::depth>;
+    using InputType = YUVInputPixelType<(ColorDepth)PixelFormatTraits<PF>::depth>;
     using OutputType = YUVOutputPixelType<PF, ALPHA>;
     static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
         if constexpr (ALPHA && PF != Y416) {
-            return { ComputeR<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     ComputeG<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     ComputeB<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     alphaValue<PixelFormatTraits<PF>::depth> };
+            return { ComputeR<(ColorSpace)PixelFormatTraits<PF>::space,(ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     ComputeG<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     ComputeB<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     alphaValue<(ColorDepth)PixelFormatTraits<PF>::depth>.value };
         } else if constexpr (PF == Y416) {
-            return { ComputeR<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     ComputeG<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     ComputeB<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+            return { ComputeR<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     ComputeG<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     ComputeB<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
                      input.w };
         } else {
-            return { ComputeR<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     ComputeG<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     ComputeB<PixelFormatTraits<PF>::space, PixelFormatTraits<PF>::depth, CR, CP>::exec(input) };
+            return { ComputeR<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     ComputeG<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
+                     ComputeB<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input) };
         }
     }
 };
