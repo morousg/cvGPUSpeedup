@@ -320,12 +320,12 @@ bool testTransposedCircularTensorcvGS() {
     bool correct = true;
     const auto dims = h_myTensor.dims();
     const size_t plane_pixels = dims.width * dims.height;
-    for (int cp = 0; cp < dims.color_planes; cp++) {
-        for (int y = 0; y < dims.height; y++) {
-            for (int z = 0; z < BATCH; z++) {
+    for (int cp = 0; cp < (int)dims.color_planes; cp++) {
+        for (int y = 0; y < (int)dims.height; y++) {
+            for (int z = 0; z < (int)BATCH; z++) {
                 const auto* plane = fk::PtrAccessor<fk::T3D>::cr_point(fk::Point(0, 0, z), h_myTensor.ptr())
                     + (plane_pixels * dims.planes * cp);
-                for (int x = 0; x < dims.width; x++) {
+                for (int x = 0; x < (int)dims.width; x++) {
                     correct &= ITERS - z == plane[x + (y * dims.width)];
                 }
             }
@@ -378,12 +378,12 @@ bool testTransposedOldestFirstCircularTensorcvGS() {
     bool correct = true;
     const auto dims = h_myTensor.dims();
     const size_t plane_pixels = dims.width * dims.height;
-    for (int cp = 0; cp < dims.color_planes; cp++) {
-        for (int y = 0; y < dims.height; y++) {
-            for (int z = 0; z < BATCH; z++) {
+    for (int cp = 0; cp < (int)dims.color_planes; cp++) {
+        for (int y = 0; y < (int)dims.height; y++) {
+            for (int z = 0; z < (int)BATCH; z++) {
                 const auto* plane = fk::PtrAccessor<fk::T3D>::cr_point(fk::Point(0, 0, z), h_myTensor.ptr())
                     + (plane_pixels * dims.planes * cp);
-                for (int x = 0; x < dims.width; x++) {
+                for (int x = 0; x < (int)dims.width; x++) {
                     correct &= ITERS - (BATCH - z - 1) == plane[x + (y * dims.width)];
                 }
             }

@@ -18,10 +18,10 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
-constexpr std::array<int, 5> batchValues{ 1, 10, 30, 50, 100 };
+constexpr std::array<size_t, 5> batchValues{ 1, 10, 30, 50, 100 };
 
 template <int CV_TYPE_I, int CV_TYPE_O, int BATCH>
-bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
+bool test_batchread_x_write3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
@@ -50,7 +50,7 @@ bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
 
         try {
             const cv::Size cropSize(60, 120);
-            cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_I, val_init);
+            cv::cuda::GpuMat d_input((int)NUM_ELEMS_Y, (int)NUM_ELEMS_X, CV_TYPE_I, val_init);
             std::array<cv::cuda::GpuMat, BATCH> d_output_cv;
             std::array<cv::Mat, BATCH> h_cvResults;
             std::array<cv::Mat, BATCH> h_cvGSResults;
@@ -87,7 +87,7 @@ bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
             // On Linux it is necessary to pass the BATCH as a template parameter
             // On Windows (VS2022 Community) it is not needed, it is deduced from crops 
             cvGS::executeOperations<BATCH>(crops, BATCH, cv_stream,
-                cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(alpha),
+                cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
                 cvGS::subtract<CV_TYPE_O>(val_sub),
                 cvGS::divide<CV_TYPE_O>(val_div),
                 cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));

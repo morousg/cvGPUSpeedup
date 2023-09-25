@@ -15,10 +15,8 @@
 #pragma once
 #include "ptr_nd.cuh"
 #include "cuda_vector_utils.cuh"
-#include "../external/opencv/modules/core/include/opencv2/core/cuda/vec_math.hpp"
 
 namespace fk {
-
 #define Unary(Name) \
 template <typename I, typename O> \
 struct Unary##Name { \
@@ -76,44 +74,121 @@ struct UnaryOperationSequence {
         return UnaryOperationSequence<OperationTypes...>::next_exec<RemainingOperations...>(Operation::exec(input));
     }
 };
-
 #undef UNARY_DECL_EXEC
-
-#define Binary(Name) \
-template <typename I, typename P=I, typename O=I> \
-struct Binary##Name { \
-using InputType = I; using ParamsType = P; using OutputType = O; \
-static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
-
-Binary(Sum)
-return input + params;
-FUNCTION_CLOSE
-
-Binary(Sub)
-return input - params;
-FUNCTION_CLOSE
-
-Binary(Mul)
-return input * params;
-FUNCTION_CLOSE
-
-Binary(Div)
-return input / params;
-FUNCTION_CLOSE
-
-Binary(Max)
-return input >= params ? input : params;
-FUNCTION_CLOSE
-
-Binary(Min)
-return input <= params ? input : params;
-FUNCTION_CLOSE
-#undef Binary
-#undef FUNCTION_CLOSE
 
 #define BINARY_DECL_EXEC(O, I, P) \
 using OutputType = O; using InputType = I; using ParamsType = P; \
 static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params)
+
+
+template <typename I, typename P = I, typename O = I>
+struct Sum {
+    BINARY_DECL_EXEC(O, I, P) {
+        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum can't work with cuda vector types.");
+        return input + params;
+    }
+};
+
+template <typename I, typename P = I, typename O = I>
+struct Sub {
+    BINARY_DECL_EXEC(O, I, P) {
+        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum can't work with cuda vector types.");
+        return input - params;
+    }
+};
+
+template <typename I, typename P = I, typename O = I>
+struct Mul {
+    BINARY_DECL_EXEC(O, I, P) {
+        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum can't work with cuda vector types.");
+        return input * params;
+    }
+};
+
+template <typename I, typename P = I, typename O = I>
+struct Div {
+    BINARY_DECL_EXEC(O, I, P) {
+        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum can't work with cuda vector types.");
+        return input / params;
+    }
+};
+
+template <typename I, typename P = I, typename O = I>
+struct Max {
+    BINARY_DECL_EXEC(O, I, P) {
+        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum can't work with cuda vector types.");
+        return input >= params ? input : params;
+    }
+};
+
+template <typename I, typename P = I, typename O = I>
+struct Min {
+    BINARY_DECL_EXEC(O, I, P) {
+        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum can't work with cuda vector types.");
+        return input <= params ? input : params;
+    }
+};
+
+enum ShiftDirection { Left, Right };
+
+template <typename T, ShiftDirection SD>
+struct Shift {
+    BINARY_DECL_EXEC(T, T, uint) {
+        static_assert(!validCUDAVec<T>, "Shift can't work with cuda vector types.");
+        static_assert(std::is_unsigned_v<T>, "Shift only works with unsigned integers.");
+        if constexpr (SD == Left) {
+            return input << params;
+        } else if constexpr (SD == Right) {
+            return input >> params;
+        }
+    }
+};
+
+template <typename Operation, typename I, typename P = I, typename O = I>
+struct Binary {
+    BINARY_DECL_EXEC(O, I, P) {
+        static_assert(cn<I> == cn<O> && cn<I> == cn<P>, "Binary struct requires same number of channels for all types.");
+        constexpr bool allAgregOrNotAgregate = std::is_aggregate_v<I> == std::is_aggregate_v<O> && std::is_aggregate_v<I> == std::is_aggregate_v<P>;
+        static_assert(allAgregOrNotAgregate, "Binary struct requires all types to be agregate or all not agregate.");
+
+        constexpr int CN = cn<I>;
+        if constexpr (CN == 1) {
+            if constexpr (std::is_aggregate_v<I>) {
+                return { Operation::exec(input.x, params.x) };
+            } else {
+                return Operation::exec(input, params);
+            }
+        } else if constexpr (CN == 2) {
+            return { Operation::exec(input.x, params.x),
+                     Operation::exec(input.y, params.y) };
+        } else if constexpr (CN == 3) {
+            return { Operation::exec(input.x, params.x),
+                     Operation::exec(input.y, params.y),
+                     Operation::exec(input.z, params.z) };
+        } else {
+            return { Operation::exec(input.x, params.x),
+                     Operation::exec(input.y, params.y),
+                     Operation::exec(input.z, params.z),
+                     Operation::exec(input.w, params.w) };
+        }
+    }
+};
+
+template <typename I, typename P = I, typename O = I>
+using BinarySum = Binary<Sum<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+template <typename I, typename P = I, typename O = I>
+using BinarySub = Binary<Sub<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+template <typename I, typename P = I, typename O = I>
+using BinaryMul = Binary<Mul<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+template <typename I, typename P = I, typename O = I>
+using BinaryDiv = Binary<Div<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+template <typename I, typename P = I, typename O = I>
+using BinaryMax = Binary<Max<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+template <typename I, typename P = I, typename O = I>
+using BinaryMin = Binary<Min<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+template <typename T, ShiftDirection SD>
+using BinaryShift = Binary<Shift<VBase<T>, SD>, T>;
+
 
 template <typename T>
 struct BinaryVectorReorder {

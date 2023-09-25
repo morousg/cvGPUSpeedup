@@ -131,6 +131,9 @@ namespace fk {
     VECTOR_TRAITS(double)
 #undef VECTOR_TRAITS
 
+    template <typename T>
+    using VBase = typename VectorTraits<T>::base;
+
     // Automagically making any CUDA vector type from a template type
     // It will not compile if you try to do bad things. The number of elements
     // need to conform to T, and the type of the elements will always be casted.
@@ -245,4 +248,494 @@ if constexpr (cn<O> == 1) { \
     __host__ inline constexpr typename std::enable_if_t<validCUDAVec<T>, std::ostream&> operator<<(std::ostream& outs, const T& val) {
         return print_vector<T>::exec(outs, val);
     }
+
+    namespace vec_math_detail
+    {
+        template <int cn, typename VecD> struct SatCastHelper;
+        template <typename VecD> struct SatCastHelper<1, VecD>
+        {
+            template <typename VecS> static __device__ __forceinline__ constexpr VecD cast(const VecS& v)
+            {
+                using D = typename VectorTraits<VecD>::base;
+                return make::type<VecD>(saturate_cast<D>(v.x));
+            }
+        };
+        template <typename VecD> struct SatCastHelper<2, VecD>
+        {
+            template <typename VecS> static __device__ __forceinline__ constexpr VecD cast(const VecS& v)
+            {
+                using D = typename VectorTraits<VecD>::base;
+                return make::type<VecD>(saturate_cast<D>(v.x), saturate_cast<D>(v.y));
+            }
+        };
+        template <typename VecD> struct SatCastHelper<3, VecD>
+        {
+            template <typename VecS> static __device__ __forceinline__ constexpr VecD cast(const VecS& v)
+            {
+                using D = typename VectorTraits<VecD>::base;
+                return make::type<VecD>(saturate_cast<D>(v.x), saturate_cast<D>(v.y), saturate_cast<D>(v.z));
+            }
+        };
+        template <typename VecD> struct SatCastHelper<4, VecD>
+        {
+            template <typename VecS> static __device__ __forceinline__ constexpr VecD cast(const VecS& v)
+            {
+                using D = typename VectorTraits<VecD>::base;
+                return make::type<VecD>(saturate_cast<D>(v.x), saturate_cast<D>(v.y), saturate_cast<D>(v.z), saturate_cast<D>(v.w));
+            }
+        };
+
+        template <typename VecD, typename VecS> static __device__ __forceinline__ constexpr VecD saturate_cast_helper(const VecS& v)
+        {
+            return SatCastHelper<cn<VecD>, VecD>::cast(v);
+        }
+    }
+
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uchar1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const char1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const ushort1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const short1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uint1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const int1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const float1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const double1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uchar2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const char2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const ushort2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const short2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uint2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const int2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const float2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const double2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uchar3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const char3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const ushort3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const short3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uint3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const int3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const float3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const double3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uchar4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const char4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const ushort4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const short4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uint4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const int4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const float4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const double4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+
+#define VEC_UNARY_OP(op, input_type, output_type) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 1 operator op(const input_type ## 1 & a) \
+    { \
+        return make::type<output_type ## 1>(op (a.x)); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 2 operator op(const input_type ## 2 & a) \
+    { \
+        return make::type<output_type ## 2>(op (a.x), op (a.y)); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 3 operator op(const input_type ## 3 & a) \
+    { \
+        return make::type<output_type ## 3>(op (a.x), op (a.y), op (a.z)); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 4 operator op(const input_type ## 4 & a) \
+    { \
+        return make::type<output_type ## 4>(op (a.x), op (a.y), op (a.z), op (a.w)); \
+    }
+
+    VEC_UNARY_OP(-, char, char)
+    VEC_UNARY_OP(-, short, short)
+    VEC_UNARY_OP(-, int, int)
+    VEC_UNARY_OP(-, float, float)
+    VEC_UNARY_OP(-, double, double)
+
+    VEC_UNARY_OP(!, uchar, uchar)
+    VEC_UNARY_OP(!, char, uchar)
+    VEC_UNARY_OP(!, ushort, uchar)
+    VEC_UNARY_OP(!, short, uchar)
+    VEC_UNARY_OP(!, int, uchar)
+    VEC_UNARY_OP(!, uint, uchar)
+    VEC_UNARY_OP(!, float, uchar)
+    VEC_UNARY_OP(!, double, uchar)
+
+    VEC_UNARY_OP(~, uchar, uchar)
+    VEC_UNARY_OP(~, char, char)
+    VEC_UNARY_OP(~, ushort, ushort)
+    VEC_UNARY_OP(~, short, short)
+    VEC_UNARY_OP(~, int, int)
+    VEC_UNARY_OP(~, uint, uint)
+
+#undef VEC_UNARY_OP
+
+        // binary operators (vec & vec)
+
+#define VEC_BINARY_OP(op, input_type, output_type) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 1 operator op(const input_type ## 1 & a, const input_type ## 1 & b) \
+    { \
+        return make::type<output_type ## 1>(a.x op b.x); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 2 operator op(const input_type ## 2 & a, const input_type ## 2 & b) \
+    { \
+        return make::type<output_type ## 2>(a.x op b.x, a.y op b.y); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 3 operator op(const input_type ## 3 & a, const input_type ## 3 & b) \
+    { \
+        return make::type<output_type ## 3>(a.x op b.x, a.y op b.y, a.z op b.z); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 4 operator op(const input_type ## 4 & a, const input_type ## 4 & b) \
+    { \
+        return make::type<output_type ## 4>(a.x op b.x, a.y op b.y, a.z op b.z, a.w op b.w); \
+    }
+
+    VEC_BINARY_OP(+, uchar, int)
+    VEC_BINARY_OP(+, char, int)
+    VEC_BINARY_OP(+, ushort, int)
+    VEC_BINARY_OP(+, short, int)
+    VEC_BINARY_OP(+, int, int)
+    VEC_BINARY_OP(+, uint, uint)
+    VEC_BINARY_OP(+, float, float)
+    VEC_BINARY_OP(+, double, double)
+
+    VEC_BINARY_OP(-, uchar, int)
+    VEC_BINARY_OP(-, char, int)
+    VEC_BINARY_OP(-, ushort, int)
+    VEC_BINARY_OP(-, short, int)
+    VEC_BINARY_OP(-, int, int)
+    VEC_BINARY_OP(-, uint, uint)
+    VEC_BINARY_OP(-, float, float)
+    VEC_BINARY_OP(-, double, double)
+
+    VEC_BINARY_OP(*, uchar, int)
+    VEC_BINARY_OP(*, char, int)
+    VEC_BINARY_OP(*, ushort, int)
+    VEC_BINARY_OP(*, short, int)
+    VEC_BINARY_OP(*, int, int)
+    VEC_BINARY_OP(*, uint, uint)
+    VEC_BINARY_OP(*, float, float)
+    VEC_BINARY_OP(*, double, double)
+
+    VEC_BINARY_OP(/ , uchar, int)
+    VEC_BINARY_OP(/ , char, int)
+    VEC_BINARY_OP(/ , ushort, int)
+    VEC_BINARY_OP(/ , short, int)
+    VEC_BINARY_OP(/ , int, int)
+    VEC_BINARY_OP(/ , uint, uint)
+    VEC_BINARY_OP(/ , float, float)
+    VEC_BINARY_OP(/ , double, double)
+
+    VEC_BINARY_OP(== , uchar, uchar)
+    VEC_BINARY_OP(== , char, uchar)
+    VEC_BINARY_OP(== , ushort, uchar)
+    VEC_BINARY_OP(== , short, uchar)
+    VEC_BINARY_OP(== , int, uchar)
+    VEC_BINARY_OP(== , uint, uchar)
+    VEC_BINARY_OP(== , float, uchar)
+    VEC_BINARY_OP(== , double, uchar)
+
+    VEC_BINARY_OP(!= , uchar, uchar)
+    VEC_BINARY_OP(!= , char, uchar)
+    VEC_BINARY_OP(!= , ushort, uchar)
+    VEC_BINARY_OP(!= , short, uchar)
+    VEC_BINARY_OP(!= , int, uchar)
+    VEC_BINARY_OP(!= , uint, uchar)
+    VEC_BINARY_OP(!= , float, uchar)
+    VEC_BINARY_OP(!= , double, uchar)
+
+    VEC_BINARY_OP(> , uchar, uchar)
+    VEC_BINARY_OP(> , char, uchar)
+    VEC_BINARY_OP(> , ushort, uchar)
+    VEC_BINARY_OP(> , short, uchar)
+    VEC_BINARY_OP(> , int, uchar)
+    VEC_BINARY_OP(> , uint, uchar)
+    VEC_BINARY_OP(> , float, uchar)
+    VEC_BINARY_OP(> , double, uchar)
+
+    VEC_BINARY_OP(< , uchar, uchar)
+    VEC_BINARY_OP(< , char, uchar)
+    VEC_BINARY_OP(< , ushort, uchar)
+    VEC_BINARY_OP(< , short, uchar)
+    VEC_BINARY_OP(< , int, uchar)
+    VEC_BINARY_OP(< , uint, uchar)
+    VEC_BINARY_OP(< , float, uchar)
+    VEC_BINARY_OP(< , double, uchar)
+
+    VEC_BINARY_OP(>= , uchar, uchar)
+    VEC_BINARY_OP(>= , char, uchar)
+    VEC_BINARY_OP(>= , ushort, uchar)
+    VEC_BINARY_OP(>= , short, uchar)
+    VEC_BINARY_OP(>= , int, uchar)
+    VEC_BINARY_OP(>= , uint, uchar)
+    VEC_BINARY_OP(>= , float, uchar)
+    VEC_BINARY_OP(>= , double, uchar)
+
+    VEC_BINARY_OP(<= , uchar, uchar)
+    VEC_BINARY_OP(<= , char, uchar)
+    VEC_BINARY_OP(<= , ushort, uchar)
+    VEC_BINARY_OP(<= , short, uchar)
+    VEC_BINARY_OP(<= , int, uchar)
+    VEC_BINARY_OP(<= , uint, uchar)
+    VEC_BINARY_OP(<= , float, uchar)
+    VEC_BINARY_OP(<= , double, uchar)
+
+    VEC_BINARY_OP(&&, uchar, uchar)
+    VEC_BINARY_OP(&&, char, uchar)
+    VEC_BINARY_OP(&&, ushort, uchar)
+    VEC_BINARY_OP(&&, short, uchar)
+    VEC_BINARY_OP(&&, int, uchar)
+    VEC_BINARY_OP(&&, uint, uchar)
+    VEC_BINARY_OP(&&, float, uchar)
+    VEC_BINARY_OP(&&, double, uchar)
+
+    VEC_BINARY_OP(|| , uchar, uchar)
+    VEC_BINARY_OP(|| , char, uchar)
+    VEC_BINARY_OP(|| , ushort, uchar)
+    VEC_BINARY_OP(|| , short, uchar)
+    VEC_BINARY_OP(|| , int, uchar)
+    VEC_BINARY_OP(|| , uint, uchar)
+    VEC_BINARY_OP(|| , float, uchar)
+    VEC_BINARY_OP(|| , double, uchar)
+
+    VEC_BINARY_OP(&, uchar, uchar)
+    VEC_BINARY_OP(&, char, char)
+    VEC_BINARY_OP(&, ushort, ushort)
+    VEC_BINARY_OP(&, short, short)
+    VEC_BINARY_OP(&, int, int)
+    VEC_BINARY_OP(&, uint, uint)
+
+    VEC_BINARY_OP(| , uchar, uchar)
+    VEC_BINARY_OP(| , char, char)
+    VEC_BINARY_OP(| , ushort, ushort)
+    VEC_BINARY_OP(| , short, short)
+    VEC_BINARY_OP(| , int, int)
+    VEC_BINARY_OP(| , uint, uint)
+
+    VEC_BINARY_OP(^, uchar, uchar)
+    VEC_BINARY_OP(^, char, char)
+    VEC_BINARY_OP(^, ushort, ushort)
+    VEC_BINARY_OP(^, short, short)
+    VEC_BINARY_OP(^, int, int)
+    VEC_BINARY_OP(^, uint, uint)
+
+#undef VEC_BINARY_OP
+
+        // binary operators (vec & scalar)
+
+#define SCALAR_BINARY_OP(op, input_type, scalar_type, output_type) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 1 operator op(const input_type ## 1 & a, scalar_type s) \
+    { \
+        return make::type<output_type ## 1>(a.x op s); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 1 operator op(scalar_type s, const input_type ## 1 & b) \
+    { \
+        return make::type<output_type ## 1>(s op b.x); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 2 operator op(const input_type ## 2 & a, scalar_type s) \
+    { \
+        return make::type<output_type ## 2>(a.x op s, a.y op s); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 2 operator op(scalar_type s, const input_type ## 2 & b) \
+    { \
+        return make::type<output_type ## 2>(s op b.x, s op b.y); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 3 operator op(const input_type ## 3 & a, scalar_type s) \
+    { \
+        return make::type<output_type ## 3>(a.x op s, a.y op s, a.z op s); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 3 operator op(scalar_type s, const input_type ## 3 & b) \
+    { \
+        return make::type<output_type ## 3>(s op b.x, s op b.y, s op b.z); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 4 operator op(const input_type ## 4 & a, scalar_type s) \
+    { \
+        return make::type<output_type ## 4>(a.x op s, a.y op s, a.z op s, a.w op s); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 4 operator op(scalar_type s, const input_type ## 4 & b) \
+    { \
+        return make::type<output_type ## 4>(s op b.x, s op b.y, s op b.z, s op b.w); \
+    }
+
+    SCALAR_BINARY_OP(+, uchar, int, int)
+    SCALAR_BINARY_OP(+, uchar, float, float)
+    SCALAR_BINARY_OP(+, uchar, double, double)
+    SCALAR_BINARY_OP(+, char, int, int)
+    SCALAR_BINARY_OP(+, char, float, float)
+    SCALAR_BINARY_OP(+, char, double, double)
+    SCALAR_BINARY_OP(+, ushort, int, int)
+    SCALAR_BINARY_OP(+, ushort, float, float)
+    SCALAR_BINARY_OP(+, ushort, double, double)
+    SCALAR_BINARY_OP(+, short, int, int)
+    SCALAR_BINARY_OP(+, short, float, float)
+    SCALAR_BINARY_OP(+, short, double, double)
+    SCALAR_BINARY_OP(+, int, int, int)
+    SCALAR_BINARY_OP(+, int, float, float)
+    SCALAR_BINARY_OP(+, int, double, double)
+    SCALAR_BINARY_OP(+, uint, uint, uint)
+    SCALAR_BINARY_OP(+, uint, float, float)
+    SCALAR_BINARY_OP(+, uint, double, double)
+    SCALAR_BINARY_OP(+, float, float, float)
+    SCALAR_BINARY_OP(+, float, double, double)
+    SCALAR_BINARY_OP(+, double, double, double)
+
+    SCALAR_BINARY_OP(-, uchar, int, int)
+    SCALAR_BINARY_OP(-, uchar, float, float)
+    SCALAR_BINARY_OP(-, uchar, double, double)
+    SCALAR_BINARY_OP(-, char, int, int)
+    SCALAR_BINARY_OP(-, char, float, float)
+    SCALAR_BINARY_OP(-, char, double, double)
+    SCALAR_BINARY_OP(-, ushort, int, int)
+    SCALAR_BINARY_OP(-, ushort, float, float)
+    SCALAR_BINARY_OP(-, ushort, double, double)
+    SCALAR_BINARY_OP(-, short, int, int)
+    SCALAR_BINARY_OP(-, short, float, float)
+    SCALAR_BINARY_OP(-, short, double, double)
+    SCALAR_BINARY_OP(-, int, int, int)
+    SCALAR_BINARY_OP(-, int, float, float)
+    SCALAR_BINARY_OP(-, int, double, double)
+    SCALAR_BINARY_OP(-, uint, uint, uint)
+    SCALAR_BINARY_OP(-, uint, float, float)
+    SCALAR_BINARY_OP(-, uint, double, double)
+    SCALAR_BINARY_OP(-, float, float, float)
+    SCALAR_BINARY_OP(-, float, double, double)
+    SCALAR_BINARY_OP(-, double, double, double)
+
+    SCALAR_BINARY_OP(*, uchar, int, int)
+    SCALAR_BINARY_OP(*, uchar, float, float)
+    SCALAR_BINARY_OP(*, uchar, double, double)
+    SCALAR_BINARY_OP(*, char, int, int)
+    SCALAR_BINARY_OP(*, char, float, float)
+    SCALAR_BINARY_OP(*, char, double, double)
+    SCALAR_BINARY_OP(*, ushort, int, int)
+    SCALAR_BINARY_OP(*, ushort, float, float)
+    SCALAR_BINARY_OP(*, ushort, double, double)
+    SCALAR_BINARY_OP(*, short, int, int)
+    SCALAR_BINARY_OP(*, short, float, float)
+    SCALAR_BINARY_OP(*, short, double, double)
+    SCALAR_BINARY_OP(*, int, int, int)
+    SCALAR_BINARY_OP(*, int, float, float)
+    SCALAR_BINARY_OP(*, int, double, double)
+    SCALAR_BINARY_OP(*, uint, uint, uint)
+    SCALAR_BINARY_OP(*, uint, float, float)
+    SCALAR_BINARY_OP(*, uint, double, double)
+    SCALAR_BINARY_OP(*, float, float, float)
+    SCALAR_BINARY_OP(*, float, double, double)
+    SCALAR_BINARY_OP(*, double, double, double)
+
+    SCALAR_BINARY_OP(/ , uchar, int, int)
+    SCALAR_BINARY_OP(/ , uchar, float, float)
+    SCALAR_BINARY_OP(/ , uchar, double, double)
+    SCALAR_BINARY_OP(/ , char, int, int)
+    SCALAR_BINARY_OP(/ , char, float, float)
+    SCALAR_BINARY_OP(/ , char, double, double)
+    SCALAR_BINARY_OP(/ , ushort, int, int)
+    SCALAR_BINARY_OP(/ , ushort, float, float)
+    SCALAR_BINARY_OP(/ , ushort, double, double)
+    SCALAR_BINARY_OP(/ , short, int, int)
+    SCALAR_BINARY_OP(/ , short, float, float)
+    SCALAR_BINARY_OP(/ , short, double, double)
+    SCALAR_BINARY_OP(/ , int, int, int)
+    SCALAR_BINARY_OP(/ , int, float, float)
+    SCALAR_BINARY_OP(/ , int, double, double)
+    SCALAR_BINARY_OP(/ , uint, uint, uint)
+    SCALAR_BINARY_OP(/ , uint, float, float)
+    SCALAR_BINARY_OP(/ , uint, double, double)
+    SCALAR_BINARY_OP(/ , float, float, float)
+    SCALAR_BINARY_OP(/ , float, double, double)
+    SCALAR_BINARY_OP(/ , double, double, double)
+
+    SCALAR_BINARY_OP(== , uchar, uchar, uchar)
+    SCALAR_BINARY_OP(== , char, char, uchar)
+    SCALAR_BINARY_OP(== , ushort, ushort, uchar)
+    SCALAR_BINARY_OP(== , short, short, uchar)
+    SCALAR_BINARY_OP(== , int, int, uchar)
+    SCALAR_BINARY_OP(== , uint, uint, uchar)
+    SCALAR_BINARY_OP(== , float, float, uchar)
+    SCALAR_BINARY_OP(== , double, double, uchar)
+
+    SCALAR_BINARY_OP(!= , uchar, uchar, uchar)
+    SCALAR_BINARY_OP(!= , char, char, uchar)
+    SCALAR_BINARY_OP(!= , ushort, ushort, uchar)
+    SCALAR_BINARY_OP(!= , short, short, uchar)
+    SCALAR_BINARY_OP(!= , int, int, uchar)
+    SCALAR_BINARY_OP(!= , uint, uint, uchar)
+    SCALAR_BINARY_OP(!= , float, float, uchar)
+    SCALAR_BINARY_OP(!= , double, double, uchar)
+
+    SCALAR_BINARY_OP(> , uchar, uchar, uchar)
+    SCALAR_BINARY_OP(> , char, char, uchar)
+    SCALAR_BINARY_OP(> , ushort, ushort, uchar)
+    SCALAR_BINARY_OP(> , short, short, uchar)
+    SCALAR_BINARY_OP(> , int, int, uchar)
+    SCALAR_BINARY_OP(> , uint, uint, uchar)
+    SCALAR_BINARY_OP(> , float, float, uchar)
+    SCALAR_BINARY_OP(> , double, double, uchar)
+
+    SCALAR_BINARY_OP(< , uchar, uchar, uchar)
+    SCALAR_BINARY_OP(< , char, char, uchar)
+    SCALAR_BINARY_OP(< , ushort, ushort, uchar)
+    SCALAR_BINARY_OP(< , short, short, uchar)
+    SCALAR_BINARY_OP(< , int, int, uchar)
+    SCALAR_BINARY_OP(< , uint, uint, uchar)
+    SCALAR_BINARY_OP(< , float, float, uchar)
+    SCALAR_BINARY_OP(< , double, double, uchar)
+
+    SCALAR_BINARY_OP(>= , uchar, uchar, uchar)
+    SCALAR_BINARY_OP(>= , char, char, uchar)
+    SCALAR_BINARY_OP(>= , ushort, ushort, uchar)
+    SCALAR_BINARY_OP(>= , short, short, uchar)
+    SCALAR_BINARY_OP(>= , int, int, uchar)
+    SCALAR_BINARY_OP(>= , uint, uint, uchar)
+    SCALAR_BINARY_OP(>= , float, float, uchar)
+    SCALAR_BINARY_OP(>= , double, double, uchar)
+
+    SCALAR_BINARY_OP(<= , uchar, uchar, uchar)
+    SCALAR_BINARY_OP(<= , char, char, uchar)
+    SCALAR_BINARY_OP(<= , ushort, ushort, uchar)
+    SCALAR_BINARY_OP(<= , short, short, uchar)
+    SCALAR_BINARY_OP(<= , int, int, uchar)
+    SCALAR_BINARY_OP(<= , uint, uint, uchar)
+    SCALAR_BINARY_OP(<= , float, float, uchar)
+    SCALAR_BINARY_OP(<= , double, double, uchar)
+
+    SCALAR_BINARY_OP(&&, uchar, uchar, uchar)
+    SCALAR_BINARY_OP(&&, char, char, uchar)
+    SCALAR_BINARY_OP(&&, ushort, ushort, uchar)
+    SCALAR_BINARY_OP(&&, short, short, uchar)
+    SCALAR_BINARY_OP(&&, int, int, uchar)
+    SCALAR_BINARY_OP(&&, uint, uint, uchar)
+    SCALAR_BINARY_OP(&&, float, float, uchar)
+    SCALAR_BINARY_OP(&&, double, double, uchar)
+
+    SCALAR_BINARY_OP(|| , uchar, uchar, uchar)
+    SCALAR_BINARY_OP(|| , char, char, uchar)
+    SCALAR_BINARY_OP(|| , ushort, ushort, uchar)
+    SCALAR_BINARY_OP(|| , short, short, uchar)
+    SCALAR_BINARY_OP(|| , int, int, uchar)
+    SCALAR_BINARY_OP(|| , uint, uint, uchar)
+    SCALAR_BINARY_OP(|| , float, float, uchar)
+    SCALAR_BINARY_OP(|| , double, double, uchar)
+
+    SCALAR_BINARY_OP(&, uchar, uchar, uchar)
+    SCALAR_BINARY_OP(&, char, char, char)
+    SCALAR_BINARY_OP(&, ushort, ushort, ushort)
+    SCALAR_BINARY_OP(&, short, short, short)
+    SCALAR_BINARY_OP(&, int, int, int)
+    SCALAR_BINARY_OP(&, uint, uint, uint)
+
+    SCALAR_BINARY_OP(| , uchar, uchar, uchar)
+    SCALAR_BINARY_OP(| , char, char, char)
+    SCALAR_BINARY_OP(| , ushort, ushort, ushort)
+    SCALAR_BINARY_OP(| , short, short, short)
+    SCALAR_BINARY_OP(| , int, int, int)
+    SCALAR_BINARY_OP(| , uint, uint, uint)
+
+    SCALAR_BINARY_OP(^, uchar, uchar, uchar)
+    SCALAR_BINARY_OP(^, char, char, char)
+    SCALAR_BINARY_OP(^, ushort, ushort, ushort)
+    SCALAR_BINARY_OP(^, short, short, short)
+    SCALAR_BINARY_OP(^, int, int, int)
+    SCALAR_BINARY_OP(^, uint, uint, uint)
+
+#undef SCALAR_BINARY_OP
 }
