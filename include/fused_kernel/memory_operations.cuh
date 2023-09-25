@@ -272,8 +272,6 @@ struct ReadYUV {
             const RawPtr<_2D, ushort4> readImage{params.data, params.dims};
             const ushort4 pixel = *PtrAccessor<_2D>::cr_point(thread, params);
             return { pixel.z, pixel.w, pixel.y, pixel.x };
-        } else {
-            static_assert(false, "Pixel Format not suported for ReadYUV memory operation.");
         }
     }
 };
