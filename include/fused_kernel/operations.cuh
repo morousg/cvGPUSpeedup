@@ -16,7 +16,10 @@
 #include "ptr_nd.cuh"
 #include "cuda_vector_utils.cuh"
 
+#include <climits>
+
 namespace fk {
+
 #define Unary(Name) \
 template <typename I, typename O> \
 struct Unary##Name { \
@@ -74,6 +77,7 @@ struct UnaryOperationSequence {
         return UnaryOperationSequence<OperationTypes...>::next_exec<RemainingOperations...>(Operation::exec(input));
     }
 };
+
 #undef UNARY_DECL_EXEC
 
 #define BINARY_DECL_EXEC(O, I, P) \
@@ -188,7 +192,6 @@ template <typename I, typename P = I, typename O = I>
 using BinaryMin = Binary<Min<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
 template <typename T, ShiftDirection SD>
 using BinaryShift = Binary<Shift<VBase<T>, SD>, T>;
-
 
 template <typename T>
 struct BinaryVectorReorder {
@@ -329,7 +332,7 @@ template <> struct PixelFormatTraits<YV12> { enum { space = YUV420, depth = p8bi
 template <> struct PixelFormatTraits<P010> { enum { space = YUV420, depth = p10bit, cn = 3 }; };
 template <> struct PixelFormatTraits<P210> { enum { space = YUV422, depth = p10bit, cn = 3 }; };
 template <> struct PixelFormatTraits<Y210> { enum { space = YUV422, depth = p10bit, cn = 3 }; };
-template <> struct PixelFormatTraits<Y416> { enum { space = YUV444, depth = p10bit, cn = 4 }; };
+template <> struct PixelFormatTraits<Y416> { enum { space = YUV444, depth = p12bit, cn = 4 }; };
 
 template <ColorDepth CD>
 using YUVChannelType = EquivalentType_t<CD_t<CD>, ColorDepthTypes, ColorDepthChannelTypes>;
@@ -460,26 +463,39 @@ template <> constexpr AlphaValue<p8bit> alphaValue<p8bit>{ 255u };
 template <> constexpr AlphaValue<p10bit> alphaValue<p10bit>{ 1023u };
 template <> constexpr AlphaValue<p12bit> alphaValue<p12bit>{ 4095u };
 
+template <ColorDepth CD> constexpr YUVChannelType<CD> shiftFactor{};
+template <> constexpr YUVChannelType<p8bit> shiftFactor<p8bit>{ 0u };
+template <> constexpr YUVChannelType<p10bit> shiftFactor<p10bit>{ 6u };
+template <> constexpr YUVChannelType<p12bit> shiftFactor<p12bit>{ 4u };
+
 template <PixelFormat PF, ColorRange CR, ColorPrimitves CP, bool ALPHA>
 struct UnaryConvertYUVToRGB {
     using InputType = YUVInputPixelType<(ColorDepth)PixelFormatTraits<PF>::depth>;
     using OutputType = YUVOutputPixelType<PF, ALPHA>;
-    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-        if constexpr (ALPHA && PF != Y416) {
-            return { ComputeR<(ColorSpace)PixelFormatTraits<PF>::space,(ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     ComputeG<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     ComputeB<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     alphaValue<(ColorDepth)PixelFormatTraits<PF>::depth>.value };
-        } else if constexpr (PF == Y416) {
-            return { ComputeR<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     ComputeG<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     ComputeB<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     input.w };
+
+private:
+    static constexpr ColorSpace CS = (ColorSpace)PixelFormatTraits<PF>::space;
+    static constexpr ColorDepth CD = (ColorDepth)PixelFormatTraits<PF>::depth;
+    static constexpr __device__ __forceinline__ InputType computeRGB(const InputType& pixel) {
+        return { ComputeR<CS, CD, CR, CP>::exec(pixel),
+                 ComputeG<CS, CD, CR, CP>::exec(pixel),
+                 ComputeB<CS, CD, CR, CP>::exec(pixel) };
+    }
+
+    static constexpr __device__ __forceinline__ OutputType computePixel(const InputType& pixel) {
+        const InputType pixelRGB = computeRGB(pixel);
+        if constexpr (ALPHA) {
+            return { pixelRGB.x, pixelRGB.y, pixelRGB.z, alphaValue<CD>.value };
         } else {
-            return { ComputeR<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     ComputeG<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input),
-                     ComputeB<(ColorSpace)PixelFormatTraits<PF>::space, (ColorDepth)PixelFormatTraits<PF>::depth, CR, CP>::exec(input) };
+            return pixelRGB;
         }
+    }
+
+public:
+    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        const InputType shiftedPixel = BinaryShift<InputType, ShiftDirection::Right>::exec(input, make_set<InputType>(shiftFactor<CD>));
+        const OutputType computedPixel = computePixel(shiftedPixel);
+        return BinaryShift<OutputType, ShiftDirection::Left>::exec(computedPixel, make_set<OutputType>(shiftFactor<CD>));
     }
 };
 
