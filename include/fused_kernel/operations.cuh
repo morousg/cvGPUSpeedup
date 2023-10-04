@@ -191,7 +191,12 @@ using BinaryMax = Binary<Max<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
 template <typename I, typename P = I, typename O = I>
 using BinaryMin = Binary<Min<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
 template <typename T, ShiftDirection SD>
-using BinaryShift = Binary<Shift<VBase<T>, SD>, T>;
+using BinaryShift = Binary<Shift<VBase<T>, SD>, T, VectorType_t<uint, cn<T>>>;
+template <typename T>
+using BinaryShiftLeft = BinaryShift<T, ShiftDirection::Left>;
+template <typename T>
+using BinaryShiftRight = BinaryShift<T, ShiftDirection::Right>;
+
 
 template <typename T>
 struct BinaryVectorReorder {
@@ -314,7 +319,7 @@ template <ColorSpace CS>
 struct CS_t { ColorSpace value{ CS }; };
 
 enum ColorRange { Limited, Full };
-enum ColorPrimitves { bt601, bt709 };
+enum ColorPrimitives { bt601, bt709 };
 
 enum ColorDepth { p8bit, p10bit, p12bit };
 template <ColorDepth CD>
@@ -358,7 +363,7 @@ struct MulCoefficients {
     float B1; float B2;
 };
 
-template <ColorRange CR, ColorPrimitves CP>
+template <ColorRange CR, ColorPrimitives CP>
 constexpr MulCoefficients mulCoefficients{};
 template <> constexpr MulCoefficients mulCoefficients<Full,    bt601>{ 1.164f,  1.596f, 1.164f,  0.813f,  0.391f, 1.164f,  2.018f };
 template <> constexpr MulCoefficients mulCoefficients<Limited, bt601>{ 1.164f,  1.596f, 1.164f,  0.813f,  0.391f, 1.164f,  2.018f };
@@ -401,7 +406,7 @@ struct UnarySaturate {
 // Y -> input.x
 // U -> input.y
 // V -> input.z
-template <ColorSpace CS, ColorDepth CD, ColorRange CR, ColorPrimitves CP>
+template <ColorSpace CS, ColorDepth CD, ColorRange CR, ColorPrimitives CP>
 struct ComputeR {
     using InputType = YUVInputPixelType<CD>;
     using OutputType = YUVChannelType<CD>;
@@ -419,7 +424,7 @@ struct ComputeR {
     }
 };
 
-template <ColorSpace CS, ColorDepth CD, ColorRange CR, ColorPrimitves CP>
+template <ColorSpace CS, ColorDepth CD, ColorRange CR, ColorPrimitives CP>
 struct ComputeG {
     using InputType = YUVInputPixelType<CD>;
     using OutputType = YUVChannelType<CD>;
@@ -439,7 +444,7 @@ struct ComputeG {
     }
 };
 
-template <ColorSpace CS, ColorDepth CD, ColorRange CR, ColorPrimitves CP>
+template <ColorSpace CS, ColorDepth CD, ColorRange CR, ColorPrimitives CP>
 struct ComputeB {
     using InputType = YUVInputPixelType<CD>;
     using OutputType = YUVChannelType<CD>;
@@ -468,7 +473,7 @@ template <> constexpr YUVChannelType<p8bit> shiftFactor<p8bit>{ 0u };
 template <> constexpr YUVChannelType<p10bit> shiftFactor<p10bit>{ 6u };
 template <> constexpr YUVChannelType<p12bit> shiftFactor<p12bit>{ 4u };
 
-template <PixelFormat PF, ColorRange CR, ColorPrimitves CP, bool ALPHA>
+template <PixelFormat PF, ColorRange CR, ColorPrimitives CP, bool ALPHA>
 struct UnaryConvertYUVToRGB {
     using InputType = YUVInputPixelType<(ColorDepth)PixelFormatTraits<PF>::depth>;
     using OutputType = YUVOutputPixelType<PF, ALPHA>;
@@ -493,9 +498,10 @@ private:
 
 public:
     static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-        const InputType shiftedPixel = BinaryShift<InputType, ShiftDirection::Right>::exec(input, make_set<InputType>(shiftFactor<CD>));
+        const auto sFactor = make_set(shiftFactor<CD>);
+        const InputType shiftedPixel = BinaryShiftRight<InputType>::exec(input, sFactor);
         const OutputType computedPixel = computePixel(shiftedPixel);
-        return BinaryShift<OutputType, ShiftDirection::Left>::exec(computedPixel, make_set<OutputType>(shiftFactor<CD>));
+        return BinaryShiftLeft<OutputType>::exec(computedPixel, sFactor);
     }
 };
 
