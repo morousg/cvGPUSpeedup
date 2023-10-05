@@ -498,10 +498,13 @@ private:
 
 public:
     static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-        const auto sFactor = make_set(shiftFactor<CD>);
-        const InputType shiftedPixel = BinaryShiftRight<InputType>::exec(input, sFactor);
+        using InputFactorType = typename BinaryShiftRight<InputType>::ParamsType;
+        const auto iShiftFactor = make_set<InputFactorType>(shiftFactor<CD>);
+        const InputType shiftedPixel = BinaryShiftRight<InputType>::exec(input, iShiftFactor);
         const OutputType computedPixel = computePixel(shiftedPixel);
-        return BinaryShiftLeft<OutputType>::exec(computedPixel, sFactor);
+        using OutputFactorType = typename BinaryShiftLeft<OutputType>::ParamsType;
+        const auto oShiftFactor = make_set<OutputFactorType>(shiftFactor<CD>);
+        return BinaryShiftLeft<OutputType>::exec(computedPixel, oShiftFactor);
     }
 };
 
