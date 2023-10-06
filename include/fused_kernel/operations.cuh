@@ -327,6 +327,8 @@ struct CD_t { ColorDepth value{ CD }; };
 using ColorDepthTypes = TypeList<CD_t<p8bit>, CD_t<p10bit>, CD_t<p12bit>>;
 using ColorDepthChannelTypes = TypeList<uchar, ushort, ushort>;
 using ColorDepthPixelTypes = TypeList<uchar3, ushort3, ushort3>;
+template <ColorDepth CD>
+using ColorDepthBase = EquivalentType_t<CD_t<CD>, ColorDepthTypes, ColorDepthChannelTypes>;
 
 enum PixelFormat { NV12, NV21, YV12, P010, P016, P216, P210, Y216, Y210, Y416 };
 template <PixelFormat PF>
@@ -356,6 +358,12 @@ constexpr SubCoefficients subCoefficients{};
 template <> constexpr SubCoefficients subCoefficients<p8bit>{ 16.f, 128.f };
 template <> constexpr SubCoefficients subCoefficients<p10bit>{ 64.f, 512.f };
 template <> constexpr SubCoefficients subCoefficients<p12bit>{ 64.f, 2048.f };
+
+template <ColorDepth CD>
+struct MaxDepthValue {};
+template <> struct MaxDepthValue<p8bit> { enum { value = 255u }; };
+template <> struct MaxDepthValue<p10bit> { enum { value = 1023u }; };
+template <> struct MaxDepthValue<p12bit> { enum { value = 4095u }; };
 
 struct MulCoefficients {
     float R1; float R2;
