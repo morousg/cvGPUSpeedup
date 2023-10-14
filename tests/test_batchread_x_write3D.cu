@@ -18,39 +18,37 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
-constexpr std::array<int, 11> batchValues{ 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
+constexpr std::array<size_t, 11> batchValues{ 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
 
 template <int CV_TYPE_I, int CV_TYPE_O, int BATCH>
-bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
+bool test_batchread_x_write3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
-
+    
     if (enabled) {
         struct Parameters {
-            cv::Scalar init;
-            cv::Scalar alpha;
-            cv::Scalar val_sub;
-            cv::Scalar val_div;
+            const cv::Scalar init;
+            const cv::Scalar alpha;
+            const cv::Scalar val_sub;
+            const cv::Scalar val_div;
         };
 
-        double alpha = 1;
+        double alpha = 1.0;
 
-        std::vector<Parameters> params = {
-            {{1u}, {alpha}, {1.f}, {3.2f}},
-            {{1u, 2u}, {alpha, alpha}, {1.f, 4.f}, {3.2f, 0.6f}},
-            {{1u, 2u, 3u}, {alpha, alpha, alpha}, {1.f, 4.f, 3.2f}, {3.2f, 0.6f, 11.8f}},
-            {{1u, 2u, 3u, 4u}, {alpha, alpha, alpha, alpha}, {1.f, 4.f, 3.2f, 0.5f}, {3.2f, 0.6f, 11.8f, 33.f}}
-        };
+        const Parameters one{ {1u}, {alpha}, {1.f}, {3.2f} };
+        const Parameters two{ {1u, 2u}, {alpha, alpha}, {1.f, 4.f}, {3.2f, 0.6f} };
+        const Parameters three{ {1u, 2u, 3u}, {alpha, alpha, alpha}, {1.f, 4.f, 3.2f}, {3.2f, 0.6f, 11.8f} };
+        const Parameters four{ {1u, 2u, 3u, 4u}, {alpha, alpha, alpha, alpha}, {1.f, 4.f, 3.2f, 0.5f}, {3.2f, 0.6f, 11.8f, 33.f} };
+        const std::array<Parameters, 4> params{ one, two, three, four };
 
-        cv::Scalar val_init = params.at(CV_MAT_CN(CV_TYPE_O) - 1).init;
-        cv::Scalar val_alpha = params.at(CV_MAT_CN(CV_TYPE_O) - 1).alpha;
-        cv::Scalar val_sub = params.at(CV_MAT_CN(CV_TYPE_O) - 1).val_sub;
-        cv::Scalar val_div = params.at(CV_MAT_CN(CV_TYPE_O) - 1).val_div;
-
+        const cv::Scalar val_init = params.at(CV_MAT_CN(CV_TYPE_O) - 1).init;
+        const cv::Scalar val_alpha = params.at(CV_MAT_CN(CV_TYPE_O) - 1).alpha;
+        const cv::Scalar val_sub = params.at(CV_MAT_CN(CV_TYPE_O) - 1).val_sub;
+        const cv::Scalar val_div = params.at(CV_MAT_CN(CV_TYPE_O) - 1).val_div;
         try {
             const cv::Size cropSize(60, 120);
-            cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_I, val_init);
+            cv::cuda::GpuMat d_input((int)NUM_ELEMS_Y, (int)NUM_ELEMS_X, CV_TYPE_I, val_init);
             std::array<cv::cuda::GpuMat, BATCH> d_output_cv;
             std::array<cv::Mat, BATCH> h_cvResults;
             std::array<cv::Mat, BATCH> h_cvGSResults;
@@ -72,7 +70,6 @@ bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
                 d_output_cv[crop_i].create(cropSize, CV_TYPE_O);
                 h_cvResults[crop_i].create(cropSize, CV_TYPE_O);
             }
-
             START_OCV_BENCHMARK
             // OpenCV version
             for (int crop_i = 0; crop_i < BATCH; crop_i++) {
@@ -87,8 +84,7 @@ bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
             // On Linux it is necessary to pass the BATCH as a template parameter
             // On Windows (VS2022 Community) it is not needed, it is deduced from crops 
             cvGS::executeOperations<BATCH>(crops, BATCH, cv_stream,
-                cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
-                cvGS::multiply<CV_TYPE_O>(val_alpha),
+                cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
                 cvGS::subtract<CV_TYPE_O>(val_sub),
                 cvGS::divide<CV_TYPE_O>(val_div),
                 cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
@@ -122,7 +118,6 @@ bool test_batchread_x_write3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream
             passed = false;
             exception = true;
         }
-
         if (!passed) {
             if (!exception) {
                 std::stringstream ss;
@@ -143,7 +138,7 @@ template <int CV_TYPE_I, int CV_TYPE_O, size_t... Is>
 bool launch_test_batchread_x_write3D(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream cv_stream, bool enabled) {
     bool passed = true;
 
-    int dummy[] = { (passed &= test_batchread_x_write3D<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
+    int dummy[] = {(passed &= test_batchread_x_write3D<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)...};
     (void)dummy;
 
     return passed;

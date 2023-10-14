@@ -18,7 +18,7 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
-constexpr std::array<int, 11> batchValues{ 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
+constexpr std::array<size_t, 11> batchValues{ 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
 
 template <int CV_TYPE_I, int CV_TYPE_O, int BATCH>
 bool test_batchresize_x_split3D_OCVBatch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
@@ -204,7 +204,7 @@ bool test_batchresize_x_split3D_OCVBatch(int NUM_ELEMS_X, int NUM_ELEMS_Y, std::
 }
 
 template <int CV_TYPE_I, int CV_TYPE_O, int BATCH>
-bool test_batchresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
+bool test_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
@@ -232,7 +232,7 @@ bool test_batchresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stre
         cv::Scalar val_div = params.at(CV_MAT_CN(CV_TYPE_O)-1).val_div;
 
         try {
-            cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_I, val_init);
+            cv::cuda::GpuMat d_input((int)NUM_ELEMS_Y, (int)NUM_ELEMS_X, CV_TYPE_I, val_init);
             std::array<cv::Rect2d, BATCH> crops_2d;
             for (int crop_i = 0; crop_i<BATCH; crop_i++) {
                 crops_2d[crop_i] = cv::Rect2d(cv::Point2d(crop_i, crop_i), cv::Point2d(crop_i+60, crop_i+120));
@@ -381,7 +381,7 @@ int main() {
 
     std::unordered_map<std::string, bool> results;
     results["test_batchresize_x_split3D_OCVBatch"] = true;
-    results["test_batchresize_x_split3D_10_30_50_100"] = true;
+    results["test_batchresize_x_split3D"] = true;
     std::make_index_sequence<batchValues.size()> iSeq {}; 
 
 #ifdef ENABLE_BENCHMARK

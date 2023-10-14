@@ -52,6 +52,27 @@ inline constexpr auto convertTo() {
     return fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>{};
 }
 
+template <int I, int O>
+inline constexpr auto convertTo(float alpha) {
+    using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
+    using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
+
+    using FirstOp = fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>;
+    using SecondOp = fk::BinaryDeviceFunction<fk::BinaryMul<CUDA_T(O)>>;
+    return fk::BinaryDeviceFunction<fk::ComposedOperation<FirstOp, SecondOp>>{{{}, { fk::make_set<CUDA_T(O)>(alpha) }}};
+}
+
+template <int I, int O>
+inline constexpr auto convertTo(float alpha, float beta) {
+    using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
+    using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
+
+    using FirstOp = fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>;
+    using SecondOp = fk::BinaryDeviceFunction<fk::BinaryMul<CUDA_T(O)>>;
+    using ThirdOp = fk::BinaryDeviceFunction<fk::BinarySum<CUDA_T(O)>>;
+    return fk::BinaryDeviceFunction<fk::ComposedOperation<FirstOp, SecondOp, ThirdOp>>{{{}, { fk::make_set<CUDA_T(O)>(alpha) }, { fk::make_set<CUDA_T(O)>(beta) }}};
+}
+
 template <int I>
 inline constexpr auto multiply(const cv::Scalar& src2) {
     return fk::BinaryDeviceFunction<fk::BinaryMul<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
@@ -97,7 +118,7 @@ inline constexpr auto cvtColor() {
         using SecondDeviceFunctionType = 
             fk::BinaryDeviceFunction<fk::BinaryAddLast<InputType, typename fk::VectorType<BaseIT, fk::cn<InputType> +1>::type>>;
         using DeviceFunctionType = 
-            fk::BinaryDeviceFunction<fk::BinaryDeviceFunctionChain<FirstDeviceFunctionType, SecondDeviceFunctionType>>;
+            fk::BinaryDeviceFunction<fk::ComposedOperation<FirstDeviceFunctionType, SecondDeviceFunctionType>>;
         if constexpr (CV_MAT_DEPTH(I) == CV_8U) {
             return DeviceFunctionType{ {{}, {255u}} };
         } else if constexpr (CV_MAT_DEPTH(I) == CV_16U) {
@@ -139,12 +160,17 @@ inline constexpr auto split(const fk::RawPtr<fk::_3D, typename fk::VectorTraits<
     return fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(O)>> {output};
 }
 
+template <int O>
+inline constexpr auto splitT(const fk::RawPtr<fk::T3D, typename fk::VectorTraits<CUDA_T(O)>::base>& output) {
+    return fk::WriteDeviceFunction<fk::TensorTSplitWrite<CUDA_T(O)>> {output};
+}
+
 template <int T, int INTER_F>
 inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
     const fk::RawPtr<fk::_2D, CUDA_T(T)> fk_input = gpuMat2Ptr2D<CUDA_T(T)>(input);
-    const fk::Size dSize{dsize.width, dsize.height};
+    const fk::Size dSize{ dsize.width, dsize.height };
     return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F>(fk_input, dSize, fx, fy);
 }
 
@@ -153,7 +179,7 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const 
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
     const std::array<fk::Ptr2D<CUDA_T(T)>, NPtr> fk_input{ gpuMat2Ptr2D_arr<CUDA_T(T), NPtr>(input) };
-    const fk::Size dSize{dsize.width, dsize.height};
+    const fk::Size dSize{ dsize.width, dsize.height };
     constexpr int defaultType = CV_MAKETYPE(CV_32F, CV_MAT_CN(T));
     return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr, (fk::AspectRatio)AR>(fk_input, dSize, usedPlanes, cvScalar2CUDAV<defaultType>::get(backgroundValue));
 }
@@ -226,16 +252,16 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-template <int I, int O, int COLOR_PLANES, int BATCH>
-class CircularTensor : public fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH> {
+template <int I, int O, int COLOR_PLANES, int BATCH, fk::CircularTensorOrder CT_ORDER, fk::ColorPlanes CP_MODE = fk::ColorPlanes::Standard>
+class CircularTensor : public fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE> {
 public:
     inline constexpr CircularTensor() {};
 
     inline constexpr CircularTensor(const uint& width_, const uint& height_, const int& deviceID_ = 0) :
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH>(width_, height_, deviceID_) {};
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>(width_, height_, deviceID_) {};
 
     inline constexpr void Alloc(const uint& width_, const uint& height_, const int& deviceID_ = 0) {
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH>::Alloc(width_, height_, deviceID_);
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>::Alloc(width_, height_, deviceID_);
     }
 
     template <typename... DeviceFunctionTypes>
@@ -244,12 +270,12 @@ public:
             { (CUDA_T(I)*)input.data, { static_cast<uint>(input.cols), static_cast<uint>(input.rows), static_cast<uint>(input.step) } },
             { static_cast<uint>(input.cols), static_cast<uint>(input.rows), 1 }
         };
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH>::update(cv::cuda::StreamAccessor::getStream(stream), readDeviceFunction, deviceFunctionInstances...);
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>::update(cv::cuda::StreamAccessor::getStream(stream), readDeviceFunction, deviceFunctionInstances...);
     }
 
     template <typename... DeviceFunctionTypes>
     inline constexpr void update(const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctionInstances) {
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH>::update(cv::cuda::StreamAccessor::getStream(stream), deviceFunctionInstances...);
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>::update(cv::cuda::StreamAccessor::getStream(stream), deviceFunctionInstances...);
     }
 
     inline constexpr CUDA_T(O)* data() {

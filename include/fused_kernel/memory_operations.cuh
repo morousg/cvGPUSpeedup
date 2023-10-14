@@ -82,6 +82,25 @@ struct TensorSplitWrite {
 };
 
 template <typename T>
+struct TensorTSplitWrite {
+    using Type = T;
+    using ParamsType = RawPtr<T3D, typename VectorTraits<T>::base>;
+    FK_DEVICE_FUSE void exec(const Point& thread, const Type& input, const ParamsType& ptr) {
+        static_assert(cn<Type> >= 2, "Wrong type for split tensor write. It must be one of <type>2, <type>3 or <type>4.");
+
+        using OutputType = typename VectorTraits<Type>::base;
+        *PtrAccessor<T3D>::point(thread, ptr, 0) = input.x;
+        *PtrAccessor<T3D>::point(thread, ptr, 1) = input.y;
+        if constexpr (cn<Type> >= 3) {
+            *PtrAccessor<T3D>::point(thread, ptr, 2) = input.z;
+        }
+        if constexpr (cn<Type> == 4) {
+            *PtrAccessor<T3D>::point(thread, ptr, 3) = input.w;
+        }
+    }
+};
+
+template <typename T>
 struct TensorSplitRead {
     using Type = T;
     using ParamsType = RawPtr<_3D, typename VectorTraits<T>::base>;
@@ -102,6 +121,31 @@ struct TensorSplitRead {
                                *(work_plane + planePixels),
                                *(work_plane + (planePixels * 2)),
                                *(work_plane + (planePixels * 3)));
+        }
+    }
+};
+
+template <typename T>
+struct TensorTSplitRead {
+    using Type = T;
+    using ParamsType = RawPtr<T3D, typename VectorTraits<T>::base>;
+    FK_DEVICE_FUSE Type exec(const Point& thread, const ParamsType& ptr) {
+        static_assert(cn<Type> >= 2, "Wrong type for split tensor read. It must be one of <type>2, <type>3 or <type>4.");
+
+        using OutputType = typename VectorTraits<Type>::base;
+        const OutputType x = *PtrAccessor<T3D>::cr_point(thread, ptr, 0);
+        if constexpr (cn<Type> == 2) {
+            const OutputType y = *PtrAccessor<T3D>::cr_point(thread, ptr, 1);
+            return make_<Type>(x, y);
+        } else if constexpr (cn<Type> == 3) {
+            const OutputType y = *PtrAccessor<T3D>::cr_point(thread, ptr, 1);
+            const OutputType z = *PtrAccessor<T3D>::cr_point(thread, ptr, 2);
+            return make_<Type>(x, y, z);
+        } else {
+            const OutputType y = *PtrAccessor<T3D>::cr_point(thread, ptr, 1);
+            const OutputType z = *PtrAccessor<T3D>::cr_point(thread, ptr, 2);
+            const OutputType w = *PtrAccessor<T3D>::cr_point(thread, ptr, 3);
+            return make_<Type>(x, y, z, w);
         }
     }
 };
@@ -180,6 +224,55 @@ struct ResizeRead {
 
         static_assert(std::is_same_v<typename InterpolationOp::InputType, float2>, "Wrong InputType for interpolation operation.");
         return InterpolationOp::exec(make_<float2>(src_x, src_y), params.ptr);
+    }
+};
+
+template <PixelFormat PF>
+struct ReadYUV {
+    using Type = VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, PixelFormatTraits<PF>::cn>;
+    using ParamsType = RawPtr<_2D, YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>>;
+    static __device__ __forceinline__ const Type exec(const Point& thread, const ParamsType& params) {
+        if constexpr (PF == NV12 || PF == P010 || PF == P016 || PF == P210 || PF == P216) {
+            // Planar luma
+            const YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth> Y = *PtrAccessor<_2D>::cr_point(thread, params);
+
+            // Packed chroma
+            const PtrDims<_2D> dims = params.dims;
+            const RawPtr<_2D, VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, 2>> chromaPlane{
+                (VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, 2>*)((uchar*)params.data + dims.pitch * dims.height),
+                { dims.width >> 1, dims.height >> 1, dims.pitch }
+            };
+            const ColorSpace CS = (ColorSpace)PixelFormatTraits<PF>::space;
+            const VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, 2> UV =
+                *PtrAccessor<_2D>::cr_point({thread.x >> 1, CS == YUV420 ? thread.y >> 1 : thread.y, thread.z}, chromaPlane);
+
+            return { Y, UV.x, UV.y };
+        } else if constexpr (PF == NV21) {
+            // Planar luma
+            const uchar Y = *PtrAccessor<_2D>::cr_point(thread, params);
+
+            // Packed chroma
+            const PtrDims<_2D> dims = params.dims;
+            const RawPtr<_2D, uchar2> chromaPlane{
+                (uchar2*)((uchar*)params.data + dims.pitch * dims.height), { dims.width >> 1, dims.height >> 1, dims.pitch }
+            };
+            const uchar2 VU = *PtrAccessor<_2D>::cr_point({ thread.x >> 1, thread.y >> 1, thread.z }, chromaPlane);
+
+            return { Y, VU.y, VU.x };
+        } else if constexpr (PF == Y216 || PF == Y210) {
+            const PtrDims<_2D> dims = params.dims;
+            const RawPtr<_2D, ushort4> image{ (ushort4*)params.data, {dims.width >> 1, dims.height, dims.pitch} };
+            const ushort4 pixel = *PtrAccessor<_2D>::cr_point({thread.x >> 1, thread.y, thread.z}, image);
+            const bool isEvenThread = UnaryIsEven<uint>::exec(thread.x);
+
+            return { isEvenThread ? pixel.x : pixel.z, pixel.y, pixel.w };
+        } else if constexpr (PF == Y416) {
+            // AVYU
+            // We use ushort as the type, to be compatible with the rest of the cases
+            const RawPtr<_2D, ushort4> readImage{params.data, params.dims};
+            const ushort4 pixel = *PtrAccessor<_2D>::cr_point(thread, params);
+            return { pixel.z, pixel.w, pixel.y, pixel.x };
+        }
     }
 };
 

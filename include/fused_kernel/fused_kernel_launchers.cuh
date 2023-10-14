@@ -91,29 +91,73 @@ namespace fk {
         gpuErrchk(cudaGetLastError());
     }
 
+    enum CircularTensorOrder { NewestFirst, OldestFirst };
+
+    template <CircularTensorOrder CTO, int BATCH>
     struct SequenceSelectorType {
         FK_HOST_DEVICE_FUSE uint at(const uint& index) {
-            if (index > 0) return 2u;
-            else return 1u;
+            if constexpr (CTO == NewestFirst) {
+                return index > 0 ? 2u : 1u;
+            } else {
+                return index != BATCH - 1 ? 2u : 1u;
+            }
         }
     };
 
-    template <typename T, int COLOR_PLANES, int BATCH>
-    class CircularTensor : public Tensor<T> {
+    template <CircularTensorOrder CT_ORDER>
+    struct CTReadDirection;
+
+    template <>
+    struct CTReadDirection<CircularTensorOrder::NewestFirst> {
+        static const CircularDirection dir{ Descendent };
+    };
+
+    template <>
+    struct CTReadDirection<CircularTensorOrder::OldestFirst> {
+        static const CircularDirection dir{ Ascendent };
+    };
+
+    template <CircularTensorOrder CT_ORDER>
+    static constexpr CircularDirection CTReadDirection_v = CTReadDirection<CT_ORDER>::dir;
+
+    enum ColorPlanes {Standard, Transposed};
+
+    template <typename T, ColorPlanes CP_MODE>
+    struct CoreType;
+
+    template <typename T>
+    struct CoreType<T, ColorPlanes::Standard> {
+        using type = Tensor<T>;
+    };
+
+    template <typename T>
+    struct CoreType<T, ColorPlanes::Transposed> {
+        using type = TensorT<T>;
+    };
+
+    template <typename T, ColorPlanes CP_MODE>
+    using CoreType_t = typename CoreType<T, CP_MODE>::type;
+
+    template <typename T, int COLOR_PLANES, int BATCH, CircularTensorOrder CT_ORDER, ColorPlanes CP_MODE>
+    class CircularTensor : public CoreType_t<T, CP_MODE> {
+
+        using ParentType = CoreType_t<T, CP_MODE>;
 
         using SourceT = typename VectorType<T, COLOR_PLANES>::type;
 
-        using ReadDeviceFunctions = TypeList<ReadDeviceFunction<CircularTensorRead<CircularDirection::Descendent, TensorRead<SourceT>, BATCH>>,
-                                             ReadDeviceFunction<CircularTensorRead<CircularDirection::Descendent, TensorSplitRead<SourceT>, BATCH>>>;
+        using ReadDeviceFunctions = TypeList<ReadDeviceFunction<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorRead<SourceT>, BATCH>>,
+                                             ReadDeviceFunction<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorSplitRead<SourceT>, BATCH>>,
+                                             ReadDeviceFunction<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorTSplitRead<SourceT>, BATCH>>>;
 
         using WriteDeviceFunctions = TypeList<WriteDeviceFunction<TensorWrite<SourceT>>,
-                                              WriteDeviceFunction<TensorSplitWrite<SourceT>>>;
+                                              WriteDeviceFunction<TensorSplitWrite<SourceT>>,
+                                              WriteDeviceFunction<TensorTSplitWrite<SourceT>>>;
 
     public:
         __host__ inline constexpr CircularTensor() {};
 
         __host__ inline constexpr CircularTensor(const uint& width_, const uint& height_, const int& deviceID_ = 0) :
-            Tensor<T>(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_),
+            ParentType(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_),
             m_tempTensor(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_) {};
 
         __host__ inline constexpr void Alloc(const uint& width_, const uint& height_, const int& deviceID_ = 0) {
@@ -127,6 +171,10 @@ namespace fk {
             const auto writeDeviceFunction = last(deviceFunctionInstances...);
             using writeDFType = std::decay_t<decltype(writeDeviceFunction)>;
             using writeOpType = typename writeDFType::Operation;
+            if constexpr (CP_MODE == ColorPlanes::Transposed) {
+                static_assert(std::is_same_v<writeDFType, WriteDeviceFunction<TensorTSplitWrite<SourceT>>>,
+                    "Need to use TensorTSplitWrite as write function because you are using a transposed CircularTensor (CP_MODE = Transposed)");
+            }
             using equivalentReadDFType = EquivalentType_t<writeDFType, WriteDeviceFunctions, ReadDeviceFunctions>;
 
             MidWriteDeviceFunction<CircularTensorWrite<CircularDirection::Ascendent, writeOpType, BATCH>> updateWriteToTemp;
@@ -149,14 +197,14 @@ namespace fk {
                       (uint)ceil((float)this->ptr_a.dims.height / (float)this->adjusted_blockSize.y),
                       BATCH);
 
-            cuda_transform_divergent_batch<SequenceSelectorType> << <grid, this->adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
+            cuda_transform_divergent_batch<SequenceSelectorType<CT_ORDER, BATCH>> << <grid, this->adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
            
             m_nextUpdateIdx = (m_nextUpdateIdx + 1) % BATCH;
             gpuErrchk(cudaGetLastError());
         }
         
     private:
-        Tensor<T> m_tempTensor;
+        CoreType_t<T, CP_MODE> m_tempTensor;
         int m_nextUpdateIdx{0};
     };
 
