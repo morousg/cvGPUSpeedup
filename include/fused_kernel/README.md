@@ -35,7 +35,7 @@ The idea, is aplicable for situations where you have a big plane, from which you
 
 For example, let's assume that you receive an image in YUV420_NV12 format, and you need to crop a region of this image, then convert the pixels to RGB, then resize the crop, normalize it to floating point values from 0 to 1, and store the resulting image in RGB planar format. Usually, this would lead to many kernels, one after the other. The first kernel that converts to RGB, will convert the full image, and write the result to memory. Instead, with the Fused Kernel library (when the YUV conversion functionality is integrated), it will be possible to create a Fused Kernel in a few lines, that will only read the YUV data for the pixels required by the interpolation process, in the resize. And all the steps will be performed using GPU registers, until the last step where we will finally write into GPU ram memory.
 
-Obviously, this is way faster than the conventional way of programming.
+Obviously, this is way faster than the conventional way of programming CUDA.
 
 ## Closed source friendly
 
