@@ -91,7 +91,7 @@ float computeVariance(const float& mean, const std::array<float, ITERATIONS>& ti
     return sumOfDiff / (ITERATIONS - 1);
 }
 
-template <int CV_INPUT_TYPE, int CV_OUTPUT_TYPE, int BATCH, int ITERATIONS, int NUM_BATCH_VALUES, const std::array<int, NUM_BATCH_VALUES>& batchValues>
+template <int CV_INPUT_TYPE, int CV_OUTPUT_TYPE, int BATCH, int ITERATIONS, int NUM_BATCH_VALUES, const std::array<size_t, NUM_BATCH_VALUES>& batchValues>
 void processExecution(const BenchmarkResultsNumbers& resF, const std::string& functionName,
     const std::array<float, ITERS>& OCVelapsedTime, const std::array<float, ITERS>& cvGSelapsedTime) {
     if constexpr (BATCH == 1) {
