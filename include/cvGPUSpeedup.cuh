@@ -227,7 +227,7 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
     using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
     // On Linux (gcc 11.4) it is necessary to pass the InputType and Batch as a template parameter
     // On Windows (VS2022 Community) it is not needed, it is deduced from the parameters being passed
-    fk::executeOperations(gpuMat2Ptr2D_arr<InputType, Batch>(input), activeBatch, cu_stream, deviceFunctions...);
+    fk::executeOperations<InputType, Batch>(gpuMat2Ptr2D_arr<InputType, Batch>(input), activeBatch, cu_stream, deviceFunctions...);
 }
 
 template <size_t Batch, typename... DeviceFunctionTypes>
