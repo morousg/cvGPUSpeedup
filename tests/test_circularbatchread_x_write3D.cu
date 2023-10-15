@@ -135,11 +135,11 @@ bool testDivergentBatch() {
         }
     }
 
-    auto opSeq1 = fk::buildOperationSequence(fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, uint>> { input[0], { WIDTH, HEIGHT, BATCH } },
-                                             fk::BinaryDeviceFunction<fk::BinarySum<uint>> {VAL_SUM},
-                                             fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, uint>> { output.ptr() });
-    auto opSeq2 = fk::buildOperationSequence(fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, uint>> { input[1], { WIDTH, HEIGHT, BATCH } },
-                                             fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, uint>> { output.ptr() });
+    auto opSeq1 = fk::buildOperationSequence(fk::Read<fk::PerThreadRead<fk::_2D, uint>> { input[0], { WIDTH, HEIGHT, BATCH } },
+                                             fk::Binary<fk::Sum<uint>> {VAL_SUM},
+                                             fk::Write<fk::PerThreadWrite<fk::_3D, uint>> { output.ptr() });
+    auto opSeq2 = fk::buildOperationSequence(fk::Read<fk::PerThreadRead<fk::_2D, uint>> { input[1], { WIDTH, HEIGHT, BATCH } },
+                                             fk::Write<fk::PerThreadWrite<fk::_3D, uint>> { output.ptr() });
 
     dim3 block = inputAllocations[0].getBlockSize();
     dim3 grid{ (uint)ceil((float)WIDTH / (float)block.x), (uint)ceil((float)HEIGHT / (float)block.y), BATCH };
