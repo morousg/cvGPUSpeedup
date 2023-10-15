@@ -18,7 +18,9 @@
 #include "testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 
-constexpr std::array<int, 1> batchValues{ 1 };
+#ifdef ENABLE_BENCHMARK
+constexpr std::array<size_t, 1> batchValues{ 1 };
+#endif
 
 template <int CV_TYPE_I, int CV_TYPE_O, int BATCH>
 bool test_read_convert_split(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {

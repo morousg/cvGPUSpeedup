@@ -21,7 +21,7 @@
 // It is 50, because otherwise we surpass the 4KB parameter limit
 // in CUDA 11.8. This limitations will be removed when migrating
 // to CUDA 12.
-constexpr std::array<int, 4> batchValues{ 1, 10, 30, 50 };
+constexpr std::array<size_t, 6> batchValues{ 1, 10, 20, 30, 40, 50 };
 
 template <int CV_TYPE_I, int CV_TYPE_O, const int BATCH>
 bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
