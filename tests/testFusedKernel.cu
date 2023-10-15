@@ -78,9 +78,9 @@ int main() {
     fk::Ptr2D<uint> output(64,64);
     
     dim3 gridActiveThreads(64, 64);
-    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, uchar>> read{ input, gridActiveThreads };
-    fk::UnaryDeviceFunction<fk::UnaryCast<uchar, uint>> cast = {};
-    fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, uint>> write { output };
+    fk::Read<fk::PerThreadRead<fk::_2D, uchar>> read{ input, gridActiveThreads };
+    fk::Unary<fk::UnaryCast<uchar, uint>> cast = {};
+    fk::Write<fk::PerThreadWrite<fk::_2D, uint>> write { output };
 
     fk::cuda_transform<<<dim3(1,8),dim3(64,8),0,stream>>>(read, cast, write);
 

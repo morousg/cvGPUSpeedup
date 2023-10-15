@@ -49,7 +49,7 @@ inline constexpr fk::Tensor<T> gpuMat2Tensor(const cv::cuda::GpuMat& source, con
 
 template <int I, int O>
 inline constexpr auto convertTo() {
-    return fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>{};
+    return fk::Unary<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>{};
 }
 
 template <int I, int O>
@@ -57,9 +57,9 @@ inline constexpr auto convertTo(float alpha) {
     using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
     using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
 
-    using FirstOp = fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>;
-    using SecondOp = fk::BinaryDeviceFunction<fk::BinaryMul<CUDA_T(O)>>;
-    return fk::BinaryDeviceFunction<fk::ComposedOperation<FirstOp, SecondOp>>{{{}, { fk::make_set<CUDA_T(O)>(alpha) }}};
+    using FirstOp = fk::Unary<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>;
+    using SecondOp = fk::Binary<fk::Mul<CUDA_T(O)>>;
+    return fk::Binary<fk::ComposedOperation<FirstOp, SecondOp>>{{{}, { fk::make_set<CUDA_T(O)>(alpha) }}};
 }
 
 template <int I, int O>
@@ -67,32 +67,32 @@ inline constexpr auto convertTo(float alpha, float beta) {
     using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
     using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
 
-    using FirstOp = fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>;
-    using SecondOp = fk::BinaryDeviceFunction<fk::BinaryMul<CUDA_T(O)>>;
-    using ThirdOp = fk::BinaryDeviceFunction<fk::BinarySum<CUDA_T(O)>>;
-    return fk::BinaryDeviceFunction<fk::ComposedOperation<FirstOp, SecondOp, ThirdOp>>{{{}, { fk::make_set<CUDA_T(O)>(alpha) }, { fk::make_set<CUDA_T(O)>(beta) }}};
+    using FirstOp = fk::Unary<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>;
+    using SecondOp = fk::Binary<fk::Mul<CUDA_T(O)>>;
+    using ThirdOp = fk::Binary<fk::Sum<CUDA_T(O)>>;
+    return fk::Binary<fk::ComposedOperation<FirstOp, SecondOp, ThirdOp>>{{{}, { fk::make_set<CUDA_T(O)>(alpha) }, { fk::make_set<CUDA_T(O)>(beta) }}};
 }
 
 template <int I>
 inline constexpr auto multiply(const cv::Scalar& src2) {
-    return fk::BinaryDeviceFunction<fk::BinaryMul<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
+    return fk::Binary<fk::Mul<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
 template <int I>
 inline constexpr auto subtract(const cv::Scalar& src2) {
 
-    return fk::BinaryDeviceFunction<fk::BinarySub<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
+    return fk::Binary<fk::Sub<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
 template <int I>
 inline constexpr auto divide(const cv::Scalar& src2) {
-    return fk::BinaryDeviceFunction<fk::BinaryDiv<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
+    return fk::Binary<fk::Div<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
 template <int I>
 inline constexpr auto add(const cv::Scalar& src2) {
 
-    return fk::BinaryDeviceFunction<fk::BinarySum<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
+    return fk::Binary<fk::Sum<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
 template <int I, cv::ColorConversionCodes CODE>
@@ -103,7 +103,7 @@ inline constexpr auto cvtColor() {
     using InputType = CUDA_T(I);
     using BaseIT = BASE_CUDA_T(I);
     if constexpr (CODE == cv::COLOR_BGR2BGRA || CODE == cv::COLOR_RGB2RGBA) {
-        using DeviceFunctionType = fk::BinaryDeviceFunction<fk::BinaryAddLast<InputType, typename fk::VectorType<BaseIT, fk::cn<InputType> +1>::type>>;
+        using DeviceFunctionType = fk::Binary<fk::AddLast<InputType, typename fk::VectorType<BaseIT, fk::cn<InputType> +1>::type>>;
         if constexpr (CV_MAT_DEPTH(I) == CV_8U) {
             return DeviceFunctionType{ 255u };
         } else if constexpr (CV_MAT_DEPTH(I) == CV_16U) {
@@ -112,13 +112,13 @@ inline constexpr auto cvtColor() {
             return DeviceFunctionType{ 1.f };
         }
     } else if constexpr (CODE == cv::COLOR_BGRA2BGR || CODE == cv::COLOR_RGBA2RGB) {
-        return fk::UnaryDeviceFunction<fk::UnaryDiscard<InputType, typename fk::VectorType<BaseIT, 3>::type>>{};
+        return fk::Unary<fk::UnaryDiscard<InputType, typename fk::VectorType<BaseIT, 3>::type>>{};
     } else if constexpr (CODE == cv::COLOR_BGR2RGBA || CODE == cv::COLOR_RGB2BGRA) {
-        using FirstDeviceFunctionType = fk::UnaryDeviceFunction<fk::UnaryVectorReorder<InputType, 2, 1, 0>>;
+        using FirstDeviceFunctionType = fk::Unary<fk::UnaryVectorReorder<InputType, 2, 1, 0>>;
         using SecondDeviceFunctionType = 
-            fk::BinaryDeviceFunction<fk::BinaryAddLast<InputType, typename fk::VectorType<BaseIT, fk::cn<InputType> +1>::type>>;
+            fk::Binary<fk::AddLast<InputType, typename fk::VectorType<BaseIT, fk::cn<InputType> +1>::type>>;
         using DeviceFunctionType = 
-            fk::BinaryDeviceFunction<fk::ComposedOperation<FirstDeviceFunctionType, SecondDeviceFunctionType>>;
+            fk::Binary<fk::ComposedOperation<FirstDeviceFunctionType, SecondDeviceFunctionType>>;
         if constexpr (CV_MAT_DEPTH(I) == CV_8U) {
             return DeviceFunctionType{ {{}, {255u}} };
         } else if constexpr (CV_MAT_DEPTH(I) == CV_16U) {
@@ -129,11 +129,11 @@ inline constexpr auto cvtColor() {
     } else if constexpr (CODE == cv::COLOR_BGRA2RGB || CODE == cv::COLOR_RGBA2BGR) {
         using FirstOperation = fk::UnaryVectorReorder<InputType, 2, 1, 0, 3>;
         using SecondOperation = fk::UnaryDiscard<InputType, typename fk::VectorType<BaseIT, 3>::type>;
-        return fk::UnaryDeviceFunction<fk::UnaryOperationSequence<FirstOperation, SecondOperation>> {};
+        return fk::Unary<fk::UnaryOperationSequence<FirstOperation, SecondOperation>> {};
     } else if constexpr (CODE == cv::COLOR_BGR2RGB || CODE == cv::COLOR_RGB2BGR) {
-        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<InputType, 2, 1, 0>> {};
+        return fk::Unary<fk::UnaryVectorReorder<InputType, 2, 1, 0>> {};
     } else if constexpr (CODE == cv::COLOR_BGRA2RGBA || CODE == cv::COLOR_RGBA2BGRA) {
-        return fk::UnaryDeviceFunction<fk::UnaryVectorReorder<InputType, 2, 1, 0, 3>> {};
+        return fk::Unary<fk::UnaryVectorReorder<InputType, 2, 1, 0, 3>> {};
     }
 }
 
@@ -143,7 +143,7 @@ inline constexpr auto split(const std::vector<cv::cuda::GpuMat>& output) {
     for (auto& mat : output) {
         fk_output.push_back(gpuMat2Ptr2D<BASE_CUDA_T(O)>(mat));
     }
-    return internal::split_builder_t<O, fk::Ptr2D<BASE_CUDA_T(O)>, fk::WriteDeviceFunction<fk::SplitWrite<fk::_2D, CUDA_T(O)>>>::build(fk_output);
+    return internal::split_builder_t<O, fk::Ptr2D<BASE_CUDA_T(O)>, fk::Write<fk::SplitWrite<fk::_2D, CUDA_T(O)>>>::build(fk_output);
 }
 
 template <int O>
@@ -151,18 +151,18 @@ inline constexpr auto split(const cv::cuda::GpuMat& output, const cv::Size& plan
     assert(output.cols % (planeDims.width * planeDims.height) == 0 && output.cols / (planeDims.width * planeDims.height) == CV_MAT_CN(O) &&
     "Each row of the GpuMap should contain as many planes as width / (planeDims.width * planeDims.height)");
 
-    return fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(O)>> {
+    return fk::Write<fk::TensorSplitWrite<CUDA_T(O)>> {
         gpuMat2Tensor<BASE_CUDA_T(O)>(output, planeDims, CV_MAT_CN(O))};
 }
 
 template <int O>
 inline constexpr auto split(const fk::RawPtr<fk::_3D, typename fk::VectorTraits<CUDA_T(O)>::base>& output) {
-    return fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(O)>> {output};
+    return fk::Write<fk::TensorSplitWrite<CUDA_T(O)>> {output};
 }
 
 template <int O>
 inline constexpr auto splitT(const fk::RawPtr<fk::T3D, typename fk::VectorTraits<CUDA_T(O)>::base>& output) {
-    return fk::WriteDeviceFunction<fk::TensorTSplitWrite<CUDA_T(O)>> {output};
+    return fk::Write<fk::TensorTSplitWrite<CUDA_T(O)>> {output};
 }
 
 template <int T, int INTER_F>
@@ -186,12 +186,12 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const 
 
 template <int O>
 inline constexpr auto write(const cv::cuda::GpuMat& output) {
-    return fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>{ gpuMat2Ptr2D<CUDA_T(O)>(output) };
+    return fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>{ gpuMat2Ptr2D<CUDA_T(O)>(output) };
 }
 
 template <int O>
 inline constexpr auto write(const cv::cuda::GpuMat& output, const cv::Size& plane) {
-    return fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, CUDA_T(O)>>{ gpuMat2Tensor<CUDA_T(O)>(output, plane, 1) };
+    return fk::Write<fk::PerThreadWrite<fk::_3D, CUDA_T(O)>>{ gpuMat2Tensor<CUDA_T(O)>(output, plane, 1) };
 }
 
 template <typename T>
@@ -221,8 +221,8 @@ inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda:
 }
 
 // Batch reads
-template <int Batch, typename... DeviceFunctionTypes>
-inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const int& activeBatch, const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
+template <size_t Batch, typename... DeviceFunctionTypes>
+inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const size_t& activeBatch, const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
     using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
     // On Linux (gcc 11.4) it is necessary to pass the InputType and Batch as a template parameter
@@ -230,8 +230,8 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
     fk::executeOperations<InputType, Batch>(gpuMat2Ptr2D_arr<InputType, Batch>(input), activeBatch, cu_stream, deviceFunctions...);
 }
 
-template <int Batch, typename... DeviceFunctionTypes>
-inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const int& activeBatch, const cv::cuda::GpuMat& output, const cv::Size& outputPlane, const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
+template <size_t Batch, typename... DeviceFunctionTypes>
+inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const size_t& activeBatch, const cv::cuda::GpuMat& output, const cv::Size& outputPlane, const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
     using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
     using OutputType = fk::LastDeviceFunctionOutputType_t<DeviceFunctionTypes...>;

@@ -27,12 +27,12 @@ inline const auto resize(const RawPtr<_2D, T>& input, const Size& dSize, const d
     if (dSize.width != 0 && dSize.height != 0) {
         const double cfx = static_cast<double>(dSize.width) / input.dims.width;
         const double cfy = static_cast<double>(dSize.height) / input.dims.height;
-        return ReadDeviceFunction<ResizeRead<T, IType>>
+        return Read<ResizeRead<T, IType>>
         { {input, static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
           { (uint)dSize.width, (uint)dSize.height }
         };
     } else {
-        return ReadDeviceFunction<ResizeRead<T, IType>>
+        return Read<ResizeRead<T, IType>>
         {   { input, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy) },
             { CAROTENE_NS::internal::saturate_cast<uint>(input.dims.width * fx),
               CAROTENE_NS::internal::saturate_cast<uint>(input.dims.height * fy) }
@@ -42,8 +42,8 @@ inline const auto resize(const RawPtr<_2D, T>& input, const Size& dSize, const d
 
 template <typename T, InterpolationType IType, int NPtr, AspectRatio AR>
 inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& dsize, const int& usedPlanes, const typename ResizeRead<T, IType>::Type& backgroundValue = fk::make_set<typename ResizeRead<T, IType>::Type>(0)) {
-    using ResizeArrayIgnoreType = ReadDeviceFunction<BatchRead<ResizeRead<T, IType>, NPtr>>;
-    using ResizeArrayPreserveType = ReadDeviceFunction<BatchRead<ApplyROI<ResizeRead<T, IType>, OFFSET_THREADS>, NPtr>>;
+    using ResizeArrayIgnoreType = Read<BatchRead<ResizeRead<T, IType>, NPtr>>;
+    using ResizeArrayPreserveType = Read<BatchRead<ApplyROI<ResizeRead<T, IType>, OFFSET_THREADS>, NPtr>>;
     using ResizeArrayType = TypeAt_t<AR, TypeList<ResizeArrayPreserveType, ResizeArrayIgnoreType>>;
 
     ResizeArrayType resizeArray;

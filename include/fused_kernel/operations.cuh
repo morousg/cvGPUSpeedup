@@ -20,10 +20,16 @@
 
 namespace fk {
 
+    struct ReadType {};
+    struct WriteType{};
+    struct UnaryType{};
+    struct BinaryType{};
+    struct MidWriteType{};
+
 #define Unary(Name) \
 template <typename I, typename O> \
 struct Unary##Name { \
-    using InputType = I; using OutputType = O; \
+    using InputType = I; using OutputType = O; using InstanceType = UnaryType; \
     static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
 #define FUNCTION_CLOSE }};
 
@@ -51,7 +57,7 @@ FUNCTION_CLOSE
 #undef Unary
 
 #define UNARY_DECL_EXEC(I, O) \
-using InputType = I; using OutputType = O; \
+using InputType = I; using OutputType = O; using InstanceType = UnaryType; \
 static constexpr __device__ __forceinline__ OutputType exec(const InputType& input)
 
 template <typename T, int... idxs>
@@ -81,54 +87,54 @@ struct UnaryOperationSequence {
 #undef UNARY_DECL_EXEC
 
 #define BINARY_DECL_EXEC(O, I, P) \
-using OutputType = O; using InputType = I; using ParamsType = P; \
+using OutputType = O; using InputType = I; using ParamsType = P; using InstanceType = BinaryType; \
 static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params)
 
 
 template <typename I, typename P = I, typename O = I>
-struct Sum {
+struct Sum_ {
     BINARY_DECL_EXEC(O, I, P) {
-        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum can't work with cuda vector types.");
+        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum_ can't work with cuda vector types.");
         return input + params;
     }
 };
 
 template <typename I, typename P = I, typename O = I>
-struct Sub {
+struct Sub_ {
     BINARY_DECL_EXEC(O, I, P) {
-        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum can't work with cuda vector types.");
+        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sub_ can't work with cuda vector types.");
         return input - params;
     }
 };
 
 template <typename I, typename P = I, typename O = I>
-struct Mul {
+struct Mul_ {
     BINARY_DECL_EXEC(O, I, P) {
-        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum can't work with cuda vector types.");
+        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Mul_ can't work with cuda vector types.");
         return input * params;
     }
 };
 
 template <typename I, typename P = I, typename O = I>
-struct Div {
+struct Div_ {
     BINARY_DECL_EXEC(O, I, P) {
-        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum can't work with cuda vector types.");
+        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Div_ can't work with cuda vector types.");
         return input / params;
     }
 };
 
 template <typename I, typename P = I, typename O = I>
-struct Max {
+struct Max_ {
     BINARY_DECL_EXEC(O, I, P) {
-        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum can't work with cuda vector types.");
+        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Max_ can't work with cuda vector types.");
         return input >= params ? input : params;
     }
 };
 
 template <typename I, typename P = I, typename O = I>
-struct Min {
+struct Min_ {
     BINARY_DECL_EXEC(O, I, P) {
-        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum can't work with cuda vector types.");
+        static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Min_ can't work with cuda vector types.");
         return input <= params ? input : params;
     }
 };
@@ -136,7 +142,7 @@ struct Min {
 enum ShiftDirection { Left, Right };
 
 template <typename T, ShiftDirection SD>
-struct Shift {
+struct Shift_ {
     BINARY_DECL_EXEC(T, T, uint) {
         static_assert(!validCUDAVec<T>, "Shift can't work with cuda vector types.");
         static_assert(std::is_unsigned_v<T>, "Shift only works with unsigned integers.");
@@ -149,7 +155,7 @@ struct Shift {
 };
 
 template <typename Operation, typename I, typename P = I, typename O = I>
-struct Binary {
+struct BinaryV {
     BINARY_DECL_EXEC(O, I, P) {
         static_assert(cn<I> == cn<O> && cn<I> == cn<P>, "Binary struct requires same number of channels for all types.");
         constexpr bool allAgregOrNotAgregate = std::is_aggregate_v<I> == std::is_aggregate_v<O> && std::is_aggregate_v<I> == std::is_aggregate_v<P>;
@@ -179,27 +185,27 @@ struct Binary {
 };
 
 template <typename I, typename P = I, typename O = I>
-using BinarySum = Binary<Sum<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+using Sum = BinaryV<Sum_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
 template <typename I, typename P = I, typename O = I>
-using BinarySub = Binary<Sub<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+using Sub = BinaryV<Sub_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
 template <typename I, typename P = I, typename O = I>
-using BinaryMul = Binary<Mul<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+using Mul = BinaryV<Mul_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
 template <typename I, typename P = I, typename O = I>
-using BinaryDiv = Binary<Div<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+using Div = BinaryV<Div_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
 template <typename I, typename P = I, typename O = I>
-using BinaryMax = Binary<Max<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+using Max = BinaryV<Max_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
 template <typename I, typename P = I, typename O = I>
-using BinaryMin = Binary<Min<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+using Min = BinaryV<Min_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
 template <typename T, ShiftDirection SD>
-using BinaryShift = Binary<Shift<VBase<T>, SD>, T, VectorType_t<uint, cn<T>>>;
+using Shift = BinaryV<Shift_<VBase<T>, SD>, T, VectorType_t<uint, cn<T>>>;
 template <typename T>
-using BinaryShiftLeft = BinaryShift<T, ShiftDirection::Left>;
+using ShiftLeft = Shift<T, ShiftDirection::Left>;
 template <typename T>
-using BinaryShiftRight = BinaryShift<T, ShiftDirection::Right>;
+using ShiftRight = Shift<T, ShiftDirection::Right>;
 
 
 template <typename T>
-struct BinaryVectorReorder {
+struct VectorReorder {
     using BaseType = typename VectorTraits<T>::base;
     using TMP_ParamsType = VectorType_t<int, cn<T>>;
     BINARY_DECL_EXEC(T, T, TMP_ParamsType) {
@@ -231,7 +237,7 @@ struct BinaryVectorReorder {
 };
 
 template <typename I, typename O>
-struct BinaryAddLast {
+struct AddLast {
     BINARY_DECL_EXEC(O, I, typename VectorTraits<I>::base) {
         static_assert(cn<InputType> == cn<OutputType> -1, "Output type should have one channel more");
         static_assert(std::is_same_v<typename VectorTraits<InputType>::base, typename VectorTraits<OutputType>::base>,
@@ -254,18 +260,21 @@ struct BinaryAddLast {
 #undef BINARY_DECL_EXEC
 
 template <typename T>
-struct UnarySaturateFloat {
+struct SaturateFloat {
     using InputType = T;
     using OutputType = T;
     using Base = typename VectorTraits<T>::base;
+    using InstanceType = UnaryType;
 
+private:
     static constexpr __device__ __forceinline__ float saturate_channel(const float& input) {
-        return BinaryMax<Base>::exec(0.f, BinaryMin<Base>::exec(input, 1.f));
+        return Max<Base>::exec(0.f, Min<Base>::exec(input, 1.f));
     }
 
+public:
     static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
         if constexpr (std::is_same_v<InputType, float>) {
-            return UnarySaturateFloat<T>::saturate_channel(input);
+            return SaturateFloat<T>::saturate_channel(input);
         } else {
             static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnarySaturateFloat");
             static_assert(std::is_same_v<Base, float>, "This function only works with floats");
@@ -282,13 +291,14 @@ enum InterpolationType {
 };
 
 template <typename I, InterpolationType INTER_T>
-struct BinaryInterpolate;
+struct Interpolate;
 
 template <typename I>
-struct BinaryInterpolate<I, InterpolationType::INTER_LINEAR> {
+struct Interpolate<I, InterpolationType::INTER_LINEAR> {
     using OutputType = VectorType_t<float, cn<I>>;
     using InputType = float2;
     using ParamsType = RawPtr<_2D, I>;
+    using InstanceType = BinaryType;
     static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
         const float src_x = input.x;
         const float src_y = input.y;
@@ -297,8 +307,8 @@ struct BinaryInterpolate<I, InterpolationType::INTER_LINEAR> {
         const int y1 = __float2int_rd(src_y);
         const int x2 = x1 + 1;
         const int y2 = y1 + 1;
-        const int x2_read = BinaryMin<int>::exec(x2, params.dims.width - 1);
-        const int y2_read = BinaryMin<int>::exec(y2, params.dims.height - 1);
+        const int x2_read = Min<int>::exec(x2, params.dims.width - 1);
+        const int y2_read = Min<int>::exec(y2, params.dims.height - 1);
 
         
         const I src_reg0x0 = *PtrAccessor<_2D>::cr_point(Point(x1, y1), params);
@@ -379,93 +389,37 @@ template <> constexpr MulCoefficients mulCoefficients<Full,    bt709>{ 1.5748f, 
 template <> constexpr MulCoefficients mulCoefficients<Limited, bt709>{ 1.4746f, 0.f,    0.1646f, 0.5713f, 0.f,    1.8814f, 0.f    };
 
 template <typename T, ColorDepth CD>
-struct UnarySaturate {
+struct Saturate {
     using InputType = T;
     using OutputType = T;
+    using InstanceType = UnaryType;
     using Base = typename VectorTraits<T>::base;
 
+private:
     static constexpr __device__ __forceinline__ float saturate_channel(const float& input) {
         if constexpr (CD == p8bit) {
-            return BinaryMax<Base>::exec(0.f, BinaryMin<Base>::exec(input, 255.f));
+            return Max<Base>::exec(0.f, Min<Base>::exec(input, 255.f));
         } else if constexpr (CD == p10bit) {
             // TODO: check if this is correct, because if values are shifted to the most significant
             // bits, then, we have to consider the maximum value for ushort/uint16_t
-            return BinaryMax<Base>::exec(0.f, BinaryMin<Base>::exec(input, 1023.f));
+            return Max<Base>::exec(0.f, Min<Base>::exec(input, 1023.f));
         } else if constexpr (CD == p12bit) {
             // TODO: check if this is correct, because if values are shifted to the most significant
             // bits, then, we have to consider the maximum value for ushort/uint16_t
-            return BinaryMax<Base>::exec(0.f, BinaryMin<Base>::exec(input, 4095.f));
+            return Max<Base>::exec(0.f, Min<Base>::exec(input, 4095.f));
         }
     }
 
+public:
     static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
         if constexpr (std::is_same_v<InputType, float>) {
-            return UnarySaturate<T, CD>::saturate_channel(input);
+            return Saturate<T, CD>::saturate_channel(input);
         }
         else {
             static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnarySaturateFloat");
             static_assert(std::is_same_v<Base, float>, "This function only works with floats");
             using I = T; using O = T;
             UNARY_EXECUTE_PER_CHANNEL(saturate_channel)
-        }
-    }
-};
-
-// Y -> input.x
-// U -> input.y
-// V -> input.z
-template <ColorSpace CS, ColorDepth CD, ColorRange CR, ColorPrimitives CP>
-struct ComputeR {
-    using InputType = YUVInputPixelType<CD>;
-    using OutputType = YUVChannelType<CD>;
-    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-        if constexpr (CS == YUV420 && CP == bt601) {
-            return mulCoefficients<CR, CP>.R1 * (input.x - subCoefficients<CD>.luma) + mulCoefficients<CR, CP>.R2 * (input.z - subCoefficients<CD>.chroma);
-        } else if constexpr (CS == YUV420 && CP == bt709) {
-            const float Y = input.x;
-            const float V = input.z;
-            const float RedMult = mulCoefficients<CR, CP>.R1;
-            const float ChromaSub = subCoefficients<CD>.chroma;
-
-            return fk::UnarySaturate<float, CD>::exec(Y + (RedMult * (V - ChromaSub)));
-        }
-    }
-};
-
-template <ColorSpace CS, ColorDepth CD, ColorRange CR, ColorPrimitives CP>
-struct ComputeG {
-    using InputType = YUVInputPixelType<CD>;
-    using OutputType = YUVChannelType<CD>;
-    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-        if constexpr (CS == YUV420 && CP == bt601) {
-            return mulCoefficients<CR, CP>.G1 * (input.x - subCoefficients<CD>.luma) - mulCoefficients<CR, CP>.G2 * (input.y - subCoefficients<CD>.chroma) - mulCoefficients<CR, CP>.G3 * (input.z - subCoefficients<CD>.chroma);
-        } else if constexpr (CS == YUV420 && CP == bt709) {
-            const float Y = input.x;
-            const float U = input.y;
-            const float V = input.z;
-            const float GreenMul1 = mulCoefficients<CR, CP>.G1;
-            const float GreenMul2 = mulCoefficients<CR, CP>.G2;
-            const float ChromaSub = subCoefficients<CD>.chroma;
-
-            return fk::UnarySaturate<float, CD>::exec(Y - (GreenMul1 * (U - ChromaSub)) - (GreenMul2 * (V - ChromaSub)));
-        }
-    }
-};
-
-template <ColorSpace CS, ColorDepth CD, ColorRange CR, ColorPrimitives CP>
-struct ComputeB {
-    using InputType = YUVInputPixelType<CD>;
-    using OutputType = YUVChannelType<CD>;
-    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-        if constexpr (CS == YUV420 && CP == bt601) {
-            return mulCoefficients<CR, CP>.B1 * (input.x - subCoefficients<CD>.luma) + mulCoefficients<CR, CP>.B2 * (input.y - subCoefficients<CD>.chroma);
-        } else if constexpr (CS == YUV420 && CP == bt709) {
-            const float Y = input.x;
-            const float U = input.y;
-            const float BlueMul = mulCoefficients<CR, CP>.B1;
-            const float ChromaSub = subCoefficients<CD>.chroma;
-
-            return fk::UnarySaturate<float, CD>::exec(Y + (BlueMul * (U - ChromaSub)));
         }
     }
 };
@@ -482,17 +436,58 @@ template <> constexpr YUVChannelType<p10bit> shiftFactor<p10bit>{ 6u };
 template <> constexpr YUVChannelType<p12bit> shiftFactor<p12bit>{ 4u };
 
 template <PixelFormat PF, ColorRange CR, ColorPrimitives CP, bool ALPHA>
-struct UnaryConvertYUVToRGB {
-    using InputType = YUVInputPixelType<(ColorDepth)PixelFormatTraits<PF>::depth>;
+struct ConvertYUVToRGB {
+    static constexpr ColorDepth CD = (ColorDepth)PixelFormatTraits<PF>::depth;
+    using InputType = YUVInputPixelType<CD>;
     using OutputType = YUVOutputPixelType<PF, ALPHA>;
+    using InstanceType = UnaryType;
 
 private:
     static constexpr ColorSpace CS = (ColorSpace)PixelFormatTraits<PF>::space;
-    static constexpr ColorDepth CD = (ColorDepth)PixelFormatTraits<PF>::depth;
+
+    // Y -> input.x
+    // U -> input.y
+    // V -> input.z
+    static constexpr __device__ __forceinline__ YUVChannelType<CD> computeR(const InputType& input) {
+        if constexpr (CS == YUV420 && CP == bt601) {
+            return mulCoefficients<CR, CP>.R1* (input.x - subCoefficients<CD>.luma) + mulCoefficients<CR, CP>.R2* (input.z - subCoefficients<CD>.chroma);
+        } else if constexpr (CS == YUV420 && CP == bt709) {
+            const float Y = input.x;
+            const float V = input.z;
+            const float RedMult = mulCoefficients<CR, CP>.R1;
+            const float ChromaSub = subCoefficients<CD>.chroma;
+
+            return fk::Saturate<float, CD>::exec(Y + (RedMult * (V - ChromaSub)));
+        }
+    }
+    static constexpr __device__ __forceinline__ YUVChannelType<CD> computeG(const InputType& input) {
+        if constexpr (CS == YUV420 && CP == bt601) {
+            return mulCoefficients<CR, CP>.G1* (input.x - subCoefficients<CD>.luma) - mulCoefficients<CR, CP>.G2* (input.y - subCoefficients<CD>.chroma) - mulCoefficients<CR, CP>.G3* (input.z - subCoefficients<CD>.chroma);
+        } else if constexpr (CS == YUV420 && CP == bt709) {
+            const float Y = input.x;
+            const float U = input.y;
+            const float V = input.z;
+            const float GreenMul1 = mulCoefficients<CR, CP>.G1;
+            const float GreenMul2 = mulCoefficients<CR, CP>.G2;
+            const float ChromaSub = subCoefficients<CD>.chroma;
+
+            return fk::Saturate<float, CD>::exec(Y - (GreenMul1 * (U - ChromaSub)) - (GreenMul2 * (V - ChromaSub)));
+        }
+    }
+    static constexpr __device__ __forceinline__ YUVChannelType<CD> computeB(const InputType& input) {
+        if constexpr (CS == YUV420 && CP == bt601) {
+            return mulCoefficients<CR, CP>.B1* (input.x - subCoefficients<CD>.luma) + mulCoefficients<CR, CP>.B2* (input.y - subCoefficients<CD>.chroma);
+        } else if constexpr (CS == YUV420 && CP == bt709) {
+            const float Y = input.x;
+            const float U = input.y;
+            const float BlueMul = mulCoefficients<CR, CP>.B1;
+            const float ChromaSub = subCoefficients<CD>.chroma;
+
+            return fk::Saturate<float, CD>::exec(Y + (BlueMul * (U - ChromaSub)));
+        }
+    }
     static constexpr __device__ __forceinline__ InputType computeRGB(const InputType& pixel) {
-        return { ComputeR<CS, CD, CR, CP>::exec(pixel),
-                 ComputeG<CS, CD, CR, CP>::exec(pixel),
-                 ComputeB<CS, CD, CR, CP>::exec(pixel) };
+        return { computeR(pixel), computeG(pixel), computeB(pixel) };
     }
 
     static constexpr __device__ __forceinline__ OutputType computePixel(const InputType& pixel) {
@@ -506,20 +501,26 @@ private:
 
 public:
     static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-        using InputFactorType = typename BinaryShiftRight<InputType>::ParamsType;
+        using InputFactorType = typename ShiftRight<InputType>::ParamsType;
         const auto iShiftFactor = make_set<InputFactorType>(shiftFactor<CD>);
-        const InputType shiftedPixel = BinaryShiftRight<InputType>::exec(input, iShiftFactor);
+        // Pixel data shifted to the right to it's color depth numerical range
+        const InputType shiftedPixel = ShiftRight<InputType>::exec(input, iShiftFactor);
+
+        // Using color depth numerical ranged to comput the RGB pixel
         const OutputType computedPixel = computePixel(shiftedPixel);
-        using OutputFactorType = typename BinaryShiftLeft<OutputType>::ParamsType;
+
+        using OutputFactorType = typename ShiftLeft<OutputType>::ParamsType;
         const auto oShiftFactor = make_set<OutputFactorType>(shiftFactor<CD>);
-        return BinaryShiftLeft<OutputType>::exec(computedPixel, oShiftFactor);
+        // Moving back the pixel channels to data type numerical range, either 8bit or 16bit
+        return ShiftLeft<OutputType>::exec(computedPixel, oShiftFactor);
     }
 };
 
 template <typename I>
-struct UnaryIsEven {
+struct IsEven {
     using InputType = I;
     using OutputType = bool;
+    using InstanceType = UnaryType;
     using AcceptedTypes = TypeList<uchar, ushort, uint>;
     static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
         static_assert( one_of_v<InputType, AcceptedTypes> ,"Input type not valid for UnaryIsEven");
