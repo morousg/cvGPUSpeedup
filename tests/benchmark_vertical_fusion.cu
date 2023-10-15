@@ -195,6 +195,7 @@ struct VerticalFusion<CV_TYPE_I, CV_TYPE_O, 80> {
         const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
+
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
@@ -205,6 +206,7 @@ struct VerticalFusion<CV_TYPE_I, CV_TYPE_O, 80> {
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
+
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
@@ -215,6 +217,7 @@ struct VerticalFusion<CV_TYPE_I, CV_TYPE_O, 80> {
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
+
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
@@ -225,6 +228,7 @@ struct VerticalFusion<CV_TYPE_I, CV_TYPE_O, 80> {
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
+
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
@@ -235,6 +239,7 @@ struct VerticalFusion<CV_TYPE_I, CV_TYPE_O, 80> {
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
+
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
@@ -245,6 +250,7 @@ struct VerticalFusion<CV_TYPE_I, CV_TYPE_O, 80> {
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
+
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
@@ -255,6 +261,7 @@ struct VerticalFusion<CV_TYPE_I, CV_TYPE_O, 80> {
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
+
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
@@ -265,6 +272,7 @@ struct VerticalFusion<CV_TYPE_I, CV_TYPE_O, 80> {
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
+
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
@@ -275,7 +283,7 @@ struct VerticalFusion<CV_TYPE_I, CV_TYPE_O, 80> {
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::multiply<CV_TYPE_O>(val_mul),
+
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
