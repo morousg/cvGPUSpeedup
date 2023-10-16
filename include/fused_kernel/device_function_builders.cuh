@@ -61,11 +61,11 @@ inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& ds
         if constexpr (AR == PRESERVE_AR) {
             float scaleFactor = dsize.height / (float)dims.height;
             targetHeight = dsize.height;
-            targetWidth = static_cast<int> (scaleFactor * dims.width);
+            targetWidth = static_cast<int> (ceilf(scaleFactor * dims.width));
             if (targetWidth > dsize.width) {
                 scaleFactor = dsize.width / (float)dims.width;
                 targetWidth = dsize.width;
-                targetHeight = static_cast<int> (scaleFactor * dims.height);
+                targetHeight = static_cast<int> (ceilf(scaleFactor * dims.height));
             }
             resizeArray.activeThreads.z = NPtr;
             resizeArray.params[i].x1 = (dsize.width - targetWidth) / 2;
