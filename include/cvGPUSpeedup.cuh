@@ -114,26 +114,35 @@ inline constexpr auto cvtColor() {
     } else if constexpr (CODE == cv::COLOR_BGRA2BGR || CODE == cv::COLOR_RGBA2RGB) {
         return fk::Unary<fk::UnaryDiscard<InputType, typename fk::VectorType<BaseIT, 3>::type>>{};
     } else if constexpr (CODE == cv::COLOR_BGR2RGBA || CODE == cv::COLOR_RGB2BGRA) {
-        using FirstDeviceFunctionType = fk::Unary<fk::UnaryVectorReorder<InputType, 2, 1, 0>>;
+        using FirstDeviceFunctionType = fk::Unary<fk::VectorReorder<InputType, 2, 1, 0>>;
         using SecondDeviceFunctionType = 
             fk::Binary<fk::AddLast<InputType, typename fk::VectorType<BaseIT, fk::cn<InputType> +1>::type>>;
         using DeviceFunctionType = 
             fk::Binary<fk::ComposedOperation<FirstDeviceFunctionType, SecondDeviceFunctionType>>;
         if constexpr (CV_MAT_DEPTH(I) == CV_8U) {
-            return DeviceFunctionType{ {{}, {255u}} };
+            return DeviceFunctionType{ {{}, {fk::maxValue<uchar>}} };
         } else if constexpr (CV_MAT_DEPTH(I) == CV_16U) {
-            return DeviceFunctionType{ {{}, {65535u}} };
+            return DeviceFunctionType{ {{}, {fk::maxValue<ushort>}} };
         } else if constexpr (CV_MAT_DEPTH(I) == CV_32F) {
             return DeviceFunctionType{ {{}, {1.f}} };
         }
     } else if constexpr (CODE == cv::COLOR_BGRA2RGB || CODE == cv::COLOR_RGBA2BGR) {
-        using FirstOperation = fk::UnaryVectorReorder<InputType, 2, 1, 0, 3>;
+        using FirstOperation = fk::VectorReorder<InputType, 2, 1, 0, 3>;
         using SecondOperation = fk::UnaryDiscard<InputType, typename fk::VectorType<BaseIT, 3>::type>;
-        return fk::Unary<fk::UnaryOperationSequence<FirstOperation, SecondOperation>> {};
+        return fk::Unary<fk::OperationSequence<FirstOperation, SecondOperation>> {};
     } else if constexpr (CODE == cv::COLOR_BGR2RGB || CODE == cv::COLOR_RGB2BGR) {
-        return fk::Unary<fk::UnaryVectorReorder<InputType, 2, 1, 0>> {};
+        return fk::Unary<fk::VectorReorder<InputType, 2, 1, 0>> {};
     } else if constexpr (CODE == cv::COLOR_BGRA2RGBA || CODE == cv::COLOR_RGBA2BGRA) {
-        return fk::Unary<fk::UnaryVectorReorder<InputType, 2, 1, 0, 3>> {};
+        return fk::Unary<fk::VectorReorder<InputType, 2, 1, 0, 3>> {};
+    } else if constexpr (CODE == cv::COLOR_RGB2GRAY || CODE == cv::COLOR_RGBA2GRAY) {
+        return fk::Unary<fk::RGB2Gray<InputType, fk::GrayFormula::CCIR_601>> {};
+    } else if constexpr (CODE == cv::COLOR_BGR2GRAY) {
+        using FOperation = fk::VectorReorder<InputType, 2, 1, 0>;
+        using SOperation = fk::RGB2Gray<InputType, fk::GrayFormula::CCIR_601>;
+        using MyOperation = fk::OperationSequence<FOperation, SOperation>;
+        return fk::Unary<MyOperation> {};
+    } else if constexpr (CODE == cv::COLOR_BGRA2GRAY) {
+        return fk::Unary<fk::OperationSequence<fk::VectorReorder<InputType, 2, 1, 0, 3>, fk::RGB2Gray<InputType, fk::GrayFormula::CCIR_601>>> {};
     }
 }
 
