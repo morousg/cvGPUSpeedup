@@ -135,14 +135,14 @@ inline constexpr auto cvtColor() {
     } else if constexpr (CODE == cv::COLOR_BGRA2RGBA || CODE == cv::COLOR_RGBA2BGRA) {
         return fk::Unary<fk::VectorReorder<InputType, 2, 1, 0, 3>> {};
     } else if constexpr (CODE == cv::COLOR_RGB2GRAY || CODE == cv::COLOR_RGBA2GRAY) {
-        return fk::Unary<fk::RGB2Gray<InputType, fk::GrayFormula::CCIR_601>> {};
+        return fk::Unary<fk::RGB2Gray<InputType>> {};
     } else if constexpr (CODE == cv::COLOR_BGR2GRAY) {
         using FOperation = fk::VectorReorder<InputType, 2, 1, 0>;
-        using SOperation = fk::RGB2Gray<InputType, fk::GrayFormula::CCIR_601>;
+        using SOperation = fk::RGB2Gray<InputType>;
         using MyOperation = fk::OperationSequence<FOperation, SOperation>;
         return fk::Unary<MyOperation> {};
     } else if constexpr (CODE == cv::COLOR_BGRA2GRAY) {
-        return fk::Unary<fk::OperationSequence<fk::VectorReorder<InputType, 2, 1, 0, 3>, fk::RGB2Gray<InputType, fk::GrayFormula::CCIR_601>>> {};
+        return fk::Unary<fk::OperationSequence<fk::VectorReorder<InputType, 2, 1, 0, 3>, fk::RGB2Gray<InputType>>> {};
     }
 }
 

@@ -86,12 +86,12 @@ struct OperationSequence {
 
 enum GrayFormula { CCIR_601 };
 
-template <typename I, GrayFormula GF>
+template <typename I, typename O = VBase<I>, GrayFormula GF = CCIR_601>
 struct RGB2Gray {};
 
-template <typename I>
-struct RGB2Gray<I, CCIR_601> {
-    UNARY_DECL_EXEC(I, VBase<I>) {
+template <typename I, typename O>
+struct RGB2Gray<I, O, CCIR_601> {
+    UNARY_DECL_EXEC(I, O) {
         // 0.299*R + 0.587*G + 0.114*B
         if constexpr (std::is_unsigned_v<OutputType>) {
             return __float2uint_rn((input.x * 0.299) + (input.y * 0.587) + (input.z * 0.114));
