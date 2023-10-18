@@ -74,6 +74,7 @@ struct OperationSequence {
     UNARY_DECL_EXEC(typename FirstType_t<OperationTypes...>::InputType, typename LastType_t<OperationTypes...>::OutputType) {
         return OperationSequence<OperationTypes...>::next_exec<OperationTypes...>(input);
     }
+private:
     template <typename Operation>
     FK_HOST_DEVICE_FUSE typename Operation::OutputType next_exec(const typename Operation::InputType& input) {
         return Operation::exec(input);
@@ -91,15 +92,20 @@ struct RGB2Gray {};
 
 template <typename I, typename O>
 struct RGB2Gray<I, O, CCIR_601> {
+public:
     UNARY_DECL_EXEC(I, O) {
         // 0.299*R + 0.587*G + 0.114*B
         if constexpr (std::is_unsigned_v<OutputType>) {
-            return __float2uint_rn((input.x * 0.299) + (input.y * 0.587) + (input.z * 0.114));
+            return __float2uint_rn(compute_luminance(input));
         } else if constexpr (std::is_signed_v<OutputType>) {
-            return __float2int_rn((input.x * 0.299) + (input.y * 0.587) + (input.z * 0.114));
+            return __float2int_rn(compute_luminance(input));
         } else if constexpr (std::is_floating_point_v<OutputType>) {
-            return (input.x * 0.299) + (input.y * 0.587) + (input.z * 0.114);
+            return compute_luminance(input);
         }
+    }
+private:
+    FK_HOST_DEVICE_FUSE float compute_luminance(const InputType& input) {
+        return (input.x * 0.299f) + (input.y * 0.587f) + (input.z * 0.114f);
     }
 };
 
