@@ -128,7 +128,7 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
             if constexpr (CV_MAT_CN(CV_TYPE_I) == 3 && correctDept) {
                 cvGS::executeOperations(cv_stream,
                                         cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH, cvGS::PRESERVE_AR>(crops, up, BATCH, cvGS::cvScalar_set<CV_TYPE_O>(128.f)),
-                                        cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGB2BGR>(),
+                                        cvGS::cvtColor<CV_TYPE_O, CV_TYPE_O, cv::COLOR_RGB2BGR>(),
                                         cvGS::multiply<CV_TYPE_O>(val_alpha),
                                         cvGS::subtract<CV_TYPE_O>(val_sub),
                                         cvGS::divide<CV_TYPE_O>(val_div),
@@ -136,7 +136,7 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
             } else if constexpr (CV_MAT_CN(CV_TYPE_I) == 4 && correctDept) {
                 cvGS::executeOperations(cv_stream,
                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH, cvGS::PRESERVE_AR>(crops, up, BATCH, cvGS::cvScalar_set<CV_TYPE_O>(128.f)),
-                                       cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGBA2BGRA>(),
+                                       cvGS::cvtColor<CV_TYPE_O, CV_TYPE_O, cv::COLOR_RGBA2BGRA>(),
                                        cvGS::multiply<CV_TYPE_O>(val_alpha),
                                        cvGS::subtract<CV_TYPE_O>(val_sub),
                                        cvGS::divide<CV_TYPE_O>(val_div),

@@ -53,7 +53,7 @@ bool test_cvtColor(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_
                 // Assuming we use all the batch
                 // On Linux it is necessary to pass the BATCH as a template parameter
                 // On Windows (VS2022 Community) it is not needed, it is deduced from crops 
-                cvGS::executeOperations(d_input, d_output_cvGS, cv_stream, cvGS::cvtColor<CV_TYPE_I, CC>());
+                cvGS::executeOperations(d_input, d_output_cvGS, cv_stream, cvGS::cvtColor<CV_TYPE_I, CV_TYPE_O, CC>());
 
             STOP_CVGS_BENCHMARK
 

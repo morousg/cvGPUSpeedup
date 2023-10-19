@@ -93,7 +93,7 @@ inline constexpr auto add(const cv::Scalar& src2) {
     return fk::Binary<fk::Sum<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
-template <int I, cv::ColorConversionCodes CODE, int O = I>
+template <int I, int O, cv::ColorConversionCodes CODE>
 inline constexpr auto cvtColor() {
     static_assert((CV_MAT_DEPTH(I) == CV_8U || CV_MAT_DEPTH(I) == CV_16U || CV_MAT_DEPTH(I) == CV_32F) &&
                   (CV_MAT_DEPTH(O) == CV_8U || CV_MAT_DEPTH(O) == CV_16U || CV_MAT_DEPTH(O) == CV_32F),
