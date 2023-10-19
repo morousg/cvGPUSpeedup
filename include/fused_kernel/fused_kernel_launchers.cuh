@@ -145,13 +145,13 @@ namespace fk {
 
         using SourceT = typename VectorType<T, COLOR_PLANES>::type;
 
-        using ReadDeviceFunctions = TypeList<ReadDeviceFunction<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorRead<SourceT>, BATCH>>,
-                                             ReadDeviceFunction<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorSplitRead<SourceT>, BATCH>>,
-                                             ReadDeviceFunction<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorTSplitRead<SourceT>, BATCH>>>;
+        using WriteDeviceFunctions = TypeList<Write<TensorWrite<SourceT>>,
+                                              Write<TensorSplit<SourceT>>,
+                                              Write<TensorTSplit<SourceT>>>;
 
-        using WriteDeviceFunctions = TypeList<WriteDeviceFunction<TensorWrite<SourceT>>,
-                                              WriteDeviceFunction<TensorSplitWrite<SourceT>>,
-                                              WriteDeviceFunction<TensorTSplitWrite<SourceT>>>;
+        using ReadDeviceFunctions = TypeList<Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorRead<SourceT>, BATCH>>,
+                                             Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorPack<SourceT>, BATCH>>,
+                                             Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorTPack<SourceT>, BATCH>>>;
 
     public:
         __host__ inline constexpr CircularTensor() {};
@@ -172,12 +172,12 @@ namespace fk {
             using writeDFType = std::decay_t<decltype(writeDeviceFunction)>;
             using writeOpType = typename writeDFType::Operation;
             if constexpr (CP_MODE == ColorPlanes::Transposed) {
-                static_assert(std::is_same_v<writeDFType, WriteDeviceFunction<TensorTSplitWrite<SourceT>>>,
+                static_assert(std::is_same_v<writeDFType, Write<TensorTSplit<SourceT>>>,
                     "Need to use TensorTSplitWrite as write function because you are using a transposed CircularTensor (CP_MODE = Transposed)");
             }
             using equivalentReadDFType = EquivalentType_t<writeDFType, WriteDeviceFunctions, ReadDeviceFunctions>;
 
-            MidWriteDeviceFunction<CircularTensorWrite<CircularDirection::Ascendent, writeOpType, BATCH>> updateWriteToTemp;
+            MidWrite<CircularTensorWrite<CircularDirection::Ascendent, writeOpType, BATCH>> updateWriteToTemp;
             updateWriteToTemp.params.first = m_nextUpdateIdx;
             updateWriteToTemp.params.params = m_tempTensor.ptr();
 

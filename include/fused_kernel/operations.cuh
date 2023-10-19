@@ -20,45 +20,43 @@
 
 namespace fk {
 
-    struct ReadType {};
-    struct WriteType{};
-    struct UnaryType{};
-    struct BinaryType{};
-    struct MidWriteType{};
-
-#define Unary(Name) \
-template <typename I, typename O> \
-struct Unary##Name { \
-    using InputType = I; using OutputType = O; using InstanceType = UnaryType; \
-    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-#define FUNCTION_CLOSE }};
-
-Unary(Cast)
-    return saturate_cast<O>(input);
-FUNCTION_CLOSE
-
-Unary(Discard)
-    static_assert(cn<I> > cn<O>, "Output type should at least have one channel less");
-    static_assert(std::is_same_v<typename VectorTraits<I>::base,
-        typename VectorTraits<O>::base>,
-        "Base types should be the same");
-    if constexpr (cn<O> == 1) {
-        if constexpr (std::is_aggregate_v<O>) {
-            return { input.x };
-        } else {
-            return input.x;
-        }
-    } else if constexpr (cn<O> == 2) {
-        return { input.x, input.y };
-    } else if constexpr (cn<O> == 3) {
-        return { input.x, input.y, input.z };
-    }
-FUNCTION_CLOSE
-#undef Unary
+struct ReadType {};
+struct WriteType {};
+struct UnaryType {};
+struct BinaryType {};
+struct MidWriteType {};
 
 #define UNARY_DECL_EXEC(I, O) \
 using InputType = I; using OutputType = O; using InstanceType = UnaryType; \
 static constexpr __device__ __forceinline__ OutputType exec(const InputType& input)
+
+template <typename I, typename O> 
+struct SaturateCast {
+    UNARY_DECL_EXEC(I, O) {
+        return saturate_cast<OutputType>(input);
+    }
+};
+
+template <typename I, typename O>
+struct Discard {
+    UNARY_DECL_EXEC(I, O) {
+        static_assert(cn<I> > cn<O>, "Output type should at least have one channel less");
+        static_assert(std::is_same_v<typename VectorTraits<I>::base,
+            typename VectorTraits<O>::base>,
+            "Base types should be the same");
+        if constexpr (cn<O> == 1) {
+            if constexpr (std::is_aggregate_v<O>) {
+                return { input.x };
+            } else {
+                return input.x;
+            }
+        } else if constexpr (cn<O> == 2) {
+            return { input.x, input.y };
+        } else if constexpr (cn<O> == 3) {
+            return { input.x, input.y, input.z };
+        }
+    }
+};
 
 template <typename T, int... idxs>
 struct VectorReorder {

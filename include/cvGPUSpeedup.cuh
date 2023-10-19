@@ -49,7 +49,7 @@ inline constexpr fk::Tensor<T> gpuMat2Tensor(const cv::cuda::GpuMat& source, con
 
 template <int I, int O>
 inline constexpr auto convertTo() {
-    return fk::Unary<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>{};
+    return fk::Unary<fk::SaturateCast<CUDA_T(I), CUDA_T(O)>>{};
 }
 
 template <int I, int O>
@@ -57,7 +57,7 @@ inline constexpr auto convertTo(float alpha) {
     using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
     using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
 
-    using FirstOp = fk::Unary<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>;
+    using FirstOp = fk::Unary<fk::SaturateCast<CUDA_T(I), CUDA_T(O)>>;
     using SecondOp = fk::Binary<fk::Mul<CUDA_T(O)>>;
     return fk::Binary<fk::ComposedOperation<FirstOp, SecondOp>>{{{}, { fk::make_set<CUDA_T(O)>(alpha) }}};
 }
@@ -67,7 +67,7 @@ inline constexpr auto convertTo(float alpha, float beta) {
     using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
     using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
 
-    using FirstOp = fk::Unary<fk::UnaryCast<CUDA_T(I), CUDA_T(O)>>;
+    using FirstOp = fk::Unary<fk::SaturateCast<CUDA_T(I), CUDA_T(O)>>;
     using SecondOp = fk::Binary<fk::Mul<CUDA_T(O)>>;
     using ThirdOp = fk::Binary<fk::Sum<CUDA_T(O)>>;
     return fk::Binary<fk::ComposedOperation<FirstOp, SecondOp, ThirdOp>>{{{}, { fk::make_set<CUDA_T(O)>(alpha) }, { fk::make_set<CUDA_T(O)>(beta) }}};
@@ -80,7 +80,6 @@ inline constexpr auto multiply(const cv::Scalar& src2) {
 
 template <int I>
 inline constexpr auto subtract(const cv::Scalar& src2) {
-
     return fk::Binary<fk::Sub<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
@@ -91,7 +90,6 @@ inline constexpr auto divide(const cv::Scalar& src2) {
 
 template <int I>
 inline constexpr auto add(const cv::Scalar& src2) {
-
     return fk::Binary<fk::Sum<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
@@ -116,7 +114,7 @@ inline constexpr auto cvtColor() {
         }
     } else if constexpr (CODE == cv::COLOR_BGRA2BGR || CODE == cv::COLOR_RGBA2RGB) {
         static_assert(std::is_same_v<fk::VBase<InputType>, fk::VBase<OutputType>>, "cvtColor does not support different input and otput base types");
-        return fk::Unary<fk::UnaryDiscard<InputType, typename fk::VectorType<BaseIT, 3>::type>>{};
+        return fk::Unary<fk::Discard<InputType, typename fk::VectorType<BaseIT, 3>::type>>{};
     } else if constexpr (CODE == cv::COLOR_BGR2RGBA || CODE == cv::COLOR_RGB2BGRA) {
         static_assert(std::is_same_v<fk::VBase<InputType>, fk::VBase<OutputType>>, "cvtColor does not support different input and otput base types");
         using FirstDeviceFunctionType = fk::Unary<fk::VectorReorder<InputType, 2, 1, 0>>;
@@ -134,7 +132,7 @@ inline constexpr auto cvtColor() {
     } else if constexpr (CODE == cv::COLOR_BGRA2RGB || CODE == cv::COLOR_RGBA2BGR) {
         static_assert(std::is_same_v<fk::VBase<InputType>, fk::VBase<OutputType>>, "cvtColor does not support different input and otput base types");
         using FirstOperation = fk::VectorReorder<InputType, 2, 1, 0, 3>;
-        using SecondOperation = fk::UnaryDiscard<InputType, typename fk::VectorType<BaseIT, 3>::type>;
+        using SecondOperation = fk::Discard<InputType, typename fk::VectorType<BaseIT, 3>::type>;
         return fk::Unary<fk::OperationSequence<FirstOperation, SecondOperation>> {};
     } else if constexpr (CODE == cv::COLOR_BGR2RGB || CODE == cv::COLOR_RGB2BGR) {
         static_assert(std::is_same_v<InputType, OutputType>, "cvtColor does not support different input and otput types");
@@ -168,18 +166,18 @@ inline constexpr auto split(const cv::cuda::GpuMat& output, const cv::Size& plan
     assert(output.cols % (planeDims.width * planeDims.height) == 0 && output.cols / (planeDims.width * planeDims.height) == CV_MAT_CN(O) &&
     "Each row of the GpuMap should contain as many planes as width / (planeDims.width * planeDims.height)");
 
-    return fk::Write<fk::TensorSplitWrite<CUDA_T(O)>> {
+    return fk::Write<fk::TensorSplit<CUDA_T(O)>> {
         gpuMat2Tensor<BASE_CUDA_T(O)>(output, planeDims, CV_MAT_CN(O))};
 }
 
 template <int O>
 inline constexpr auto split(const fk::RawPtr<fk::_3D, typename fk::VectorTraits<CUDA_T(O)>::base>& output) {
-    return fk::Write<fk::TensorSplitWrite<CUDA_T(O)>> {output};
+    return fk::Write<fk::TensorSplit<CUDA_T(O)>> {output};
 }
 
 template <int O>
 inline constexpr auto splitT(const fk::RawPtr<fk::T3D, typename fk::VectorTraits<CUDA_T(O)>::base>& output) {
-    return fk::Write<fk::TensorTSplitWrite<CUDA_T(O)>> {output};
+    return fk::Write<fk::TensorTSplit<CUDA_T(O)>> {output};
 }
 
 template <int T, int INTER_F>

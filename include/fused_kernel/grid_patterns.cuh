@@ -22,35 +22,24 @@
 namespace fk { // namespace FusedKernel
     struct TransformGridPattern {
         private:
-            template <typename Operation, typename... DeviceFunctionTypes>
-            FK_DEVICE_FUSE auto operate(const Point& thread, const typename Operation::InputType& i_data,
-                const BinaryDeviceFunction<Operation>& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
-                return TransformGridPattern::operate(thread, Operation::exec(i_data, df.params), deviceFunctionInstances...);
-            }
-
-            template <typename Operation, typename... DeviceFunctionTypes>
-            FK_DEVICE_FUSE auto operate(const Point& thread, const typename Operation::InputType& i_data,
-                const UnaryDeviceFunction<Operation>& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
-                return TransformGridPattern::operate(thread, Operation::exec(i_data), deviceFunctionInstances...);
-            }
-
-            template <typename Operation, typename... DeviceFunctionTypes>
-            FK_DEVICE_FUSE auto operate(const Point& thread, const typename Operation::Type& i_data,
-                const MidWriteDeviceFunction<Operation>& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
-                Operation::exec(thread, i_data, df.params);
-                return TransformGridPattern::operate(thread, i_data, deviceFunctionInstances...);
-            }
-
-            template <typename Operation>
-            FK_DEVICE_FUSE typename Operation::Type operate(const Point& thread, const typename Operation::Type& i_data,
-                const WriteDeviceFunction<Operation>& df) {
-                return i_data;
+            template <typename DeviceFunction, typename... DeviceFunctionTypes>
+            FK_DEVICE_FUSE auto operate(const Point& thread, const typename DeviceFunction::Operation::InputType& i_data, const DeviceFunction& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
+                using DeviceFunctionType = typename DeviceFunction::InstanceType;
+                if constexpr (std::is_same_v<DeviceFunctionType, BinaryType>) {
+                    return TransformGridPattern::operate(thread, DeviceFunction::Operation::exec(i_data, df.params), deviceFunctionInstances...);
+                } else if constexpr (std::is_same_v<DeviceFunctionType, UnaryType>) {
+                    return TransformGridPattern::operate(thread, DeviceFunction::Operation::exec(i_data), deviceFunctionInstances...);
+                } else if constexpr (std::is_same_v<DeviceFunctionType, MidWriteType>) {
+                    DeviceFunction::Operation::exec(thread, i_data, df.params);
+                    return TransformGridPattern::operate(thread, i_data, deviceFunctionInstances...);
+                } else if constexpr (std::is_same_v<DeviceFunctionType, WriteType>) {
+                    return i_data;
+                }
             }
 
         public:
             template <typename ReadOperation, typename... DeviceFunctionTypes>
-            FK_DEVICE_FUSE void exec(const ReadDeviceFunction<ReadOperation>& readDeviceFunction,
-                const DeviceFunctionTypes&... deviceFunctionInstances) {
+            FK_DEVICE_FUSE void exec(const ReadDeviceFunction<ReadOperation>& readDeviceFunction, const DeviceFunctionTypes&... deviceFunctionInstances) {
                 const auto writeDeviceFunction = last(deviceFunctionInstances...);
                 using WriteOperation = typename decltype(writeDeviceFunction)::Operation;
 
