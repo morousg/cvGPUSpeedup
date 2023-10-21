@@ -44,18 +44,10 @@ bool test_cvtColor(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_
             cv::Mat h_cvGSResults;
 
             cv::Mat diff((int)NUM_ELEMS_Y, (int)NUM_ELEMS_X, CV_TYPE_O);
-            START_OCV_BENCHMARK
-                // OpenCV version
-                cv::cuda::cvtColor(d_input, d_output_cv, CC, 0, cv_stream);
-
-            STOP_OCV_START_CVGS_BENCHMARK
-                // cvGPUSpeedup
-                // Assuming we use all the batch
-                // On Linux it is necessary to pass the BATCH as a template parameter
-                // On Windows (VS2022 Community) it is not needed, it is deduced from crops 
-                cvGS::executeOperations(d_input, d_output_cvGS, cv_stream, cvGS::cvtColor<CC, CV_TYPE_I, CV_TYPE_O>());
-
-            STOP_CVGS_BENCHMARK
+            // OpenCV version
+            cv::cuda::cvtColor(d_input, d_output_cv, CC, 0, cv_stream);
+            // cvGPUSpeedup
+            cvGS::executeOperations(d_input, d_output_cvGS, cv_stream, cvGS::cvtColor<CC, CV_TYPE_I, CV_TYPE_O>());
 
             d_output_cv.download(h_cvResults, cv_stream);
             d_output_cvGS.download(h_cvGSResults, cv_stream);
