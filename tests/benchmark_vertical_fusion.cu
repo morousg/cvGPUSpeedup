@@ -866,14 +866,14 @@ struct VerticalFusion<CV_TYPE_I, CV_TYPE_O, 75> {
 template <int CV_TYPE_I, int CV_TYPE_O>
 struct VerticalFusion<CV_TYPE_I, CV_TYPE_O, 80> {
     static inline void execute(const std::array<cv::cuda::GpuMat, 50>& crops,
-        const int& BATCH,
-        const cv::cuda::Stream& cv_stream,
-        const float& alpha,
-        const cv::Scalar& val_mul,
-        const cv::cuda::GpuMat& d_tensor_output,
-        const cv::Size& cropSize) {
+                               const int& BATCH,
+                               const cv::cuda::Stream& cv_stream,
+                               const float& alpha,
+                               const cv::Scalar& val_mul,
+                               const cv::cuda::GpuMat& d_tensor_output,
+                               const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
-            cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
+            cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(alpha),
 
             cvGS::multiply<CV_TYPE_O>(val_mul),
             cvGS::multiply<CV_TYPE_O>(val_mul),
@@ -978,77 +978,68 @@ bool benchmark_vertical_fusion(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda:
         struct Parameters {
             const cv::Scalar init;
             const cv::Scalar alpha;
-            const cv::Scalar val_sub;
-            const cv::Scalar val_div;
+            const cv::Scalar val_mul;
         };
 
         double alpha = 1.0;
 
-        const Parameters one{ {1u}, {alpha}, {1.f}, {3.2f} };
-        const Parameters two{ {1u, 2u}, {alpha, alpha}, {1.f, 4.f}, {3.2f, 0.6f} };
-        const Parameters three{ {1u, 2u, 3u}, {alpha, alpha, alpha}, {1.f, 4.f, 3.2f}, {3.2f, 0.6f, 11.8f} };
-        const Parameters four{ {1u, 2u, 3u, 4u}, {alpha, alpha, alpha, alpha}, {1.f, 4.f, 3.2f, 0.5f}, {3.2f, 0.6f, 11.8f, 33.f} };
+        const Parameters one{ {1u}, {alpha}, {1.f} };
+        const Parameters two{ {1u, 2u}, {alpha, alpha}, {1.f, 4.f} };
+        const Parameters three{ {1u, 2u, 3u}, {alpha, alpha, alpha}, {1.f, 4.f, 3.2f} };
+        const Parameters four{ {1u, 2u, 3u, 4u}, {alpha, alpha, alpha, alpha}, {1.f, 4.f, 3.2f, 0.5f} };
         const std::array<Parameters, 4> params{ one, two, three, four };
 
         const cv::Scalar val_init = params.at(CV_MAT_CN(CV_TYPE_O) - 1).init;
         const cv::Scalar val_alpha = params.at(CV_MAT_CN(CV_TYPE_O) - 1).alpha;
-        const cv::Scalar val_sub = params.at(CV_MAT_CN(CV_TYPE_O) - 1).val_sub;
-        const cv::Scalar val_div = params.at(CV_MAT_CN(CV_TYPE_O) - 1).val_div;
+        const cv::Scalar val_mul = params.at(CV_MAT_CN(CV_TYPE_O) - 1).val_mul;
         try {
-            const cv::Size cropSize(60, 120);
-            cv::cuda::GpuMat d_input((int)NUM_ELEMS_Y, (int)NUM_ELEMS_X, CV_TYPE_I, val_init);
-            std::array<cv::cuda::GpuMat, REAL_BATCH> d_output_cv;
-            std::array<cv::Mat, REAL_BATCH> h_cvResults;
-            std::array<cv::Mat, REAL_BATCH> h_cvGSResults;
-
-            cv::cuda::GpuMat d_temp(cropSize, CV_TYPE_O);
-            cv::cuda::GpuMat d_temp2(cropSize, CV_TYPE_O);
-
-            cv::cuda::GpuMat d_tensor_output(REAL_BATCH,
-                cropSize.width * cropSize.height,
-                CV_TYPE_O);
-            d_tensor_output.step = cropSize.width * cropSize.height * sizeof(CUDA_T(CV_TYPE_O));
-
-            cv::Mat diff(cropSize, CV_TYPE_O);
-            cv::Mat h_tensor_output(REAL_BATCH, cropSize.width * cropSize.height, CV_TYPE_I);
+            const cv::Size cropSize(NUM_ELEMS_X, NUM_ELEMS_Y);
 
             std::array<cv::cuda::GpuMat, REAL_BATCH> crops;
+            std::array<cv::cuda::GpuMat, REAL_BATCH> d_output_cv;
+            std::array<cv::Mat, REAL_BATCH>          h_output_cv;
             for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
                 crops[crop_i] = cv::cuda::GpuMat(cropSize, CV_TYPE_I, val_init);
+                h_output_cv[crop_i].create(cropSize, CV_TYPE_O);
                 d_output_cv[crop_i].create(cropSize, CV_TYPE_O);
-                h_cvResults[crop_i].create(cropSize, CV_TYPE_O);
             }
-            
+
+            cv::cuda::GpuMat d_output_cvGS(REAL_BATCH, cropSize.width * cropSize.height, CV_TYPE_O);
+            d_output_cvGS.step = cropSize.width * cropSize.height * sizeof(CUDA_T(CV_TYPE_O));
+            cv::Mat h_output_cvGS(REAL_BATCH, cropSize.width * cropSize.height, CV_TYPE_O);
+
             START_OCV_BENCHMARK
                 // OpenCV version
                 for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
                     crops[crop_i].convertTo(d_output_cv[crop_i], CV_TYPE_O, alpha, cv_stream);
                     for (int numOp = 0; numOp < BATCH; numOp++) {
-                        cv::cuda::multiply(d_output_cv[crop_i], val_sub, d_output_cv[crop_i], 1.0, -1, cv_stream);
+                        cv::cuda::multiply(d_output_cv[crop_i], val_mul, d_output_cv[crop_i], 1.0, -1, cv_stream);
                     }
                 }
 
             STOP_OCV_START_CVGS_BENCHMARK
                 // cvGPUSpeedup
-                VerticalFusion<CV_TYPE_I, CV_TYPE_O, BATCH>::execute(crops, REAL_BATCH, cv_stream, alpha, val_sub, d_tensor_output, cropSize);
+                VerticalFusion<CV_TYPE_I, CV_TYPE_O, BATCH>::execute(crops, REAL_BATCH, cv_stream, alpha, val_mul, d_output_cvGS, cropSize);
 
             STOP_CVGS_BENCHMARK
 
-                d_tensor_output.download(h_tensor_output, cv_stream);
-
-            // Verify results
+            // Download results
             for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
-                d_output_cv[crop_i].download(h_cvResults[crop_i], cv_stream);
+                d_output_cv[crop_i].download(h_output_cv[crop_i], cv_stream);
             }
+            d_output_cvGS.download(h_output_cvGS, cv_stream);
 
             cv_stream.waitForCompletion();
 
+            // Verify results
             for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
-                cv::Mat cvRes = h_cvResults[crop_i];
-                cv::Mat cvGSRes = cv::Mat(cropSize.height, cropSize.width, CV_TYPE_O, h_tensor_output.row(crop_i).data);
+                cv::Mat cvRes = h_output_cv[crop_i];
+                cv::Mat cvGSRes = cv::Mat(cropSize.height, cropSize.width, CV_TYPE_O, h_output_cvGS.row(crop_i).data);
                 bool passedThisTime = compareAndCheck<CV_TYPE_O>(cropSize.width, cropSize.height, cvRes, cvGSRes);
-                if (!passedThisTime) { std::cout << "Failed on crop idx=" << crop_i << std::endl; }
                 passed &= passedThisTime;
+            }
+            if (!passed) {
+                std::cout << "Failed for num fused operations = " << BATCH << std::endl;
             }
         } catch (const cv::Exception& e) {
             if (e.code != -210) {
@@ -1088,8 +1079,8 @@ bool launch_benchmark_vertical_fusion(const size_t NUM_ELEMS_X, const size_t NUM
 }
 
 int main() {
-    constexpr size_t NUM_ELEMS_X = 3840;
-    constexpr size_t NUM_ELEMS_Y = 2160;
+    constexpr size_t NUM_ELEMS_X = 60;
+    constexpr size_t NUM_ELEMS_Y = 120;
 
     cv::cuda::Stream cv_stream;
 

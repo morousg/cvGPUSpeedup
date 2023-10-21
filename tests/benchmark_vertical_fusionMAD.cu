@@ -18,42 +18,27 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
-constexpr std::array<size_t, 17> batchValues{ 1, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64 };
+constexpr std::array<size_t, 16> batchValues{ 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64 };
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t NumOps>
 struct VerticalFusionMAD {};
 
 template <int CV_TYPE_I, int CV_TYPE_O>
-struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 1> {
-    static inline void execute(const std::array<cv::cuda::GpuMat, 50>& crops,
-        const int& BATCH,
-        const cv::cuda::Stream& cv_stream,
-        const float& alpha,
-        const cv::Scalar& val_mul,
-        const cv::cuda::GpuMat& d_tensor_output,
-        const cv::Size& cropSize) {
-        cvGS::executeOperations(crops, BATCH, cv_stream,
-            cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
-            cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
-    }
-};
-
-template <int CV_TYPE_I, int CV_TYPE_O>
 struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 4> {
     static inline void execute(const std::array<cv::cuda::GpuMat, 50>& crops,
-        const int& BATCH,
-        const cv::cuda::Stream& cv_stream,
-        const float& alpha,
-        const cv::Scalar& val_mul,
-        const cv::cuda::GpuMat& d_tensor_output,
-        const cv::Size& cropSize) {
+                               const int& BATCH,
+                               const cv::cuda::Stream& cv_stream,
+                               const float& alpha,
+                               const cv::Scalar& val_mul,
+                               const cv::Scalar& val_add,
+                               const cv::cuda::GpuMat& d_tensor_output,
+                               const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -61,22 +46,22 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 4> {
 template <int CV_TYPE_I, int CV_TYPE_O>
 struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 8> {
     static inline void execute(const std::array<cv::cuda::GpuMat, 50>& crops,
-        const int& BATCH,
-        const cv::cuda::Stream& cv_stream,
-        const float& alpha,
-        const cv::Scalar& val_mul,
-        const cv::cuda::GpuMat& d_tensor_output,
-        const cv::Size& cropSize) {
+                               const int& BATCH,
+                               const cv::cuda::Stream& cv_stream,
+                               const float& alpha,
+                               const cv::Scalar& val_mul, const cv::Scalar& val_add,
+                               const cv::cuda::GpuMat& d_tensor_output,
+                               const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -84,26 +69,26 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 8> {
 template <int CV_TYPE_I, int CV_TYPE_O>
 struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 12> {
     static inline void execute(const std::array<cv::cuda::GpuMat, 50>& crops,
-        const int& BATCH,
-        const cv::cuda::Stream& cv_stream,
-        const float& alpha,
-        const cv::Scalar& val_mul,
-        const cv::cuda::GpuMat& d_tensor_output,
-        const cv::Size& cropSize) {
+                               const int& BATCH,
+                               const cv::cuda::Stream& cv_stream,
+                               const float& alpha,
+                               const cv::Scalar& val_mul, const cv::Scalar& val_add,
+                               const cv::cuda::GpuMat& d_tensor_output,
+                               const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -114,27 +99,27 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 16> {
         const int& BATCH,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
-        const cv::Scalar& val_mul,
+        const cv::Scalar& val_mul, const cv::Scalar& val_add,
         const cv::cuda::GpuMat& d_tensor_output,
         const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -142,34 +127,34 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 16> {
 template <int CV_TYPE_I, int CV_TYPE_O>
 struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 20> {
     static inline void execute(const std::array<cv::cuda::GpuMat, 50>& crops,
-        const int& BATCH,
-        const cv::cuda::Stream& cv_stream,
-        const float& alpha,
-        const cv::Scalar& val_mul,
-        const cv::cuda::GpuMat& d_tensor_output,
-        const cv::Size& cropSize) {
+                               const int& BATCH,
+                               const cv::cuda::Stream& cv_stream,
+                               const float& alpha,
+                               const cv::Scalar& val_mul, const cv::Scalar& val_add,
+                               const cv::cuda::GpuMat& d_tensor_output,
+                               const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
-            cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
+            cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -180,35 +165,35 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 24> {
         const int& BATCH,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
-        const cv::Scalar& val_mul,
+        const cv::Scalar& val_mul, const cv::Scalar& val_add,
         const cv::cuda::GpuMat& d_tensor_output,
         const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -219,39 +204,39 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 28> {
         const int& BATCH,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
-        const cv::Scalar& val_mul,
+        const cv::Scalar& val_mul, const cv::Scalar& val_add,
         const cv::cuda::GpuMat& d_tensor_output,
         const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -262,43 +247,43 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 32> {
         const int& BATCH,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
-        const cv::Scalar& val_mul,
+        const cv::Scalar& val_mul, const cv::Scalar& val_add,
         const cv::cuda::GpuMat& d_tensor_output,
         const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -309,47 +294,47 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 36> {
         const int& BATCH,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
-        const cv::Scalar& val_mul,
+        const cv::Scalar& val_mul, const cv::Scalar& val_add,
         const cv::cuda::GpuMat& d_tensor_output,
         const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -360,51 +345,51 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 40> {
         const int& BATCH,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
-        const cv::Scalar& val_mul,
+        const cv::Scalar& val_mul, const cv::Scalar& val_add,
         const cv::cuda::GpuMat& d_tensor_output,
         const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -415,55 +400,55 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 44> {
         const int& BATCH,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
-        const cv::Scalar& val_mul,
+        const cv::Scalar& val_mul, const cv::Scalar& val_add,
         const cv::cuda::GpuMat& d_tensor_output,
         const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -474,59 +459,59 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 48> {
         const int& BATCH,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
-        const cv::Scalar& val_mul,
+        const cv::Scalar& val_mul, const cv::Scalar& val_add,
         const cv::cuda::GpuMat& d_tensor_output,
         const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -536,63 +521,63 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 52> {
         const int& BATCH,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
-        const cv::Scalar& val_mul,
+        const cv::Scalar& val_mul, const cv::Scalar& val_add,
         const cv::cuda::GpuMat& d_tensor_output,
         const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -603,67 +588,67 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 56> {
         const int& BATCH,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
-        const cv::Scalar& val_mul,
+        const cv::Scalar& val_mul, const cv::Scalar& val_add,
         const cv::cuda::GpuMat& d_tensor_output,
         const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -674,73 +659,73 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 60> {
         const int& BATCH,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
-        const cv::Scalar& val_mul,
+        const cv::Scalar& val_mul, const cv::Scalar& val_add,
         const cv::cuda::GpuMat& d_tensor_output,
         const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
 
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
 
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -751,84 +736,83 @@ struct VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, 64> {
         const int& BATCH,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
-        const cv::Scalar& val_mul,
+        const cv::Scalar& val_mul, const cv::Scalar& val_add,
         const cv::cuda::GpuMat& d_tensor_output,
         const cv::Size& cropSize) {
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
 
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
 
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
 
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
 
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
             cvGS::multiply<CV_TYPE_O>(val_mul),
-            cvGS::add<CV_TYPE_O>(val_mul),
+            cvGS::add<CV_TYPE_O>(val_add),
 
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
-
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
 bool benchmark_vertical_fusion_MAD(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
@@ -841,78 +825,75 @@ bool benchmark_vertical_fusion_MAD(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::c
         struct Parameters {
             const cv::Scalar init;
             const cv::Scalar alpha;
-            const cv::Scalar val_sub;
-            const cv::Scalar val_div;
+            const cv::Scalar val_mul;
+            const cv::Scalar val_add;
         };
 
         double alpha = 1.0;
 
-        const Parameters one{ {1u}, {alpha}, {1.f}, {3.2f} };
-        const Parameters two{ {1u, 2u}, {alpha, alpha}, {1.f, 4.f}, {3.2f, 0.6f} };
-        const Parameters three{ {1u, 2u, 3u}, {alpha, alpha, alpha}, {1.f, 4.f, 3.2f}, {3.2f, 0.6f, 11.8f} };
-        const Parameters four{ {1u, 2u, 3u, 4u}, {alpha, alpha, alpha, alpha}, {1.f, 4.f, 3.2f, 0.5f}, {3.2f, 0.6f, 11.8f, 33.f} };
+        const Parameters one{ {1u}, {alpha}, {1.f}, {-3.2f} };
+        const Parameters two{ {1u, 2u}, {alpha, alpha}, {1.f, 4.f}, {-3.2f, -0.6f} };
+        const Parameters three{ {1u, 2u, 3u}, {alpha, alpha, alpha}, {1.f, 4.f, 2.f}, {-3.2f, -0.6f, -3.8f} };
+        const Parameters four{ {1u, 2u, 3u, 4u}, {alpha, alpha, alpha, alpha}, {1.f, 4.f, 2.f, 0.5f}, {-3.2f, -0.6f, -3.8f, -33.f} };
         const std::array<Parameters, 4> params{ one, two, three, four };
 
         const cv::Scalar val_init = params.at(CV_MAT_CN(CV_TYPE_O) - 1).init;
         const cv::Scalar val_alpha = params.at(CV_MAT_CN(CV_TYPE_O) - 1).alpha;
-        const cv::Scalar val_sub = params.at(CV_MAT_CN(CV_TYPE_O) - 1).val_sub;
-        const cv::Scalar val_div = params.at(CV_MAT_CN(CV_TYPE_O) - 1).val_div;
+        const cv::Scalar val_mul = params.at(CV_MAT_CN(CV_TYPE_O) - 1).val_mul;
+        const cv::Scalar val_add = params.at(CV_MAT_CN(CV_TYPE_O) - 1).val_add;
         try {
-            const cv::Size cropSize(60, 120);
-            cv::cuda::GpuMat d_input((int)NUM_ELEMS_Y, (int)NUM_ELEMS_X, CV_TYPE_I, val_init);
-            std::array<cv::cuda::GpuMat, REAL_BATCH> d_output_cv;
-            std::array<cv::Mat, REAL_BATCH> h_cvResults;
-            std::array<cv::Mat, REAL_BATCH> h_cvGSResults;
-
-            cv::cuda::GpuMat d_temp(cropSize, CV_TYPE_O);
-            cv::cuda::GpuMat d_temp2(cropSize, CV_TYPE_O);
-
-            cv::cuda::GpuMat d_tensor_output(REAL_BATCH,
-                cropSize.width * cropSize.height,
-                CV_TYPE_O);
-            d_tensor_output.step = cropSize.width * cropSize.height * sizeof(CUDA_T(CV_TYPE_O));
-
-            cv::Mat diff(cropSize, CV_TYPE_O);
-            cv::Mat h_tensor_output(REAL_BATCH, cropSize.width * cropSize.height, CV_TYPE_I);
+            const cv::Size cropSize(NUM_ELEMS_X, NUM_ELEMS_Y);
 
             std::array<cv::cuda::GpuMat, REAL_BATCH> crops;
+            std::array<cv::cuda::GpuMat, REAL_BATCH> d_output_cv;
+            std::array<cv::Mat, REAL_BATCH>          h_output_cv;
             for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
                 crops[crop_i] = cv::cuda::GpuMat(cropSize, CV_TYPE_I, val_init);
+                h_output_cv[crop_i].create(cropSize, CV_TYPE_O);
                 d_output_cv[crop_i].create(cropSize, CV_TYPE_O);
-                h_cvResults[crop_i].create(cropSize, CV_TYPE_O);
             }
-            
+
+            cv::cuda::GpuMat d_output_cvGS(REAL_BATCH, cropSize.width * cropSize.height, CV_TYPE_O);
+            d_output_cvGS.step = cropSize.width * cropSize.height * sizeof(CUDA_T(CV_TYPE_O));
+            cv::Mat h_output_cvGS(REAL_BATCH, cropSize.width * cropSize.height, CV_TYPE_O);
+
             START_OCV_BENCHMARK
                 // OpenCV version
                 for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
                     crops[crop_i].convertTo(d_output_cv[crop_i], CV_TYPE_O, alpha, cv_stream);
                     for (int numOp = 0; numOp < BATCH; numOp+=2) {
-                        cv::cuda::multiply(d_output_cv[crop_i], val_sub, d_output_cv[crop_i], 1.0, -1, cv_stream);
-                        cv::cuda::add(d_output_cv[crop_i], val_sub, d_output_cv[crop_i], 1.0, -1, cv_stream);
+                        cv::cuda::multiply(d_output_cv[crop_i], val_mul, d_output_cv[crop_i], 1.0, -1, cv_stream);
+                        cv::cuda::add(d_output_cv[crop_i], val_add, d_output_cv[crop_i], cv::noArray(), -1, cv_stream);
                     }
                 }
 
             STOP_OCV_START_CVGS_BENCHMARK
                 // cvGPUSpeedup
-                VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, BATCH>::execute(crops, REAL_BATCH, cv_stream, alpha, val_sub, d_tensor_output, cropSize);
+                VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O, BATCH>::execute(crops, REAL_BATCH, cv_stream, alpha, val_mul, val_add, d_output_cvGS, cropSize);
 
             STOP_CVGS_BENCHMARK
 
-                d_tensor_output.download(h_tensor_output, cv_stream);
-
-            // Verify results
+            // Download results
             for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
-                d_output_cv[crop_i].download(h_cvResults[crop_i], cv_stream);
+                d_output_cv[crop_i].download(h_output_cv[crop_i], cv_stream);
             }
+            d_output_cvGS.download(h_output_cvGS, cv_stream);
 
             cv_stream.waitForCompletion();
 
+            // Verify results
             for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
-                cv::Mat cvRes = h_cvResults[crop_i];
-                cv::Mat cvGSRes = cv::Mat(cropSize.height, cropSize.width, CV_TYPE_O, h_tensor_output.row(crop_i).data);
+                cv::Mat cvRes = h_output_cv[crop_i];
+                cv::Mat cvGSRes = cv::Mat(cropSize.height, cropSize.width, CV_TYPE_O, h_output_cvGS.row(crop_i).data);
                 bool passedThisTime = compareAndCheck<CV_TYPE_O>(cropSize.width, cropSize.height, cvRes, cvGSRes);
-                if (!passedThisTime) { std::cout << "Failed on crop idx=" << crop_i << std::endl; }
                 passed &= passedThisTime;
+                if (!passedThisTime) {
+                    int a = 0;
+                    a++;
+                }
+            }
+            if (!passed) {
+                std::cout << "Failed for num fused operations = " << BATCH << std::endl;
             }
         } catch (const cv::Exception& e) {
             if (e.code != -210) {
@@ -952,8 +933,8 @@ bool launch_benchmark_vertical_fusion_MAD(const size_t NUM_ELEMS_X, const size_t
 }
 
 int main() {
-    constexpr size_t NUM_ELEMS_X = 3840;
-    constexpr size_t NUM_ELEMS_Y = 2160;
+    constexpr size_t NUM_ELEMS_X = 60;
+    constexpr size_t NUM_ELEMS_Y = 120;
 
     cv::cuda::Stream cv_stream;
 
@@ -967,7 +948,7 @@ int main() {
 
 #ifdef ENABLE_BENCHMARK
     // Warming up for the benchmarks
-    results["benchmark_vertical_fusion_MAD"] &= benchmark_vertical_fusion_MAD<CV_8UC1, CV_32FC1, 4>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
+    results["benchmark_vertical_fusion_MAD"] &= benchmark_vertical_fusion_MAD<CV_8UC1, CV_32FC1, 8>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 #endif
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
