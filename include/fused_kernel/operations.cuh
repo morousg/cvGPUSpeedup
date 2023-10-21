@@ -14,54 +14,52 @@
 
 #pragma once
 #include "ptr_nd.cuh"
-#include "cuda_vector_utils.cuh"
+#include "vlimits.cuh"
 
 #include <climits>
 
 namespace fk {
 
-    struct ReadType {};
-    struct WriteType{};
-    struct UnaryType{};
-    struct BinaryType{};
-    struct MidWriteType{};
-
-#define Unary(Name) \
-template <typename I, typename O> \
-struct Unary##Name { \
-    using InputType = I; using OutputType = O; using InstanceType = UnaryType; \
-    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-#define FUNCTION_CLOSE }};
-
-Unary(Cast)
-    return saturate_cast<O>(input);
-FUNCTION_CLOSE
-
-Unary(Discard)
-    static_assert(cn<I> > cn<O>, "Output type should at least have one channel less");
-    static_assert(std::is_same_v<typename VectorTraits<I>::base,
-        typename VectorTraits<O>::base>,
-        "Base types should be the same");
-    if constexpr (cn<O> == 1) {
-        if constexpr (std::is_aggregate_v<O>) {
-            return { input.x };
-        } else {
-            return input.x;
-        }
-    } else if constexpr (cn<O> == 2) {
-        return { input.x, input.y };
-    } else if constexpr (cn<O> == 3) {
-        return { input.x, input.y, input.z };
-    }
-FUNCTION_CLOSE
-#undef Unary
+struct ReadType {};
+struct WriteType {};
+struct UnaryType {};
+struct BinaryType {};
+struct MidWriteType {};
 
 #define UNARY_DECL_EXEC(I, O) \
 using InputType = I; using OutputType = O; using InstanceType = UnaryType; \
 static constexpr __device__ __forceinline__ OutputType exec(const InputType& input)
 
+template <typename I, typename O> 
+struct SaturateCast {
+    UNARY_DECL_EXEC(I, O) {
+        return saturate_cast<OutputType>(input);
+    }
+};
+
+template <typename I, typename O>
+struct Discard {
+    UNARY_DECL_EXEC(I, O) {
+        static_assert(cn<I> > cn<O>, "Output type should at least have one channel less");
+        static_assert(std::is_same_v<typename VectorTraits<I>::base,
+            typename VectorTraits<O>::base>,
+            "Base types should be the same");
+        if constexpr (cn<O> == 1) {
+            if constexpr (std::is_aggregate_v<O>) {
+                return { input.x };
+            } else {
+                return input.x;
+            }
+        } else if constexpr (cn<O> == 2) {
+            return { input.x, input.y };
+        } else if constexpr (cn<O> == 3) {
+            return { input.x, input.y, input.z };
+        }
+    }
+};
+
 template <typename T, int... idxs>
-struct UnaryVectorReorder {
+struct VectorReorder {
     UNARY_DECL_EXEC(T, T) {
         static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnaryVectorReorder");
         static_assert(cn<InputType> >= 2, "Minimum number of channels is 2: UnaryVectorReorder");
@@ -70,21 +68,44 @@ struct UnaryVectorReorder {
 };
 
 template <typename... OperationTypes>
-struct UnaryOperationSequence {
+struct OperationSequence {
     UNARY_DECL_EXEC(typename FirstType_t<OperationTypes...>::InputType, typename LastType_t<OperationTypes...>::OutputType) {
-        return UnaryOperationSequence<OperationTypes...>::next_exec<OperationTypes...>(input);
+        return OperationSequence<OperationTypes...>::next_exec<OperationTypes...>(input);
     }
+private:
     template <typename Operation>
     FK_HOST_DEVICE_FUSE typename Operation::OutputType next_exec(const typename Operation::InputType& input) {
         return Operation::exec(input);
     }
     template <typename Operation, typename... RemainingOperations>
     FK_HOST_DEVICE_FUSE typename LastType_t<RemainingOperations...>::OutputType next_exec(const typename Operation::InputType& input) {
-        return UnaryOperationSequence<OperationTypes...>::next_exec<RemainingOperations...>(Operation::exec(input));
+        return OperationSequence<OperationTypes...>::next_exec<RemainingOperations...>(Operation::exec(input));
     }
 };
 
-#undef UNARY_DECL_EXEC
+enum GrayFormula { CCIR_601 };
+
+template <typename I, typename O = VBase<I>, GrayFormula GF = CCIR_601>
+struct RGB2Gray {};
+
+template <typename I, typename O>
+struct RGB2Gray<I, O, CCIR_601> {
+public:
+    UNARY_DECL_EXEC(I, O) {
+        // 0.299*R + 0.587*G + 0.114*B
+        if constexpr (std::is_unsigned_v<OutputType>) {
+            return __float2uint_rn(compute_luminance(input));
+        } else if constexpr (std::is_signed_v<OutputType>) {
+            return __float2int_rn(compute_luminance(input));
+        } else if constexpr (std::is_floating_point_v<OutputType>) {
+            return compute_luminance(input);
+        }
+    }
+private:
+    FK_HOST_DEVICE_FUSE float compute_luminance(const InputType& input) {
+        return (input.x * 0.299f) + (input.y * 0.587f) + (input.z * 0.114f);
+    }
+};
 
 #define BINARY_DECL_EXEC(O, I, P) \
 using OutputType = O; using InputType = I; using ParamsType = P; using InstanceType = BinaryType; \
@@ -203,38 +224,7 @@ using ShiftLeft = Shift<T, ShiftDirection::Left>;
 template <typename T>
 using ShiftRight = Shift<T, ShiftDirection::Right>;
 
-
-template <typename T>
-struct VectorReorder {
-    using BaseType = typename VectorTraits<T>::base;
-    using TMP_ParamsType = VectorType_t<int, cn<T>>;
-    BINARY_DECL_EXEC(T, T, TMP_ParamsType) {
-        static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: BinaryVectorReorder");
-        static_assert(cn<InputType> >= 2, "Minimum number of channels is 2: BinaryVectorReorder");
-        const BaseType* const temp = (BaseType*)&input;
-        const ParamsType idx = params;
-        if constexpr (cn<InputType> == 2) {
-            return { getValue(idx.x, input), getValue(idx.y, input) };
-        } else if constexpr (cn<T> == 3) {
-            return { getValue(idx.x, input), getValue(idx.y, input), getValue(idx.z, input) };
-        } else {
-            return { getValue(idx.x, input), getValue(idx.y, input), getValue(idx.z, input), getValue(idx.w, input) };
-        }
-    }
-
-    static constexpr __device__ __forceinline__ BaseType getValue(int idx, InputType vector) {
-        switch (idx) {
-            case 0:
-                return vector.x;
-            case 1:
-                return vector.y;
-            case 2:
-                return vector.z;
-            case 3:
-                return vector.w;
-        }
-    }
-};
+#undef UNARY_DECL_EXEC
 
 template <typename I, typename O>
 struct AddLast {
@@ -389,7 +379,7 @@ template <> constexpr MulCoefficients mulCoefficients<Full,    bt709>{ 1.5748f, 
 template <> constexpr MulCoefficients mulCoefficients<Limited, bt709>{ 1.4746f, 0.f,    0.1646f, 0.5713f, 0.f,    1.8814f, 0.f    };
 
 template <typename T, ColorDepth CD>
-struct Saturate {
+struct SaturateDepth {
     using InputType = T;
     using OutputType = T;
     using InstanceType = UnaryType;
@@ -413,9 +403,8 @@ private:
 public:
     static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
         if constexpr (std::is_same_v<InputType, float>) {
-            return Saturate<T, CD>::saturate_channel(input);
-        }
-        else {
+            return SaturateDepth<T, CD>::saturate_channel(input);
+        } else {
             static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnarySaturateFloat");
             static_assert(std::is_same_v<Base, float>, "This function only works with floats");
             using I = T; using O = T;
@@ -457,7 +446,7 @@ private:
             const float RedMult = mulCoefficients<CR, CP>.R1;
             const float ChromaSub = subCoefficients<CD>.chroma;
 
-            return fk::Saturate<float, CD>::exec(Y + (RedMult * (V - ChromaSub)));
+            return fk::SaturateDepth<float, CD>::exec(Y + (RedMult * (V - ChromaSub)));
         }
     }
     static constexpr __device__ __forceinline__ YUVChannelType<CD> computeG(const InputType& input) {
@@ -471,7 +460,7 @@ private:
             const float GreenMul2 = mulCoefficients<CR, CP>.G2;
             const float ChromaSub = subCoefficients<CD>.chroma;
 
-            return fk::Saturate<float, CD>::exec(Y - (GreenMul1 * (U - ChromaSub)) - (GreenMul2 * (V - ChromaSub)));
+            return fk::SaturateDepth<float, CD>::exec(Y - (GreenMul1 * (U - ChromaSub)) - (GreenMul2 * (V - ChromaSub)));
         }
     }
     static constexpr __device__ __forceinline__ YUVChannelType<CD> computeB(const InputType& input) {
@@ -483,7 +472,7 @@ private:
             const float BlueMul = mulCoefficients<CR, CP>.B1;
             const float ChromaSub = subCoefficients<CD>.chroma;
 
-            return fk::Saturate<float, CD>::exec(Y + (BlueMul * (U - ChromaSub)));
+            return fk::SaturateDepth<float, CD>::exec(Y + (BlueMul * (U - ChromaSub)));
         }
     }
     static constexpr __device__ __forceinline__ InputType computeRGB(const InputType& pixel) {

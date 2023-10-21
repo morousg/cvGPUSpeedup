@@ -79,7 +79,7 @@ int main() {
     
     dim3 gridActiveThreads(64, 64);
     fk::Read<fk::PerThreadRead<fk::_2D, uchar>> read{ input, gridActiveThreads };
-    fk::Unary<fk::UnaryCast<uchar, uint>> cast = {};
+    fk::Unary<fk::SaturateCast<uchar, uint>> cast = {};
     fk::Write<fk::PerThreadWrite<fk::_2D, uint>> write { output };
 
     fk::cuda_transform<<<dim3(1,8),dim3(64,8),0,stream>>>(read, cast, write);

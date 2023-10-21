@@ -41,7 +41,7 @@ inline const auto resize(const RawPtr<_2D, T>& input, const Size& dSize, const d
 }
 
 template <typename T, InterpolationType IType, int NPtr, AspectRatio AR>
-inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& dsize, const int& usedPlanes, const typename ResizeRead<T, IType>::Type& backgroundValue = fk::make_set<typename ResizeRead<T, IType>::Type>(0)) {
+inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& dsize, const int& usedPlanes, const typename ResizeRead<T, IType>::OutputType& backgroundValue = fk::make_set<typename ResizeRead<T, IType>::OutputType>(0)) {
     using ResizeArrayIgnoreType = Read<BatchRead<ResizeRead<T, IType>, NPtr>>;
     using ResizeArrayPreserveType = Read<BatchRead<ApplyROI<ResizeRead<T, IType>, OFFSET_THREADS>, NPtr>>;
     using ResizeArrayType = TypeAt_t<AR, TypeList<ResizeArrayPreserveType, ResizeArrayIgnoreType>>;
