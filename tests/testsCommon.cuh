@@ -28,6 +28,14 @@
 #include <opencv2/cudawarping.hpp>
 #include <opencv2/core/cuda.hpp>
 
+template <size_t START_VALUE, size_t INCREMENT, std::size_t... Is>
+constexpr std::array<size_t, sizeof...(Is)> generate_sequence(std::index_sequence<Is...>) {
+    return std::array<size_t, sizeof...(Is)>{(START_VALUE + (INCREMENT * Is))...};
+}
+
+template <size_t START_VALUE, size_t INCREMENT, size_t NUM_ELEMS>
+constexpr std::array<size_t, NUM_ELEMS> arrayIndexSecuence = generate_sequence<START_VALUE, INCREMENT>(std::make_index_sequence<NUM_ELEMS>{});
+
 template <int T>
 bool checkResults(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& h_comparison1C) {
     cv::Mat h_comparison(NUM_ELEMS_Y, NUM_ELEMS_X, T);
