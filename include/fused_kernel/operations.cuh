@@ -515,4 +515,28 @@ struct IsEven {
         return (input & 1u) == 0;
     }
 };
+
+template <typename Operation, int ITERATIONS>
+struct StaticLoop {
+    using InputType = typename Operation::InputType;
+    using OutputType = typename Operation::OutputType;
+    using ParamsType = typename Operation::ParamsType;
+    using InstanceType = BinaryType;
+
+private:
+    template <int ITERATION>
+    FK_DEVICE_FUSE OutputType helper_exec(const InputType& input, const ParamsType& params) {
+        if constexpr (ITERATION + 1 < ITERATIONS) {
+            return helper_exec<ITERATION + 1>(Operation::exec(input, params), params);
+        } else {
+            return input;
+        }
+    }
+
+public:
+    FK_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
+        return helper_exec<0>(Operation::exec(input, params), params);
+    }
+};
+
 } //namespace fk
