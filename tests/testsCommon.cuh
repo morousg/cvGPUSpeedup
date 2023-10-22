@@ -97,7 +97,7 @@ void processExecution(const BenchmarkResultsNumbers& resF, const std::string& fu
 
     // Create 2D Table for changing types and changing batch
 
-    if constexpr (BATCH == 1) {
+    if constexpr (BATCH == batchValues[0]) {
         const std::string fileName = functionName + std::string(".csv");
         if (currentFile.find(fileName) == currentFile.end()) {
             currentFile[fileName].open(path + fileName);
