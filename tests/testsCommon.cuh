@@ -117,10 +117,10 @@ void processExecution(const BenchmarkResultsNumbers& resF, const std::string& fu
         }
         currentFile[fileName] << "\n";
         benchmarkResultsText.clear();
-        benchmarkResultsText["OCVMean"] << "OCVMeanTime";
-        benchmarkResultsText["OCVVariance"] << "OCVVariance";
-        benchmarkResultsText["cvGSMean"] << "cvGSMean";
-        benchmarkResultsText["cvGSVariance"] << "cvGSVariance";
+        benchmarkResultsText["OCVMean"] << "OCVMeanExecutionTime";
+        benchmarkResultsText["OCVVariance"] << "OCVExecutionTimeVariance";
+        benchmarkResultsText["cvGSMean"] << "cvGSMeanExecutionTime";
+        benchmarkResultsText["cvGSVariance"] << "cvGSExecutionTimeVariance";
         benchmarkResultsText["MeanSpeedup"] << "Mean Speedup";
     }
 

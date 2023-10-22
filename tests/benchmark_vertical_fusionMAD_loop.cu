@@ -42,7 +42,7 @@ struct VerticalFusionMAD {
 };
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
-bool benchmark_vertical_fusion_MAD(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
+bool benchmark_vertical_fusion_MAD_loop(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     constexpr size_t REAL_BATCH{ 50 };
     std::stringstream error_s;
     bool passed = true;
@@ -150,10 +150,10 @@ bool benchmark_vertical_fusion_MAD(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::c
 }
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t... Is>
-bool launch_benchmark_vertical_fusion_MAD(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream cv_stream, bool enabled) {
+bool launch_benchmark_vertical_fusion_MAD_loop(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream cv_stream, bool enabled) {
     bool passed = true;
 
-    int dummy[] = { (passed &= benchmark_vertical_fusion_MAD<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
+    int dummy[] = { (passed &= benchmark_vertical_fusion_MAD_loop<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
     (void)dummy;
 
     return passed;
@@ -168,14 +168,14 @@ int main() {
     cv::Mat::setDefaultAllocator(cv::cuda::HostMem::getAllocator(cv::cuda::HostMem::AllocType::PAGE_LOCKED));
 
     std::unordered_map<std::string, bool> results;
-    results["benchmark_vertical_fusion_MAD"] = true;
+    results["benchmark_vertical_fusion_MAD_loop"] = true;
     std::make_index_sequence<batchValues.size()> iSeq{};
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-    results["benchmark_vertical_fusion_MAD"] &= launch_benchmark_vertical_fusion_MAD<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
+    results["benchmark_vertical_fusion_MAD_loop"] &= launch_benchmark_vertical_fusion_MAD_loop<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
 
 #ifdef ENABLE_BENCHMARK
     // Warming up for the benchmarks
-    results["benchmark_vertical_fusion_MAD"] &= benchmark_vertical_fusion_MAD<CV_8UC1, CV_32FC1, 8>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
+    results["benchmark_vertical_fusion_MAD_loop"] &= benchmark_vertical_fusion_MAD_loop<CV_8UC1, CV_32FC1, 8>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 #endif
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
