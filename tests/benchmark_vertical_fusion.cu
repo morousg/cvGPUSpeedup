@@ -993,7 +993,7 @@ bool benchmark_vertical_fusion(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda:
         const cv::Scalar val_alpha = params.at(CV_MAT_CN(CV_TYPE_O) - 1).alpha;
         const cv::Scalar val_mul = params.at(CV_MAT_CN(CV_TYPE_O) - 1).val_mul;
         try {
-            const cv::Size cropSize(NUM_ELEMS_X, NUM_ELEMS_Y);
+            const cv::Size cropSize((int)NUM_ELEMS_X, (int)NUM_ELEMS_Y);
 
             std::array<cv::cuda::GpuMat, REAL_BATCH> crops;
             std::array<cv::cuda::GpuMat, REAL_BATCH> d_output_cv;

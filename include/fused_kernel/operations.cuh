@@ -182,17 +182,16 @@ struct BinaryV {
         constexpr bool allAgregOrNotAgregate = std::is_aggregate_v<I> == std::is_aggregate_v<O> && std::is_aggregate_v<I> == std::is_aggregate_v<P>;
         static_assert(allAgregOrNotAgregate, "Binary struct requires all types to be agregate or all not agregate.");
 
-        constexpr int CN = cn<I>;
-        if constexpr (CN == 1) {
+        if constexpr (cn<I> == 1) {
             if constexpr (std::is_aggregate_v<I>) {
                 return { Operation::exec(input.x, params.x) };
             } else {
                 return Operation::exec(input, params);
             }
-        } else if constexpr (CN == 2) {
+        } else if constexpr (cn<I> == 2) {
             return { Operation::exec(input.x, params.x),
                      Operation::exec(input.y, params.y) };
-        } else if constexpr (CN == 3) {
+        } else if constexpr (cn<I> == 3) {
             return { Operation::exec(input.x, params.x),
                      Operation::exec(input.y, params.y),
                      Operation::exec(input.z, params.z) };
