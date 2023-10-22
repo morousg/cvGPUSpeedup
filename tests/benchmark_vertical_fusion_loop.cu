@@ -19,7 +19,9 @@
 #include <opencv2/cudaimgproc.hpp>
 
 constexpr size_t NUM_EXPERIMENTS = 40;
-constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<5, 5, NUM_EXPERIMENTS>;
+constexpr size_t FIRST_VALUE = 5;
+constexpr size_t INCREMENT = 5;
+constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t NumOps>
 struct VerticalFusion {
@@ -38,13 +40,14 @@ struct VerticalFusion {
 };
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
-bool benchmark_vertical_fusion(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
+bool benchmark_vertical_fusion_loop(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     constexpr size_t REAL_BATCH{ 50 };
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
 
     if (enabled) {
+        std::cout << "Executing benchmark_vertical_fusion_loop fusing " << BATCH << " operations. " << (BATCH - FIRST_VALUE)/INCREMENT << "/" << NUM_EXPERIMENTS << std::endl;
         struct Parameters {
             const cv::Scalar init;
             const cv::Scalar alpha;
@@ -125,11 +128,11 @@ bool benchmark_vertical_fusion(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda:
         if (!passed) {
             if (!exception) {
                 std::stringstream ss;
-                ss << "benchmark_vertical_fusion<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "benchmark_vertical_fusion_loop<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
             } else {
                 std::stringstream ss;
-                ss << "benchmark_vertical_fusion<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "benchmark_vertical_fusion_loop<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
             }
         }
@@ -139,10 +142,10 @@ bool benchmark_vertical_fusion(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda:
 }
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t... Is>
-bool launch_benchmark_vertical_fusion(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream cv_stream, bool enabled) {
+bool launch_benchmark_vertical_fusion_loop(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream cv_stream, bool enabled) {
     bool passed = true;
 
-    int dummy[] = { (passed &= benchmark_vertical_fusion<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
+    int dummy[] = { (passed &= benchmark_vertical_fusion_loop<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
     (void)dummy;
 
     return passed;
@@ -157,14 +160,14 @@ int main() {
     cv::Mat::setDefaultAllocator(cv::cuda::HostMem::getAllocator(cv::cuda::HostMem::AllocType::PAGE_LOCKED));
 
     std::unordered_map<std::string, bool> results;
-    results["benchmark_vertical_fusion"] = true;
+    results["benchmark_vertical_fusion_loop"] = true;
     std::make_index_sequence<batchValues.size()> iSeq{};
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-    results["benchmark_vertical_fusion"] &= launch_benchmark_vertical_fusion<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
+    results["benchmark_vertical_fusion_loop"] &= launch_benchmark_vertical_fusion_loop<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
 
 #ifdef ENABLE_BENCHMARK
     // Warming up for the benchmarks
-    results["benchmark_vertical_fusion"] &= benchmark_vertical_fusion<CV_8UC1, CV_32FC1, batchValues[1]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
+    results["benchmark_vertical_fusion_loop"] &= benchmark_vertical_fusion_loop<CV_8UC1, CV_32FC1, batchValues[1]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 #endif
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)

@@ -19,7 +19,9 @@
 #include <opencv2/cudaimgproc.hpp>
 
 constexpr size_t NUM_EXPERIMENTS = 50;
-constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<4, 4, NUM_EXPERIMENTS>;
+constexpr size_t FIRST_VALUE = 4;
+constexpr size_t INCREMENT = 4;
+constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t NumOps>
 struct VerticalFusionMAD {
@@ -49,6 +51,7 @@ bool benchmark_vertical_fusion_MAD_loop(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, 
     bool exception = false;
 
     if (enabled) {
+        std::cout << "Executing benchmark_vertical_fusion_MAD_loop fusing " << BATCH << " operations. " << (BATCH - FIRST_VALUE) / INCREMENT << "/" << NUM_EXPERIMENTS << std::endl;
         struct Parameters {
             const cv::Scalar init;
             const cv::Scalar alpha;
@@ -136,11 +139,11 @@ bool benchmark_vertical_fusion_MAD_loop(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, 
         if (!passed) {
             if (!exception) {
                 std::stringstream ss;
-                ss << "benchmark_vertical_fusion_MAD<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "benchmark_vertical_fusion_MAD_loop<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
             } else {
                 std::stringstream ss;
-                ss << "benchmark_vertical_fusion_MAD<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "benchmark_vertical_fusion_MAD_loop<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
             }
         }
