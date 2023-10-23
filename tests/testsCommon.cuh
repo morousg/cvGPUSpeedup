@@ -154,6 +154,7 @@ void processExecution(const BenchmarkResultsNumbers& resF, const std::string& fu
 
 #ifdef ENABLE_BENCHMARK
 #define START_OCV_BENCHMARK \
+std::cout << "Executing " << __func__ << " fusing " << BATCH << " operations. " << (BATCH - FIRST_VALUE)/INCREMENT << "/" << NUM_EXPERIMENTS << std::endl; \
 cudaEvent_t start, stop; \
 BenchmarkResultsNumbers resF{0.f, 0.f, 0.f, 0.f}; \
 cudaStream_t stream = cv::cuda::StreamAccessor::getStream(cv_stream); \

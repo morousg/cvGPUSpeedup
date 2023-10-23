@@ -47,7 +47,6 @@ bool benchmark_vertical_fusion_loop(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::
     bool exception = false;
 
     if (enabled) {
-        std::cout << "Executing benchmark_vertical_fusion_loop fusing " << BATCH << " operations. " << (BATCH - FIRST_VALUE)/INCREMENT << "/" << NUM_EXPERIMENTS << std::endl;
         struct Parameters {
             const cv::Scalar init;
             const cv::Scalar alpha;

@@ -20,7 +20,7 @@
 
 namespace fk {
 
-enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1 };
+enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
 
 template <typename T, InterpolationType IType>
 inline const auto resize(const RawPtr<_2D, T>& input, const Size& dSize, const double& fx, const double& fy) {
@@ -58,14 +58,22 @@ inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& ds
         // targetWidth and targetHeight are the dimensions for the resized image
         int targetWidth, targetHeight;
         fk::ResizeReadParams<T>* interParams;
-        if constexpr (AR == PRESERVE_AR) {
+        if constexpr (AR != IGNORE_AR) {
             float scaleFactor = dsize.height / (float)dims.height;
             targetHeight = dsize.height;
-            targetWidth = static_cast<int> (ceilf(scaleFactor * dims.width));
+            targetWidth = static_cast<int> (round(scaleFactor * dims.width));
+            if constexpr (AR == PRESERVE_AR_RN_EVEN) {
+                // We round to the nearest even number
+                targetHeight -= targetHeight % 2;
+            }
             if (targetWidth > dsize.width) {
                 scaleFactor = dsize.width / (float)dims.width;
                 targetWidth = dsize.width;
-                targetHeight = static_cast<int> (ceilf(scaleFactor * dims.height));
+                targetHeight = static_cast<int> (round(scaleFactor * dims.height));
+                if constexpr (AR == PRESERVE_AR_RN_EVEN) {
+                    // We round to the nearest even number
+                    targetHeight -= targetHeight % 2;
+                }
             }
             resizeArray.activeThreads.z = NPtr;
             resizeArray.params[i].x1 = (dsize.width - targetWidth) / 2;

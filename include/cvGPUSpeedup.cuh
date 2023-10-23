@@ -25,7 +25,7 @@
 
 namespace cvGS {
 
-enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1 };
+enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
 
 template <typename T>
 inline constexpr fk::Ptr2D<T> gpuMat2Ptr2D(const cv::cuda::GpuMat& source) {
