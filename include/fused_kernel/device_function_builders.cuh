@@ -63,15 +63,15 @@ inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& ds
             targetHeight = dsize.height;
             targetWidth = static_cast<int> (round(scaleFactor * dims.width));
             if constexpr (AR == PRESERVE_AR_RN_EVEN) {
-                // We round to the nearest even number
-                targetHeight -= targetHeight % 2;
+                // We round to the next even integer smaller or equal to targetWidth
+                targetWidth -= targetWidth % 2;
             }
             if (targetWidth > dsize.width) {
                 scaleFactor = dsize.width / (float)dims.width;
                 targetWidth = dsize.width;
                 targetHeight = static_cast<int> (round(scaleFactor * dims.height));
                 if constexpr (AR == PRESERVE_AR_RN_EVEN) {
-                    // We round to the nearest even number
+                    // We round to the next even integer smaller or equal to targetHeight
                     targetHeight -= targetHeight % 2;
                 }
             }
