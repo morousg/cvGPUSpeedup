@@ -1079,6 +1079,7 @@ bool launch_benchmark_vertical_fusion(const size_t NUM_ELEMS_X, const size_t NUM
 }
 
 int main() {
+#ifdef ENABLE_BENCHMARK
     constexpr size_t NUM_ELEMS_X = 60;
     constexpr size_t NUM_ELEMS_Y = 120;
 
@@ -1092,10 +1093,10 @@ int main() {
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
     results["benchmark_vertical_fusion"] &= launch_benchmark_vertical_fusion<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
 
-#ifdef ENABLE_BENCHMARK
+
     // Warming up for the benchmarks
     results["benchmark_vertical_fusion"] &= benchmark_vertical_fusion<CV_8UC1, CV_32FC1, 5>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
-#endif
+
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
     LAUNCH_TESTS(CV_16UC4, CV_32FC4)
@@ -1115,6 +1116,6 @@ int main() {
     typename fk::BatchRead<fk::PerThreadRead<fk::_2D, uchar4>, 50>::ParamsType params;
 
 #undef LAUNCH_TESTS
-
+#endif
     return 0;
 }
