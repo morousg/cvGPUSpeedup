@@ -21,14 +21,14 @@
 namespace fk{
     // Limits
     template <typename T, typename Enabler = void>
-    constexpr T maxValue;
+    constexpr T maxValue{};
     template <typename T>
     constexpr T maxValue <T, std::enable_if_t<!validCUDAVec<T> && !std::is_aggregate_v<T>>> = std::numeric_limits<T>::max();
     template <typename T>
     constexpr T maxValue <T, std::enable_if_t<validCUDAVec<T>>> = make_set<T>(maxValue<VBase<T>>);
 
     template <typename T, typename Enabler = void>
-    constexpr T minValue;
+    constexpr T minValue{};
     template <typename T>
     constexpr T minValue <T, std::enable_if_t<!validCUDAVec<T> && !std::is_aggregate_v<T>>> = std::numeric_limits<T>::min();
     template <typename T>

@@ -44,7 +44,8 @@ template <typename T, InterpolationType IType, int NPtr, AspectRatio AR>
 inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& dsize, const int& usedPlanes, const typename ResizeRead<T, IType>::OutputType& backgroundValue = fk::make_set<typename ResizeRead<T, IType>::OutputType>(0)) {
     using ResizeArrayIgnoreType = Read<BatchRead<ResizeRead<T, IType>, NPtr>>;
     using ResizeArrayPreserveType = Read<BatchRead<ApplyROI<ResizeRead<T, IType>, OFFSET_THREADS>, NPtr>>;
-    using ResizeArrayType = TypeAt_t<AR, TypeList<ResizeArrayPreserveType, ResizeArrayIgnoreType>>;
+    using ResizeArrayPreserveRoundEvenType = Read<BatchRead<ApplyROI<ResizeRead<T, IType>, OFFSET_THREADS>, NPtr>>;
+    using ResizeArrayType = TypeAt_t<AR, TypeList<ResizeArrayPreserveType, ResizeArrayIgnoreType, ResizeArrayPreserveRoundEvenType>>;
 
     ResizeArrayType resizeArray;
     // dsize is the size of the destination pointer, for each image
@@ -92,7 +93,7 @@ inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& ds
         interParams->fy = static_cast<float>(1.0 / (static_cast<double>(targetHeight) / (double)dims.height));
     }
 
-    if constexpr (AR == PRESERVE_AR) {
+    if constexpr (AR != IGNORE_AR) {
         for (int i = usedPlanes; i < NPtr; i++) {
             resizeArray.params[i].x1 = -1;
             resizeArray.params[i].x2 = -1;
