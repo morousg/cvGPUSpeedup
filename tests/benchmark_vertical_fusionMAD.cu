@@ -18,7 +18,10 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
-constexpr std::array<size_t, 20> batchValues{ 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80 };
+constexpr size_t NUM_EXPERIMENTS = 20;
+constexpr size_t FIRST_VALUE = 4;
+constexpr size_t INCREMENT = 4;
+constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t NumOps>
 struct VerticalFusionMAD {};

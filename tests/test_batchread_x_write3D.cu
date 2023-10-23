@@ -18,7 +18,10 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
-constexpr std::array<size_t, 11> batchValues{ 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
+constexpr size_t NUM_EXPERIMENTS = 10;
+constexpr size_t FIRST_VALUE = 10;
+constexpr size_t INCREMENT = 10;
+constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 template <int CV_TYPE_I, int CV_TYPE_O, int BATCH>
 bool test_batchread_x_write3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {

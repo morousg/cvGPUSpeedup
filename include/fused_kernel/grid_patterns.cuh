@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include "operations.cuh"
 #include "memory_operations.cuh"
 #include "parameter_pack_utils.cuh"
 #include "device_functions.cuh"
