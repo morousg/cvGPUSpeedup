@@ -19,8 +19,8 @@
 #include <opencv2/cudaimgproc.hpp>
 
 constexpr size_t NUM_EXPERIMENTS = 50;
-constexpr size_t FIRST_VALUE = 4;
-constexpr size_t INCREMENT = 4;
+constexpr size_t FIRST_VALUE = 4200;
+constexpr size_t INCREMENT = 200;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t NumOps>
@@ -35,7 +35,7 @@ struct VerticalFusionMAD {
         const cv::Size& cropSize) {
         using InputType = CUDA_T(CV_TYPE_I);
         using OutputType = CUDA_T(CV_TYPE_O);
-        using Loop = fk::Binary<fk::StaticLoop<fk::ComposedOperation<fk::Binary<fk::Mul<OutputType>>, fk::Binary<fk::Sum<OutputType>>>, NumOps/2>>;
+        using Loop = fk::Binary<fk::StaticLoop<fk::StaticLoop<fk::ComposedOperation<fk::Binary<fk::Mul<OutputType>>, fk::Binary<fk::Sum<OutputType>>>, INCREMENT / 2>, NumOps/ INCREMENT>>;
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             Loop{ {{cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul)},{cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_add)}} },
@@ -175,9 +175,6 @@ int main() {
     std::make_index_sequence<batchValues.size()> iSeq{};
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
     results["benchmark_vertical_fusion_MAD_loop"] &= launch_benchmark_vertical_fusion_MAD_loop<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
-
-    // Warming up for the benchmarks
-    results["benchmark_vertical_fusion_MAD_loop"] &= benchmark_vertical_fusion_MAD_loop<CV_8UC1, CV_32FC1, 8>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
