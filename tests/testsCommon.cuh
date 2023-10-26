@@ -14,6 +14,7 @@
 
 #include "testUtils.cuh"
 #include <cv2cuda_types.cuh>
+#include "fused_kernel/vlimits.cuh"
 
 #include <sstream>
 #include <fstream>
@@ -84,8 +85,10 @@ constexpr int ITERS = 1000;
 
 struct BenchmarkResultsNumbers {
     float OCVelapsedTimeMax;
+    float OCVelapsedTimeMin;
     float OCVelapsedTimeAcum;
     float cvGSelapsedTimeMax;
+    float cvGSelapsedTimeMin;
     float cvGSelapsedTimeAcum;
 };
 
@@ -117,10 +120,14 @@ void processExecution(const BenchmarkResultsNumbers& resF, const std::string& fu
         }
         currentFile[fileName] << "\n";
         benchmarkResultsText.clear();
-        benchmarkResultsText["OCVMean"] << "OCVMeanExecutionTime";
-        benchmarkResultsText["OCVVariance"] << "OCVExecutionTimeVariance";
-        benchmarkResultsText["cvGSMean"] << "cvGSMeanExecutionTime";
-        benchmarkResultsText["cvGSVariance"] << "cvGSExecutionTimeVariance";
+        benchmarkResultsText["OCVMean"] << "OpenCV MeanTime";
+        benchmarkResultsText["OCVVariance"] << "OpenCV TimeVariance";
+        benchmarkResultsText["OCVMax"] << "OpenCV MaxTime";
+        benchmarkResultsText["OCVMin"] << "OpenCV MinTime";
+        benchmarkResultsText["cvGSMean"] << "cvGS MeanTime";
+        benchmarkResultsText["cvGSVariance"] << "cvGS TimeVariance";
+        benchmarkResultsText["cvGSMax"] << "cvGS MaxTime";
+        benchmarkResultsText["cvGSMin"] << "cvGS MinTime";
         benchmarkResultsText["MeanSpeedup"] << "Mean Speedup";
     }
 
@@ -136,16 +143,24 @@ void processExecution(const BenchmarkResultsNumbers& resF, const std::string& fu
 
     benchmarkResultsText["OCVMean"] << ", " << ocvMean;
     benchmarkResultsText["OCVVariance"] << ", " << computeVariance(ocvMean, OCVelapsedTime);
+    benchmarkResultsText["OCVMax"] << ", " << resF.OCVelapsedTimeMax;
+    benchmarkResultsText["OCVMin"] << ", " << resF.OCVelapsedTimeMin;
     benchmarkResultsText["cvGSMean"] << ", " << cvgsMean;
     benchmarkResultsText["cvGSVariance"] << ", " << computeVariance(cvgsMean, cvGSelapsedTime);
+    benchmarkResultsText["cvGSMax"] << ", " << resF.cvGSelapsedTimeMax;
+    benchmarkResultsText["cvGSMin"] << ", " << resF.cvGSelapsedTimeMin;
     benchmarkResultsText["MeanSpeedup"] << ", " << meanSpeedup;
 
     if constexpr (BATCH == batchValues[NUM_BATCH_VALUES - 1]) {
         const std::string fileName = functionName + std::string(".csv");
         currentFile[fileName] << benchmarkResultsText["OCVMean"].str() << std::endl;
         currentFile[fileName] << benchmarkResultsText["OCVVariance"].str() << std::endl;
+        currentFile[fileName] << benchmarkResultsText["OCVMax"].str() << std::endl;
+        currentFile[fileName] << benchmarkResultsText["OCVMin"].str() << std::endl;
         currentFile[fileName] << benchmarkResultsText["cvGSMean"].str() << std::endl;
         currentFile[fileName] << benchmarkResultsText["cvGSVariance"].str() << std::endl;
+        currentFile[fileName] << benchmarkResultsText["cvGSMax"].str() << std::endl;
+        currentFile[fileName] << benchmarkResultsText["cvGSMin"].str() << std::endl;
         currentFile[fileName] << benchmarkResultsText["MeanSpeedup"].str() << std::endl;
     }
 }
@@ -156,7 +171,13 @@ void processExecution(const BenchmarkResultsNumbers& resF, const std::string& fu
 #define START_OCV_BENCHMARK \
 std::cout << "Executing " << __func__ << " fusing " << BATCH << " operations. " << (BATCH - FIRST_VALUE)/INCREMENT << "/" << NUM_EXPERIMENTS << std::endl; \
 cudaEvent_t start, stop; \
-BenchmarkResultsNumbers resF{0.f, 0.f, 0.f, 0.f}; \
+BenchmarkResultsNumbers resF; \
+resF.OCVelapsedTimeMax = fk::minValue<float>; \
+resF.OCVelapsedTimeMin = fk::maxValue<float>; \
+resF.OCVelapsedTimeAcum = 0.f; \
+resF.cvGSelapsedTimeMax = fk::minValue<float>; \
+resF.cvGSelapsedTimeMin = fk::maxValue<float>; \
+resF.cvGSelapsedTimeAcum = 0.f; \
 cudaStream_t stream = cv::cuda::StreamAccessor::getStream(cv_stream); \
 gpuErrchk(cudaEventCreate(&start)); \
 gpuErrchk(cudaEventCreate(&stop)); \
@@ -174,6 +195,7 @@ gpuErrchk(cudaEventRecord(stop, stream)); \
 gpuErrchk(cudaEventSynchronize(stop)); \
 gpuErrchk(cudaEventElapsedTime(&OCVelapsedTime[i], start, stop)); \
 resF.OCVelapsedTimeMax = resF.OCVelapsedTimeMax < OCVelapsedTime[i] ? OCVelapsedTime[i] : resF.OCVelapsedTimeMax; \
+resF.OCVelapsedTimeMin = resF.OCVelapsedTimeMin > OCVelapsedTime[i] ? OCVelapsedTime[i] : resF.OCVelapsedTimeMin; \
 resF.OCVelapsedTimeAcum += OCVelapsedTime[i]; \
 gpuErrchk(cudaEventRecord(start, stream));
 #else
@@ -186,6 +208,7 @@ gpuErrchk(cudaEventRecord(stop, stream)); \
 gpuErrchk(cudaEventSynchronize(stop)); \
 gpuErrchk(cudaEventElapsedTime(&cvGSelapsedTime[i], start, stop)); \
 resF.cvGSelapsedTimeMax = resF.cvGSelapsedTimeMax < cvGSelapsedTime[i] ? cvGSelapsedTime[i] : resF.cvGSelapsedTimeMax; \
+resF.cvGSelapsedTimeMin = resF.cvGSelapsedTimeMin > cvGSelapsedTime[i] ? cvGSelapsedTime[i] : resF.cvGSelapsedTimeMin; \
 resF.cvGSelapsedTimeAcum += cvGSelapsedTime[i]; \
 } \
 processExecution<CV_TYPE_I, CV_TYPE_O, BATCH, ITERS, batchValues.size(), batchValues>(resF, __func__, OCVelapsedTime, cvGSelapsedTime);
