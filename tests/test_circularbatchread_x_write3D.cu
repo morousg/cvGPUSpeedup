@@ -192,9 +192,9 @@ bool testCircularTensor() {
             h_input.ptr().dims.width * sizeof(IT),
             h_input.ptr().dims.height,
             cudaMemcpyHostToDevice, stream));
-        myTensor.update(stream, fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, IT>> {input.ptr(), { WIDTH, HEIGHT, 1 }},
-            fk::UnaryDeviceFunction<fk::UnaryCast<IT, OT>> {},
-            fk::WriteDeviceFunction<fk::TensorSplitWrite<OT>> {myTensor.ptr()});
+        myTensor.update(stream, fk::Read<fk::PerThreadRead<fk::_2D, IT>> {input.ptr(), { WIDTH, HEIGHT, 1 }},
+            fk::Unary<fk::SaturateCast<IT, OT>> {},
+            fk::Write<fk::TensorSplit<OT>> {myTensor.ptr()});
         gpuErrchk(cudaStreamSynchronize(stream));
     }
 
@@ -247,8 +247,8 @@ bool testCircularTensorcvGS() {
                                     h_input.ptr().dims.height,
                                     cudaMemcpyHostToDevice, stream));
         myTensor.update(cv_stream, input,
-                        fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(IT), CUDA_T(OT)>> {},
-                        fk::WriteDeviceFunction<fk::TensorSplitWrite<CUDA_T(OT)>> {myTensor.ptr()});
+                        fk::Unary<fk::SaturateCast<CUDA_T(IT), CUDA_T(OT)>> {},
+                        fk::Write<fk::TensorSplit<CUDA_T(OT)>> {myTensor.ptr()});
         gpuErrchk(cudaStreamSynchronize(stream));
     }
 
@@ -308,8 +308,8 @@ bool testTransposedCircularTensorcvGS() {
             h_input.ptr().dims.height,
             cudaMemcpyHostToDevice, stream));
         myTensor.update(cv_stream, input,
-            fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(IT), CUDA_T(OT)>> {},
-            fk::WriteDeviceFunction<fk::TensorTSplitWrite<CUDA_T(OT)>> {myTensor.ptr()});
+            fk::Unary<fk::SaturateCast<CUDA_T(IT), CUDA_T(OT)>> {},
+            fk::Write<fk::TensorTSplit<CUDA_T(OT)>> {myTensor.ptr()});
         gpuErrchk(cudaStreamSynchronize(stream));
     }
 
@@ -366,8 +366,8 @@ bool testTransposedOldestFirstCircularTensorcvGS() {
             h_input.ptr().dims.height,
             cudaMemcpyHostToDevice, stream));
         myTensor.update(cv_stream, input,
-            fk::UnaryDeviceFunction<fk::UnaryCast<CUDA_T(IT), CUDA_T(OT)>> {},
-            fk::WriteDeviceFunction<fk::TensorTSplitWrite<CUDA_T(OT)>> {myTensor.ptr()});
+            fk::Unary<fk::SaturateCast<CUDA_T(IT), CUDA_T(OT)>> {},
+            fk::Write<fk::TensorTSplit<CUDA_T(OT)>> {myTensor.ptr()});
         gpuErrchk(cudaStreamSynchronize(stream));
     }
 

@@ -80,7 +80,9 @@ namespace cvGS {
                   cv::COLOR_BGR2RGBA, cv::COLOR_RGB2BGRA,
                   cv::COLOR_BGRA2RGB, cv::COLOR_RGBA2BGR,
                   cv::COLOR_BGR2RGB, cv::COLOR_RGB2BGR,
-                  cv::COLOR_BGRA2RGBA, cv::COLOR_RGBA2BGRA>;
+                  cv::COLOR_BGRA2RGBA, cv::COLOR_RGBA2BGRA,
+                  cv::COLOR_RGB2GRAY, cv::COLOR_RGBA2GRAY,
+                  cv::COLOR_BGR2GRAY, cv::COLOR_BGRA2GRAY>;
     using SupportedInterpolations = CodesList<cv::INTER_LINEAR>;
 
     template <int code>

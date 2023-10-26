@@ -18,7 +18,10 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
-constexpr std::array<size_t, 11> batchValues{ 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
+constexpr size_t NUM_EXPERIMENTS = 10;
+constexpr size_t FIRST_VALUE = 10;
+constexpr size_t INCREMENT = 10;
+constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 template <int CV_TYPE_I, int CV_TYPE_O, int BATCH>
 bool test_batchresize_x_split3D_OCVBatch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
@@ -115,7 +118,7 @@ bool test_batchresize_x_split3D_OCVBatch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::c
             if constexpr (CV_MAT_CN(CV_TYPE_O) == 3 && correctDept) {
                 cvGS::executeOperations(cv_stream,
                                         cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH>(crops, up, BATCH),
-                                        cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGB2BGR>(),
+                                        cvGS::cvtColor<cv::COLOR_RGB2BGR, CV_TYPE_O>(),
                                         cvGS::multiply<CV_TYPE_O>(val_alpha),
                                         cvGS::subtract<CV_TYPE_O>(val_sub),
                                         cvGS::divide<CV_TYPE_O>(val_div),
@@ -123,7 +126,7 @@ bool test_batchresize_x_split3D_OCVBatch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::c
             } else if constexpr (CV_MAT_CN(CV_TYPE_O) == 4 && correctDept) {
                 cvGS::executeOperations(cv_stream,
                                         cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH>(crops, up, BATCH),
-                                        cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGBA2BGRA>(),
+                                        cvGS::cvtColor<cv::COLOR_RGBA2BGRA, CV_TYPE_O>(),
                                         cvGS::multiply<CV_TYPE_O>(val_alpha),
                                         cvGS::subtract<CV_TYPE_O>(val_sub),
                                         cvGS::divide<CV_TYPE_O>(val_div),
@@ -284,7 +287,7 @@ bool test_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda
             if constexpr (CV_MAT_CN(CV_TYPE_I) == 3 && correctDept) {
                 cvGS::executeOperations(cv_stream,
                                         cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH>(crops, up, BATCH),
-                                        cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGB2BGR>(),
+                                        cvGS::cvtColor<cv::COLOR_RGB2BGR, CV_TYPE_O>(),
                                         cvGS::multiply<CV_TYPE_O>(val_alpha),
                                         cvGS::subtract<CV_TYPE_O>(val_sub),
                                         cvGS::divide<CV_TYPE_O>(val_div),
@@ -292,7 +295,7 @@ bool test_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda
             } else if constexpr (CV_MAT_CN(CV_TYPE_I) == 4 && correctDept) {
                 cvGS::executeOperations(cv_stream,
                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH>(crops, up, BATCH),
-                                       cvGS::cvtColor<CV_TYPE_O, cv::COLOR_RGBA2BGRA>(),
+                                       cvGS::cvtColor<cv::COLOR_RGBA2BGRA, CV_TYPE_O>(),
                                        cvGS::multiply<CV_TYPE_O>(val_alpha),
                                        cvGS::subtract<CV_TYPE_O>(val_sub),
                                        cvGS::divide<CV_TYPE_O>(val_div),

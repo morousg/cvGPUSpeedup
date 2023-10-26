@@ -139,7 +139,7 @@ bool testCvtColor(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream,
             cv::cuda::GpuMat d_cvGSoutput(NUM_ELEMS_Y, NUM_ELEMS_X, CV_OUTPUT_TYPE);
 
             cv::cuda::cvtColor(d_input, d_output, CODE, 0, cv_stream);
-            cvGS::executeOperations(d_input, d_cvGSoutput, cv_stream, cvGS::cvtColor<CV_INPUT_TYPE, CODE>());
+            cvGS::executeOperations(d_input, d_cvGSoutput, cv_stream, cvGS::cvtColor<CODE, CV_INPUT_TYPE>());
 
             cv_stream.waitForCompletion();
 

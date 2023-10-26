@@ -28,6 +28,14 @@
 #include <opencv2/cudawarping.hpp>
 #include <opencv2/core/cuda.hpp>
 
+template <size_t START_VALUE, size_t INCREMENT, std::size_t... Is>
+constexpr std::array<size_t, sizeof...(Is)> generate_sequence(std::index_sequence<Is...>) {
+    return std::array<size_t, sizeof...(Is)>{(START_VALUE + (INCREMENT * Is))...};
+}
+
+template <size_t START_VALUE, size_t INCREMENT, size_t NUM_ELEMS>
+constexpr std::array<size_t, NUM_ELEMS> arrayIndexSecuence = generate_sequence<START_VALUE, INCREMENT>(std::make_index_sequence<NUM_ELEMS>{});
+
 template <int T>
 bool checkResults(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& h_comparison1C) {
     cv::Mat h_comparison(NUM_ELEMS_Y, NUM_ELEMS_X, T);
@@ -97,7 +105,7 @@ void processExecution(const BenchmarkResultsNumbers& resF, const std::string& fu
 
     // Create 2D Table for changing types and changing batch
 
-    if constexpr (BATCH == 1) {
+    if constexpr (BATCH == batchValues[0]) {
         const std::string fileName = functionName + std::string(".csv");
         if (currentFile.find(fileName) == currentFile.end()) {
             currentFile[fileName].open(path + fileName);
@@ -109,10 +117,10 @@ void processExecution(const BenchmarkResultsNumbers& resF, const std::string& fu
         }
         currentFile[fileName] << "\n";
         benchmarkResultsText.clear();
-        benchmarkResultsText["OCVMean"] << "OCVMeanTime";
-        benchmarkResultsText["OCVVariance"] << "OCVVariance";
-        benchmarkResultsText["cvGSMean"] << "cvGSMean";
-        benchmarkResultsText["cvGSVariance"] << "cvGSVariance";
+        benchmarkResultsText["OCVMean"] << "OCVMeanExecutionTime";
+        benchmarkResultsText["OCVVariance"] << "OCVExecutionTimeVariance";
+        benchmarkResultsText["cvGSMean"] << "cvGSMeanExecutionTime";
+        benchmarkResultsText["cvGSVariance"] << "cvGSExecutionTimeVariance";
         benchmarkResultsText["MeanSpeedup"] << "Mean Speedup";
     }
 
@@ -146,6 +154,7 @@ void processExecution(const BenchmarkResultsNumbers& resF, const std::string& fu
 
 #ifdef ENABLE_BENCHMARK
 #define START_OCV_BENCHMARK \
+std::cout << "Executing " << __func__ << " fusing " << BATCH << " operations. " << (BATCH - FIRST_VALUE)/INCREMENT << "/" << NUM_EXPERIMENTS << std::endl; \
 cudaEvent_t start, stop; \
 BenchmarkResultsNumbers resF{0.f, 0.f, 0.f, 0.f}; \
 cudaStream_t stream = cv::cuda::StreamAccessor::getStream(cv_stream); \

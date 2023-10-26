@@ -19,7 +19,10 @@
 #include <cvGPUSpeedup.cuh>
 
 #ifdef ENABLE_BENCHMARK
-constexpr std::array<size_t, 1> batchValues{ 1 };
+constexpr size_t NUM_EXPERIMENTS = 1;
+constexpr size_t FIRST_VALUE = 1;
+constexpr size_t INCREMENT = 1;
+constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 #endif
 
 template <int CV_TYPE_I, int CV_TYPE_O, int BATCH>

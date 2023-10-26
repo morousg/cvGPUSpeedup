@@ -20,7 +20,7 @@
 
 namespace fk {
 
-enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1 };
+enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
 
 template <typename T, InterpolationType IType>
 inline const auto resize(const RawPtr<_2D, T>& input, const Size& dSize, const double& fx, const double& fy) {
@@ -41,10 +41,11 @@ inline const auto resize(const RawPtr<_2D, T>& input, const Size& dSize, const d
 }
 
 template <typename T, InterpolationType IType, int NPtr, AspectRatio AR>
-inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& dsize, const int& usedPlanes, const typename ResizeRead<T, IType>::Type& backgroundValue = fk::make_set<typename ResizeRead<T, IType>::Type>(0)) {
+inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& dsize, const int& usedPlanes, const typename ResizeRead<T, IType>::OutputType& backgroundValue = fk::make_set<typename ResizeRead<T, IType>::OutputType>(0)) {
     using ResizeArrayIgnoreType = Read<BatchRead<ResizeRead<T, IType>, NPtr>>;
     using ResizeArrayPreserveType = Read<BatchRead<ApplyROI<ResizeRead<T, IType>, OFFSET_THREADS>, NPtr>>;
-    using ResizeArrayType = TypeAt_t<AR, TypeList<ResizeArrayPreserveType, ResizeArrayIgnoreType>>;
+    using ResizeArrayPreserveRoundEvenType = Read<BatchRead<ApplyROI<ResizeRead<T, IType>, OFFSET_THREADS>, NPtr>>;
+    using ResizeArrayType = TypeAt_t<AR, TypeList<ResizeArrayPreserveType, ResizeArrayIgnoreType, ResizeArrayPreserveRoundEvenType>>;
 
     ResizeArrayType resizeArray;
     // dsize is the size of the destination pointer, for each image
@@ -58,14 +59,22 @@ inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& ds
         // targetWidth and targetHeight are the dimensions for the resized image
         int targetWidth, targetHeight;
         fk::ResizeReadParams<T>* interParams;
-        if constexpr (AR == PRESERVE_AR) {
+        if constexpr (AR != IGNORE_AR) {
             float scaleFactor = dsize.height / (float)dims.height;
             targetHeight = dsize.height;
-            targetWidth = static_cast<int> (scaleFactor * dims.width);
+            targetWidth = static_cast<int> (round(scaleFactor * dims.width));
+            if constexpr (AR == PRESERVE_AR_RN_EVEN) {
+                // We round to the next even integer smaller or equal to targetWidth
+                targetWidth -= targetWidth % 2;
+            }
             if (targetWidth > dsize.width) {
                 scaleFactor = dsize.width / (float)dims.width;
                 targetWidth = dsize.width;
-                targetHeight = static_cast<int> (scaleFactor * dims.height);
+                targetHeight = static_cast<int> (round(scaleFactor * dims.height));
+                if constexpr (AR == PRESERVE_AR_RN_EVEN) {
+                    // We round to the next even integer smaller or equal to targetHeight
+                    targetHeight -= targetHeight % 2;
+                }
             }
             resizeArray.activeThreads.z = NPtr;
             resizeArray.params[i].x1 = (dsize.width - targetWidth) / 2;
@@ -84,7 +93,7 @@ inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& ds
         interParams->fy = static_cast<float>(1.0 / (static_cast<double>(targetHeight) / (double)dims.height));
     }
 
-    if constexpr (AR == PRESERVE_AR) {
+    if constexpr (AR != IGNORE_AR) {
         for (int i = usedPlanes; i < NPtr; i++) {
             resizeArray.params[i].x1 = -1;
             resizeArray.params[i].x2 = -1;
