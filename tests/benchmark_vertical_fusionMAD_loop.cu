@@ -18,24 +18,24 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
-constexpr size_t NUM_EXPERIMENTS = 50;
-constexpr size_t FIRST_VALUE = 4200;
+constexpr size_t NUM_EXPERIMENTS = 70;
+constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 200;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t NumOps>
 struct VerticalFusionMAD {
     static inline void execute(const std::array<cv::cuda::GpuMat, 50>& crops,
-        const int& BATCH,
-        const cv::cuda::Stream& cv_stream,
-        const float& alpha,
-        const cv::Scalar& val_mul,
-        const cv::Scalar& val_add,
-        const cv::cuda::GpuMat& d_tensor_output,
-        const cv::Size& cropSize) {
+                               const int& BATCH,
+                               const cv::cuda::Stream& cv_stream,
+                               const float& alpha,
+                               const cv::Scalar& val_mul,
+                               const cv::Scalar& val_add,
+                               const cv::cuda::GpuMat& d_tensor_output,
+                               const cv::Size& cropSize) {
         using InputType = CUDA_T(CV_TYPE_I);
         using OutputType = CUDA_T(CV_TYPE_O);
-        using Loop = fk::Binary<fk::StaticLoop<fk::StaticLoop<fk::ComposedOperation<fk::Binary<fk::Mul<OutputType>>, fk::Binary<fk::Sum<OutputType>>>, INCREMENT / 2>, NumOps/ INCREMENT>>;
+        using Loop = fk::Binary<fk::StaticLoop<fk::StaticLoop<fk::ComposedOperation<fk::Binary<fk::Mul<OutputType>>, fk::Binary<fk::Sum<OutputType>>>, INCREMENT / 2>, NumOps / INCREMENT>>;
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
             Loop{ {{cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul)},{cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_add)}} },
