@@ -7,9 +7,7 @@ if(CMAKE_GENERATOR MATCHES "Visual Studio")
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
     set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMake")
 endif()
-#include(cmake/atvpm/python_venv.cmake)
-#include(cmake/atvpm/atv_pm.cmake)
-
+ 
 # cuda version and compiler detection
 include(cmake/cuda_init.cmake)
 
@@ -30,4 +28,5 @@ set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO "RelWithDebInfo;Release;")
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install")
 
 cmake_policy(SET CMP0111 NEW) # ensure all targets provide shared libs location
+
 

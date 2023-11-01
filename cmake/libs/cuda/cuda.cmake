@@ -5,12 +5,15 @@ include(cmake/libs/cuda/deploy.cmake)
 
 
 find_package(CUDAToolkit ${CUDA_NVCC_VERSION_FROM_VERSION_FILE} REQUIRED)
+# extra cuda_libraries only detected after project() this is needed for compatibility with old local builds that only
+# have cuda in normal location instead of custom location
+find_package(CUDAToolkit ${CUDA_NVCC_VERSION_FROM_VERSION_FILE} REQUIRED)
 # some external lbis(opencv) use findCuda, so we set this variable for compatibility
 set(CUDA_TOOLKIT_ROOT_DIR_ORIG ${CUDAToolkit_LIBRARY_ROOT})
-
+# file(TO_CMAKE_PATH $ENV{APIS_PATH_VS2017} APIS_PATH)
 string(REPLACE "\\" "/" CUDA_TOOLKIT_ROOT_DIR_ORIG ${CUDA_TOOLKIT_ROOT_DIR_ORIG})
 set(CUDA_TOOLKIT_ROOT_DIR ${CUDA_TOOLKIT_ROOT_DIR_ORIG})
- 
+
 
 function(add_cuda_to_target TARGET_NAME COMPONENTS)
     set_default_cuda_target_properties(${TARGET_NAME})
