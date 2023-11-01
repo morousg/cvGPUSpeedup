@@ -18,4 +18,6 @@ DESCRIPTION "Make OpenCV-CUDA code run faster on the GPU" HOMEPAGE_URL "https://
 include (cmake/libs/cuda/cuda.cmake)
 include (cmake/cuda_init.cmake)
 include (cmake/libs/opencv.cmake)
+add_subdirectory(lib)
+enable_testing()
 add_subdirectory(tests)
