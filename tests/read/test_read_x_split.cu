@@ -15,7 +15,7 @@
 #include <sstream>
 #include <vector>
 
-#include "testsCommon.cuh"
+#include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 
 #ifdef ENABLE_BENCHMARK

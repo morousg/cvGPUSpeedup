@@ -1,8 +1,3 @@
- 
-#    file(TO_CMAKE_PATH $ENV{APPDATA}/AutomaticTV/lib APIS_PATH)
-
-
-# third party libraries download via package manager
 if(CMAKE_GENERATOR MATCHES "Visual Studio")
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
     set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMake")

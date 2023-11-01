@@ -1,31 +1,21 @@
 cmake_minimum_required(VERSION 3.27 FATAL_ERROR)
 
-set (PROJECT_VERSION_MAJOR 10)
-set (PROJECT_VERSION_MINOR 0)
+set (PROJECT_VERSION_MAJOR 0)
+set (PROJECT_VERSION_MINOR 10)
 set (PROJECT_VERSION_REV 0)
 set (PROJECT_VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_REV})
 include (cmake/cmake_init.cmake)
+include (cmake/targets/virtualfolders.cmake)
 cmake_policy(SET CMP0146 OLD) 
 cmake_policy(SET CMP0147 OLD) 
 
 include (cmake/deploy/deploy_dependencies.cmake)
 include (cmake/libs/cuda/archs.cmake)
-
+include (cmake/generators/version_header.cmake)
 project(cvGPUSpeedup VERSION ${PROJECT_VERSION} LANGUAGES CXX CUDA 
 DESCRIPTION "Make OpenCV-CUDA code run faster on the GPU" HOMEPAGE_URL "https://github.com/morousg/cvGPUSpeedup" )
 
 include (cmake/libs/cuda/cuda.cmake)
 include (cmake/cuda_init.cmake)
 include (cmake/libs/opencv.cmake)
-
-file(GLOB_RECURSE CUDA_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cu")
-
-foreach(cuda_source ${CUDA_SOURCES})    
-    get_filename_component(cuda_target ${cuda_source} NAME_WE)    
-    add_executable(${cuda_target} ${cuda_source})
-	add_cuda_to_target(${cuda_target} "")
-    set_target_properties(${cuda_target} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
-    add_opencv_to_target(${cuda_target} "core;cudaarithm;imgproc;cudaimgproc;cudawarping"  )
-    target_include_directories(${cuda_target} PRIVATE "${CMAKE_SOURCE_DIR}/include" "${CMAKE_SOURCE_DIR}/tests")
-	set_target_cuda_arch_flags(${cuda_target})
-endforeach()
+add_subdirectory(tests)

@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#include "testUtils.cuh"
+#include "tests/testUtils.cuh"
 #include <cv2cuda_types.cuh>
 #include <fused_kernel/utils/vlimits.cuh>
 
