@@ -3,7 +3,8 @@ include(cmake/libs/cuda/debug.cmake)
 include(cmake/libs/cuda/target_generation.cmake)
 include(cmake/libs/cuda/deploy.cmake)
 
-find_package(CUDAToolkit ${CUDA_NVCC_VERSION_FROM_VERSION_FILE} EXACT REQUIRED)
+
+find_package(CUDAToolkit ${CUDA_NVCC_VERSION_FROM_VERSION_FILE} REQUIRED)
 # some external lbis(opencv) use findCuda, so we set this variable for compatibility
 set(CUDA_TOOLKIT_ROOT_DIR_ORIG ${CUDAToolkit_LIBRARY_ROOT})
 

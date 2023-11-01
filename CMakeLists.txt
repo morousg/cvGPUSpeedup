@@ -5,32 +5,26 @@ set (PROJECT_VERSION_MAJOR 10)
 set (PROJECT_VERSION_MINOR 0)
 set (PROJECT_VERSION_REV 0)
 set (PROJECT_VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_REV})
-
+cmake_policy(SET CMP0146 OLD) 
+cmake_policy(SET CMP0147 OLD) 
 
 include (cmake/libs/cuda/archs.cmake)
 include (cmake/libs/cuda/cuda.cmake)
-include (cmake/libs/cuda/cuda_init.cmake)
+include (cmake/cuda_init.cmake)
 
-project(cvGPUSpeedup VERSION ${PROJECT_VERSION} HOMEPAGE "https://github.com/morousg/cvGPUSpeedup" LANGUAGES CXX CUDA)
+project(cvGPUSpeedup VERSION ${PROJECT_VERSION} LANGUAGES CXX CUDA 
+DESCRIPTION "Make OpenCV-CUDA code run faster on the GPU" HOMEPAGE_URL "https://github.com/morousg/cvGPUSpeedup" )
 
-#currently tested against 4.8.0 
-set (OPENCV_VERSION_MAJOR 4)
-set (OPENCV_VERSION_MINOR 8)
-set (OPENCV_VERSION_REV 0)
-set (OPENCV_VERSION ${OPENCV_VERSION_MAJOR}.${OPENCV_VERSION_MINOR}.${OPENCV_VERSION_REV})
-find_package(OpenCV VERSION ${OPENCV_VERSION} REQUIRED)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
+include (cmake/libs/opencv.cmake)
 
 file(GLOB_RECURSE CUDA_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cu")
 
-foreach(cuda_source ${CUDA_SOURCES})
-    
-    get_filename_component(cuda_target ${cuda_source} NAME_WE)
+foreach(cuda_source ${CUDA_SOURCES})    
+    get_filename_component(cuda_target ${cuda_source} NAME_WE)    
     add_executable(${cuda_target} ${cuda_source})
-	target_link_libraries(${cuda_target} ${OpenCV_LIBS})
+	add_cuda_to_target(${cuda_target} "cuda")
+    set_target_properties(${cuda_target}  PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+    add_opencv_to_target(${cuda_target})
     target_include_directories(${cuda_target} PRIVATE "${CMAKE_SOURCE_DIR}/include" "${CMAKE_SOURCE_DIR}/tests")
 	set_target_cuda_arch_flags(${cuda_target})
 endforeach()
