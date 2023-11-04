@@ -393,6 +393,68 @@ bool testTransposedOldestFirstCircularTensorcvGS() {
     return correct;
 }
 
+bool testOldestFirstCircularTensorcvGS_noSplit() {
+    constexpr uint BATCH = 15;
+    constexpr uint WIDTH = 128;
+    constexpr uint HEIGHT = 128;
+    // Number of planes representing one image
+    constexpr uint COLOR_PLANES = 1; // This means that the image is in packed mode, each data element will contain all the color chanels for the same pixel
+    constexpr int ITERS = 100;
+
+    cvGS::CircularTensor<CV_8UC4, CV_32FC4, COLOR_PLANES, BATCH, fk::CircularTensorOrder::OldestFirst> myTensor(WIDTH, HEIGHT);
+    using TensorType = CUDA_T(CV_32FC4);
+    fk::Tensor<TensorType> h_myTensor(WIDTH, HEIGHT, BATCH, COLOR_PLANES, fk::MemType::HostPinned);
+    fk::Tensor<TensorType> h_myInternalTensor(WIDTH, HEIGHT, BATCH, COLOR_PLANES, fk::MemType::HostPinned);
+    cv::cuda::GpuMat input(HEIGHT, WIDTH, CV_8UC4);
+    fk::Ptr2D<CUDA_T(CV_8UC4)> h_input(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
+
+    h_myTensor.setTo(fk::make_set<float4>(10.0f));
+
+    cudaStream_t stream;
+    gpuErrchk(cudaStreamCreate(&stream));
+    cv::cuda::Stream cv_stream = cv::cuda::StreamAccessor::wrapStream(stream);
+
+    gpuErrchk(cudaMemcpyAsync(myTensor.ptr().data, h_myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
+
+    for (int i = 0; i < ITERS; i++) {
+        h_input.setTo(fk::make_set<CUDA_T(CV_8UC4)>(i + 1));
+        gpuErrchk(cudaMemcpy2DAsync(input.data, input.step,
+                                    h_input.ptr().data, h_input.ptr().dims.pitch,
+                                    h_input.ptr().dims.width * sizeof(CUDA_T(CV_8UC4)),
+                                    h_input.ptr().dims.height,
+                                    cudaMemcpyHostToDevice, stream));
+        myTensor.update(cv_stream, input,
+                        fk::Unary<fk::SaturateCast<CUDA_T(CV_8UC4), CUDA_T(CV_32FC4)>> {},
+                        fk::Write<fk::TensorWrite<CUDA_T(CV_32FC4)>> {myTensor.ptr()});
+                        gpuErrchk(cudaStreamSynchronize(stream));
+    }
+
+    gpuErrchk(cudaMemcpyAsync(h_myTensor.ptr().data, myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
+
+    gpuErrchk(cudaStreamSynchronize(stream));
+
+    bool correct = true;
+    const auto dims = h_myTensor.dims();
+    const size_t plane_pixels = dims.width * dims.height;
+    for (int cp = 0; cp < (int)dims.color_planes; cp++) {
+        for (int y = 0; y < (int)dims.height; y++) {
+            for (int z = 0; z < (int)BATCH; z++) {
+                const float4* plane = fk::PtrAccessor<fk::_3D>::cr_point(fk::Point(0, 0, z), h_myTensor.ptr()) + (plane_pixels * dims.planes * cp);
+                for (int x = 0; x < (int)dims.width; x++) {
+                    const float4 groundTruth = fk::make_set<float4>(ITERS - (BATCH - z - 1));
+                    const float4 computedValue = plane[x + (y * dims.width)];
+                    correct &= abs(groundTruth.x - computedValue.x) < 0.00001f;
+                    correct &= abs(groundTruth.y - computedValue.y) < 0.00001f;
+                    correct &= abs(groundTruth.z - computedValue.z) < 0.00001f;
+                    correct &= abs(groundTruth.w - computedValue.w) < 0.00001f;
+                }
+            }
+        }
+    }
+
+    return correct;
+}
+
 int main() {
     if (testCircularBatchRead()) {
         std::cout << "testCircularBatchRead OK" << std::endl;
@@ -423,6 +485,11 @@ int main() {
         std::cout << "testTransposedOldestFirstCircularTensorcvGS<CV_8UC3, CV_32FC3> OK" << std::endl;
     } else {
         std::cout << "testTransposedOldestFirstCircularTensorcvGS <CV_8UC3, CV_32FC3> Failed!" << std::endl;
+    }
+    if (testOldestFirstCircularTensorcvGS_noSplit()) {
+        std::cout << "testOldestFirstCircularTensorcvGS_noSplit OK" << std::endl;
+    } else {
+        std::cout << "testOldestFirstCircularTensorcvGS_noSplit Failed!" << std::endl;
     }
 
     return 0;
