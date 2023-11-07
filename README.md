@@ -26,7 +26,7 @@ The cvGPUSpeedup version, will do the same, but with a single CUDA kernel, and e
 
 # Benchmarks
 
-The library has some unit tests that can be additionally used as benchmarks. When generating benchmark results, they show always positive speedups ranging from 2x to 3300x (in an RTX A2000). The Speedup is going to be greater the more kernels you are fusing, and the smaller those kernels are in terms of both compute operations and grid size. 
+The library has some unit tests that can be additionally used as benchmarks. When generating benchmark results, they show always positive speedups ranging from 2x to 10000x (in an RTX A2000). The Speedup is going to be greater the more kernels you are fusing, and the smaller those kernels are in terms of both compute operations and grid size. 
 
 # cvGPUSpeedup at Mediapro
 

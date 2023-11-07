@@ -138,20 +138,33 @@ namespace fk {
     template <typename T, ColorPlanes CP_MODE>
     using CoreType_t = typename CoreType<T, CP_MODE>::type;
 
+    template <typename T, int COLOR_PLANES, typename Enabler=void>
+    struct CircularTensorStoreType {};
+
+    template <typename T, int COLOR_PLANES>
+    struct CircularTensorStoreType<T, COLOR_PLANES, std::enable_if_t<std::is_aggregate_v<T> && COLOR_PLANES == 1>> {
+        using type = T;
+    };
+
+    template <typename T, int COLOR_PLANES>
+    struct CircularTensorStoreType<T, COLOR_PLANES, std::enable_if_t<!std::is_aggregate_v<T> && (COLOR_PLANES > 1)>> {
+        using type = VectorType_t<T, COLOR_PLANES>;
+    };
+
     template <typename T, int COLOR_PLANES, int BATCH, CircularTensorOrder CT_ORDER, ColorPlanes CP_MODE>
     class CircularTensor : public CoreType_t<T, CP_MODE> {
 
         using ParentType = CoreType_t<T, CP_MODE>;
 
-        using SourceT = typename VectorType<T, COLOR_PLANES>::type;
+        using StoreT = typename CircularTensorStoreType<T, COLOR_PLANES>::type;//typename VectorType<T, COLOR_PLANES>::type;
 
-        using WriteDeviceFunctions = TypeList<Write<TensorWrite<SourceT>>,
-                                              Write<TensorSplit<SourceT>>,
-                                              Write<TensorTSplit<SourceT>>>;
+        using WriteDeviceFunctions = TypeList<Write<TensorWrite<StoreT>>,
+                                              Write<TensorSplit<StoreT>>,
+                                              Write<TensorTSplit<StoreT>>>;
 
-        using ReadDeviceFunctions = TypeList<Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorRead<SourceT>, BATCH>>,
-                                             Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorPack<SourceT>, BATCH>>,
-                                             Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorTPack<SourceT>, BATCH>>>;
+        using ReadDeviceFunctions = TypeList<Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorRead<StoreT>, BATCH>>,
+                                             Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorPack<StoreT>, BATCH>>,
+                                             Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorTPack<StoreT>, BATCH>>>;
 
     public:
         __host__ inline constexpr CircularTensor() {};
@@ -172,7 +185,7 @@ namespace fk {
             using writeDFType = std::decay_t<decltype(writeDeviceFunction)>;
             using writeOpType = typename writeDFType::Operation;
             if constexpr (CP_MODE == ColorPlanes::Transposed) {
-                static_assert(std::is_same_v<writeDFType, Write<TensorTSplit<SourceT>>>,
+                static_assert(std::is_same_v<writeDFType, Write<TensorTSplit<StoreT>>>,
                     "Need to use TensorTSplitWrite as write function because you are using a transposed CircularTensor (CP_MODE = Transposed)");
             }
             using equivalentReadDFType = EquivalentType_t<writeDFType, WriteDeviceFunctions, ReadDeviceFunctions>;
