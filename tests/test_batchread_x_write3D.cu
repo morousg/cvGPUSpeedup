@@ -18,6 +18,7 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
+constexpr char VARIABLE_DIMENSION[] {"Batch size"};
 constexpr size_t NUM_EXPERIMENTS = 10;
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 10;

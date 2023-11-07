@@ -19,6 +19,7 @@
 #include <opencv2/cudaimgproc.hpp>
 
 constexpr size_t NUM_EXPERIMENTS = 70;
+constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 200;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;

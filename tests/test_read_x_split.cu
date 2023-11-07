@@ -19,6 +19,7 @@
 #include <cvGPUSpeedup.cuh>
 
 #ifdef ENABLE_BENCHMARK
+constexpr char VARIABLE_DIMENSION[]{ "Batch size" };
 constexpr size_t NUM_EXPERIMENTS = 1;
 constexpr size_t FIRST_VALUE = 1;
 constexpr size_t INCREMENT = 1;

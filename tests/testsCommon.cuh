@@ -103,32 +103,32 @@ float computeVariance(const float& mean, const std::array<float, ITERATIONS>& ti
 }
 
 template <int CV_INPUT_TYPE, int CV_OUTPUT_TYPE, int BATCH, int ITERATIONS, int NUM_BATCH_VALUES, const std::array<size_t, NUM_BATCH_VALUES>& batchValues>
-void processExecution(const BenchmarkResultsNumbers& resF, const std::string& functionName,
-    const std::array<float, ITERS>& OCVelapsedTime, const std::array<float, ITERS>& cvGSelapsedTime) {
+inline void processExecution(const BenchmarkResultsNumbers& resF,
+                             const std::string& functionName,
+                             const std::array<float, ITERS>& OCVelapsedTime,
+                             const std::array<float, ITERS>& cvGSelapsedTime,
+                             const std::string& variableDimension) {
 
     // Create 2D Table for changing types and changing batch
-
+    const std::string fileName = functionName + std::string(".csv");
     if constexpr (BATCH == batchValues[0]) {
-        const std::string fileName = functionName + std::string(".csv");
         if (currentFile.find(fileName) == currentFile.end()) {
             currentFile[fileName].open(path + fileName);
         }
-        currentFile[fileName] << "Number of images (" << cvTypeToString<CV_INPUT_TYPE>() << "X"
+        currentFile[fileName]
+            << variableDimension << " ("
+            << cvTypeToString<CV_INPUT_TYPE>() << "X"
             << cvTypeToString<CV_OUTPUT_TYPE>() << ")";
-        for (const auto& i : batchValues) {
-            currentFile[fileName] << ", " << i;
-        }
-        currentFile[fileName] << "\n";
-        benchmarkResultsText.clear();
-        benchmarkResultsText["OCVMean"] << "OpenCV MeanTime";
-        benchmarkResultsText["OCVVariance"] << "OpenCV TimeVariance";
-        benchmarkResultsText["OCVMax"] << "OpenCV MaxTime";
-        benchmarkResultsText["OCVMin"] << "OpenCV MinTime";
-        benchmarkResultsText["cvGSMean"] << "cvGS MeanTime";
-        benchmarkResultsText["cvGSVariance"] << "cvGS TimeVariance";
-        benchmarkResultsText["cvGSMax"] << "cvGS MaxTime";
-        benchmarkResultsText["cvGSMin"] << "cvGS MinTime";
-        benchmarkResultsText["MeanSpeedup"] << "Mean Speedup";
+        currentFile[fileName] << ", OpenCV MeanTime";
+        currentFile[fileName] << ", OpenCV TimeVariance";
+        currentFile[fileName] << ", OpenCV MaxTime";
+        currentFile[fileName] << ", OpenCV MinTime";
+        currentFile[fileName] << ", cvGS MeanTime";
+        currentFile[fileName] << ", cvGS TimeVariance";
+        currentFile[fileName] << ", cvGS MaxTime";
+        currentFile[fileName] << ", cvGS MinTime";
+        currentFile[fileName] << ", Mean Speedup";
+        currentFile[fileName] << std::endl;
     }
 
     const float ocvMean = resF.OCVelapsedTimeAcum / ITERATIONS;
@@ -141,28 +141,17 @@ void processExecution(const BenchmarkResultsNumbers& resF, const std::string& fu
     }
     meanSpeedup /= ITERS;
 
-    benchmarkResultsText["OCVMean"] << ", " << ocvMean;
-    benchmarkResultsText["OCVVariance"] << ", " << computeVariance(ocvMean, OCVelapsedTime);
-    benchmarkResultsText["OCVMax"] << ", " << resF.OCVelapsedTimeMax;
-    benchmarkResultsText["OCVMin"] << ", " << resF.OCVelapsedTimeMin;
-    benchmarkResultsText["cvGSMean"] << ", " << cvgsMean;
-    benchmarkResultsText["cvGSVariance"] << ", " << computeVariance(cvgsMean, cvGSelapsedTime);
-    benchmarkResultsText["cvGSMax"] << ", " << resF.cvGSelapsedTimeMax;
-    benchmarkResultsText["cvGSMin"] << ", " << resF.cvGSelapsedTimeMin;
-    benchmarkResultsText["MeanSpeedup"] << ", " << meanSpeedup;
-
-    if constexpr (BATCH == batchValues[NUM_BATCH_VALUES - 1]) {
-        const std::string fileName = functionName + std::string(".csv");
-        currentFile[fileName] << benchmarkResultsText["OCVMean"].str() << std::endl;
-        currentFile[fileName] << benchmarkResultsText["OCVVariance"].str() << std::endl;
-        currentFile[fileName] << benchmarkResultsText["OCVMax"].str() << std::endl;
-        currentFile[fileName] << benchmarkResultsText["OCVMin"].str() << std::endl;
-        currentFile[fileName] << benchmarkResultsText["cvGSMean"].str() << std::endl;
-        currentFile[fileName] << benchmarkResultsText["cvGSVariance"].str() << std::endl;
-        currentFile[fileName] << benchmarkResultsText["cvGSMax"].str() << std::endl;
-        currentFile[fileName] << benchmarkResultsText["cvGSMin"].str() << std::endl;
-        currentFile[fileName] << benchmarkResultsText["MeanSpeedup"].str() << std::endl;
-    }
+    currentFile[fileName] << BATCH;
+    currentFile[fileName] << ", " << ocvMean;
+    currentFile[fileName] << ", " << computeVariance(ocvMean, OCVelapsedTime);
+    currentFile[fileName] << ", " << resF.OCVelapsedTimeMax;
+    currentFile[fileName] << ", " << resF.OCVelapsedTimeMin;
+    currentFile[fileName] << ", " << cvgsMean;
+    currentFile[fileName] << ", " << computeVariance(cvgsMean, cvGSelapsedTime);
+    currentFile[fileName] << ", " << resF.cvGSelapsedTimeMax;
+    currentFile[fileName] << ", " << resF.cvGSelapsedTimeMin;
+    currentFile[fileName] << ", " << meanSpeedup;
+    currentFile[fileName] << std::endl;
 }
 
 #endif
@@ -211,7 +200,7 @@ resF.cvGSelapsedTimeMax = resF.cvGSelapsedTimeMax < cvGSelapsedTime[i] ? cvGSela
 resF.cvGSelapsedTimeMin = resF.cvGSelapsedTimeMin > cvGSelapsedTime[i] ? cvGSelapsedTime[i] : resF.cvGSelapsedTimeMin; \
 resF.cvGSelapsedTimeAcum += cvGSelapsedTime[i]; \
 } \
-processExecution<CV_TYPE_I, CV_TYPE_O, BATCH, ITERS, batchValues.size(), batchValues>(resF, __func__, OCVelapsedTime, cvGSelapsedTime);
+processExecution<CV_TYPE_I, CV_TYPE_O, BATCH, ITERS, batchValues.size(), batchValues>(resF, __func__, OCVelapsedTime, cvGSelapsedTime, VARIABLE_DIMENSION);
 #else
 #define STOP_CVGS_BENCHMARK
 #endif

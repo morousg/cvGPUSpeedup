@@ -21,6 +21,7 @@
 // It is 50, because otherwise we surpass the 4KB parameter limit
 // in CUDA 11.8. This limitations will be removed when migrating
 // to CUDA 12.
+constexpr char VARIABLE_DIMENSION[]{ "Batch size" };
 constexpr size_t NUM_EXPERIMENTS = 5;
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 5;
