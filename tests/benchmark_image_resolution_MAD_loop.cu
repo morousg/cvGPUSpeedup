@@ -18,6 +18,7 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
+#ifdef ENABLE_BENCHMARK
 constexpr size_t NUM_EXPERIMENTS = 30;
 constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
 constexpr size_t FIRST_VALUE = 10;
@@ -164,6 +165,7 @@ bool launch_benchmark_image_resolution_MAD_loop(std::index_sequence<Is...> seq, 
 
     return passed;
 }
+#endif
 
 int main() {
 #ifdef ENABLE_BENCHMARK
