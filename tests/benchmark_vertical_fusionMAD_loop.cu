@@ -18,10 +18,10 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
-constexpr size_t NUM_EXPERIMENTS = 70;
+constexpr size_t NUM_EXPERIMENTS = 35;
 constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
 constexpr size_t FIRST_VALUE = 2;
-constexpr size_t INCREMENT = 200;
+constexpr size_t INCREMENT = 400;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t NumOps>

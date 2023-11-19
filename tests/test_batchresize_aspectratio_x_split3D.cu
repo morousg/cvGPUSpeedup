@@ -24,11 +24,11 @@
 constexpr char VARIABLE_DIMENSION[]{ "Batch size" };
 constexpr size_t NUM_EXPERIMENTS = 5;
 constexpr size_t FIRST_VALUE = 10;
-constexpr size_t INCREMENT = 5;
+constexpr size_t INCREMENT = 10;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 template <int CV_TYPE_I, int CV_TYPE_O, const int BATCH>
-bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
+bool test_batchresize_aspectratio_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
@@ -198,11 +198,11 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
         if (!passed) {
             if (!exception) {
                 std::stringstream ss;
-                ss << "test_batchaspectratioresize_x_split3D<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "test_batchresize_aspectratio_x_split3D<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
             } else {
                 std::stringstream ss;
-                ss << "test_batchaspectratioresize_x_split3D<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "test_batchresize_aspectratio_x_split3D<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
             }
         }
@@ -212,9 +212,9 @@ bool test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv:
 }
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t... Is>
-bool launch_test_batchaspectratioresize_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream& cv_stream, bool enabled) {
+bool launch_test_batchresize_aspectratio_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream& cv_stream, bool enabled) {
     bool passed = true;
-    int dummy[] = { (passed &= test_batchaspectratioresize_x_split3D<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
+    int dummy[] = { (passed &= test_batchresize_aspectratio_x_split3D<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
     (void)dummy;
     return passed;
 }
@@ -228,15 +228,15 @@ int main() {
     cv::Mat::setDefaultAllocator(cv::cuda::HostMem::getAllocator(cv::cuda::HostMem::AllocType::PAGE_LOCKED));
 
     std::unordered_map<std::string, bool> results;
-    results["test_batchaspectratioresize_x_split3D"] = true;
+    results["test_batchresize_aspectratio_x_split3D"] = true;
 
 #ifdef ENABLE_BENCHMARK
     // Warming up for the benchmarks
-    results["test_batchaspectratioresize_x_split3D"] &= test_batchaspectratioresize_x_split3D<CV_8UC3, CV_32FC3, 5>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
+    results["test_batchresize_aspectratio_x_split3D"] &= test_batchresize_aspectratio_x_split3D<CV_8UC3, CV_32FC3, 5>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 #endif
 
     #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-    results["test_batchaspectratioresize_x_split3D"] &= launch_test_batchaspectratioresize_x_split3D<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, std::make_index_sequence<batchValues.size()>{}, cv_stream, true);
+    results["test_batchresize_aspectratio_x_split3D"] &= launch_test_batchresize_aspectratio_x_split3D<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, std::make_index_sequence<batchValues.size()>{}, cv_stream, true);
 
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
     LAUNCH_TESTS(CV_8UC4, CV_32FC4)

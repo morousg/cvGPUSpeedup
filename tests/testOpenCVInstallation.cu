@@ -20,7 +20,6 @@
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>
 #include <opencv2/cudaarithm.hpp>
-#include <opencv2/core/cuda.hpp>
 
 int main() {
 
