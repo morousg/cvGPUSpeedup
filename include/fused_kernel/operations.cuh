@@ -273,21 +273,54 @@ public:
     } 
 };
 
+template <ND DIMS, typename T>
+struct ReadRawPtr {
+    using OutputType = T;
+    using InputType = Point;
+    using ParamsType = RawPtr<DIMS, T>;
+    using InstanceType = BinaryType;
+    FK_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
+        return *PtrAccessor<DIMS>::cr_point(input, params);
+    }
+};
+template <typename T>
+struct Slice2x2 {
+    T _0x0;
+    T _1x0;
+    T _0x1;
+    T _1x1;
+};
+
+template <typename ReadOperation>
+struct Read2x2 {
+    using ReadOutputType = typename ReadOperation::OutputType;
+    using OutputType = Slice2x2<ReadOutputType>;
+    using InputType = Slice2x2<Point>;
+    using ParamsType = typename ReadOperation::ParamsType;
+    using InstanceType = BinaryType;
+    static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        const ReadOutputType src_reg0x0 = ReadOperation::exec(input._0x0, params);
+        const ReadOutputType src_reg1x0 = ReadOperation::exec(input._1x0, params);
+        const ReadOutputType src_reg0x1 = ReadOperation::exec(input._0x1, params);
+        const ReadOutputType src_reg1x1 = ReadOperation::exec(input._1x1, params);
+        return { src_reg0x0, src_reg1x0, src_reg0x1, src_reg1x1 };
+    }
+};
+
 enum InterpolationType {
     // bilinear interpolation
     INTER_LINEAR = 1,
-    NONE = 17,
-    INTER_LINEAR_CHANGE_NEIGHBOORS = -1
+    NONE = 17
 };
 
-template <typename I, InterpolationType INTER_T>
+template <typename ReadOperation, InterpolationType INTER_T>
 struct Interpolate;
 
-template <typename I>
-struct Interpolate<I, InterpolationType::INTER_LINEAR> {
-    using OutputType = VectorType_t<float, cn<I>>;
+template <typename PixelReadOp>
+struct Interpolate<PixelReadOp, InterpolationType::INTER_LINEAR> {
+    using OutputType = VectorType_t<float, cn<typename PixelReadOp::OutputType>>;
     using InputType = float2;
-    using ParamsType = RawPtr<_2D, I>;
+    using ParamsType = typename PixelReadOp::ParamsType;
     using InstanceType = BinaryType;
     static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
         const float src_x = input.x;
@@ -297,55 +330,21 @@ struct Interpolate<I, InterpolationType::INTER_LINEAR> {
         const int y1 = __float2int_rd(src_y);
         const int x2 = x1 + 1;
         const int y2 = y1 + 1;
+
         const int x2_read = Min<int>::exec(x2, params.dims.width - 1);
         const int y2_read = Min<int>::exec(y2, params.dims.height - 1);
 
-        
-        const I src_reg0x0 = *PtrAccessor<_2D>::cr_point(Point(x1, y1), params);
-        const I src_reg1x0 = *PtrAccessor<_2D>::cr_point(Point(x2_read, y1), params);
-        const I src_reg0x1 = *PtrAccessor<_2D>::cr_point(Point(x1, y2_read), params);
-        const I src_reg1x1 = *PtrAccessor<_2D>::cr_point(Point(x2_read, y2_read), params);
+        const Slice2x2<Point> readPoints{ Point(x1, y1),
+                                          Point(x2_read, y1),
+                                          Point(x1, y2_read),
+                                          Point(x2_read, y2_read) };
+ 
+        const auto pixels = Read2x2<PixelReadOp>::exec(readPoints, params);
 
-        const OutputType out = (src_reg0x0 * ((x2 - src_x) * (y2 - src_y))) +
-                               (src_reg1x0 * ((src_x - x1) * (y2 - src_y))) +
-                               (src_reg0x1 * ((x2 - src_x) * (src_y - y1))) +
-                               (src_reg1x1 * ((src_x - x1) * (src_y - y1)));
-        return out;
-    }
-};
-
-template <typename I>
-struct Interpolate<I, InterpolationType::INTER_LINEAR_CHANGE_NEIGHBOORS> {
-    using OutputType = VectorType_t<float, cn<I>>;
-    using InputType = float2;
-    using ParamsType = RawPtr<_2D, I>;
-    using InstanceType = BinaryType;
-    static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
-        const float src_x = input.x;
-        const float src_y = input.y;
-
-        const int x1Tmp = __float2int_rd(src_x);
-        const int y1Tmp = __float2int_rd(src_y);
-
-        const bool x1Changed = src_x - x1Tmp < 0.5f;
-        const bool y1Changed = src_y - y1Tmp < 0.5f;
-
-        const int x1 = x1Changed ? Max<int>::exec(x1Tmp - 1, 0) : x1Tmp;
-        const int y1 = y1Changed ? Max<int>::exec(y1Tmp - 1, 0) : y1Tmp;
-        const int x2 = x1 + 1;
-        const int y2 = y1 + 1;
-        const int x2_read = Min<int>::exec(x2, params.dims.width - 1);
-        const int y2_read = Min<int>::exec(y2, params.dims.height - 1);
-
-        const I src_reg0x0 = *PtrAccessor<_2D>::cr_point(Point(x1, y1), params);
-        const I src_reg1x0 = *PtrAccessor<_2D>::cr_point(Point(x2_read, y1), params);
-        const I src_reg0x1 = *PtrAccessor<_2D>::cr_point(Point(x1, y2_read), params);
-        const I src_reg1x1 = *PtrAccessor<_2D>::cr_point(Point(x2_read, y2_read), params);
-
-        const OutputType out = (src_reg0x0 * ((x2 - src_x) * (y2 - src_y))) +
-                               (src_reg1x0 * ((src_x - x1) * (y2 - src_y))) +
-                               (src_reg0x1 * ((x2 - src_x) * (src_y - y1))) +
-                               (src_reg1x1 * ((src_x - x1) * (src_y - y1)));
+        const OutputType out = (pixels._0x0 * ((x2 - src_x) * (y2 - src_y))) +
+                               (pixels._1x0 * ((src_x - x1) * (y2 - src_y))) +
+                               (pixels._0x1 * ((x2 - src_x) * (src_y - y1))) +
+                               (pixels._1x1 * ((src_x - x1) * (src_y - y1)));
         return out;
     }
 };

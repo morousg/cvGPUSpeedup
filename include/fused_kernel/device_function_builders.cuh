@@ -22,17 +22,17 @@ namespace fk {
 
 enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
 
-template <typename T, InterpolationType IType>
-inline const auto resize(const RawPtr<_2D, T>& input, const Size& dSize, const double& fx, const double& fy) {
+template <typename PixelReadOp, InterpolationType IType>
+inline const auto resize(const typename PixelReadOp::ParamsType& input, const Size& dSize, const double& fx, const double& fy) {
     if (dSize.width != 0 && dSize.height != 0) {
         const double cfx = static_cast<double>(dSize.width) / input.dims.width;
         const double cfy = static_cast<double>(dSize.height) / input.dims.height;
-        return Read<ResizeRead<T, IType>>
+        return Read<ResizeRead<PixelReadOp, IType>>
         { {input, static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
           { (uint)dSize.width, (uint)dSize.height }
         };
     } else {
-        return Read<ResizeRead<T, IType>>
+        return Read<ResizeRead<PixelReadOp, IType>>
         {   { input, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy) },
             { CAROTENE_NS::internal::saturate_cast<uint>(input.dims.width * fx),
               CAROTENE_NS::internal::saturate_cast<uint>(input.dims.height * fy) }
@@ -40,11 +40,13 @@ inline const auto resize(const RawPtr<_2D, T>& input, const Size& dSize, const d
     }
 }
 
-template <typename T, InterpolationType IType, int NPtr, AspectRatio AR>
-inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& dsize, const int& usedPlanes, const typename ResizeRead<T, IType>::OutputType& backgroundValue = fk::make_set<typename ResizeRead<T, IType>::OutputType>(0)) {
-    using ResizeArrayIgnoreType = Read<BatchRead<ResizeRead<T, IType>, NPtr>>;
-    using ResizeArrayPreserveType = Read<BatchRead<ApplyROI<ResizeRead<T, IType>, OFFSET_THREADS>, NPtr>>;
-    using ResizeArrayPreserveRoundEvenType = Read<BatchRead<ApplyROI<ResizeRead<T, IType>, OFFSET_THREADS>, NPtr>>;
+template <typename PixelReadOp, InterpolationType IType, int NPtr, AspectRatio AR>
+inline const auto resize(const std::array<typename PixelReadOp::ParamsType, NPtr>& input,
+                         const Size& dsize, const int& usedPlanes,
+                         const typename ResizeRead<PixelReadOp, IType>::OutputType& backgroundValue = fk::make_set<typename ResizeRead<PixelReadOp, IType>::OutputType>(0)) {
+    using ResizeArrayIgnoreType = Read<BatchRead<ResizeRead<PixelReadOp, IType>, NPtr>>;
+    using ResizeArrayPreserveType = Read<BatchRead<ApplyROI<ResizeRead<PixelReadOp, IType>, OFFSET_THREADS>, NPtr>>;
+    using ResizeArrayPreserveRoundEvenType = Read<BatchRead<ApplyROI<ResizeRead<PixelReadOp, IType>, OFFSET_THREADS>, NPtr>>;
     using ResizeArrayType = TypeAt_t<AR, TypeList<ResizeArrayPreserveType, ResizeArrayIgnoreType, ResizeArrayPreserveRoundEvenType>>;
 
     ResizeArrayType resizeArray;
@@ -54,11 +56,11 @@ inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& ds
     resizeArray.activeThreads.z = usedPlanes;
 
     for (int i = 0; i < usedPlanes; i++) {
-        const fk::PtrDims<fk::_2D> dims = input[i].dims();
+        const fk::PtrDims<fk::_2D> dims = input[i].dims;
 
         // targetWidth and targetHeight are the dimensions for the resized image
         int targetWidth, targetHeight;
-        fk::ResizeReadParams<T>* interParams;
+        fk::ResizeReadParams<PixelReadOp>* interParams;
         if constexpr (AR != IGNORE_AR) {
             float scaleFactor = dsize.height / (float)dims.height;
             targetHeight = dsize.height;

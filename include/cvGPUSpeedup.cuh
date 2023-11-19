@@ -33,6 +33,12 @@ inline constexpr fk::Ptr2D<T> gpuMat2Ptr2D(const cv::cuda::GpuMat& source) {
     return temp;
 }
 
+template <typename T>
+inline constexpr fk::RawPtr<fk::_2D, T> gpuMat2RawPtr2D(const cv::cuda::GpuMat& source) {
+    const fk::RawPtr<fk::_2D, T> temp{ (T*)source.data, {static_cast<uint>(source.cols), static_cast<uint>(source.rows), static_cast<uint>(source.step)} };
+    return temp;
+}
+
 template <typename T, int Batch>
 inline constexpr std::array<fk::Ptr2D<T>, Batch> gpuMat2Ptr2D_arr(const std::array<cv::cuda::GpuMat, Batch>& source) {
     std::array<fk::Ptr2D<T>, Batch> temp;
@@ -41,11 +47,20 @@ inline constexpr std::array<fk::Ptr2D<T>, Batch> gpuMat2Ptr2D_arr(const std::arr
     return temp;
 }
 
+template <typename T, int Batch>
+inline constexpr std::array<fk::RawPtr<fk::_2D, T>, Batch> gpuMat2RawPtr2D_arr(const std::array<cv::cuda::GpuMat, Batch>& source) {
+    std::array<fk::RawPtr<fk::_2D, T>, Batch> temp;
+    std::transform(source.begin(), source.end(), temp.begin(),
+        [](const cv::cuda::GpuMat& i) { return gpuMat2RawPtr2D<T>(i); });
+    return temp;
+}
+
 template <typename T>
 inline constexpr fk::Tensor<T> gpuMat2Tensor(const cv::cuda::GpuMat& source, const cv::Size& planeDims, const int& colorPlanes) {
     const fk::Tensor<T> t_output((T*)source.data, planeDims.width, planeDims.height, source.rows, colorPlanes);
     return t_output;
 }
+
 
 template <int I, int O>
 inline constexpr auto convertTo() {
@@ -186,17 +201,17 @@ inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, d
 
     const fk::RawPtr<fk::_2D, CUDA_T(T)> fk_input = gpuMat2Ptr2D<CUDA_T(T)>(input);
     const fk::Size dSize{ dsize.width, dsize.height };
-    return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F>(fk_input, dSize, fx, fy);
+    return fk::resize<fk::ReadRawPtr<fk::_2D, CUDA_T(T)>, (fk::InterpolationType)INTER_F>(fk_input, dSize, fx, fy);
 }
 
 template <int T, int INTER_F, int NPtr, AspectRatio AR = IGNORE_AR>
 inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int& usedPlanes, const cv::Scalar& backgroundValue = cvScalar_set<CV_MAKETYPE(CV_32F, CV_MAT_CN(T))>(0)) {
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
-    const std::array<fk::Ptr2D<CUDA_T(T)>, NPtr> fk_input{ gpuMat2Ptr2D_arr<CUDA_T(T), NPtr>(input) };
+    const std::array<fk::RawPtr<fk::_2D, CUDA_T(T)>, NPtr> fk_input{ gpuMat2RawPtr2D_arr<CUDA_T(T), NPtr>(input) };
     const fk::Size dSize{ dsize.width, dsize.height };
     constexpr int defaultType = CV_MAKETYPE(CV_32F, CV_MAT_CN(T));
-    return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F, NPtr, (fk::AspectRatio)AR>(fk_input, dSize, usedPlanes, cvScalar2CUDAV<defaultType>::get(backgroundValue));
+    return fk::resize<fk::ReadRawPtr<fk::_2D, CUDA_T(T)>, (fk::InterpolationType)INTER_F, NPtr, (fk::AspectRatio)AR>(fk_input, dSize, usedPlanes, cvScalar2CUDAV<defaultType>::get(backgroundValue));
 }
 
 template <int O>

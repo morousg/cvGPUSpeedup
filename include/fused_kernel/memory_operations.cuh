@@ -216,18 +216,18 @@ struct BatchWrite {
     }
 };
 
-template <typename I>
+template <typename PixelReadOp>
 struct ResizeReadParams {
-    RawPtr<_2D, I> ptr;
+    typename PixelReadOp::ParamsType ptr;
     float fx;
     float fy;
 };
 
-template <typename I, InterpolationType INTER_T>
+template <typename PixelReadOp, InterpolationType INTER_T>
 struct ResizeRead {
-    using OutputType = typename VectorType<float, cn<I>>::type;
-    using ParamsType = ResizeReadParams<I>;
-    using InterpolationOp = Interpolate<I, INTER_T>;
+    using InterpolationOp = Interpolate<PixelReadOp, INTER_T>;
+    using OutputType = typename InterpolationOp::OutputType;
+    using ParamsType = ResizeReadParams<PixelReadOp>;
     using InstanceType = ReadType;
     static __device__ __forceinline__ const OutputType exec(const Point& thread, const ParamsType& params) {
         // This is what makes the interpolation a resize operation
