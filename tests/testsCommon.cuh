@@ -81,7 +81,7 @@ std::unordered_map < std::string, std::ofstream> currentFile;
 // Select the path where to write the benchmark files
 const std::string path{ "" };
 
-constexpr int ITERS = 1000;
+constexpr int ITERS = 100;
 
 struct BenchmarkResultsNumbers {
     float OCVelapsedTimeMax;
@@ -131,27 +131,30 @@ inline void processExecution(const BenchmarkResultsNumbers& resF,
         currentFile[fileName] << std::endl;
     }
 
-    const float ocvMean = resF.OCVelapsedTimeAcum / ITERATIONS;
-    const float cvgsMean = resF.cvGSelapsedTimeAcum / ITERATIONS;
-    const float ocvVariance = computeVariance(ocvMean, OCVelapsedTime);
-    const float cvgsVariance = computeVariance(cvgsMean, cvGSelapsedTime);
-    float meanSpeedup{0.f};
-    for (int i = 0; i < ITERS; i++) {
-        meanSpeedup += OCVelapsedTime[i] / cvGSelapsedTime[i];
-    }
-    meanSpeedup /= ITERS;
+    const bool mustStore = currentFile.find(fileName) != currentFile.end();
+    if (mustStore) {
+        const float ocvMean = resF.OCVelapsedTimeAcum / ITERATIONS;
+        const float cvgsMean = resF.cvGSelapsedTimeAcum / ITERATIONS;
+        const float ocvVariance = computeVariance(ocvMean, OCVelapsedTime);
+        const float cvgsVariance = computeVariance(cvgsMean, cvGSelapsedTime);
+        float meanSpeedup{ 0.f };
+        for (int i = 0; i < ITERS; i++) {
+            meanSpeedup += OCVelapsedTime[i] / cvGSelapsedTime[i];
+        }
+        meanSpeedup /= ITERS;
 
-    currentFile[fileName] << BATCH;
-    currentFile[fileName] << ", " << ocvMean;
-    currentFile[fileName] << ", " << computeVariance(ocvMean, OCVelapsedTime);
-    currentFile[fileName] << ", " << resF.OCVelapsedTimeMax;
-    currentFile[fileName] << ", " << resF.OCVelapsedTimeMin;
-    currentFile[fileName] << ", " << cvgsMean;
-    currentFile[fileName] << ", " << computeVariance(cvgsMean, cvGSelapsedTime);
-    currentFile[fileName] << ", " << resF.cvGSelapsedTimeMax;
-    currentFile[fileName] << ", " << resF.cvGSelapsedTimeMin;
-    currentFile[fileName] << ", " << meanSpeedup;
-    currentFile[fileName] << std::endl;
+        currentFile[fileName] << BATCH;
+        currentFile[fileName] << ", " << ocvMean;
+        currentFile[fileName] << ", " << computeVariance(ocvMean, OCVelapsedTime);
+        currentFile[fileName] << ", " << resF.OCVelapsedTimeMax;
+        currentFile[fileName] << ", " << resF.OCVelapsedTimeMin;
+        currentFile[fileName] << ", " << cvgsMean;
+        currentFile[fileName] << ", " << computeVariance(cvgsMean, cvGSelapsedTime);
+        currentFile[fileName] << ", " << resF.cvGSelapsedTimeMax;
+        currentFile[fileName] << ", " << resF.cvGSelapsedTimeMin;
+        currentFile[fileName] << ", " << meanSpeedup;
+        currentFile[fileName] << std::endl;
+    }
 }
 
 #endif
