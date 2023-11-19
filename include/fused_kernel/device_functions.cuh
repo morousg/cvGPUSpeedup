@@ -79,6 +79,12 @@ namespace fk { // namespace FusedKernel
     private:
         template <typename Operation>
         FK_HOST_DEVICE_FUSE auto operate(const typename Operation::InputType& i_data,
+                                         const Read<Operation>& df) {
+            return Operation::exec(i_data, df.params);
+        }
+
+        template <typename Operation>
+        FK_HOST_DEVICE_FUSE auto operate(const typename Operation::InputType& i_data,
                                                const Binary<Operation>& df) {
             return Operation::exec(i_data, df.params);
         }

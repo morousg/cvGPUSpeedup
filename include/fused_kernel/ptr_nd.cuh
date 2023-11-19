@@ -22,6 +22,9 @@
 namespace fk {
 
 struct Size {
+    constexpr Size(int width_, int height_) : width(width_),
+                                              height(height_) {};
+    Size() {};
     int width;
     int height;
 };

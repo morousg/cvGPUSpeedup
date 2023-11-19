@@ -201,7 +201,7 @@ inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, d
 
     const fk::RawPtr<fk::_2D, CUDA_T(T)> fk_input = gpuMat2Ptr2D<CUDA_T(T)>(input);
     const fk::Size dSize{ dsize.width, dsize.height };
-    return fk::resize<fk::ReadRawPtr<fk::_2D, CUDA_T(T)>, (fk::InterpolationType)INTER_F>(fk_input, dSize, fx, fy);
+    return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F>(fk_input, dSize, fx, fy);
 }
 
 template <int T, int INTER_F, int NPtr, AspectRatio AR = IGNORE_AR>

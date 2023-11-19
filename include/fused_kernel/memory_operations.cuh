@@ -216,9 +216,9 @@ struct BatchWrite {
     }
 };
 
-template <typename PixelReadOp>
+template <typename InperpolationOp>
 struct ResizeReadParams {
-    typename PixelReadOp::ParamsType ptr;
+    typename InperpolationOp::ParamsType params;
     float fx;
     float fy;
 };
@@ -227,7 +227,7 @@ template <typename PixelReadOp, InterpolationType INTER_T>
 struct ResizeRead {
     using InterpolationOp = Interpolate<PixelReadOp, INTER_T>;
     using OutputType = typename InterpolationOp::OutputType;
-    using ParamsType = ResizeReadParams<PixelReadOp>;
+    using ParamsType = ResizeReadParams<InterpolationOp>;
     using InstanceType = ReadType;
     static __device__ __forceinline__ const OutputType exec(const Point& thread, const ParamsType& params) {
         // This is what makes the interpolation a resize operation
@@ -235,16 +235,17 @@ struct ResizeRead {
         const float src_y = thread.y * params.fy;
 
         static_assert(std::is_same_v<typename InterpolationOp::InputType, float2>, "Wrong InputType for interpolation operation.");
-        return InterpolationOp::exec(make_<float2>(src_x, src_y), params.ptr);
+        return InterpolationOp::exec(make_<float2>(src_x, src_y), params.params);
     }
 };
 
 template <PixelFormat PF>
 struct ReadYUV {
+    using InputType = Point;
     using OutputType = VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, PixelFormatTraits<PF>::cn>;
     using ParamsType = RawPtr<_2D, YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>>;
     using InstanceType = ReadType;
-    static __device__ __forceinline__ const OutputType exec(const Point& thread, const ParamsType& params) {
+    static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
         if constexpr (PF == NV12 || PF == P010 || PF == P016 || PF == P210 || PF == P216) {
             // Planar luma
             const YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth> Y = *PtrAccessor<_2D>::cr_point(thread, params);

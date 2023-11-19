@@ -313,14 +313,20 @@ enum InterpolationType {
     NONE = 17
 };
 
-template <typename ReadOperation, InterpolationType INTER_T>
+template <typename PixelReadOp>
+struct InterLinearParams {
+    typename PixelReadOp::ParamsType params;
+    Size sourceSize;
+};
+
+template <typename PixelReadOp, InterpolationType INTER_T>
 struct Interpolate;
 
 template <typename PixelReadOp>
 struct Interpolate<PixelReadOp, InterpolationType::INTER_LINEAR> {
     using OutputType = VectorType_t<float, cn<typename PixelReadOp::OutputType>>;
     using InputType = float2;
-    using ParamsType = typename PixelReadOp::ParamsType;
+    using ParamsType = InterLinearParams<PixelReadOp>;
     using InstanceType = BinaryType;
     static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
         const float src_x = input.x;
@@ -331,15 +337,15 @@ struct Interpolate<PixelReadOp, InterpolationType::INTER_LINEAR> {
         const int x2 = x1 + 1;
         const int y2 = y1 + 1;
 
-        const int x2_read = Min<int>::exec(x2, params.dims.width - 1);
-        const int y2_read = Min<int>::exec(y2, params.dims.height - 1);
+        const int x2_read = Min<int>::exec(x2, params.sourceSize.width - 1);
+        const int y2_read = Min<int>::exec(y2, params.sourceSize.height - 1);
 
         const Slice2x2<Point> readPoints{ Point(x1, y1),
                                           Point(x2_read, y1),
                                           Point(x1, y2_read),
                                           Point(x2_read, y2_read) };
  
-        const auto pixels = Read2x2<PixelReadOp>::exec(readPoints, params);
+        const auto pixels = Read2x2<PixelReadOp>::exec(readPoints, params.params);
 
         const OutputType out = (pixels._0x0 * ((x2 - src_x) * (y2 - src_y))) +
                                (pixels._1x0 * ((src_x - x1) * (y2 - src_y))) +
