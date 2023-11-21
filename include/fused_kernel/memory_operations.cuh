@@ -242,22 +242,24 @@ struct ResizeRead {
 template <PixelFormat PF>
 struct ReadYUV {
     using InputType = Point;
-    using OutputType = VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, PixelFormatTraits<PF>::cn>;
-    using ParamsType = RawPtr<_2D, YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>>;
+    using OutputType = ColorDepthPixelType<(ColorDepth)PixelFormatTraits<PF>::depth>;
+    using PixelBaseType = ColorDepthPixelBaseType<(ColorDepth)PixelFormatTraits<PF>::depth>;
+    using ParamsType = RawPtr<_2D, PixelBaseType>;
     using InstanceType = ReadType;
     static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
         if constexpr (PF == NV12 || PF == P010 || PF == P016 || PF == P210 || PF == P216) {
             // Planar luma
-            const YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth> Y = *PtrAccessor<_2D>::cr_point(thread, params);
+            const PixelBaseType Y = *PtrAccessor<_2D>::cr_point(thread, params);
 
             // Packed chroma
             const PtrDims<_2D> dims = params.dims;
-            const RawPtr<_2D, VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, 2>> chromaPlane{
-                (VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, 2>*)((uchar*)params.data + dims.pitch * dims.height),
+            using VectorType2 = VectorType_t<PixelBaseType, 2>;
+            const RawPtr<_2D, VectorType2> chromaPlane{
+                (VectorType2*)((uchar*)params.data + dims.pitch * dims.height),
                 { dims.width >> 1, dims.height >> 1, dims.pitch }
             };
             const ColorSpace CS = (ColorSpace)PixelFormatTraits<PF>::space;
-            const VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, 2> UV =
+            const VectorType2 UV =
                 *PtrAccessor<_2D>::cr_point({thread.x >> 1, CS == YUV420 ? thread.y >> 1 : thread.y, thread.z}, chromaPlane);
 
             return { Y, UV.x, UV.y };
