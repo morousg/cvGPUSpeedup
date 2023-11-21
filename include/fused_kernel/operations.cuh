@@ -461,32 +461,40 @@ enum ColorConversionDir { YCbCr2RGB, RGB2YCbCr };
 template <ColorRange CR, ColorPrimitives CP, ColorConversionDir CCD>
 constexpr M3x3Float ccMatrix{};
 // Source: https://en.wikipedia.org/wiki/YCbCr
-template <> constexpr M3x3Float ccMatrix<Full, bt601, YCbCr2RGB>{    {  1.164383562f,  0.f,                1.596026786f      },
-                                                                     {  1.164383562f, -0.39176229f,       -0.812967647f      },
-                                                                     {  1.164383562f,  2.017232143f,       0.f               }};
+template <> constexpr M3x3Float ccMatrix<Full, bt601, YCbCr2RGB>{
+    {  1.164383562f,  0.f,                1.596026786f      },
+    {  1.164383562f, -0.39176229f,       -0.812967647f      },
+    {  1.164383562f,  2.017232143f,       0.f               }};
+
 // Source: https://en.wikipedia.org/wiki/YCbCr
-template <> constexpr M3x3Float ccMatrix<Full, bt709, YCbCr2RGB>{    {  1.f,           0.f,                1.5748f           },
-                                                                     {  1.f,          -0.1873f,           -0.4681f           },
-                                                                     {  1.f,           1.8556f,            0.f               }};
+template <> constexpr M3x3Float ccMatrix<Full, bt709, YCbCr2RGB>{
+    {  1.f,           0.f,                1.5748f           },
+    {  1.f,          -0.1873f,           -0.4681f           },
+    {  1.f,           1.8556f,            0.f               }};
+
 // To be verified
-template <> constexpr M3x3Float ccMatrix<Limited, bt709, YCbCr2RGB>{ {  1.f,           0.f,                1.4746f           },
-                                                                     {  1.f,          -0.1646f,           -0.5713f           },
-                                                                     {  1.f,           1.8814f,            0.f               }};
+template <> constexpr M3x3Float ccMatrix<Limited, bt709, YCbCr2RGB>{
+    {  1.f,           0.f,                1.4746f           },
+    {  1.f,          -0.1646f,           -0.5713f           },
+    {  1.f,           1.8814f,            0.f               }};
 
 // Source: https://en.wikipedia.org/wiki/YCbCr
-template <> constexpr M3x3Float ccMatrix<Full, bt709, RGB2YCbCr>{    {  0.2126f,       0.7152f,            0.0722f           },
-                                                                     { -0.1146f,      -0.3854f,            0.5f              },
-                                                                     {  0.5f,         -0.4542f,           -0.0458f           }};
+template <> constexpr M3x3Float ccMatrix<Full, bt709, RGB2YCbCr>{
+    {  0.2126f,       0.7152f,            0.0722f           },
+    { -0.1146f,      -0.3854f,            0.5f              },
+    {  0.5f,         -0.4542f,           -0.0458f           }};
 
 // Source: https://en.wikipedia.org/wiki/YCbCr
-template <> constexpr M3x3Float ccMatrix<Full, bt2020, YCbCr2RGB>{   {  1.f,           0.f,                1.4746f           },
-                                                                     {  1.f,          -0.16455312684366f, -0.57135312684366f },
-                                                                     {  1.f,           1.8814f,            0.f               }};
+template <> constexpr M3x3Float ccMatrix<Full, bt2020, YCbCr2RGB>{
+    {  1.f,           0.f,                1.4746f           },
+    {  1.f,          -0.16455312684366f, -0.57135312684366f },
+    {  1.f,           1.8814f,            0.f               }};
 
 // Computed from ccMatrix<Full, bt2020, YCbCr2RGB>
-template <> constexpr M3x3Float ccMatrix<Full, bt2020, RGB2YCbCr>{   { -0.737921348f,  1.904494f,         -0.16657f          },
-                                                                     {  0.392219277f, -1.01228f,           0.620056f         },
-                                                                     {  1.178571374f, -1.29153f,           0.112962f         }};
+template <> constexpr M3x3Float ccMatrix<Full, bt2020, RGB2YCbCr>{
+    { -0.73792134831461f,  1.90449438202248f, -0.16657303370787f },
+    {  0.39221927730127f, -1.01227510472121f,  0.62005582741994f },
+    {  1.17857137414527f, -1.29153287808387f,  0.11296150393861f }};
 
 template <typename T, ColorDepth CD>
 struct SaturateDepth {
