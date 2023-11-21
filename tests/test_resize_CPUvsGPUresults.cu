@@ -80,6 +80,8 @@ int main() {
 
     cv::Mat diffOCVG_cvGS;
     cv::absdiff(GPUUINTOCV, CVGSUINT, diffOCVG_cvGS);
+    diffOCVG_cvGS.convertTo(diffOCVG_cvGS, CV_8UC4);
+    diffOCVG_cvGS += cv::Scalar(0, 0, 0, 255);
     cv::Scalar total = cv::sum(diffOCVG_cvGS);
 
     cv::Scalar minValOCV, maxValOCV;

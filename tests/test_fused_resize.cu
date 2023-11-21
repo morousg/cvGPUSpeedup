@@ -20,6 +20,8 @@
 #include <cvGPUSpeedup.cuh>
 
 int main() {
+
+#ifdef ENAMBLE_TEST_FUSED_RESIZE
     constexpr size_t NUM_ELEMS_X = 6244;
     constexpr size_t NUM_ELEMS_Y = 4168;
 
@@ -27,8 +29,7 @@ int main() {
 
     cv::Mat::setDefaultAllocator(cv::cuda::HostMem::getAllocator(cv::cuda::HostMem::AllocType::PAGE_LOCKED));
 
-    const std::string filePath{ "C:/Users/oscar/Documents/GitHub/cvGPUSpeedup/images/raw6K.nv12" };
-    // Open a binary file named "example.bin"
+    const std::string filePath{ "" };
     std::ifstream file(filePath, std::ios::binary | std::ios::ate);
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
@@ -54,7 +55,7 @@ int main() {
                           NUM_ELEMS_X, NUM_ELEMS_Y + (NUM_ELEMS_Y / 2), cudaMemcpyHostToDevice, stream));
 
         fk::Read<fk::ReadYUV<fk::NV12>> read { d_nv12Image, {NUM_ELEMS_X, NUM_ELEMS_Y} };
-        fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true>> cvtColor {};
+        fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt601, true>> cvtColor {};
         fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>> write { d_rgbaImageBig.ptr() };
         fk::executeOperations(stream, read, cvtColor, write);
 
@@ -72,7 +73,7 @@ int main() {
                                     down.width * sizeof(uchar4), down.height, cudaMemcpyDeviceToHost, stream));
         gpuErrchk(cudaStreamSynchronize(stream));
 
-        using PixelReadOp = fk::ComposedOperation<fk::Read<fk::ReadYUV<fk::NV12>>, fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true>>>;
+        using PixelReadOp = fk::ComposedOperation<fk::Read<fk::ReadYUV<fk::NV12>>, fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>>;
         fk::Binary<PixelReadOp> readOpInstance{ { {d_nv12Image, {}}, {} } };
         auto imgSize = d_nv12Image.dims;
         auto readOp = fk::resize<PixelReadOp, fk::INTER_LINEAR>(readOpInstance.params, fk::Size(imgSize.width, imgSize.height), down);
@@ -96,6 +97,6 @@ int main() {
     }
     file.close();
     delete buffer;
-
+#endif
     return 0;
 }
