@@ -371,6 +371,28 @@ if constexpr (cn<O> == 1) { \
 
         // binary operators (vec & vec)
 
+#define VEC_BINARY_OP_DIFF_TYPES(op, input_type1, input_type2, output_type) \
+    __device__ __forceinline__ __host__ constexpr output_type ## 1 operator op(const input_type1 ## 1 & a, const input_type2 ## 1 & b) \
+    { \
+        return make::type<output_type ## 1>(a.x op b.x); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 2 operator op(const input_type1 ## 2 & a, const input_type2 ## 2 & b) \
+    { \
+        return make::type<output_type ## 2>(a.x op b.x, a.y op b.y); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 3 operator op(const input_type1 ## 3 & a, const input_type2 ## 3 & b) \
+    { \
+        return make::type<output_type ## 3>(a.x op b.x, a.y op b.y, a.z op b.z); \
+    } \
+    __device__ __forceinline__ __host__ constexpr output_type ## 4 operator op(const input_type1 ## 4 & a, const input_type2 ## 4 & b) \
+    { \
+        return make::type<output_type ## 4>(a.x op b.x, a.y op b.y, a.z op b.z, a.w op b.w); \
+    }
+
+    VEC_BINARY_OP_DIFF_TYPES(+, uchar, float, float)
+
+#undef VEC_BINARY_OP_DIFF_TYPES
+
 #define VEC_BINARY_OP(op, input_type, output_type) \
     __device__ __forceinline__ __host__ constexpr output_type ## 1 operator op(const input_type ## 1 & a, const input_type ## 1 & b) \
     { \
