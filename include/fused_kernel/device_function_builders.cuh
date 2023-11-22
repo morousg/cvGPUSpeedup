@@ -27,7 +27,7 @@ inline const auto resize(const typename PixelReadOp::ParamsType& input, const Si
     const double cfx = static_cast<double>(dstSize.width) / srcSize.width;
     const double cfy = static_cast<double>(dstSize.height) / srcSize.height;
     return Read<ResizeRead<PixelReadOp, IType>>
-    { {{input, srcSize}, static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
+    { { {input}, static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
         { (uint)dstSize.width, (uint)dstSize.height }
     };
 }
@@ -39,12 +39,12 @@ inline const auto resize(const RawPtr<_2D, I>& input, const Size& dSize, const d
         const double cfx = static_cast<double>(dSize.width) / input.dims.width;
         const double cfy = static_cast<double>(dSize.height) / input.dims.height;
         return Read<ResizeRead<ReadRawPtr<_2D, I>, IType>>
-        { {{input, sourceSize}, static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
+        { {{input}, static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
           { (uint)dSize.width, (uint)dSize.height }
         };
     } else {
         return Read<ResizeRead<ReadRawPtr<_2D, I>, IType>>
-        {   { {input, sourceSize}, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy) },
+        {   { {input}, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy) },
             { CAROTENE_NS::internal::saturate_cast<uint>(input.dims.width * fx),
               CAROTENE_NS::internal::saturate_cast<uint>(input.dims.height * fy) }
         };
@@ -101,7 +101,7 @@ inline const auto resize(const std::array<typename PixelReadOp::ParamsType, NPtr
             targetHeight = dsize.height;
             interParams = &resizeArray.params[i];
         }
-        interParams->params = { input[i],  Size(dims.width, dims.height) };
+        interParams->params = { input[i] };
         interParams->fx = static_cast<float>(1.0 / (static_cast<double>(targetWidth) / (double)dims.width));
         interParams->fy = static_cast<float>(1.0 / (static_cast<double>(targetHeight) / (double)dims.height));
     }

@@ -22,8 +22,8 @@
 int main() {
 
 #ifdef ENAMBLE_TEST_FUSED_RESIZE
-    constexpr size_t NUM_ELEMS_X = 6244;
-    constexpr size_t NUM_ELEMS_Y = 4168;
+    constexpr uint NUM_ELEMS_X = 6244;
+    constexpr uint NUM_ELEMS_Y = 4168;
 
     cv::cuda::Stream cv_stream;
 
@@ -33,8 +33,10 @@ int main() {
     std::ifstream file(filePath, std::ios::binary | std::ios::ate);
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
-    char* buffer = new char[size];
-    if (file.read(buffer, size)) {
+
+    if (file.is_open()) {
+        char* buffer = new char[size];
+        file.read(buffer, size);
         // use buffer
         cudaStream_t stream;
         gpuErrchk(cudaStreamCreate(&stream));
@@ -46,7 +48,7 @@ int main() {
         uchar* d_dataSource;
         size_t sourcePitch;
         gpuErrchk(cudaMallocPitch(&d_dataSource, &sourcePitch, NUM_ELEMS_X, NUM_ELEMS_Y + (NUM_ELEMS_Y / 2)));
-        fk::RawPtr<fk::_2D, uchar> d_nv12Image{ d_dataSource, {(uint)NUM_ELEMS_X, (uint)NUM_ELEMS_Y, (uint)sourcePitch} };
+        fk::RawPtr<fk::_2D, uchar> d_nv12Image{ d_dataSource, {NUM_ELEMS_X, NUM_ELEMS_Y, (uint)sourcePitch} };
         fk::Ptr2D<uchar4> d_rgbaImage(down.width, down.height);
         fk::Ptr2D<uchar4> d_rgbaImageBig(NUM_ELEMS_X, NUM_ELEMS_Y);
 
@@ -74,7 +76,7 @@ int main() {
         gpuErrchk(cudaStreamSynchronize(stream));
 
         using PixelReadOp = fk::ComposedOperation<fk::Read<fk::ReadYUV<fk::NV12>>, fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>>;
-        fk::Binary<PixelReadOp> readOpInstance{ { {d_nv12Image, {}}, {} } };
+        fk::Binary<PixelReadOp> readOpInstance = { {{d_nv12Image,{}},{}} };
         auto imgSize = d_nv12Image.dims;
         auto readOp = fk::resize<PixelReadOp, fk::INTER_LINEAR>(readOpInstance.params, fk::Size(imgSize.width, imgSize.height), down);
         auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
@@ -91,12 +93,12 @@ int main() {
 
         gpuErrchk(cudaStreamDestroy(stream));
 
+        delete buffer;
     } else {
         // Print an error message if the file cannot be opened
         std::cerr << "Error: cannot open file\n";
     }
     file.close();
-    delete buffer;
 #endif
     return 0;
 }

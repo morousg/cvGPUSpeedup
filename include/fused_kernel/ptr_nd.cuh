@@ -198,7 +198,8 @@ struct RawPtr<_1D, T> {
     T* data;
     PtrDims<_1D> dims;
     using base = typename VectorTraits<T>::base;
-    enum {cn=cn<T>};
+    enum { cn=cn<T> };
+    enum { ND=_1D };
 };
 
 template <typename T>
@@ -206,7 +207,8 @@ struct RawPtr<_2D, T> {
     T* data;
     PtrDims<_2D> dims;
     using base = typename VectorTraits<T>::base;
-    enum {cn=cn<T>};
+    enum { cn=cn<T> };
+    enum { ND=_2D };
 };
 
 template <typename T>
@@ -214,7 +216,8 @@ struct RawPtr<_3D, T> {
     T* data;
     PtrDims<_3D> dims;
     using base = typename VectorTraits<T>::base;
-    enum {cn=cn<T>};
+    enum { cn=cn<T> };
+    enum { ND=_3D };
 };
 
 template <typename T>
@@ -223,6 +226,7 @@ struct RawPtr<T3D, T> {
     PtrDims<T3D> dims;
     using base = typename VectorTraits<T>::base;
     enum { cn = cn<T> };
+    enum { ND=T3D };
 };
 
 template <ND D>
