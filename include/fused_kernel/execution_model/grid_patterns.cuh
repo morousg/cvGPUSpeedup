@@ -63,19 +63,13 @@ namespace fk { // namespace FusedKernel
     template <typename SequenceSelector>
     struct DivergentBatchTransformGridPattern {
         private:
-            template <int OpSequenceNumber, typename ReadOperation, typename... DeviceFunctionTypes>
-            FK_DEVICE_FUSE void divergent_operate(const uint& z, const DeviceFunctionSequence<ReadDeviceFunction<ReadOperation>, DeviceFunctionTypes...>& dfSeq) {
-                // If the threads with this z, arrived here, we assume they have to execute this operation sequence
-                fk::apply(TransformGridPattern::exec<ReadOperation, DeviceFunctionTypes...>, dfSeq.deviceFunctions);
-            }
-
             template <int OpSequenceNumber, typename ReadOperation, typename... DeviceFunctionTypes, typename... DeviceFunctionSequenceTypes>
             FK_DEVICE_FUSE void divergent_operate(const uint& z, const DeviceFunctionSequence<ReadDeviceFunction<ReadOperation>, DeviceFunctionTypes...>& dfSeq,
                                                   const DeviceFunctionSequenceTypes&... dfSequenceInstances) {
                 if (OpSequenceNumber == SequenceSelector::at(z)) {
                     fk::apply(TransformGridPattern::exec<ReadOperation, DeviceFunctionTypes...>, dfSeq.deviceFunctions);
-                } else {
-                    DivergentBatchTransformGridPattern<SequenceSelector>::divergent_operate<OpSequenceNumber + 1>(z, dfSequenceInstances...);
+                } else if constexpr (sizeof...(dfSequenceInstances) > 0) {
+                    divergent_operate<OpSequenceNumber + 1>(z, dfSequenceInstances...);
                 }
             }
         public:
@@ -83,7 +77,7 @@ namespace fk { // namespace FusedKernel
             FK_DEVICE_FUSE void exec(const DeviceFunctionSequenceTypes&... dfSequenceInstances) {
                 const cg::thread_block g = cg::this_thread_block();
                 const uint z = g.group_index().z;
-                DivergentBatchTransformGridPattern<SequenceSelector>::divergent_operate<1>(z, dfSequenceInstances...);
+                divergent_operate<1>(z, dfSequenceInstances...);
             }
     };
 
