@@ -14,8 +14,8 @@
    limitations under the License. */
 
 #pragma once
-#include "cuda_vector_utils.cuh"
-#include "operations.cuh"
+#include <fused_kernel/utils/cuda_vector_utils.cuh>
+#include <fused_kernel/fusionable_operations/operations.cuh>
 #include <cooperative_groups.h>
 
 namespace cg = cooperative_groups;

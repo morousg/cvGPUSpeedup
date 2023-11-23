@@ -15,8 +15,7 @@
 #pragma once
 
 #include <cvGPUSpeedupHelpers.cuh>
-#include <fused_kernel/fused_kernel_launchers.cuh>
-#include <fused_kernel/device_function_builders.cuh>
+#include <fused_kernel/fused_kernel.cuh>
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>

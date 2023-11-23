@@ -15,8 +15,8 @@
 #pragma once
 
 #include <external/carotene/saturate_cast.hpp>
-#include "device_functions.cuh"
-#include "memory_operations.cuh"
+#include <fused_kernel/execution_model/device_functions.cuh>
+#include <fused_kernel/fusionable_operations/memory_operations.cuh>
 
 namespace fk {
 

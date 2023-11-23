@@ -15,8 +15,8 @@
 
 #pragma once
 
-#include "cuda_utils.cuh"
-#include "type_lists.cuh"
+#include <fused_kernel/utils/cuda_utils.cuh>
+#include <fused_kernel/utils/type_lists.cuh>
 
 namespace fk {
 

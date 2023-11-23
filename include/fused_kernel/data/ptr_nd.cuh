@@ -16,8 +16,8 @@
 
 #include <array>
 
-#include "cuda_vector_utils.cuh"
-#include "parameter_pack_utils.cuh"
+#include <fused_kernel/utils/cuda_vector_utils.cuh>
+#include <fused_kernel/utils/parameter_pack_utils.cuh>
 
 namespace fk {
 

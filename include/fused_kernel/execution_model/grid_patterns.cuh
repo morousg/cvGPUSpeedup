@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include "memory_operations.cuh"
-#include "parameter_pack_utils.cuh"
-#include "device_functions.cuh"
+#include <fused_kernel/utils/parameter_pack_utils.cuh>
+#include <fused_kernel/fusionable_operations/memory_operations.cuh>
+#include <fused_kernel/execution_model/device_functions.cuh>
 
 namespace fk { // namespace FusedKernel
     struct TransformGridPattern {
@@ -88,6 +88,15 @@ namespace fk { // namespace FusedKernel
             }
     };
 
+    template <typename... DeviceFunctionTypes>
+    __global__ void cuda_transform(const DeviceFunctionTypes... deviceFunctionInstances) {
+        TransformGridPattern::exec(deviceFunctionInstances...);
+    }
+    template <typename SequenceSelector, typename... DeviceFunctionSequenceTypes>
+    __global__ void cuda_transform_divergent_batch(const DeviceFunctionSequenceTypes... dfSequenceInstances) {
+        DivergentBatchTransformGridPattern<SequenceSelector>::exec(dfSequenceInstances...);
+    }
+
 /*  Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
     Copyright 2023 Mediaproduccion S.L.U. (David del Rio Astorga)
 
@@ -131,4 +140,9 @@ namespace fk { // namespace FusedKernel
                 DivergentBatchTransformGridPattern_vec<BATCH>::divergent_operate<1>(z, dfSeqSelector, dfSequenceInstances...);
             }
     };
+
+    template <int BATCH, typename... DeviceFunctionSequenceTypes>
+    __global__ void cuda_transform_divergent_batch(const Array<int, BATCH> dfSeqSelector, const DeviceFunctionSequenceTypes... dfSequenceInstances) {
+        DivergentBatchTransformGridPattern_vec<BATCH>::exec(dfSeqSelector, dfSequenceInstances...);
+    }
 }
