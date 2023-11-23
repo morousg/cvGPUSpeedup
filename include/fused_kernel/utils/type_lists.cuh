@@ -148,29 +148,6 @@ namespace fk { // namespace fused kernel
         return { {pars...} };
     }
 
-    template<unsigned... args>
-    struct IndexArray {
-        static const uint at[sizeof...(args)];
-    };
-
-    template<unsigned... args>
-    const uint IndexArray<args...>::at[sizeof...(args)] = { args... };
-
-    template<size_t N, template<size_t> class F, unsigned... args>
-    struct generate_array_impl {
-        using result = typename generate_array_impl<N - 1, F, F<N>::value, args...>::result;
-    };
-
-    template<template<size_t> class F, unsigned... args>
-    struct generate_array_impl<0, F, args...> {
-        using result = IndexArray<F<0>::value, args...>;
-    };
-
-    template<size_t N, template<size_t> class F>
-    struct generate_array {
-        using result = typename generate_array_impl<N - 1, F>::result;
-    };
-
     template<typename T, typename... Ts>
     constexpr bool all_types_are_same = std::conjunction_v<std::is_same<T, Ts>...>;
 }; // namespace fused kernel
