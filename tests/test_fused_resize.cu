@@ -19,8 +19,6 @@
 #include <opencv2/opencv.hpp>
 #include <cvGPUSpeedup.cuh>
 
-#define ENAMBLE_TEST_FUSED_RESIZE
-
 #ifdef ENAMBLE_TEST_FUSED_RESIZE
 
 struct PerPlaneSequenceSelector {
@@ -83,15 +81,6 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer) {
     auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
     auto colorConvert = fk::Unary<fk::VectorReorder<uchar4, 2, 1, 0, 3>>{};
 
-    /*fk::Write<fk::BatchWrite<fk::PerThreadWrite<fk::_2D, uchar4>, OUTPUTS>> writes;
-    std::array<fk::Ptr2D<uchar4>, OUTPUTS> pointers;
-    for (int i = 0; i < OUTPUTS; i++) {
-        pointers[i].allocPtr(fk::PtrDims<fk::_2D>(down.width, down.height));
-        writes.params[i] = {pointers[i].ptr()};
-    }
-
-    auto OpSeq = fk::buildOperationSequence(readOp, convertOp, colorConvert, writes);*/
-
     fk::Write<fk::TensorWrite<uchar4>> writesTensor;
     fk::Tensor<uchar4> myTensor(down.width, down.height, OUTPUTS);
     writesTensor.params = myTensor;
@@ -102,12 +91,8 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer) {
     dim3 grid((uint)ceil((float)down.width / (float)block.x),
               (uint)ceil((float)down.height / (float)block.y),
               (uint)OUTPUTS);
-    
-    //fk::cuda_transform_divergent_batch<PerPlaneSequenceSelector> << <grid, block, 0, stream >> > (OpSeq);
+
     fk::cuda_transform_divergent_batch<PerPlaneSequenceSelector><<<grid, block, 0, stream>>>(OpSeqTensor);
-    /*gpuErrchk(cudaMemcpy2DAsync(h_result.data, h_result.step,
-        d_rgbaImage.ptr().data, d_rgbaImage.dims().pitch,
-        down.width * sizeof(uchar4), down.height, cudaMemcpyDeviceToHost, stream));*/
    
     gpuErrchk(cudaStreamSynchronize(stream));
 
@@ -185,7 +170,7 @@ int main() {
 
     cv::Mat::setDefaultAllocator(cv::cuda::HostMem::getAllocator(cv::cuda::HostMem::AllocType::PAGE_LOCKED));
 
-    const std::string filePath{ "D:/CODE/Project0/bin/Release/raw8K.nv12" };
+    const std::string filePath{ "" };
     std::ifstream file(filePath, std::ios::binary | std::ios::ate);
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
@@ -202,7 +187,7 @@ int main() {
     }
     file.close();
 
-    const std::string filePath2{ "D:/CODE/Project0/bin/Release/raw4K.nv12" };
+    const std::string filePath2{ "" };
     std::ifstream file2(filePath2, std::ios::binary | std::ios::ate);
     std::streamsize size2 = file2.tellg();
     file2.seekg(0, std::ios::beg);
