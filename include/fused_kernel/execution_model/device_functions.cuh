@@ -17,46 +17,50 @@
 #include <vector_types.h>
 
 namespace fk { // namespace FusedKernel
+
+#define DEVICE_FUNCTION_DETAILS(instance_type) \
+    using Operation = Operation_t; \
+    using InstanceType = instance_type; \
+    template <typename IT> \
+    static constexpr bool is{ std::is_same_v<IT, InstanceType> };
+
     // generic operation structs
     template <typename Operation_t>
     struct ReadDeviceFunction {
         static_assert(std::is_same_v<typename Operation_t::InstanceType, ReadType>, "Operation is not Read.");
+        DEVICE_FUNCTION_DETAILS(ReadType)
         typename Operation_t::ParamsType params;
         dim3 activeThreads;
-        using Operation = Operation_t;
-        using InstanceType = ReadType;
     };
 
     template <typename Operation_t>
     struct BinaryDeviceFunction {
         static_assert(std::is_same_v<typename Operation_t::InstanceType, BinaryType>, "Operation is not Binary.");
+        DEVICE_FUNCTION_DETAILS(BinaryType)
         typename Operation_t::ParamsType params;
-        using Operation = Operation_t;
-        using InstanceType = BinaryType;
     };
 
     template <typename Operation_t>
     struct UnaryDeviceFunction {
         static_assert(std::is_same_v<typename Operation_t::InstanceType, UnaryType>, "Operation is not Unary.");
-        using Operation = Operation_t;
-        using InstanceType = UnaryType;
+        DEVICE_FUNCTION_DETAILS(UnaryType)
     };
 
     template <typename Operation_t>
     struct MidWriteDeviceFunction {
         static_assert(std::is_same_v<typename Operation_t::InstanceType, WriteType>, "Operation is not Write.");
+        DEVICE_FUNCTION_DETAILS(MidWriteType)
         typename Operation_t::ParamsType params;
-        using Operation = Operation_t;
-        using InstanceType = MidWriteType;
     };
 
     template <typename Operation_t>
     struct WriteDeviceFunction {
         static_assert(std::is_same_v<typename Operation_t::InstanceType, WriteType>, "Operation is not Write.");
+        DEVICE_FUNCTION_DETAILS(WriteType)
         typename Operation_t::ParamsType params;
-        using Operation = Operation_t;
-        using InstanceType = WriteType;
     };
+
+#undef DEVICE_FUNCTION_DETAILS
 
     template <typename Operation>
     using Read = ReadDeviceFunction<Operation>;
@@ -76,41 +80,36 @@ namespace fk { // namespace FusedKernel
         using ParamsType = thrust::tuple<DeviceFunctionTypes...>;
         using OutputType = LastDeviceFunctionOutputType_t<DeviceFunctionTypes...>;
         using InstanceType = BinaryType;
-    private:
-        template <typename Operation>
-        FK_HOST_DEVICE_FUSE auto operate(const typename Operation::InputType& i_data,
-                                         const Read<Operation>& df) {
-            return Operation::exec(i_data, df.params);
-        }
-
-        template <typename Operation>
-        FK_HOST_DEVICE_FUSE auto operate(const typename Operation::InputType& i_data,
-                                               const Binary<Operation>& df) {
-            return Operation::exec(i_data, df.params);
-        }
-
-        template <typename Operation>
-        FK_HOST_DEVICE_FUSE auto operate(const typename Operation::InputType& i_data,
-                                               const Unary<Operation>& df) {
-            return Operation::exec(i_data);
-        }
-
-        template <typename I, typename Tuple>
-        FK_HOST_DEVICE_FUSE OutputType apply_operate(const I& i_data,
-                                                     const Tuple& deviceFunctionInstances) {
-            if constexpr (thrust::tuple_size<Tuple>::value == 1) {
-                return ComposedOperation<DeviceFunctionTypes...>::operate(i_data, thrust::get<0>(deviceFunctionInstances));
-            } else {
-                const auto [firstDF, restOfDF] = deviceFunctionInstances;
-                const auto result = ComposedOperation<DeviceFunctionTypes...>::operate(i_data, firstDF);
-                return ComposedOperation<DeviceFunctionTypes...>::apply_operate(result, restOfDF);
+        private:
+            template <typename DeviceFunction>
+            FK_HOST_DEVICE_FUSE auto operate(const typename DeviceFunction::Operation::InputType& i_data,
+                                             const DeviceFunction& deviceFunction) {
+                if constexpr (DeviceFunction::template is<ReadType> || DeviceFunction::template is<BinaryType>) {
+                    return DeviceFunction::Operation::exec(i_data, deviceFunction.params);
+                } else if constexpr (DeviceFunction::template is<UnaryType>) {
+                    return DeviceFunction::Operation::exec(i_data);
+                } else if constexpr (DeviceFunction::template is<MidWriteType>) {
+                    DeviceFunction::Operation::exec(i_data);
+                    return i_data;
+                }
             }
-        }
 
-    public:
-        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input,
-                                            const thrust::tuple<DeviceFunctionTypes...>& params) {
-            return ComposedOperation<DeviceFunctionTypes...>::apply_operate(input, params);
-        }
+            template <typename I, typename Tuple>
+            FK_HOST_DEVICE_FUSE OutputType apply_operate(const I& i_data,
+                                                         const Tuple& deviceFunctionInstances) {
+                if constexpr (thrust::tuple_size<Tuple>::value == 1) {
+                    return operate(i_data, thrust::get<0>(deviceFunctionInstances));
+                } else {
+                    const auto [firstDF, restOfDF] = deviceFunctionInstances;
+                    const auto result = operate(i_data, firstDF);
+                    return apply_operate(result, restOfDF);
+                }
+            }
+
+        public:
+            FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input,
+                                                const thrust::tuple<DeviceFunctionTypes...>& params) {
+                return apply_operate(input, params);
+            }
     };
 } // namespace FusedKernel

@@ -23,15 +23,14 @@ namespace fk { // namespace FusedKernel
         private:
             template <typename DeviceFunction, typename... DeviceFunctionTypes>
             FK_DEVICE_FUSE auto operate(const Point& thread, const typename DeviceFunction::Operation::InputType& i_data, const DeviceFunction& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
-                using DeviceFunctionType = typename DeviceFunction::InstanceType;
-                if constexpr (std::is_same_v<DeviceFunctionType, BinaryType>) {
-                    return TransformGridPattern::operate(thread, DeviceFunction::Operation::exec(i_data, df.params), deviceFunctionInstances...);
-                } else if constexpr (std::is_same_v<DeviceFunctionType, UnaryType>) {
-                    return TransformGridPattern::operate(thread, DeviceFunction::Operation::exec(i_data), deviceFunctionInstances...);
-                } else if constexpr (std::is_same_v<DeviceFunctionType, MidWriteType>) {
+                if constexpr (DeviceFunction::template is<BinaryType>) {
+                    return operate(thread, DeviceFunction::Operation::exec(i_data, df.params), deviceFunctionInstances...);
+                } else if constexpr (DeviceFunction::template is<UnaryType>) {
+                    return operate(thread, DeviceFunction::Operation::exec(i_data), deviceFunctionInstances...);
+                } else if constexpr (DeviceFunction::template is<MidWriteType>) {
                     DeviceFunction::Operation::exec(thread, i_data, df.params);
-                    return TransformGridPattern::operate(thread, i_data, deviceFunctionInstances...);
-                } else if constexpr (std::is_same_v<DeviceFunctionType, WriteType>) {
+                    return operate(thread, i_data, deviceFunctionInstances...);
+                } else if constexpr (DeviceFunction::template is<WriteType>) {
                     return i_data;
                 }
             }
@@ -52,7 +51,7 @@ namespace fk { // namespace FusedKernel
                 if (x < readDeviceFunction.activeThreads.x && y < readDeviceFunction.activeThreads.y) {
                     const auto tempI = ReadOperation::exec(thread, readDeviceFunction.params);
                     if constexpr (sizeof...(deviceFunctionInstances) > 1) {
-                        const auto tempO = TransformGridPattern::operate(thread, tempI, deviceFunctionInstances...);
+                        const auto tempO = operate(thread, tempI, deviceFunctionInstances...);
                         WriteOperation::exec(thread, tempO, writeDeviceFunction.params);
                     } else {
                         WriteOperation::exec(thread, tempI, writeDeviceFunction.params);
