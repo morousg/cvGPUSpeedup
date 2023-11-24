@@ -23,7 +23,8 @@ namespace fk {
 enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
 
 template <typename PixelReadOp, InterpolationType IType>
-inline const auto resize(const typename PixelReadOp::ParamsType& input, const Size& srcSize, const Size& dstSize) {
+inline const auto resize(const typename PixelReadOp::ParamsType& input,
+                         const Size& srcSize, const Size& dstSize) {
     const double cfx = static_cast<double>(dstSize.width) / srcSize.width;
     const double cfy = static_cast<double>(dstSize.height) / srcSize.height;
     return Read<ResizeRead<PixelReadOp, IType>>
@@ -51,10 +52,10 @@ inline const auto resize(const RawPtr<_2D, I>& input, const Size& dSize, const d
     }
 }
 
-template <typename PixelReadOp, InterpolationType IType, int NPtr, AspectRatio AR>
+template <typename PixelReadOp, typename O, InterpolationType IType, int NPtr, AspectRatio AR>
 inline const auto resize(const std::array<typename PixelReadOp::ParamsType, NPtr>& input,
                          const Size& dsize, const int& usedPlanes,
-                         const typename ResizeRead<PixelReadOp, IType>::OutputType& backgroundValue = fk::make_set<typename ResizeRead<PixelReadOp, IType>::OutputType>(0)) {
+                         const O& backgroundValue = fk::make_set<O>(0)) {
     using ResizeArrayIgnoreType = Read<BatchRead<ResizeRead<PixelReadOp, IType>, NPtr>>;
     using ResizeArrayPreserveType = Read<BatchRead<ApplyROI<ResizeRead<PixelReadOp, IType>, OFFSET_THREADS>, NPtr>>;
     using ResizeArrayPreserveRoundEvenType = Read<BatchRead<ApplyROI<ResizeRead<PixelReadOp, IType>, OFFSET_THREADS>, NPtr>>;

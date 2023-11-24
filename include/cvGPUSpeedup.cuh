@@ -210,7 +210,7 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const 
     const std::array<fk::RawPtr<fk::_2D, CUDA_T(T)>, NPtr> fk_input{ gpuMat2RawPtr2D_arr<CUDA_T(T), NPtr>(input) };
     const fk::Size dSize{ dsize.width, dsize.height };
     constexpr int defaultType = CV_MAKETYPE(CV_32F, CV_MAT_CN(T));
-    return fk::resize<fk::ReadRawPtr<fk::_2D, CUDA_T(T)>, (fk::InterpolationType)INTER_F, NPtr, (fk::AspectRatio)AR>(fk_input, dSize, usedPlanes, cvScalar2CUDAV<defaultType>::get(backgroundValue));
+    return fk::resize<fk::ReadRawPtr<fk::_2D, CUDA_T(T)>, CUDA_T(defaultType), (fk::InterpolationType)INTER_F, NPtr, (fk::AspectRatio)AR>(fk_input, dSize, usedPlanes, cvScalar2CUDAV<defaultType>::get(backgroundValue));
 }
 
 template <int O>
