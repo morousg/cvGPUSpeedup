@@ -13,8 +13,8 @@
    limitations under the License. */
 
 #pragma once
-#include "ptr_nd.cuh"
-#include "vlimits.cuh"
+#include <fused_kernel/data/ptr_nd.cuh>
+#include <fused_kernel/utils/vlimits.cuh>
 
 #include <climits>
 
@@ -178,28 +178,50 @@ struct Shift_ {
 template <typename Operation, typename I, typename P = I, typename O = I>
 struct BinaryV {
     BINARY_DECL_EXEC(O, I, P) {
-        static_assert(cn<I> == cn<O> && cn<I> == cn<P>, "Binary struct requires same number of channels for all types.");
-        constexpr bool allAgregOrNotAgregate = std::is_aggregate_v<I> == std::is_aggregate_v<O> && std::is_aggregate_v<I> == std::is_aggregate_v<P>;
-        static_assert(allAgregOrNotAgregate, "Binary struct requires all types to be agregate or all not agregate.");
+        static_assert(cn<I> == cn<O>, "Binary struct requires same number of channels for input and output types.");
+        constexpr bool allCUDAOrNotCUDA = (validCUDAVec<I> && validCUDAVec<O>) || !(validCUDAVec<I> || validCUDAVec<O>);
+        static_assert(allCUDAOrNotCUDA, "Binary struct requires input and output types to be either both valild CUDA vectors or none.");
 
         if constexpr (cn<I> == 1) {
-            if constexpr (std::is_aggregate_v<I>) {
+            if constexpr (validCUDAVec<I> && validCUDAVec<P>) {
                 return { Operation::exec(input.x, params.x) };
+            } else if constexpr (validCUDAVec<I>) {
+                return { Operation::exec(input.x, params) };
             } else {
                 return Operation::exec(input, params);
             }
         } else if constexpr (cn<I> == 2) {
-            return { Operation::exec(input.x, params.x),
-                     Operation::exec(input.y, params.y) };
+            if constexpr (validCUDAVec<P>) {
+                return { Operation::exec(input.x, params.x),
+                         Operation::exec(input.y, params.y) };
+            } else {
+                return { Operation::exec(input.x, params),
+                         Operation::exec(input.y, params) };
+            }
+            
         } else if constexpr (cn<I> == 3) {
-            return { Operation::exec(input.x, params.x),
-                     Operation::exec(input.y, params.y),
-                     Operation::exec(input.z, params.z) };
+            if constexpr (validCUDAVec<P>) {
+                return { Operation::exec(input.x, params.x),
+                         Operation::exec(input.y, params.y),
+                         Operation::exec(input.z, params.z) };
+            } else {
+                return { Operation::exec(input.x, params),
+                         Operation::exec(input.y, params),
+                         Operation::exec(input.z, params) };
+            }
+            
         } else {
-            return { Operation::exec(input.x, params.x),
-                     Operation::exec(input.y, params.y),
-                     Operation::exec(input.z, params.z),
-                     Operation::exec(input.w, params.w) };
+            if constexpr (validCUDAVec<P>) {
+                return { Operation::exec(input.x, params.x),
+                         Operation::exec(input.y, params.y),
+                         Operation::exec(input.z, params.z),
+                         Operation::exec(input.w, params.w) };
+            } else {
+                return { Operation::exec(input.x, params),
+                         Operation::exec(input.y, params),
+                         Operation::exec(input.z, params),
+                         Operation::exec(input.w, params) };
+            }
         }
     }
 };
@@ -216,14 +238,43 @@ template <typename I, typename P = I, typename O = I>
 using Max = BinaryV<Max_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
 template <typename I, typename P = I, typename O = I>
 using Min = BinaryV<Min_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
-template <typename T, ShiftDirection SD>
-using Shift = BinaryV<Shift_<VBase<T>, SD>, T, VectorType_t<uint, cn<T>>>;
-template <typename T>
-using ShiftLeft = Shift<T, ShiftDirection::Left>;
-template <typename T>
-using ShiftRight = Shift<T, ShiftDirection::Right>;
+template <typename T, typename P, ShiftDirection SD>
+using Shift = BinaryV<Shift_<VBase<T>, SD>, T, P>;
+template <typename T, typename P = uint>
+using ShiftLeft = Shift<T, P, ShiftDirection::Left>;
+template <typename T, typename P = uint>
+using ShiftRight = Shift<T, P, ShiftDirection::Right>;
+
+template <typename T, typename Operation>
+struct CUDAVecReduce {
+    UNARY_DECL_EXEC(T, VBase<T>) {
+        if constexpr (cn<T> == 2) {
+            return Operation::exec(input.x, input.y);
+        } else if constexpr (cn<T> == 3) {
+            return Operation::exec(Operation::exec(input.x, input.y), input.z);
+        } else if constexpr (cn<T> == 4) {
+            return Operation::exec(Operation::exec(Operation::exec(input.x, input.y), input.z), input.w);
+        }
+    }
+};
 
 #undef UNARY_DECL_EXEC
+
+struct M3x3Float {
+    const float3 x;
+    const float3 y;
+    const float3 z;
+};
+
+struct MxVFloat3 {
+    BINARY_DECL_EXEC(float3, float3, M3x3Float) {
+        const float3 xOut = input * params.x;
+        const float3 yOut = input * params.y;
+        const float3 zOut = input * params.z;
+        using Reduce = CUDAVecReduce<float3, Sum<float>>;
+        return { Reduce::exec(xOut), Reduce::exec(yOut), Reduce::exec(zOut) };
+    }
+};
 
 template <typename I, typename O>
 struct AddLast {
@@ -273,21 +324,54 @@ public:
     } 
 };
 
+template <ND DIMS, typename T>
+struct ReadRawPtr {
+    using OutputType = T;
+    using InputType = Point;
+    using ParamsType = RawPtr<DIMS, T>;
+    using InstanceType = BinaryType;
+    FK_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
+        return *PtrAccessor<DIMS>::cr_point(input, params);
+    }
+};
+template <typename T>
+struct Slice2x2 {
+    T _0x0;
+    T _1x0;
+    T _0x1;
+    T _1x1;
+};
+
+template <typename ReadOperation>
+struct Read2x2 {
+    using ReadOutputType = typename ReadOperation::OutputType;
+    using OutputType = Slice2x2<ReadOutputType>;
+    using InputType = Slice2x2<Point>;
+    using ParamsType = typename ReadOperation::ParamsType;
+    using InstanceType = BinaryType;
+    static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        const ReadOutputType src_reg0x0 = ReadOperation::exec(input._0x0, params);
+        const ReadOutputType src_reg1x0 = ReadOperation::exec(input._1x0, params);
+        const ReadOutputType src_reg0x1 = ReadOperation::exec(input._0x1, params);
+        const ReadOutputType src_reg1x1 = ReadOperation::exec(input._1x1, params);
+        return { src_reg0x0, src_reg1x0, src_reg0x1, src_reg1x1 };
+    }
+};
+
 enum InterpolationType {
     // bilinear interpolation
     INTER_LINEAR = 1,
-    NONE = 17,
-    INTER_LINEAR_CHANGE_NEIGHBOORS = -1
+    NONE = 17
 };
 
-template <typename I, InterpolationType INTER_T>
+template <typename PixelReadOp, InterpolationType INTER_T>
 struct Interpolate;
 
-template <typename I>
-struct Interpolate<I, InterpolationType::INTER_LINEAR> {
-    using OutputType = VectorType_t<float, cn<I>>;
+template <typename PixelReadOp>
+struct Interpolate<PixelReadOp, InterpolationType::INTER_LINEAR> {
+    using OutputType = VectorType_t<float, cn<typename PixelReadOp::OutputType>>;
     using InputType = float2;
-    using ParamsType = RawPtr<_2D, I>;
+    using ParamsType = typename PixelReadOp::ParamsType;
     using InstanceType = BinaryType;
     static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
         const float src_x = input.x;
@@ -297,56 +381,37 @@ struct Interpolate<I, InterpolationType::INTER_LINEAR> {
         const int y1 = __float2int_rd(src_y);
         const int x2 = x1 + 1;
         const int y2 = y1 + 1;
-        const int x2_read = Min<int>::exec(x2, params.dims.width - 1);
-        const int y2_read = Min<int>::exec(y2, params.dims.height - 1);
 
-        
-        const I src_reg0x0 = *PtrAccessor<_2D>::cr_point(Point(x1, y1), params);
-        const I src_reg1x0 = *PtrAccessor<_2D>::cr_point(Point(x2_read, y1), params);
-        const I src_reg0x1 = *PtrAccessor<_2D>::cr_point(Point(x1, y2_read), params);
-        const I src_reg1x1 = *PtrAccessor<_2D>::cr_point(Point(x2_read, y2_read), params);
+        const int x2_read = Min<int>::exec(x2, getSourceWidth(params) - 1);
+        const int y2_read = Min<int>::exec(y2, getSourceHeight(params) - 1);
 
-        const OutputType out = (src_reg0x0 * ((x2 - src_x) * (y2 - src_y))) +
-                               (src_reg1x0 * ((src_x - x1) * (y2 - src_y))) +
-                               (src_reg0x1 * ((x2 - src_x) * (src_y - y1))) +
-                               (src_reg1x1 * ((src_x - x1) * (src_y - y1)));
+        const Slice2x2<Point> readPoints{ Point(x1, y1),
+                                          Point(x2_read, y1),
+                                          Point(x1, y2_read),
+                                          Point(x2_read, y2_read) };
+ 
+        const auto pixels = Read2x2<PixelReadOp>::exec(readPoints, params);
+
+        const OutputType out = (pixels._0x0 * ((x2 - src_x) * (y2 - src_y))) +
+                               (pixels._1x0 * ((src_x - x1) * (y2 - src_y))) +
+                               (pixels._0x1 * ((x2 - src_x) * (src_y - y1))) +
+                               (pixels._1x1 * ((src_x - x1) * (src_y - y1)));
         return out;
     }
-};
-
-template <typename I>
-struct Interpolate<I, InterpolationType::INTER_LINEAR_CHANGE_NEIGHBOORS> {
-    using OutputType = VectorType_t<float, cn<I>>;
-    using InputType = float2;
-    using ParamsType = RawPtr<_2D, I>;
-    using InstanceType = BinaryType;
-    static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
-        const float src_x = input.x;
-        const float src_y = input.y;
-
-        const int x1Tmp = __float2int_rd(src_x);
-        const int y1Tmp = __float2int_rd(src_y);
-
-        const bool x1Changed = src_x - x1Tmp < 0.5f;
-        const bool y1Changed = src_y - y1Tmp < 0.5f;
-
-        const int x1 = x1Changed ? Max<int>::exec(x1Tmp - 1, 0) : x1Tmp;
-        const int y1 = y1Changed ? Max<int>::exec(y1Tmp - 1, 0) : y1Tmp;
-        const int x2 = x1 + 1;
-        const int y2 = y1 + 1;
-        const int x2_read = Min<int>::exec(x2, params.dims.width - 1);
-        const int y2_read = Min<int>::exec(y2, params.dims.height - 1);
-
-        const I src_reg0x0 = *PtrAccessor<_2D>::cr_point(Point(x1, y1), params);
-        const I src_reg1x0 = *PtrAccessor<_2D>::cr_point(Point(x2_read, y1), params);
-        const I src_reg0x1 = *PtrAccessor<_2D>::cr_point(Point(x1, y2_read), params);
-        const I src_reg1x1 = *PtrAccessor<_2D>::cr_point(Point(x2_read, y2_read), params);
-
-        const OutputType out = (src_reg0x0 * ((x2 - src_x) * (y2 - src_y))) +
-                               (src_reg1x0 * ((src_x - x1) * (y2 - src_y))) +
-                               (src_reg0x1 * ((x2 - src_x) * (src_y - y1))) +
-                               (src_reg1x1 * ((src_x - x1) * (src_y - y1)));
-        return out;
+private:
+    static constexpr __device__ __forceinline__ uint getSourceWidth(const ParamsType& params) {
+        if constexpr (is_thrust_tuple_v<ParamsType>) {
+            return thrust::get<0>(params).params.dims.width;
+        } else {
+            return params.dims.width;
+        }
+    }
+    static constexpr __device__ __forceinline__ uint getSourceHeight(const ParamsType& params) {
+        if constexpr (is_thrust_tuple_v<ParamsType>) {
+            return thrust::get<0>(params).params.dims.height;
+        } else {
+            return params.dims.height;
+        }
     }
 };
 
@@ -355,16 +420,19 @@ template <ColorSpace CS>
 struct CS_t { ColorSpace value{ CS }; };
 
 enum ColorRange { Limited, Full };
-enum ColorPrimitives { bt601, bt709 };
+enum ColorPrimitives { bt601, bt709, bt2020 };
 
 enum ColorDepth { p8bit, p10bit, p12bit };
 template <ColorDepth CD>
 struct CD_t { ColorDepth value{ CD }; };
 using ColorDepthTypes = TypeList<CD_t<p8bit>, CD_t<p10bit>, CD_t<p12bit>>;
-using ColorDepthChannelTypes = TypeList<uchar, ushort, ushort>;
+using ColorDepthPixelBaseTypes = TypeList<uchar, ushort, ushort>;
 using ColorDepthPixelTypes = TypeList<uchar3, ushort3, ushort3>;
 template <ColorDepth CD>
-using ColorDepthBase = EquivalentType_t<CD_t<CD>, ColorDepthTypes, ColorDepthChannelTypes>;
+using ColorDepthPixelBaseType = EquivalentType_t<CD_t<CD>, ColorDepthTypes, ColorDepthPixelBaseTypes>;
+template <ColorDepth CD>
+using ColorDepthPixelType = EquivalentType_t<CD_t<CD>, ColorDepthTypes, ColorDepthPixelTypes>;
+
 
 enum PixelFormat { NV12, NV21, YV12, P010, P016, P216, P210, Y216, Y210, Y416 };
 template <PixelFormat PF>
@@ -377,16 +445,12 @@ template <> struct PixelFormatTraits<P210> { enum { space = YUV422, depth = p10b
 template <> struct PixelFormatTraits<Y210> { enum { space = YUV422, depth = p10bit, cn = 3 }; };
 template <> struct PixelFormatTraits<Y416> { enum { space = YUV444, depth = p12bit, cn = 4 }; };
 
-template <ColorDepth CD>
-using YUVChannelType = EquivalentType_t<CD_t<CD>, ColorDepthTypes, ColorDepthChannelTypes>;
-template <ColorDepth CD>
-using YUVInputPixelType = EquivalentType_t<CD_t<CD>, ColorDepthTypes, ColorDepthPixelTypes>;
 template <PixelFormat PF, bool ALPHA>
-using YUVOutputPixelType = VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, ALPHA ? 4 : PixelFormatTraits<PF>::cn>;
+using YUVOutputPixelType = VectorType_t<ColorDepthPixelBaseType<(ColorDepth)PixelFormatTraits<PF>::depth>, ALPHA ? 4 : PixelFormatTraits<PF>::cn>;
 
 struct SubCoefficients {
-    float luma;
-    float chroma;
+    const float luma;
+    const float chroma;
 };
 
 template <ColorDepth CD>
@@ -396,23 +460,50 @@ template <> constexpr SubCoefficients subCoefficients<p10bit>{ 64.f, 512.f };
 template <> constexpr SubCoefficients subCoefficients<p12bit>{ 64.f, 2048.f };
 
 template <ColorDepth CD>
-struct MaxDepthValue {};
-template <> struct MaxDepthValue<p8bit> { enum { value = 255u }; };
-template <> struct MaxDepthValue<p10bit> { enum { value = 1023u }; };
-template <> struct MaxDepthValue<p12bit> { enum { value = 4095u }; };
+constexpr ColorDepthPixelBaseType<CD> maxDepthValue{};
+template <> constexpr ColorDepthPixelBaseType<p8bit>  maxDepthValue<p8bit> { 255u };
+template <> constexpr ColorDepthPixelBaseType<p10bit> maxDepthValue<p10bit> { 1023u };
+template <> constexpr ColorDepthPixelBaseType<p12bit> maxDepthValue<p12bit> { 4095u };
 
-struct MulCoefficients {
-    float R1; float R2;
-    float G1; float G2; float G3;
-    float B1; float B2;
-};
+enum ColorConversionDir { YCbCr2RGB, RGB2YCbCr };
 
-template <ColorRange CR, ColorPrimitives CP>
-constexpr MulCoefficients mulCoefficients{};
-template <> constexpr MulCoefficients mulCoefficients<Full,    bt601>{ 1.164f,  1.596f, 1.164f,  0.813f,  0.391f, 1.164f,  2.018f };
-template <> constexpr MulCoefficients mulCoefficients<Limited, bt601>{ 1.164f,  1.596f, 1.164f,  0.813f,  0.391f, 1.164f,  2.018f };
-template <> constexpr MulCoefficients mulCoefficients<Full,    bt709>{ 1.5748f, 0.f,    0.1873f, 0.4681f, 0.f,    1.8556f, 0.f    };
-template <> constexpr MulCoefficients mulCoefficients<Limited, bt709>{ 1.4746f, 0.f,    0.1646f, 0.5713f, 0.f,    1.8814f, 0.f    };
+template <ColorRange CR, ColorPrimitives CP, ColorConversionDir CCD>
+constexpr M3x3Float ccMatrix{};
+// Source: https://en.wikipedia.org/wiki/YCbCr
+template <> constexpr M3x3Float ccMatrix<Full, bt601, YCbCr2RGB>{
+    {  1.164383562f,  0.f,                1.596026786f      },
+    {  1.164383562f, -0.39176229f,       -0.812967647f      },
+    {  1.164383562f,  2.017232143f,       0.f               }};
+
+// Source: https://en.wikipedia.org/wiki/YCbCr
+template <> constexpr M3x3Float ccMatrix<Full, bt709, YCbCr2RGB>{
+    {  1.f,           0.f,                1.5748f           },
+    {  1.f,          -0.1873f,           -0.4681f           },
+    {  1.f,           1.8556f,            0.f               }};
+
+// To be verified
+template <> constexpr M3x3Float ccMatrix<Limited, bt709, YCbCr2RGB>{
+    {  1.f,           0.f,                1.4746f           },
+    {  1.f,          -0.1646f,           -0.5713f           },
+    {  1.f,           1.8814f,            0.f               }};
+
+// Source: https://en.wikipedia.org/wiki/YCbCr
+template <> constexpr M3x3Float ccMatrix<Full, bt709, RGB2YCbCr>{
+    {  0.2126f,       0.7152f,            0.0722f           },
+    { -0.1146f,      -0.3854f,            0.5f              },
+    {  0.5f,         -0.4542f,           -0.0458f           }};
+
+// Source: https://en.wikipedia.org/wiki/YCbCr
+template <> constexpr M3x3Float ccMatrix<Full, bt2020, YCbCr2RGB>{
+    {  1.f,           0.f,                1.4746f           },
+    {  1.f,          -0.16455312684366f, -0.57135312684366f },
+    {  1.f,           1.8814f,            0.f               }};
+
+// Computed from ccMatrix<Full, bt2020, YCbCr2RGB>
+template <> constexpr M3x3Float ccMatrix<Full, bt2020, RGB2YCbCr>{
+    { -0.73792134831461f,  1.90449438202248f, -0.16657303370787f },
+    {  0.39221927730127f, -1.01227510472121f,  0.62005582741994f },
+    {  1.17857137414527f, -1.29153287808387f,  0.11296150393861f }};
 
 template <typename T, ColorDepth CD>
 struct SaturateDepth {
@@ -426,12 +517,8 @@ private:
         if constexpr (CD == p8bit) {
             return Max<Base>::exec(0.f, Min<Base>::exec(input, 255.f));
         } else if constexpr (CD == p10bit) {
-            // TODO: check if this is correct, because if values are shifted to the most significant
-            // bits, then, we have to consider the maximum value for ushort/uint16_t
             return Max<Base>::exec(0.f, Min<Base>::exec(input, 1023.f));
         } else if constexpr (CD == p12bit) {
-            // TODO: check if this is correct, because if values are shifted to the most significant
-            // bits, then, we have to consider the maximum value for ushort/uint16_t
             return Max<Base>::exec(0.f, Min<Base>::exec(input, 4095.f));
         }
     }
@@ -449,95 +536,97 @@ public:
     }
 };
 
-template <ColorDepth CD> struct AlphaValue { YUVChannelType<CD> value; };
-template <ColorDepth CD> constexpr AlphaValue<CD> alphaValue{};
-template <> constexpr AlphaValue<p8bit> alphaValue<p8bit>{ 255u };
-template <> constexpr AlphaValue<p10bit> alphaValue<p10bit>{ 1023u };
-template <> constexpr AlphaValue<p12bit> alphaValue<p12bit>{ 4095u };
+template <ColorDepth CD> constexpr ColorDepthPixelBaseType<CD> shiftFactor{};
+template <> constexpr ColorDepthPixelBaseType<p8bit>  shiftFactor<p8bit>{ 0u };
+template <> constexpr ColorDepthPixelBaseType<p10bit> shiftFactor<p10bit>{ 6u };
+template <> constexpr ColorDepthPixelBaseType<p12bit> shiftFactor<p12bit>{ 4u };
 
-template <ColorDepth CD> constexpr YUVChannelType<CD> shiftFactor{};
-template <> constexpr YUVChannelType<p8bit> shiftFactor<p8bit>{ 0u };
-template <> constexpr YUVChannelType<p10bit> shiftFactor<p10bit>{ 6u };
-template <> constexpr YUVChannelType<p12bit> shiftFactor<p12bit>{ 4u };
+template <ColorDepth CD>
+constexpr float floatShiftFactor{};
+template <> constexpr float floatShiftFactor<p8bit>{ 1.f };
+template <> constexpr float floatShiftFactor<p10bit>{ 64.f };
+template <> constexpr float floatShiftFactor<p12bit>{ 16.f };
 
-template <PixelFormat PF, ColorRange CR, ColorPrimitives CP, bool ALPHA>
+template <typename T, ColorDepth CD>
+struct NormalizeDepth {
+    using InputType = T;
+    using OutputType = T;
+    using InstanceType = UnaryType;
+    using Base = typename VectorTraits<T>::base;
+    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        static_assert(std::is_floating_point_v<VBase<T>>, "NormalizeDepth only works for floating point values");
+        return input / static_cast<float>(maxDepthValue<CD>);
+    }
+};
+
+template <typename T, ColorDepth CD>
+struct NormalizeColorRangeDepth {
+    using InputType = T;
+    using OutputType = T;
+    using InstanceType = UnaryType;
+    using Base = typename VectorTraits<T>::base;
+    static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        static_assert(std::is_floating_point_v<VBase<T>>, "NormalizeColorRangeDepth only works for floating point values");
+        return input * floatShiftFactor<CD>;
+    }
+};
+
+template <PixelFormat PF, ColorRange CR, ColorPrimitives CP, bool ALPHA, typename ReturnType = YUVOutputPixelType<PF, ALPHA>>
 struct ConvertYUVToRGB {
     static constexpr ColorDepth CD = (ColorDepth)PixelFormatTraits<PF>::depth;
-    using InputType = YUVInputPixelType<CD>;
-    using OutputType = YUVOutputPixelType<PF, ALPHA>;
+    using InputType = ColorDepthPixelType<CD>;
+    using OutputType = ReturnType;
     using InstanceType = UnaryType;
 
 private:
-    static constexpr ColorSpace CS = (ColorSpace)PixelFormatTraits<PF>::space;
 
-    // Y -> input.x
-    // U -> input.y
-    // V -> input.z
-    static constexpr __device__ __forceinline__ YUVChannelType<CD> computeR(const InputType& input) {
-        if constexpr (CS == YUV420 && CP == bt601) {
-            return mulCoefficients<CR, CP>.R1* (input.x - subCoefficients<CD>.luma) + mulCoefficients<CR, CP>.R2* (input.z - subCoefficients<CD>.chroma);
-        } else if constexpr (CS == YUV420 && CP == bt709) {
-            const float Y = input.x;
-            const float V = input.z;
-            const float RedMult = mulCoefficients<CR, CP>.R1;
-            const float ChromaSub = subCoefficients<CD>.chroma;
-
-            return fk::SaturateDepth<float, CD>::exec(Y + (RedMult * (V - ChromaSub)));
+    // Y     -> input.x
+    // Cb(U) -> input.y
+    // Cr(V) -> input.z
+    static constexpr __device__ __forceinline__ float3 computeRGB(const InputType& pixel) {
+        const M3x3Float coefficients = ccMatrix<CR, CP, YCbCr2RGB>;
+        if constexpr (CP == bt601) {
+            const float YSub = subCoefficients<CD>.luma;
+            const float CSub = subCoefficients<CD>.chroma;
+            return MxVFloat3::exec(make_<float3>(pixel.x - YSub, pixel.y - CSub, pixel.z - CSub), coefficients);
+        } else {
+            return MxVFloat3::exec(make_<float3>(pixel.x, pixel.y, pixel.z), coefficients);
         }
-    }
-    static constexpr __device__ __forceinline__ YUVChannelType<CD> computeG(const InputType& input) {
-        if constexpr (CS == YUV420 && CP == bt601) {
-            return mulCoefficients<CR, CP>.G1* (input.x - subCoefficients<CD>.luma) - mulCoefficients<CR, CP>.G2* (input.y - subCoefficients<CD>.chroma) - mulCoefficients<CR, CP>.G3* (input.z - subCoefficients<CD>.chroma);
-        } else if constexpr (CS == YUV420 && CP == bt709) {
-            const float Y = input.x;
-            const float U = input.y;
-            const float V = input.z;
-            const float GreenMul1 = mulCoefficients<CR, CP>.G1;
-            const float GreenMul2 = mulCoefficients<CR, CP>.G2;
-            const float ChromaSub = subCoefficients<CD>.chroma;
-
-            return fk::SaturateDepth<float, CD>::exec(Y - (GreenMul1 * (U - ChromaSub)) - (GreenMul2 * (V - ChromaSub)));
-        }
-    }
-    static constexpr __device__ __forceinline__ YUVChannelType<CD> computeB(const InputType& input) {
-        if constexpr (CS == YUV420 && CP == bt601) {
-            return mulCoefficients<CR, CP>.B1* (input.x - subCoefficients<CD>.luma) + mulCoefficients<CR, CP>.B2* (input.y - subCoefficients<CD>.chroma);
-        } else if constexpr (CS == YUV420 && CP == bt709) {
-            const float Y = input.x;
-            const float U = input.y;
-            const float BlueMul = mulCoefficients<CR, CP>.B1;
-            const float ChromaSub = subCoefficients<CD>.chroma;
-
-            return fk::SaturateDepth<float, CD>::exec(Y + (BlueMul * (U - ChromaSub)));
-        }
-    }
-    static constexpr __device__ __forceinline__ InputType computeRGB(const InputType& pixel) {
-        return { computeR(pixel), computeG(pixel), computeB(pixel) };
     }
 
     static constexpr __device__ __forceinline__ OutputType computePixel(const InputType& pixel) {
-        const InputType pixelRGB = computeRGB(pixel);
-        if constexpr (ALPHA) {
-            return { pixelRGB.x, pixelRGB.y, pixelRGB.z, alphaValue<CD>.value };
+        const float3 pixelRGBFloat = computeRGB(pixel);
+        if constexpr (std::is_same_v<VBase<OutputType>, float>) {
+            if constexpr (ALPHA) {
+                return { pixelRGBFloat.x, pixelRGBFloat.y, pixelRGBFloat.z, (float)maxDepthValue<CD> };
+            } else {
+                return pixelRGBFloat;
+            }
         } else {
-            return pixelRGB;
+            const InputType pixelRGB = fk::SaturateCast<float3, InputType>::exec(pixelRGBFloat);
+            if constexpr (ALPHA) {
+                return { pixelRGB.x, pixelRGB.y, pixelRGB.z, maxDepthValue<CD> };
+            } else {
+                return pixelRGB;
+            }
         }
+        
     }
 
 public:
     static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-        using InputFactorType = typename ShiftRight<InputType>::ParamsType;
-        const auto iShiftFactor = make_set<InputFactorType>(shiftFactor<CD>);
         // Pixel data shifted to the right to it's color depth numerical range
-        const InputType shiftedPixel = ShiftRight<InputType>::exec(input, iShiftFactor);
+        const InputType shiftedPixel = ShiftRight<InputType>::exec(input, shiftFactor<CD>);
 
-        // Using color depth numerical ranged to comput the RGB pixel
+        // Using color depth numerical range to compute the RGB pixel
         const OutputType computedPixel = computePixel(shiftedPixel);
-
-        using OutputFactorType = typename ShiftLeft<OutputType>::ParamsType;
-        const auto oShiftFactor = make_set<OutputFactorType>(shiftFactor<CD>);
-        // Moving back the pixel channels to data type numerical range, either 8bit or 16bit
-        return ShiftLeft<OutputType>::exec(computedPixel, oShiftFactor);
+        if constexpr (std::is_same_v<VBase<OutputType>, float>) {
+            // Moving back the pixel channels to data type numerical range, either 8bit or 16bit
+            return NormalizeColorRangeDepth<OutputType, CD>::exec(computedPixel);
+        } else {
+            // Moving back the pixel channels to data type numerical range, either 8bit or 16bit
+            return ShiftLeft<OutputType>::exec(computedPixel, shiftFactor<CD>);
+        }
     }
 };
 

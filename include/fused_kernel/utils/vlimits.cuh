@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "cuda_vector_utils.cuh"
+#include <fused_kernel/utils/cuda_vector_utils.cuh>
 #include <limits>
 
 namespace fk{

@@ -14,7 +14,7 @@
 
 #include "testUtils.cuh"
 #include <cv2cuda_types.cuh>
-#include "fused_kernel/vlimits.cuh"
+#include <fused_kernel/utils/vlimits.cuh>
 
 #include <sstream>
 #include <fstream>

@@ -14,8 +14,8 @@
    limitations under the License. */
 
 #pragma once
-#include "cuda_vector_utils.cuh"
-#include "operations.cuh"
+#include <fused_kernel/utils/cuda_vector_utils.cuh>
+#include <fused_kernel/fusionable_operations/operations.cuh>
 #include <cooperative_groups.h>
 
 namespace cg = cooperative_groups;
@@ -216,18 +216,18 @@ struct BatchWrite {
     }
 };
 
-template <typename I>
+template <typename InperpolationOp>
 struct ResizeReadParams {
-    RawPtr<_2D, I> ptr;
+    typename InperpolationOp::ParamsType params;
     float fx;
     float fy;
 };
 
-template <typename I, InterpolationType INTER_T>
+template <typename PixelReadOp, InterpolationType INTER_T>
 struct ResizeRead {
-    using OutputType = typename VectorType<float, cn<I>>::type;
-    using ParamsType = ResizeReadParams<I>;
-    using InterpolationOp = Interpolate<I, INTER_T>;
+    using InterpolationOp = Interpolate<PixelReadOp, INTER_T>;
+    using OutputType = typename InterpolationOp::OutputType;
+    using ParamsType = ResizeReadParams<InterpolationOp>;
     using InstanceType = ReadType;
     static __device__ __forceinline__ const OutputType exec(const Point& thread, const ParamsType& params) {
         // This is what makes the interpolation a resize operation
@@ -235,28 +235,31 @@ struct ResizeRead {
         const float src_y = thread.y * params.fy;
 
         static_assert(std::is_same_v<typename InterpolationOp::InputType, float2>, "Wrong InputType for interpolation operation.");
-        return InterpolationOp::exec(make_<float2>(src_x, src_y), params.ptr);
+        return InterpolationOp::exec(make_<float2>(src_x, src_y), params.params);
     }
 };
 
 template <PixelFormat PF>
 struct ReadYUV {
-    using OutputType = VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, PixelFormatTraits<PF>::cn>;
-    using ParamsType = RawPtr<_2D, YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>>;
+    using InputType = Point;
+    using OutputType = ColorDepthPixelType<(ColorDepth)PixelFormatTraits<PF>::depth>;
+    using PixelBaseType = ColorDepthPixelBaseType<(ColorDepth)PixelFormatTraits<PF>::depth>;
+    using ParamsType = RawPtr<_2D, PixelBaseType>;
     using InstanceType = ReadType;
-    static __device__ __forceinline__ const OutputType exec(const Point& thread, const ParamsType& params) {
+    static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
         if constexpr (PF == NV12 || PF == P010 || PF == P016 || PF == P210 || PF == P216) {
             // Planar luma
-            const YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth> Y = *PtrAccessor<_2D>::cr_point(thread, params);
+            const PixelBaseType Y = *PtrAccessor<_2D>::cr_point(thread, params);
 
             // Packed chroma
             const PtrDims<_2D> dims = params.dims;
-            const RawPtr<_2D, VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, 2>> chromaPlane{
-                (VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, 2>*)((uchar*)params.data + dims.pitch * dims.height),
+            using VectorType2 = VectorType_t<PixelBaseType, 2>;
+            const RawPtr<_2D, VectorType2> chromaPlane{
+                (VectorType2*)((uchar*)params.data + dims.pitch * dims.height),
                 { dims.width >> 1, dims.height >> 1, dims.pitch }
             };
             const ColorSpace CS = (ColorSpace)PixelFormatTraits<PF>::space;
-            const VectorType_t<YUVChannelType<(ColorDepth)PixelFormatTraits<PF>::depth>, 2> UV =
+            const VectorType2 UV =
                 *PtrAccessor<_2D>::cr_point({thread.x >> 1, CS == YUV420 ? thread.y >> 1 : thread.y, thread.z}, chromaPlane);
 
             return { Y, UV.x, UV.y };

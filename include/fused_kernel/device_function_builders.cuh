@@ -15,36 +15,50 @@
 #pragma once
 
 #include <external/carotene/saturate_cast.hpp>
-#include "device_functions.cuh"
-#include "memory_operations.cuh"
+#include <fused_kernel/execution_model/device_functions.cuh>
+#include <fused_kernel/fusionable_operations/memory_operations.cuh>
 
 namespace fk {
 
 enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
 
-template <typename T, InterpolationType IType>
-inline const auto resize(const RawPtr<_2D, T>& input, const Size& dSize, const double& fx, const double& fy) {
+template <typename PixelReadOp, InterpolationType IType>
+inline const auto resize(const typename PixelReadOp::ParamsType& input,
+                         const Size& srcSize, const Size& dstSize) {
+    const double cfx = static_cast<double>(dstSize.width) / srcSize.width;
+    const double cfy = static_cast<double>(dstSize.height) / srcSize.height;
+    return Read<ResizeRead<PixelReadOp, IType>>
+    { { {input}, static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
+        { (uint)dstSize.width, (uint)dstSize.height }
+    };
+}
+
+template <typename I, InterpolationType IType>
+inline const auto resize(const RawPtr<_2D, I>& input, const Size& dSize, const double& fx, const double& fy) {
+    const fk::Size sourceSize(input.dims.width, input.dims.height);
     if (dSize.width != 0 && dSize.height != 0) {
         const double cfx = static_cast<double>(dSize.width) / input.dims.width;
         const double cfy = static_cast<double>(dSize.height) / input.dims.height;
-        return Read<ResizeRead<T, IType>>
-        { {input, static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
+        return Read<ResizeRead<ReadRawPtr<_2D, I>, IType>>
+        { {{input}, static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
           { (uint)dSize.width, (uint)dSize.height }
         };
     } else {
-        return Read<ResizeRead<T, IType>>
-        {   { input, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy) },
+        return Read<ResizeRead<ReadRawPtr<_2D, I>, IType>>
+        {   { {input}, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy) },
             { CAROTENE_NS::internal::saturate_cast<uint>(input.dims.width * fx),
               CAROTENE_NS::internal::saturate_cast<uint>(input.dims.height * fy) }
         };
     }
 }
 
-template <typename T, InterpolationType IType, int NPtr, AspectRatio AR>
-inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& dsize, const int& usedPlanes, const typename ResizeRead<T, IType>::OutputType& backgroundValue = fk::make_set<typename ResizeRead<T, IType>::OutputType>(0)) {
-    using ResizeArrayIgnoreType = Read<BatchRead<ResizeRead<T, IType>, NPtr>>;
-    using ResizeArrayPreserveType = Read<BatchRead<ApplyROI<ResizeRead<T, IType>, OFFSET_THREADS>, NPtr>>;
-    using ResizeArrayPreserveRoundEvenType = Read<BatchRead<ApplyROI<ResizeRead<T, IType>, OFFSET_THREADS>, NPtr>>;
+template <typename PixelReadOp, typename O, InterpolationType IType, int NPtr, AspectRatio AR>
+inline const auto resize(const std::array<typename PixelReadOp::ParamsType, NPtr>& input,
+                         const Size& dsize, const int& usedPlanes,
+                         const O& backgroundValue = fk::make_set<O>(0)) {
+    using ResizeArrayIgnoreType = Read<BatchRead<ResizeRead<PixelReadOp, IType>, NPtr>>;
+    using ResizeArrayPreserveType = Read<BatchRead<ApplyROI<ResizeRead<PixelReadOp, IType>, OFFSET_THREADS>, NPtr>>;
+    using ResizeArrayPreserveRoundEvenType = Read<BatchRead<ApplyROI<ResizeRead<PixelReadOp, IType>, OFFSET_THREADS>, NPtr>>;
     using ResizeArrayType = TypeAt_t<AR, TypeList<ResizeArrayPreserveType, ResizeArrayIgnoreType, ResizeArrayPreserveRoundEvenType>>;
 
     ResizeArrayType resizeArray;
@@ -54,11 +68,11 @@ inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& ds
     resizeArray.activeThreads.z = usedPlanes;
 
     for (int i = 0; i < usedPlanes; i++) {
-        const fk::PtrDims<fk::_2D> dims = input[i].dims();
+        const fk::PtrDims<fk::_2D> dims = input[i].dims;
 
         // targetWidth and targetHeight are the dimensions for the resized image
         int targetWidth, targetHeight;
-        fk::ResizeReadParams<T>* interParams;
+        fk::ResizeReadParams<Interpolate<PixelReadOp, IType>>* interParams;
         if constexpr (AR != IGNORE_AR) {
             float scaleFactor = dsize.height / (float)dims.height;
             targetHeight = dsize.height;
@@ -88,7 +102,7 @@ inline const auto resize(const std::array<Ptr2D<T>, NPtr>& input, const Size& ds
             targetHeight = dsize.height;
             interParams = &resizeArray.params[i];
         }
-        interParams->ptr = input[i];
+        interParams->params = { input[i] };
         interParams->fx = static_cast<float>(1.0 / (static_cast<double>(targetWidth) / (double)dims.width));
         interParams->fy = static_cast<float>(1.0 / (static_cast<double>(targetHeight) / (double)dims.height));
     }

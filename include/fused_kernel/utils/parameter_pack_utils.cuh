@@ -17,6 +17,7 @@
 
 #include <thrust/tuple.h>
 #include <thrust/functional.h>
+#include <fused_kernel/utils/cuda_utils.cuh>
 
 namespace fk { // namespace fused kernel
 
@@ -103,4 +104,12 @@ namespace fk { // namespace fused kernel
         return insert_before_last_tup(t, thrust::tuple<const Args...>{args...});
     }
 
+    template <typename T>
+    struct is_thrust_tuple : std::false_type {};
+
+    template <typename... Args>
+    struct is_thrust_tuple<thrust::tuple<Args...>> : std::true_type {};
+
+    template <typename T>
+    constexpr bool is_thrust_tuple_v = is_thrust_tuple<T>::value;
 } // namespace fused kernel
