@@ -1,13 +1,13 @@
 # cvGPUSpeedup
 
->"Every memory read, is an opportunity for compute."
+>Every memory read, is an opportunity for compute.
 
 With this idea in mind, this library wants to make OpenCV code run faster on the GPU. Especially for typical pre and post processing operations for DL networks.
 
 The current code, implements operations that can preserve the Grid structure across different "kernels" or how we call them "operations". We do not discard to explore more complex grid patterns in the future, as hardware support for thread block communication improves.
 
 This project is early stages and continuosly evolving to provide further performance enhancements. It is a header-based C++/CUDA library, with several goals:
-1. A set of fusionable \_\_device\_\_ functions, built only with nvcc and the cuda runtime libraries, (namespace fk) 
+1. To provide a set of fusionable \_\_device\_\_ functions, built only with nvcc and the cuda runtime libraries, (namespace fk) 
 2. Enabling OpenCV-like code in the GPU, with OpenCV objects, with far more performance in some cases. (namespace cvGS)
 
 The first main focus is on the transform pattern, with an incomplete set of basic arithmetic operations to be performed on cv::cuda::GpuMat objects.
@@ -16,18 +16,12 @@ The first main focus is on the transform pattern, with an incomplete set of basi
 ## Tested hw/sw
 *  Cuda SDK 11.8  
 *  OS Windows 11 22H2 with driver 516.94 
-*  Ubuntu 22.04 (under WSL2 enviroment)
+*  Ubuntu 22.04 (both native and under WSL2 enviroment)   
 *  Compute capabilities 7.5 (Turing), 8.6 (Ampere), 8.9 (ADA Lovelace)
-    
-
-## Not supported or tested
-* Any architecture  without tensor cores (compute capability <7.5, including Pascal, Maxwell and Kepler)
-* Newer architectures like hopper (9.0 H100) and future gpus might work, as long as the cuda SDK provides support them. 
-See also [NVIDIA Developer website](https://developer.nvidia.com/cuda-gpus) to see if your gpu is supported.
-
+*  All systems with x86_64 cpu architecture
 
 ## Using the library
-In order to use it, you need to compile your code, along with cvGPUSpeedup library headers, with nvcc (provided by the coda toolkit) and at least C++17 support. 
+In order to use it, you need to compile your code, along with cvGPUSpeedup library headers, with nvcc (provided by the CUDA toolkit) and at least C++17 support (this is already set by the cake project).
 
 You can use the cmake install target to copy the headers to any desired path. You can also use the cmake exported target.
 
@@ -113,7 +107,7 @@ The cvGPUSpeedup version, will do the same, but with a single CUDA kernel, and e
 # Benchmarks
 
 The library has some unit tests that can be additionally used as benchmarks. When generating benchmark results, they show always positive speedups ranging from 2x to 10000x (in an RTX A2000). The Speedup is going to be greater the more kernels you are fusing, and the smaller those kernels are in terms of both compute operations and grid size. 
-## Basic operations and schedulling
+## Variable size crop, resize and normalize
 
 ![OpenCV timeline](https://github.com/morousg/cvGPUSpeedup/blob/main/images/NSightSystemsTimeline1.png) 
    
@@ -130,6 +124,6 @@ In this other case, we are updating a temporal Tensor of 15 images, with a new i
 As you can see, the resulting performance makes the pre-processing virtually free, when before it was more than 25% of the total time for the inference.
 
 # Final words and contact
-[Grup Mediapro](https://www.mediapro.tv) uses cvGPUSpeedup in the [AutomaticTv](https://www.automatic.tv) multicam live sports production system.  This product depedens on customs Deep Neural Networks. Compared to vanilla OpenCV-CUDA implementation,  we obtained speedups of up to 167x in some cases (see next section). At AutomaticTV we are developing DL networks and will continue to add functionality to cvGPUSPeedup.
+[Grup Mediapro](https://www.mediapro.tv) uses cvGPUSpeedup in the [AutomaticTv](https://www.automatic.tv) multicam live sports production system.  This product depends on customs Deep Neural Networks. Compared to vanilla OpenCV-CUDA implementation,  we obtained speedups of up to 167x in some cases (see next section). At AutomaticTV we are developing DL networks and will continue to add functionality to cvGPUSPeedup.
 
 If you are interested in investing in cvGPUSpeedup development for your own usage, please contact <oamoros@mediapro.tv>

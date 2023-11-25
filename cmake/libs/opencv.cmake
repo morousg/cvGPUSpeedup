@@ -1,5 +1,5 @@
 #note: you must build opencv with cuda support (vanilla builds don't provide cuda modules)
-set (OpenCV_DIR  $ENV{APPDATA}/AutomaticTV/lib/opencv-4.8.0.cuda118.cudnn892.delayedDownload)
+#remember to set OpenCV_DIR enviroment varialbe to find opencv or use pkgconfig
 find_package(OpenCV ${OPENCV_VERSION} REQUIRED)
 
 function(add_opencv_to_target TARGET_NAME COMPONENTS)
