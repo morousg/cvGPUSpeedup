@@ -15,7 +15,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "testsCommon.cuh"
+#include "tests/testsCommon.cuh"
 #include <opencv2/opencv.hpp>
 #include <cvGPUSpeedup.cuh>
 
