@@ -23,7 +23,7 @@ function (discover_tests DIR)
      #   set_virtual_folders("${DIR_NAME}")
         add_cuda_to_target(${cuda_target} "")
         set_target_properties(${cuda_target} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
-        add_opencv_to_target(${cuda_target} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping"  )
+        add_opencv_to_target(${cuda_target} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs"  )
         target_include_directories(${cuda_target} PRIVATE "${CMAKE_SOURCE_DIR}")        
 
          # Hack to get intellisense working for CUDA includes
