@@ -14,7 +14,7 @@
 
 #include <sstream>
 
-#include "testsCommon.cuh"
+#include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 
 template <int I, int O>
