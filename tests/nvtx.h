@@ -1,6 +1,33 @@
 #pragma once
-#ifdef USE_NVTX
+#ifdef ENABLE_NVTX
 #include <nvtx3/nvToolsExt.h>
+
+
+// To calculate a color id
+int inline adler32(const unsigned char* data) {
+    const uint32_t MOD_ADLER = 65521;
+    uint32_t a = 1, b = 0;
+    int colorId;
+    size_t index;
+    for (index = 0; data[index] != 0; ++index) {
+        a = (a + data[index] * 2) % MOD_ADLER;
+        b = (b + a) % MOD_ADLER;
+    }
+    colorId = (b << 16) | a;
+
+    int red, green, blue;
+    red = colorId & 0x000000ff;
+    green = (colorId & 0x000ff000) >> 12;
+    blue = (colorId & 0x0ff00000) >> 20;
+    if (red < 64 & green < 64 & blue < 64) {
+        red = red * 3;
+        green = green * 3 + 64;
+        blue = blue * 4;
+    }
+
+    return 0xff000000 | (red << 16) | (green << 8) | (blue);
+}
+
 #ifdef WIN32
 // nvtx headers include Windows.h at some point, and Windows.h defines ERROR 0
 // this breaks the compilation of Ceres

@@ -13,9 +13,7 @@
    limitations under the License. */
 
 #include <sstream>
-#ifdef ENABLE_NVTX
-#include "tests/nvtx.h"
-#endif
+
 #include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
