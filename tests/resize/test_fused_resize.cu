@@ -19,7 +19,7 @@
 #include <opencv2/opencv.hpp>
 #include <cvGPUSpeedup.cuh>
 
-#ifdef ENAMBLE_TEST_FUSED_RESIZE
+#ifdef ENABLE_TEST_FUSED_RESIZE
 
 struct PerPlaneSequenceSelector {
     FK_HOST_DEVICE_FUSE uint at(const uint& index) {
