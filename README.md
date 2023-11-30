@@ -124,6 +124,6 @@ In this other case, we are updating a temporal Tensor of 15 images, with a new i
 As you can see, the resulting performance makes the pre-processing virtually free, when before it was more than 25% of the total time for the inference.
 
 # Final words and contact
-[Grup Mediapro](https://www.mediapro.tv) uses cvGPUSpeedup in the [AutomaticTv](https://www.automatic.tv) multicam live sports production system.  This product depends on customs Deep Neural Networks. Compared to vanilla OpenCV-CUDA implementation,  we obtained speedups of up to 167x in some cases (see next section). At AutomaticTV we are developing DL networks and will continue to add functionality to cvGPUSPeedup.
+[Grup Mediapro](https://www.mediapro.tv) uses cvGPUSpeedup in the [AutomaticTV](https://www.automatic.tv) multicam live sports production system.  This product depends on customs Deep Neural Networks. Compared to vanilla OpenCV-CUDA implementation,  we obtained speedups of up to 167x in some cases (see next section). At AutomaticTV we are developing DL networks and will continue to add functionality to cvGPUSPeedup.
 
 If you are interested in investing in cvGPUSpeedup development for your own usage, please contact <oamoros@mediapro.tv>
