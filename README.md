@@ -1,6 +1,6 @@
 # cvGPUSpeedup
 
->Every memory read, is an opportunity for compute.
+Every memory read, is an opportunity for compute.
 
 With this idea in mind, this library wants to make OpenCV code run faster on the GPU. Especially for typical pre and post processing operations for DL networks.
 
