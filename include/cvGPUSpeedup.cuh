@@ -16,6 +16,7 @@
 
 #include <cvGPUSpeedupHelpers.cuh>
 #include <fused_kernel/fused_kernel.cuh>
+#include <fused_kernel/image_processing/color_conversion.cuh>
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>
@@ -71,9 +72,9 @@ inline constexpr auto convertTo(float alpha) {
     using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
     using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
 
-    using FirstOp = fk::Unary<fk::SaturateCast<CUDA_T(I), CUDA_T(O)>>;
-    using SecondOp = fk::Binary<fk::Mul<CUDA_T(O)>>;
-    return fk::Binary<fk::ComposedOperation<FirstOp, SecondOp>>{{{}, { fk::make_set<CUDA_T(O)>(alpha) }}};
+    using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
+    using SecondOp = fk::Mul<CUDA_T(O)>;
+    return fk::Composed<FirstOp, SecondOp>{{{ fk::make_set<CUDA_T(O)>(alpha) }}};
 }
 
 template <int I, int O>
@@ -81,10 +82,10 @@ inline constexpr auto convertTo(float alpha, float beta) {
     using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
     using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
 
-    using FirstOp = fk::Unary<fk::SaturateCast<CUDA_T(I), CUDA_T(O)>>;
-    using SecondOp = fk::Binary<fk::Mul<CUDA_T(O)>>;
-    using ThirdOp = fk::Binary<fk::Sum<CUDA_T(O)>>;
-    return fk::Binary<fk::ComposedOperation<FirstOp, SecondOp, ThirdOp>>{{{}, { fk::make_set<CUDA_T(O)>(alpha) }, { fk::make_set<CUDA_T(O)>(beta) }}};
+    using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
+    using SecondOp = fk::Mul<CUDA_T(O)>;
+    using ThirdOp = fk::Sum<CUDA_T(O)>;
+    return fk::Composed<FirstOp, SecondOp, ThirdOp>{{{fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }}}};
 }
 
 template <int I>
@@ -107,6 +108,15 @@ inline constexpr auto add(const cv::Scalar& src2) {
     return fk::Binary<fk::Sum<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
+template <int I>
+constexpr auto getMaxValue() {
+    if constexpr (CV_MAT_DEPTH(I) == CV_32F) {
+        return 1.f;
+    } else {
+        return fk::maxValue<CUDA_T(CV_MAT_DEPTH(I))>;
+    }
+}
+
 template <cv::ColorConversionCodes CODE, int I, int O = I>
 inline constexpr auto cvtColor() {
     static_assert((CV_MAT_DEPTH(I) == CV_8U || CV_MAT_DEPTH(I) == CV_16U || CV_MAT_DEPTH(I) == CV_32F) &&
@@ -116,53 +126,23 @@ inline constexpr auto cvtColor() {
     using InputType = CUDA_T(I);
     using OutputType = CUDA_T(O);
     using BaseIT = BASE_CUDA_T(I);
-    if constexpr (CODE == cv::COLOR_BGR2BGRA || CODE == cv::COLOR_RGB2RGBA) {
-        static_assert(std::is_same_v<fk::VBase<InputType>, fk::VBase<OutputType>>,"cvtColor does not support different input and otput base types");
-        using DeviceFunctionType = fk::Binary<fk::AddLast<InputType, typename fk::VectorType<BaseIT, fk::cn<InputType> +1>::type>>;
-        if constexpr (CV_MAT_DEPTH(I) == CV_8U) {
-            return DeviceFunctionType{ fk::maxValue<uchar> };
-        } else if constexpr (CV_MAT_DEPTH(I) == CV_16U) {
-            return DeviceFunctionType{ fk::maxValue<ushort> };
-        } else if constexpr (CV_MAT_DEPTH(I) == CV_32F) {
-            return DeviceFunctionType{ 1.f };
+
+    using DeviceFunctionType = fk::ColorConversion<(fk::ColorConversionCodes)CODE, InputType, OutputType>;
+    if constexpr (CODE == cv::COLOR_BGR2BGRA || CODE == cv::COLOR_RGB2RGBA ||
+                  CODE == cv::COLOR_BGR2RGBA || CODE == cv::COLOR_RGB2BGRA) {
+        constexpr auto alpha = getMaxValue<I>();
+        if constexpr (CODE == cv::COLOR_BGR2BGRA || CODE == cv::COLOR_RGB2RGBA) {
+            return DeviceFunctionType{ alpha };
+        } else if constexpr (CODE == cv::COLOR_BGR2RGBA || CODE == cv::COLOR_RGB2BGRA) {
+            return DeviceFunctionType{{{alpha}}};
         }
-    } else if constexpr (CODE == cv::COLOR_BGRA2BGR || CODE == cv::COLOR_RGBA2RGB) {
-        static_assert(std::is_same_v<fk::VBase<InputType>, fk::VBase<OutputType>>, "cvtColor does not support different input and otput base types");
-        return fk::Unary<fk::Discard<InputType, typename fk::VectorType<BaseIT, 3>::type>>{};
-    } else if constexpr (CODE == cv::COLOR_BGR2RGBA || CODE == cv::COLOR_RGB2BGRA) {
-        static_assert(std::is_same_v<fk::VBase<InputType>, fk::VBase<OutputType>>, "cvtColor does not support different input and otput base types");
-        using FirstDeviceFunctionType = fk::Unary<fk::VectorReorder<InputType, 2, 1, 0>>;
-        using SecondDeviceFunctionType = 
-            fk::Binary<fk::AddLast<InputType, typename fk::VectorType<BaseIT, fk::cn<InputType> +1>::type>>;
-        using DeviceFunctionType = 
-            fk::Binary<fk::ComposedOperation<FirstDeviceFunctionType, SecondDeviceFunctionType>>;
-        if constexpr (CV_MAT_DEPTH(I) == CV_8U) {
-            return DeviceFunctionType{ {{}, {fk::maxValue<uchar>}} };
-        } else if constexpr (CV_MAT_DEPTH(I) == CV_16U) {
-            return DeviceFunctionType{ {{}, {fk::maxValue<ushort>}} };
-        } else if constexpr (CV_MAT_DEPTH(I) == CV_32F) {
-            return DeviceFunctionType{ {{}, {1.f}} };
-        }
-    } else if constexpr (CODE == cv::COLOR_BGRA2RGB || CODE == cv::COLOR_RGBA2BGR) {
-        static_assert(std::is_same_v<fk::VBase<InputType>, fk::VBase<OutputType>>, "cvtColor does not support different input and otput base types");
-        using FirstOperation = fk::VectorReorder<InputType, 2, 1, 0, 3>;
-        using SecondOperation = fk::Discard<InputType, typename fk::VectorType<BaseIT, 3>::type>;
-        return fk::Unary<fk::OperationSequence<FirstOperation, SecondOperation>> {};
-    } else if constexpr (CODE == cv::COLOR_BGR2RGB || CODE == cv::COLOR_RGB2BGR) {
-        static_assert(std::is_same_v<InputType, OutputType>, "cvtColor does not support different input and otput types");
-        return fk::Unary<fk::VectorReorder<InputType, 2, 1, 0>> {};
-    } else if constexpr (CODE == cv::COLOR_BGRA2RGBA || CODE == cv::COLOR_RGBA2BGRA) {
-        static_assert(std::is_same_v<InputType, OutputType>, "cvtColor does not support different input and otput types");
-        return fk::Unary<fk::VectorReorder<InputType, 2, 1, 0, 3>> {};
-    } else if constexpr (CODE == cv::COLOR_RGB2GRAY || CODE == cv::COLOR_RGBA2GRAY) {
-        return fk::Unary<fk::RGB2Gray<InputType, OutputType>> {};
-    } else if constexpr (CODE == cv::COLOR_BGR2GRAY) {
-        using FOperation = fk::VectorReorder<InputType, 2, 1, 0>;
-        using SOperation = fk::RGB2Gray<InputType, OutputType>;
-        using MyOperation = fk::OperationSequence<FOperation, SOperation>;
-        return fk::Unary<MyOperation> {};
-    } else if constexpr (CODE == cv::COLOR_BGRA2GRAY) {
-        return fk::Unary<fk::OperationSequence<fk::VectorReorder<InputType, 2, 1, 0, 3>, fk::RGB2Gray<InputType, OutputType>>> {};
+    } else if constexpr (CODE == cv::COLOR_BGRA2BGR  || CODE == cv::COLOR_RGBA2RGB  ||
+                         CODE == cv::COLOR_BGRA2RGB  || CODE == cv::COLOR_RGBA2BGR  ||
+                         CODE == cv::COLOR_BGR2RGB   || CODE == cv::COLOR_RGB2BGR   ||
+                         CODE == cv::COLOR_BGRA2RGBA || CODE == cv::COLOR_RGBA2BGRA ||
+                         CODE == cv::COLOR_RGB2GRAY  || CODE == cv::COLOR_RGBA2GRAY ||
+                         CODE == cv::COLOR_BGR2GRAY  || CODE == cv::COLOR_BGRA2GRAY) {
+        return DeviceFunctionType{};
     }
 }
 

@@ -25,6 +25,7 @@ struct WriteType {};
 struct UnaryType {};
 struct BinaryType {};
 struct MidWriteType {};
+struct ComposedType {};
 
 #define UNARY_DECL_EXEC(I, O) \
 using InputType = I; using OutputType = O; using InstanceType = UnaryType; \
@@ -70,15 +71,18 @@ struct VectorReorder {
 template <typename... OperationTypes>
 struct OperationSequence {
     UNARY_DECL_EXEC(typename FirstType_t<OperationTypes...>::InputType, typename LastType_t<OperationTypes...>::OutputType) {
+        static_assert(std::is_same_v<typename FirstType_t<OperationTypes...>::InstanceType, UnaryType>);
         return OperationSequence<OperationTypes...>::next_exec<OperationTypes...>(input);
     }
 private:
     template <typename Operation>
     FK_HOST_DEVICE_FUSE typename Operation::OutputType next_exec(const typename Operation::InputType& input) {
+        static_assert(std::is_same_v<typename Operation::InstanceType, UnaryType>);
         return Operation::exec(input);
     }
     template <typename Operation, typename... RemainingOperations>
     FK_HOST_DEVICE_FUSE typename LastType_t<RemainingOperations...>::OutputType next_exec(const typename Operation::InputType& input) {
+        static_assert(std::is_same_v<typename Operation::InstanceType, UnaryType>);
         return OperationSequence<OperationTypes...>::next_exec<RemainingOperations...>(Operation::exec(input));
     }
 };
