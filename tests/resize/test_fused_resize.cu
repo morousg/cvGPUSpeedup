@@ -164,7 +164,7 @@ void testComputeWhatYouSee(char* buffer) {
 #endif
 
 int main() {
-
+    int returnValue = 0;
 #ifdef ENAMBLE_TEST_FUSED_RESIZE
     cv::cuda::Stream cv_stream;
 
@@ -184,6 +184,7 @@ int main() {
     } else {
         // Print an error message if the file cannot be opened
         std::cerr << "Error: cannot open file\n";
+        returnValue = -1;
     }
     file.close();
 
@@ -201,8 +202,9 @@ int main() {
     } else {
         // Print an error message if the file cannot be opened
         std::cerr << "Error: cannot open file\n";
+        returnValue = -1;
     }
     file2.close();
 #endif
-    return 0;
+    return returnValue;
 }

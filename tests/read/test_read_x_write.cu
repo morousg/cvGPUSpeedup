@@ -211,10 +211,10 @@ int main() {
     LAUNCH_TESTS(CV_32FC3, CV_64FC3)
     LAUNCH_TESTS(CV_32FC4, CV_64FC4)
 
-    #undef LAUNCH_TESTS
+#undef LAUNCH_TESTS
 
-    #define LAUNCH_TESTS(CV_COLOR_CONVERSION_CODE, CV_TYPE_DEPTH) \
-    results["testCvtColor"] &= testCvtColor<CV_COLOR_CONVERSION_CODE, CV_TYPE_DEPTH>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
+#define LAUNCH_TESTS(CV_COLOR_CONVERSION_CODE, CV_TYPE_DEPTH) \
+results["testCvtColor"] &= testCvtColor<CV_COLOR_CONVERSION_CODE, CV_TYPE_DEPTH>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
     LAUNCH_TESTS(cv::COLOR_BGR2BGRA, CV_8U)
     LAUNCH_TESTS(cv::COLOR_BGR2BGRA, CV_16U)
@@ -235,15 +235,17 @@ int main() {
     LAUNCH_TESTS(cv::COLOR_BGRA2RGBA, CV_16U)
     LAUNCH_TESTS(cv::COLOR_BGRA2RGBA, CV_32F)
 
-    #undef LAUNCH_TESTS
+#undef LAUNCH_TESTS
 
+    int returnValue = 0;
     for (const auto& [key, passed] : results) {
         if (passed) {
             std::cout << key << " passed!!" << std::endl;
         } else {
             std::cout << key << " failed!!" << std::endl;
+            returnValue = -1;
         }
     }
 
-    return 0;
+    return returnValue;
 }

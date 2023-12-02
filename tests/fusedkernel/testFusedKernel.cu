@@ -86,11 +86,13 @@ int main() {
 
     gpuErrchk(cudaStreamSynchronize(stream));
 
+    int returnValue = 0;
     if (test2Dpassed) {
-        std::cout << "cuda_transform executed!!" << std::endl; 
+        std::cout << "testFusedKernel passed!!" << std::endl; 
     } else {
-        std::cout << "cuda_transform executed!!" << std::endl;
+        std::cout << "testFusedKernel failed!!" << std::endl;
+        returnValue = -1;
     }
 
-    return 0;
+    return returnValue;
 }

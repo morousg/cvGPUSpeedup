@@ -193,15 +193,15 @@ int main() {
 
     CLOSE_BENCHMARK
 
+    int returnValue = 0;
     for (const auto& [key, passed] : results) {
         if (passed) {
             std::cout << key << " passed!!" << std::endl;
         } else {
             std::cout << key << " failed!!" << std::endl;
+            returnValue = -1;
         }
     }
-
 #undef LAUNCH_TESTS
-
-    return 0;
+    return returnValue;
 }

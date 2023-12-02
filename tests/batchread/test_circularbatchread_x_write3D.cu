@@ -456,41 +456,49 @@ bool testOldestFirstCircularTensorcvGS_noSplit() {
 }
 
 int main() {
+    int returnValue = 0;
     if (testCircularBatchRead()) {
         std::cout << "testCircularBatchRead OK" << std::endl;
     } else {
         std::cout << "testCircularBatchRead Failed!" << std::endl;
+        returnValue = -1;
     }
     if (testDivergentBatch()) {
         std::cout << "testDivergentBatch OK" << std::endl;
     } else {
         std::cout << "testDivergentBatch Failed!" << std::endl;
+        returnValue = -1;
     }
     if (testCircularTensor<uchar3, float3>()) {
         std::cout << "testCircularTensor<uchar3, float3> OK" << std::endl;
     } else {
         std::cout << "testCircularTensor<uchar3, float3> Failed!" << std::endl;
+        returnValue = -1;
     }
     if (testCircularTensorcvGS<CV_8UC3, CV_32FC3>()) {
         std::cout << "testCircularTensorcvGS<CV_8UC3, CV_32FC3> OK" << std::endl;
     } else {
         std::cout << "testCircularTensorcvGS<CV_8UC3, CV_32FC3> Failed!" << std::endl;
+        returnValue = -1;
     }
     if (testTransposedCircularTensorcvGS<CV_8UC3, CV_32FC3>()) {
         std::cout << "testTransposedCircularTensorcvGS<CV_8UC3, CV_32FC3> OK" << std::endl;
     } else {
         std::cout << "testTransposedCircularTensorcvGS <CV_8UC3, CV_32FC3> Failed!" << std::endl;
+        returnValue = -1;
     }
     if (testTransposedOldestFirstCircularTensorcvGS<CV_8UC3, CV_32FC3>()) {
         std::cout << "testTransposedOldestFirstCircularTensorcvGS<CV_8UC3, CV_32FC3> OK" << std::endl;
     } else {
         std::cout << "testTransposedOldestFirstCircularTensorcvGS <CV_8UC3, CV_32FC3> Failed!" << std::endl;
+        returnValue = -1;
     }
     if (testOldestFirstCircularTensorcvGS_noSplit()) {
         std::cout << "testOldestFirstCircularTensorcvGS_noSplit OK" << std::endl;
     } else {
         std::cout << "testOldestFirstCircularTensorcvGS_noSplit Failed!" << std::endl;
+        returnValue = -1;
     }
 
-    return 0;
+    return returnValue;
 }
