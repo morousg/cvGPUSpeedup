@@ -481,19 +481,21 @@ struct Interpolate<PixelReadOp, InterpolationType::INTER_LINEAR> {
         return out;
     }
 private:
-    static constexpr __device__ __forceinline__ uint getSourceWidth(const ParamsType& params) {
-        if constexpr (is_thrust_tuple_v<ParamsType>) {
-            return thrust::get<0>(params).params.dims.width;
-        } else {
-            return params.dims.width;
-        }
+    template <typename T>
+    static constexpr __device__ __forceinline__ uint getSourceWidth(const RawPtr<_2D, T>& params) {
+        return params.dims.width;
     }
-    static constexpr __device__ __forceinline__ uint getSourceHeight(const ParamsType& params) {
-        if constexpr (is_thrust_tuple_v<ParamsType>) {
-            return thrust::get<0>(params).params.dims.height;
-        } else {
-            return params.dims.height;
-        }
+    template <typename T>
+    static constexpr __device__ __forceinline__ uint getSourceHeight(const RawPtr<_2D, T>& params) {
+        return params.dims.height;
+    }
+    template <typename... Operations>
+    static constexpr __device__ __forceinline__ uint getSourceWidth(const BinaryParams<Operations...>& params) {
+        return params.params.dims.width;
+    }
+    template <typename... Operations>
+    static constexpr __device__ __forceinline__ uint getSourceHeight(const BinaryParams<Operations...>& params) {
+        return params.params.dims.height;
     }
 };
 

@@ -50,9 +50,9 @@ namespace fk { // namespace FusedKernel
         typename Operation::ParamsType params;
     };
 
-    template <typename... Operations_t>
+    template <typename... Operations>
     struct UnaryDeviceFunction {
-        using Operation = UnaryOperationSequence<Operations_t...>;
+        using Operation = UnaryOperationSequence<Operations...>;
         using InstanceType = UnaryType;
         template <typename IT>
         static constexpr bool is{ std::is_same_v<IT, InstanceType> };
@@ -86,44 +86,4 @@ namespace fk { // namespace FusedKernel
     using Composed = ComposedDeviceFunction<Operations...>;
     template <typename Operation>
     using Write = WriteDeviceFunction<Operation>;
-
-    // This is actually a Binary Operation, but it needs the DeviceFunctions definition to work
-    template <typename... DeviceFunctionTypes>
-    struct ComposedOperation {
-        using InputType = FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
-        using ParamsType = thrust::tuple<DeviceFunctionTypes...>;
-        using OutputType = LastDeviceFunctionOutputType_t<DeviceFunctionTypes...>;
-        using InstanceType = BinaryType;
-        private:
-            template <typename DeviceFunction>
-            FK_HOST_DEVICE_FUSE auto operate(const typename DeviceFunction::Operation::InputType& i_data,
-                                             const DeviceFunction& deviceFunction) {
-                if constexpr (DeviceFunction::template is<ReadType> || DeviceFunction::template is<BinaryType>) {
-                    return DeviceFunction::Operation::exec(i_data, deviceFunction.params);
-                } else if constexpr (DeviceFunction::template is<UnaryType>) {
-                    return DeviceFunction::Operation::exec(i_data);
-                } else if constexpr (DeviceFunction::template is<MidWriteType>) {
-                    DeviceFunction::Operation::exec(i_data);
-                    return i_data;
-                }
-            }
-
-            template <typename I, typename Tuple>
-            FK_HOST_DEVICE_FUSE OutputType apply_operate(const I& i_data,
-                                                         const Tuple& deviceFunctionInstances) {
-                if constexpr (thrust::tuple_size<Tuple>::value == 1) {
-                    return operate(i_data, thrust::get<0>(deviceFunctionInstances));
-                } else {
-                    const auto [firstDF, restOfDF] = deviceFunctionInstances;
-                    const auto result = operate(i_data, firstDF);
-                    return apply_operate(result, restOfDF);
-                }
-            }
-
-        public:
-            FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input,
-                                                const thrust::tuple<DeviceFunctionTypes...>& params) {
-                return apply_operate(input, params);
-            }
-    };
 } // namespace FusedKernel
