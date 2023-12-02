@@ -52,6 +52,18 @@ namespace fk { // namespace fused kernel
     constexpr bool one_of_v = one_of<T, TypeList_t>::value;
 
     /**
+     * @struct EnumType
+     * @brief Struct to convert an enum value into a type
+     *
+     * This the base defintion of the struct. Contains no implementation
+     */
+    template <typename Enum, Enum value>
+    struct EnumType {};
+
+    template <typename Enum, Enum value>
+    using E_t = EnumType<Enum, value>;
+
+    /**
      * @struct TypeIndex
      * @brief Struct to find at compile time, the index in which the type T is found
      * in the TypeList TypeList_t.
