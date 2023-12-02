@@ -1,3 +1,5 @@
+option (ENABLE_BENCHMARK "build benchmarking unit tests" OFF)
+
 function (discover_tests DIR)    
     file(
         GLOB_RECURSE
@@ -17,11 +19,21 @@ function (discover_tests DIR)
         if(${ENABLE_BENCHMARK})
             target_compile_definitions(${cuda_target} PRIVATE ENABLE_BENCHMARK)
         endif()
+      
         cmake_path(SET path2 "${DIR}")
         cmake_path(GET path2 FILENAME DIR_NAME)       
         set_property(TARGET ${cuda_target} PROPERTY FOLDER tests/${DIR_NAME})
      #   set_virtual_folders("${DIR_NAME}")
         add_cuda_to_target(${cuda_target} "")
+        
+        if(${ENABLE_DEBUG})
+            add_debug_support_to_target(${cuda_target})
+        endif()
+
+        if(${ENABLE_NVTX})
+            add_nvtx_support_to_target(${cuda_target})
+        endif()
+
         set_target_properties(${cuda_target} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
         add_opencv_to_target(${cuda_target} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs"  )
         target_include_directories(${cuda_target} PRIVATE "${CMAKE_SOURCE_DIR}")        
@@ -51,8 +63,7 @@ set (LIST_OF_DIRS "")
 SUBDIRLIST(LIST_DIRS ${CMAKE_CURRENT_SOURCE_DIR})
 
 
-option (BUILD_BENCHMARKS "build benchmarking unit tests" OFF)
-option(ENABLE_BENCHMARK OFF)
+
 
 foreach(DIR ${LIST_DIRS})
     discover_tests(${DIR})    
