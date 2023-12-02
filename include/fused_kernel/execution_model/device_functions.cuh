@@ -19,48 +19,6 @@
 
 namespace fk { // namespace FusedKernel
 
-    template <typename... Operations>
-    struct UnaryParams {};
-
-    template <typename... Operations>
-    struct BinaryParams {};
-
-    using OpTypes = TypeList<UnaryType, BinaryType, WriteType, ReadType>;
-
-    template <typename... Operations>
-    using ParamTypes = TypeList<UnaryParams<Operations...>, BinaryParams<Operations...>, BinaryParams<Operations...>, BinaryParams<Operations...>>;
-
-    template <typename T, typename... Operations>
-    using NextType = EquivalentType_t<T, OpTypes, ParamTypes<Operations...>>;
-
-    template <typename Operation>
-    struct UnaryParams<Operation> {
-        static_assert(std::is_same_v<typename Operation::InstanceType, UnaryType>, "Operation is not Unary");
-    };
-
-    template <typename Operation, typename... Operations>
-    struct UnaryParams<Operation, Operations...> {
-        static_assert(sizeof...(Operations) > 0, "Invalid specialization of Params");
-        static_assert(std::is_same_v<typename Operation::InstanceType, UnaryType>, "Operation is not Unary");
-        NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> nextParams;
-    };
-
-    template <typename Operation>
-    struct BinaryParams<Operation> {
-        static_assert(std::is_same_v<typename Operation::InstanceType, BinaryType>, "Operation is not Binary");
-        typename Operation::ParamsType params;
-    };
-
-    template <typename Operation, typename... Operations>
-    struct BinaryParams<Operation, Operations...> {
-        static_assert(sizeof...(Operations) > 0, "Invalid specialization of Params");
-        static_assert(std::is_same_v<typename Operation::InstanceType, BinaryType> ||
-                      std::is_same_v<typename Operation::InstanceType, WriteType>  ||
-                      std::is_same_v<typename Operation::InstanceType, ReadType>, "Operation is not Binary, Write or Read");
-        typename Operation::ParamsType params;
-        NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> nextParams;
-    };
-
 #define DEVICE_FUNCTION_DETAILS(instance_type) \
     using Operation = Operation_t; \
     using InstanceType = instance_type; \
@@ -84,44 +42,8 @@ namespace fk { // namespace FusedKernel
     };
 
     template <typename... Operations>
-    struct ComposedOperationC {
-        using InputType = typename FirstType_t<Operations...>::InputType;
-        using ParamsType = NextType<typename FirstType_t<Operations...>::InstanceType, Operations...>;
-        using OutputType = typename LastType_t<Operations...>::OutputType;
-        using InstanceType = BinaryType;
-        private:
-            template <typename Operation, typename ComposedParamsType>
-            FK_HOST_DEVICE_FUSE auto exec_operate(const typename Operation::InputType& i_data, const ComposedParamsType& c_params) {
-                if constexpr (std::is_same_v<typename Operation::InstanceType, BinaryType> ||
-                              std::is_same_v<typename Operation::InstanceType, ReadType>) {
-                    return Operation::exec(i_data, c_params.params);
-                } else if constexpr (std::is_same_v<typename Operation::InstanceType, UnaryType>) {
-                    return Operation::exec(i_data);
-                } else if constexpr (std::is_same_v<typename Operation::InstanceType, WriteType>) {
-                    Operation::exec(i_data, c_params.params);
-                    return i_data;
-                }
-            }
-            template <typename ComposedParamsType, typename Operation, typename... OperationTypes>
-            FK_HOST_DEVICE_FUSE OutputType composed_operate(const typename Operation::InputType& i_data,
-                                                            const ComposedParamsType& c_params) {
-                if constexpr (sizeof...(OperationTypes) > 0) {
-                    using NextComposedParamsType = decltype(c_params.nextParams);
-                    const auto result = exec_operate<Operation, ComposedParamsType>(i_data, c_params);
-                    return composed_operate<NextComposedParamsType, OperationTypes...>(result, c_params.nextParams);
-                } else {
-                    return exec_operate<Operation>(i_data, c_params);
-                }
-            }
-        public:
-            FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
-                return ComposedOperationC<Operations...>::composed_operate<ParamsType, Operations...>(input, params);
-            }
-    };
-
-    template <typename... Operations>
     struct ComposedDeviceFunction {
-        using Operation = ComposedOperationC<Operations...>;
+        using Operation = ComposedOperationSequence<Operations...>;
         using InstanceType = BinaryType;
         template <typename IT>
         static constexpr bool is{ std::is_same_v<IT, InstanceType> };
@@ -130,7 +52,7 @@ namespace fk { // namespace FusedKernel
 
     template <typename... Operations_t>
     struct UnaryDeviceFunction {
-        using Operation = OperationSequence<Operations_t...>;
+        using Operation = UnaryOperationSequence<Operations_t...>;
         using InstanceType = UnaryType;
         template <typename IT>
         static constexpr bool is{ std::is_same_v<IT, InstanceType> };
