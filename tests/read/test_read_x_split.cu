@@ -142,18 +142,19 @@ int main() {
     LAUNCH_TESTS(CV_32FC3, CV_64FC3)
     LAUNCH_TESTS(CV_32FC4, CV_64FC4)
 
-    #undef LAUNCH_TESTS
+#undef LAUNCH_TESTS
 
     CLOSE_BENCHMARK
 
+    int returnValue = 0;
     for (const auto& [key, passed] : results) {
         if (passed) {
             std::cout << key << " passed!!" << std::endl;
-        }
-        else {
+        } else {
             std::cout << key << " failed!!" << std::endl;
+            returnValue = -1;
         }
     }
 
-    return 0;
+    return returnValue;
 }
