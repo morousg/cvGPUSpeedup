@@ -17,6 +17,7 @@
 #include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
+#include "tests/nvtx.h"
 
 template <int CV_TYPE_I, int CV_TYPE_O, cv::ColorConversionCodes CC>
 bool test_cvtColor(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
@@ -45,9 +46,13 @@ bool test_cvtColor(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_
 
             cv::Mat diff((int)NUM_ELEMS_Y, (int)NUM_ELEMS_X, CV_TYPE_O);
             // OpenCV version
+            PUSH_RANGE("Launching OpenCV")
             cv::cuda::cvtColor(d_input, d_output_cv, CC, 0, cv_stream);
+            POP_RANGE
             // cvGPUSpeedup
+            PUSH_RANGE("Launching cvGS")
             cvGS::executeOperations(d_input, d_output_cvGS, cv_stream, cvGS::cvtColor<CC, CV_TYPE_I, CV_TYPE_O>());
+            POP_RANGE
 
             d_output_cv.download(h_cvResults, cv_stream);
             d_output_cvGS.download(h_cvGSResults, cv_stream);
