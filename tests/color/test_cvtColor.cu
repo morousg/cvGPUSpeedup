@@ -17,6 +17,7 @@
 #include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
+#include "tests/nvtx.h"
 
 template <int CV_TYPE_I, int CV_TYPE_O, cv::ColorConversionCodes CC>
 bool test_cvtColor(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
@@ -45,9 +46,13 @@ bool test_cvtColor(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_
 
             cv::Mat diff((int)NUM_ELEMS_Y, (int)NUM_ELEMS_X, CV_TYPE_O);
             // OpenCV version
+            PUSH_RANGE("Launching OpenCV")
             cv::cuda::cvtColor(d_input, d_output_cv, CC, 0, cv_stream);
+            POP_RANGE
             // cvGPUSpeedup
+            PUSH_RANGE("Launching cvGS")
             cvGS::executeOperations(d_input, d_output_cvGS, cv_stream, cvGS::cvtColor<CC, CV_TYPE_I, CV_TYPE_O>());
+            POP_RANGE
 
             d_output_cv.download(h_cvResults, cv_stream);
             d_output_cvGS.download(h_cvGSResults, cv_stream);
@@ -96,34 +101,36 @@ int main() {
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT, CC) \
     results["test_cvtColor"] &= test_cvtColor<CV_INPUT, CV_OUTPUT, CC>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
-    LAUNCH_TESTS(CV_8UC3,  CV_8UC3,  cv::COLOR_RGB2BGR)
-    LAUNCH_TESTS(CV_8UC4,  CV_8UC4,  cv::COLOR_RGBA2BGRA)
+    LAUNCH_TESTS(CV_8UC3, CV_8UC3, cv::COLOR_RGB2BGR)
+    LAUNCH_TESTS(CV_8UC4, CV_8UC4, cv::COLOR_RGBA2BGRA)
     LAUNCH_TESTS(CV_16UC3, CV_16UC3, cv::COLOR_RGB2BGR)
     LAUNCH_TESTS(CV_16UC4, CV_16UC4, cv::COLOR_RGBA2BGRA)
 
-    LAUNCH_TESTS(CV_8UC3,  CV_8UC3,  cv::COLOR_BGR2RGB)
-    LAUNCH_TESTS(CV_8UC4,  CV_8UC4,  cv::COLOR_BGRA2RGBA)
+    LAUNCH_TESTS(CV_8UC3, CV_8UC3, cv::COLOR_BGR2RGB)
+    LAUNCH_TESTS(CV_8UC4, CV_8UC4, cv::COLOR_BGRA2RGBA)
     LAUNCH_TESTS(CV_16UC3, CV_16UC3, cv::COLOR_BGR2RGB)
     LAUNCH_TESTS(CV_16UC4, CV_16UC4, cv::COLOR_BGRA2RGBA)
 
-    LAUNCH_TESTS(CV_8UC3,  CV_8UC1,  cv::COLOR_RGB2GRAY)
-    LAUNCH_TESTS(CV_8UC4,  CV_8UC1,  cv::COLOR_RGBA2GRAY)
+    LAUNCH_TESTS(CV_8UC3, CV_8UC1, cv::COLOR_RGB2GRAY)
+    LAUNCH_TESTS(CV_8UC4, CV_8UC1, cv::COLOR_RGBA2GRAY)
     LAUNCH_TESTS(CV_16UC3, CV_16UC1, cv::COLOR_RGB2GRAY)
     LAUNCH_TESTS(CV_16UC4, CV_16UC1, cv::COLOR_RGBA2GRAY)
 
-    LAUNCH_TESTS(CV_8UC3,  CV_8UC1,  cv::COLOR_BGR2GRAY)
-    LAUNCH_TESTS(CV_8UC4,  CV_8UC1,  cv::COLOR_BGRA2GRAY)
+    LAUNCH_TESTS(CV_8UC3, CV_8UC1, cv::COLOR_BGR2GRAY)
+    LAUNCH_TESTS(CV_8UC4, CV_8UC1, cv::COLOR_BGRA2GRAY)
     LAUNCH_TESTS(CV_16UC3, CV_16UC1, cv::COLOR_BGR2GRAY)
     LAUNCH_TESTS(CV_16UC4, CV_16UC1, cv::COLOR_BGRA2GRAY)
 #undef LAUNCH_TESTS
 
+    int returnValue = 0;
     for (const auto& [key, passed] : results) {
         if (passed) {
             std::cout << key << " passed!!" << std::endl;
         } else {
             std::cout << key << " failed!!" << std::endl;
+            returnValue = -1;
         }
     }
 
-    return 0;
+    return returnValue;
 }

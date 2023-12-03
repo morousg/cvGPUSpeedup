@@ -25,6 +25,85 @@ struct WriteType {};
 struct UnaryType {};
 struct BinaryType {};
 struct MidWriteType {};
+struct ComposedType {};
+
+template <typename... Operations>
+struct UnaryParams {};
+
+template <typename... Operations>
+struct BinaryParams {};
+
+using OpTypes = TypeList<UnaryType, BinaryType, WriteType, ReadType>;
+
+template <typename... Operations>
+using ParamTypes = TypeList<UnaryParams<Operations...>, BinaryParams<Operations...>, BinaryParams<Operations...>, BinaryParams<Operations...>>;
+
+template <typename T, typename... Operations>
+using NextType = EquivalentType_t<T, OpTypes, ParamTypes<Operations...>>;
+
+template <typename Operation>
+struct UnaryParams<Operation> {
+    static_assert(std::is_same_v<typename Operation::InstanceType, UnaryType>, "Operation is not Unary");
+};
+
+template <typename Operation, typename... Operations>
+struct UnaryParams<Operation, Operations...> {
+    static_assert(sizeof...(Operations) > 0, "Invalid specialization of Params");
+    static_assert(std::is_same_v<typename Operation::InstanceType, UnaryType>, "Operation is not Unary");
+    NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> nextParams;
+};
+
+template <typename Operation>
+struct BinaryParams<Operation> {
+    static_assert(std::is_same_v<typename Operation::InstanceType, BinaryType>, "Operation is not Binary");
+    typename Operation::ParamsType params;
+};
+
+template <typename Operation, typename... Operations>
+struct BinaryParams<Operation, Operations...> {
+    static_assert(sizeof...(Operations) > 0, "Invalid specialization of Params");
+    static_assert(std::is_same_v<typename Operation::InstanceType, BinaryType> ||
+        std::is_same_v<typename Operation::InstanceType, WriteType> ||
+        std::is_same_v<typename Operation::InstanceType, ReadType>, "Operation is not Binary, Write or Read");
+    typename Operation::ParamsType params;
+    NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> nextParams;
+};
+
+template <typename... Operations>
+struct ComposedOperationSequence {
+    using InputType = typename FirstType_t<Operations...>::InputType;
+    using ParamsType = NextType<typename FirstType_t<Operations...>::InstanceType, Operations...>;
+    using OutputType = typename LastType_t<Operations...>::OutputType;
+    using InstanceType = BinaryType;
+private:
+    template <typename Operation, typename ComposedParamsType>
+    FK_HOST_DEVICE_FUSE auto exec_operate(const typename Operation::InputType& i_data, const ComposedParamsType& c_params) {
+        if constexpr (std::is_same_v<typename Operation::InstanceType, BinaryType> ||
+            std::is_same_v<typename Operation::InstanceType, ReadType>) {
+            return Operation::exec(i_data, c_params.params);
+        } else if constexpr (std::is_same_v<typename Operation::InstanceType, UnaryType>) {
+            return Operation::exec(i_data);
+        } else if constexpr (std::is_same_v<typename Operation::InstanceType, WriteType>) {
+            Operation::exec(i_data, c_params.params);
+            return i_data;
+        }
+    }
+    template <typename ComposedParamsType, typename Operation, typename... OperationTypes>
+    FK_HOST_DEVICE_FUSE OutputType composed_operate(const typename Operation::InputType& i_data,
+        const ComposedParamsType& c_params) {
+        if constexpr (sizeof...(OperationTypes) > 0) {
+            using NextComposedParamsType = decltype(c_params.nextParams);
+            const auto result = exec_operate<Operation, ComposedParamsType>(i_data, c_params);
+            return composed_operate<NextComposedParamsType, OperationTypes...>(result, c_params.nextParams);
+        } else {
+            return exec_operate<Operation>(i_data, c_params);
+        }
+    }
+public:
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
+        return ComposedOperationSequence<Operations...>::composed_operate<ParamsType, Operations...>(input, params);
+    }
+};
 
 #define UNARY_DECL_EXEC(I, O) \
 using InputType = I; using OutputType = O; using InstanceType = UnaryType; \
@@ -68,18 +147,21 @@ struct VectorReorder {
 };
 
 template <typename... OperationTypes>
-struct OperationSequence {
+struct UnaryOperationSequence {
     UNARY_DECL_EXEC(typename FirstType_t<OperationTypes...>::InputType, typename LastType_t<OperationTypes...>::OutputType) {
-        return OperationSequence<OperationTypes...>::next_exec<OperationTypes...>(input);
+        static_assert(std::is_same_v<typename FirstType_t<OperationTypes...>::InstanceType, UnaryType>);
+        return UnaryOperationSequence<OperationTypes...>::next_exec<OperationTypes...>(input);
     }
 private:
     template <typename Operation>
     FK_HOST_DEVICE_FUSE typename Operation::OutputType next_exec(const typename Operation::InputType& input) {
+        static_assert(std::is_same_v<typename Operation::InstanceType, UnaryType>);
         return Operation::exec(input);
     }
     template <typename Operation, typename... RemainingOperations>
     FK_HOST_DEVICE_FUSE typename LastType_t<RemainingOperations...>::OutputType next_exec(const typename Operation::InputType& input) {
-        return OperationSequence<OperationTypes...>::next_exec<RemainingOperations...>(Operation::exec(input));
+        static_assert(std::is_same_v<typename Operation::InstanceType, UnaryType>);
+        return UnaryOperationSequence<OperationTypes...>::next_exec<RemainingOperations...>(Operation::exec(input));
     }
 };
 
@@ -399,19 +481,21 @@ struct Interpolate<PixelReadOp, InterpolationType::INTER_LINEAR> {
         return out;
     }
 private:
-    static constexpr __device__ __forceinline__ uint getSourceWidth(const ParamsType& params) {
-        if constexpr (is_thrust_tuple_v<ParamsType>) {
-            return thrust::get<0>(params).params.dims.width;
-        } else {
-            return params.dims.width;
-        }
+    template <typename T>
+    static constexpr __device__ __forceinline__ uint getSourceWidth(const RawPtr<_2D, T>& params) {
+        return params.dims.width;
     }
-    static constexpr __device__ __forceinline__ uint getSourceHeight(const ParamsType& params) {
-        if constexpr (is_thrust_tuple_v<ParamsType>) {
-            return thrust::get<0>(params).params.dims.height;
-        } else {
-            return params.dims.height;
-        }
+    template <typename T>
+    static constexpr __device__ __forceinline__ uint getSourceHeight(const RawPtr<_2D, T>& params) {
+        return params.dims.height;
+    }
+    template <typename... Operations>
+    static constexpr __device__ __forceinline__ uint getSourceWidth(const BinaryParams<Operations...>& params) {
+        return params.params.dims.width;
+    }
+    template <typename... Operations>
+    static constexpr __device__ __forceinline__ uint getSourceHeight(const BinaryParams<Operations...>& params) {
+        return params.params.dims.height;
     }
 };
 

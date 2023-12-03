@@ -15,7 +15,7 @@
 #include <iostream>
 
 #include <fused_kernel/fused_kernel.cuh>
-
+#include "tests/nvtx.h"
 template <typename T>
 bool testPtr_2D() {
     constexpr size_t width = 1920;
@@ -31,7 +31,10 @@ bool testPtr_2D() {
     fk::Ptr2D<T> outputBig(width, height);
 
     cudaStream_t stream;
-    gpuErrchk(cudaStreamCreate(&stream));
+    {
+        PUSH_RANGE_RAII p0("CreateStream");
+        gpuErrchk(cudaStreamCreate(&stream));
+    }
 
     dim3 block2D(32,8);
     dim3 grid2D((uint)std::ceil(width_crop / (float)block2D.x),
@@ -46,21 +49,25 @@ bool testPtr_2D() {
 
     fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2D = { output };
     fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2DBig = { outputBig };
-
+   
     for (int i=0; i<100; i++) {
-        fk::cuda_transform<<<grid2D, block2D, 0, stream>>>(readCrop, opFinal_2D);
-        fk::cuda_transform<<<grid2DBig, block2D, 0, stream>>>(readFull, opFinal_2DBig);
+        {
+            PUSH_RANGE_RAII p1a("CudaTransform1");
+            fk::cuda_transform << <grid2D, block2D, 0, stream >> > (readCrop, opFinal_2D);
+        }
+        {
+            PUSH_RANGE_RAII p1b("CudaTransform2");
+            fk::cuda_transform << <grid2DBig, block2D, 0, stream >> > (readFull, opFinal_2DBig);
+        }
     }
-
-    cudaError_t err = cudaStreamSynchronize(stream);
+    {
+        PUSH_RANGE_RAII p2("StreamSync");
+        gpuErrchk(cudaStreamSynchronize(stream));
+    }
 
     // TODO: use some values and check results correctness
 
-    if (err != cudaSuccess) {
-        return false;
-    } else {
-        return true;
-    }
+    return true;
 }
 
 int main() {
@@ -86,11 +93,13 @@ int main() {
 
     gpuErrchk(cudaStreamSynchronize(stream));
 
+    int returnValue = 0;
     if (test2Dpassed) {
-        std::cout << "cuda_transform executed!!" << std::endl; 
+        std::cout << "testFusedKernel passed!!" << std::endl; 
     } else {
-        std::cout << "cuda_transform executed!!" << std::endl;
+        std::cout << "testFusedKernel failed!!" << std::endl;
+        returnValue = -1;
     }
 
-    return 0;
+    return returnValue;
 }

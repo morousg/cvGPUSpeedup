@@ -74,8 +74,8 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer) {
         down.width * sizeof(uchar4), down.height, cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaStreamSynchronize(stream));
 
-    using PixelReadOp = fk::ComposedOperation<fk::Read<fk::ReadYUV<fk::NV12>>, fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>>;
-    fk::Binary<PixelReadOp> readOpInstance = { {{d_nv12Image,{}},{}} };
+    using PixelReadOp = fk::ComposedOperationSequence<fk::ReadYUV<fk::NV12>, fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>;
+    fk::Binary<PixelReadOp> readOpInstance = { {{d_nv12Image}} };
     auto imgSize = d_nv12Image.dims;
     auto readOp = fk::resize<PixelReadOp, fk::INTER_LINEAR>(readOpInstance.params, fk::Size(NUM_ELEMS_X, NUM_ELEMS_Y), down);
     auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
@@ -143,8 +143,8 @@ void testComputeWhatYouSee(char* buffer) {
         down.width * sizeof(uchar4), down.height, cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaStreamSynchronize(stream));
 
-    using PixelReadOp = fk::ComposedOperation<fk::Read<fk::ReadYUV<fk::NV12>>, fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>>;
-    fk::Binary<PixelReadOp> readOpInstance = { {{d_nv12Image,{}},{}} };
+    using PixelReadOp = fk::ComposedOperationSequence<fk::ReadYUV<fk::NV12>, fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>;
+    fk::Binary<PixelReadOp> readOpInstance = { {{d_nv12Image}} };
     auto imgSize = d_nv12Image.dims;
     auto readOp = fk::resize<PixelReadOp, fk::INTER_LINEAR>(readOpInstance.params, fk::Size(imgSize.width, imgSize.height), down);
     auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
@@ -164,8 +164,8 @@ void testComputeWhatYouSee(char* buffer) {
 #endif
 
 int main() {
-
-#ifdef ENAMBLE_TEST_FUSED_RESIZE
+    int returnValue = 0;
+#ifdef ENABLE_TEST_FUSED_RESIZE
     cv::cuda::Stream cv_stream;
 
     cv::Mat::setDefaultAllocator(cv::cuda::HostMem::getAllocator(cv::cuda::HostMem::AllocType::PAGE_LOCKED));
@@ -184,6 +184,7 @@ int main() {
     } else {
         // Print an error message if the file cannot be opened
         std::cerr << "Error: cannot open file\n";
+        returnValue = -1;
     }
     file.close();
 
@@ -201,8 +202,9 @@ int main() {
     } else {
         // Print an error message if the file cannot be opened
         std::cerr << "Error: cannot open file\n";
+        returnValue = -1;
     }
     file2.close();
 #endif
-    return 0;
+    return returnValue;
 }

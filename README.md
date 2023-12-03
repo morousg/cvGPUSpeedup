@@ -1,6 +1,6 @@
 # cvGPUSpeedup
 
->Every memory read, is an opportunity for compute.
+Every memory read, is an opportunity for compute.
 
 With this idea in mind, this library wants to make OpenCV code run faster on the GPU. Especially for typical pre and post processing operations for DL networks.
 
@@ -15,7 +15,7 @@ The first main focus is on the transform pattern, with an incomplete set of basi
   
 ## Tested hw/sw
 *  Cuda SDK 11.8  
-*  OS Windows 11 22H2 with driver 516.94 
+*  OS Windows 11 22H2 with drivers from 516.94 to 546.17.
 *  Ubuntu 22.04 (both native and under WSL2 enviroment)   
 *  Compute capabilities 7.5 (Turing), 8.6 (Ampere), 8.9 (ADA Lovelace)
 *  All systems with x86_64 cpu architecture
@@ -124,6 +124,6 @@ In this other case, we are updating a temporal Tensor of 15 images, with a new i
 As you can see, the resulting performance makes the pre-processing virtually free, when before it was more than 25% of the total time for the inference.
 
 # Final words and contact
-[Grup Mediapro](https://www.mediapro.tv) uses cvGPUSpeedup in the [AutomaticTv](https://www.automatic.tv) multicam live sports production system.  This product depends on customs Deep Neural Networks. Compared to vanilla OpenCV-CUDA implementation,  we obtained speedups of up to 167x in some cases (see next section). At AutomaticTV we are developing DL networks and will continue to add functionality to cvGPUSPeedup.
+[Grup Mediapro](https://www.mediapro.tv) uses cvGPUSpeedup in the [AutomaticTV](https://www.automatic.tv) multicam live sports production system.  This product depends on custom Deep Neural Networks. Compared to vanilla OpenCV-CUDA implementation,  we obtained speedups of up to 167x in some cases.
 
 If you are interested in investing in cvGPUSpeedup development for your own usage, please contact <oamoros@mediapro.tv>

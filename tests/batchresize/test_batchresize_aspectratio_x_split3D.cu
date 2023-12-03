@@ -17,6 +17,7 @@
 #include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
+#include "tests/nvtx.h"
 
 // It is 50, because otherwise we surpass the 4KB parameter limit
 // in CUDA 11.8. This limitations will be removed when migrating
@@ -109,6 +110,7 @@ bool test_batchresize_aspectratio_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv
             
             START_OCV_BENCHMARK
             // OpenCV version
+            PUSH_RANGE("Launching OpenCV")
             for (int crop_i=0; crop_i<BATCH; crop_i++) {
                 const int xOffset = (up.width - upAspectRatio.width) / 2;
                 const int yOffset = (up.height - upAspectRatio.height) / 2;
@@ -126,9 +128,11 @@ bool test_batchresize_aspectratio_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv
                 cv::cuda::divide(d_temp2, val_div, d_temp, 1.0, -1, cv_stream);
                 cv::cuda::split(d_temp, d_output_cv[crop_i], cv_stream);
             }
+            POP_RANGE
 
             STOP_OCV_START_CVGS_BENCHMARK
             // cvGPUSpeedup
+            PUSH_RANGE("Launching cvGS")
             if constexpr (CV_MAT_CN(CV_TYPE_I) == 3 && correctDept) {
                 cvGS::executeOperations(cv_stream,
                                         cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH, cvGS::PRESERVE_AR>(crops, up, BATCH, cvGS::cvScalar_set<CV_TYPE_O>(128.f)),
@@ -153,6 +157,7 @@ bool test_batchresize_aspectratio_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv
                                        cvGS::divide<CV_TYPE_O>(val_div),
                                        cvGS::split<CV_TYPE_O>(d_tensor_output, up));
             }
+            POP_RANGE
             STOP_CVGS_BENCHMARK
             d_tensor_output.download(h_tensor_output, cv_stream);
 
@@ -245,17 +250,19 @@ int main() {
     LAUNCH_TESTS(CV_16SC3, CV_32FC3)
     LAUNCH_TESTS(CV_16SC4, CV_32FC4)
 
-    #undef LAUNCH_TESTS
+#undef LAUNCH_TESTS
 
     CLOSE_BENCHMARK
 
+    int returnValue = 0;
     for (const auto& [key, passed] : results) {
         if (passed) {
             std::cout << key << " passed!!" << std::endl;
         } else {
             std::cout << key << " failed!!" << std::endl;
+            returnValue = -1;
         }
     }
 
-    return 0;
+    return returnValue;
 }

@@ -52,6 +52,18 @@ namespace fk { // namespace fused kernel
     constexpr bool one_of_v = one_of<T, TypeList_t>::value;
 
     /**
+     * @struct EnumType
+     * @brief Struct to convert an enum value into a type
+     *
+     * This the base defintion of the struct. Contains no implementation
+     */
+    template <typename Enum, Enum value>
+    struct EnumType {};
+
+    template <typename Enum, Enum value>
+    using E_t = EnumType<Enum, value>;
+
+    /**
      * @struct TypeIndex
      * @brief Struct to find at compile time, the index in which the type T is found
      * in the TypeList TypeList_t.
@@ -141,7 +153,7 @@ namespace fk { // namespace fused kernel
         T at[SIZE];
     };
 
-    template <typename T, int BATCH, typename... Types>
+    template <typename T, size_t BATCH, typename... Types>
     FK_HOST_DEVICE_CNST Array<T, BATCH> make_array(Types... pars) {
         static_assert(sizeof...(Types) == BATCH, "Too many or too few elements for the array size.");
         static_assert(std::disjunction_v<std::is_same<T, Types>...>, "All the types should be the same");
