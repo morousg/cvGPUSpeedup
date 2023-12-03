@@ -18,6 +18,8 @@
 #include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 
+#include "tests/main.h"
+
 #ifdef ENABLE_BENCHMARK
 constexpr char VARIABLE_DIMENSION[]{ "Batch size" };
 constexpr size_t NUM_EXPERIMENTS = 1;
@@ -104,7 +106,7 @@ bool test_read_convert_split(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream&
     return passed;
 }
 
-int main() {
+int launch() {
     constexpr size_t NUM_ELEMS_X = 3840;
     constexpr size_t NUM_ELEMS_Y = 2160;
 

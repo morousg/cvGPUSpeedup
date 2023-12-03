@@ -19,6 +19,8 @@
 #include <opencv2/cudaimgproc.hpp>
 #include "tests/nvtx.h"
 
+#include "tests/main.h"
+
 // It is 50, because otherwise we surpass the 4KB parameter limit
 // in CUDA 11.8. This limitations will be removed when migrating
 // to CUDA 12.
@@ -224,7 +226,7 @@ bool launch_test_batchresize_aspectratio_x_split3D(int NUM_ELEMS_X, int NUM_ELEM
     return passed;
 }
 
-int main() {
+int launch() {
     constexpr size_t NUM_ELEMS_X = 3840;
     constexpr size_t NUM_ELEMS_Y = 2160;
 

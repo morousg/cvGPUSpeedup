@@ -23,7 +23,9 @@
 #include <opencv2/opencv.hpp>
 #include <cvGPUSpeedup.cuh>
 
-int main() {
+#include "tests/main.h"
+
+int launch() {
 
 #ifdef TEST_RESIZE_RESULTS
     cv::cuda::Stream cv_stream;

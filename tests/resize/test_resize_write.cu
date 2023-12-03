@@ -17,6 +17,8 @@
 #include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 
+#include "tests/main.h"
+
 template <int I, int O>
 bool test_resize_write(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
@@ -99,7 +101,7 @@ bool test_resize_write(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_st
     return passed;
 }
 
-int main() {
+int launch() {
     constexpr size_t NUM_ELEMS_X = 3840;
     constexpr size_t NUM_ELEMS_Y = 2160;
 

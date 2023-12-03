@@ -15,6 +15,8 @@
 #include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 
+#include "tests/main.h"
+
 bool testCircularBatchRead() {
     constexpr uint WIDTH = 32;
     constexpr uint HEIGHT = 32;
@@ -455,7 +457,7 @@ bool testOldestFirstCircularTensorcvGS_noSplit() {
     return correct;
 }
 
-int main() {
+int launch() {
     int returnValue = 0;
     if (testCircularBatchRead()) {
         std::cout << "testCircularBatchRead OK" << std::endl;

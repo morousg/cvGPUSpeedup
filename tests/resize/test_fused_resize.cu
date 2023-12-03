@@ -19,6 +19,8 @@
 #include <opencv2/opencv.hpp>
 #include <cvGPUSpeedup.cuh>
 
+#include "tests/main.h"
+
 #ifdef ENABLE_TEST_FUSED_RESIZE
 
 struct PerPlaneSequenceSelector {
@@ -163,7 +165,7 @@ void testComputeWhatYouSee(char* buffer) {
 }
 #endif
 
-int main() {
+int launch() {
     int returnValue = 0;
 #ifdef ENABLE_TEST_FUSED_RESIZE
     cv::cuda::Stream cv_stream;

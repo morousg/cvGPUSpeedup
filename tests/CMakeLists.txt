@@ -1,21 +1,20 @@
 option (ENABLE_BENCHMARK "build benchmarking unit tests" OFF)
 
+set (LAUNCH_SOURCES ${CMAKE_SOURCE_DIR}/tests/main.cpp ${CMAKE_SOURCE_DIR}/tests/main.h)
+
 function (discover_tests DIR)    
     file(
         GLOB_RECURSE
         CUDA_SOURCES
         CONFIGURE_DEPENDS
         "${DIR}/*.cpp"
-        "${DIR}/*.h"
         "${DIR}/*.cu"
-        "${DIR}/*.cuh"
-        "${DIR}/*.hpp"
     )
     
     
     foreach(cuda_source ${CUDA_SOURCES})    
         get_filename_component(cuda_target ${cuda_source} NAME_WE)    
-        add_executable(${cuda_target} ${cuda_source})
+        add_executable(${cuda_target} ${cuda_source} ${LAUNCH_SOURCES})
         if(${ENABLE_BENCHMARK})
             target_compile_definitions(${cuda_target} PRIVATE ENABLE_BENCHMARK)
         endif()

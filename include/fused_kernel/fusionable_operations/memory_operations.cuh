@@ -18,6 +18,7 @@
 #include <fused_kernel/fusionable_operations/operations.cuh>
 #include <cooperative_groups.h>
 
+namespace cooperative_groups {};
 namespace cg = cooperative_groups;
 
 namespace fk {

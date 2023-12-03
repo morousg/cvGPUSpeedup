@@ -18,6 +18,8 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
+#include "tests/main.h"
+
 constexpr char VARIABLE_DIMENSION[]{ "Batch size" };
 constexpr size_t NUM_EXPERIMENTS = 10;
 constexpr size_t FIRST_VALUE = 10;
@@ -375,7 +377,7 @@ bool test_batchresize_x_split3D(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS
     return passed;
 }
 
-int main() {
+int launch() {
     constexpr size_t NUM_ELEMS_X = 3840;
     constexpr size_t NUM_ELEMS_Y = 2160;
 

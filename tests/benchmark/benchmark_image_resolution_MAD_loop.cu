@@ -18,6 +18,8 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
+#include "tests/main.h"
+
 #ifdef ENABLE_BENCHMARK
 constexpr size_t NUM_EXPERIMENTS = 30;
 constexpr char VARIABLE_DIMENSION[]{ "Number of pixels per side" };
@@ -167,7 +169,7 @@ bool launch_benchmark_image_resolution_MAD_loop(std::index_sequence<Is...> seq, 
 }
 #endif
 
-int main() {
+int launch() {
 #ifdef ENABLE_BENCHMARK
     cv::cuda::Stream cv_stream;
 

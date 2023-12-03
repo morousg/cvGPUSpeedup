@@ -19,6 +19,8 @@
 #include <opencv2/cudaimgproc.hpp>
 #include "tests/nvtx.h"
 
+#include "tests/main.h"
+
 template <int CV_TYPE_I, int CV_TYPE_O, cv::ColorConversionCodes CC>
 bool test_cvtColor(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
@@ -87,7 +89,7 @@ bool test_cvtColor(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_
     return passed;
 }
 
-int main() {
+int launch() {
     constexpr size_t NUM_ELEMS_X = 3840;
     constexpr size_t NUM_ELEMS_Y = 2160;
 

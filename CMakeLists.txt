@@ -22,7 +22,6 @@ include (cmake/libs/opencv.cmake)
 add_subdirectory(lib)
 
 option (BUILD_UTEST "build standard unit tests" ON)
-
 if (${BUILD_UTEST})
     enable_testing()
     add_subdirectory(tests)

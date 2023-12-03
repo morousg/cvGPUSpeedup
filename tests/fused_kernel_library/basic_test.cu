@@ -15,7 +15,8 @@
 #include <iostream>
 
 #include <fused_kernel/fused_kernel.cuh>
-#include "tests/nvtx.h"
+#include "tests/main.h"
+
 template <typename T>
 bool testPtr_2D() {
     constexpr size_t width = 1920;
@@ -31,10 +32,7 @@ bool testPtr_2D() {
     fk::Ptr2D<T> outputBig(width, height);
 
     cudaStream_t stream;
-    {
-        PUSH_RANGE_RAII p0("CreateStream");
-        gpuErrchk(cudaStreamCreate(&stream));
-    }
+    gpuErrchk(cudaStreamCreate(&stream));
 
     dim3 block2D(32,8);
     dim3 grid2D((uint)std::ceil(width_crop / (float)block2D.x),
@@ -49,28 +47,24 @@ bool testPtr_2D() {
 
     fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2D = { output };
     fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2DBig = { outputBig };
-   
+
     for (int i=0; i<100; i++) {
-        {
-            PUSH_RANGE_RAII p1a("CudaTransform1");
-            fk::cuda_transform << <grid2D, block2D, 0, stream >> > (readCrop, opFinal_2D);
-        }
-        {
-            PUSH_RANGE_RAII p1b("CudaTransform2");
-            fk::cuda_transform << <grid2DBig, block2D, 0, stream >> > (readFull, opFinal_2DBig);
-        }
+        fk::cuda_transform<<<grid2D, block2D, 0, stream>>>(readCrop, opFinal_2D);
+        fk::cuda_transform<<<grid2DBig, block2D, 0, stream>>>(readFull, opFinal_2DBig);
     }
-    {
-        PUSH_RANGE_RAII p2("StreamSync");
-        gpuErrchk(cudaStreamSynchronize(stream));
-    }
+
+    cudaError_t err = cudaStreamSynchronize(stream);
 
     // TODO: use some values and check results correctness
 
-    return true;
+    if (err != cudaSuccess) {
+        return false;
+    } else {
+        return true;
+    }
 }
 
-int main() {
+int launch() {
     bool test2Dpassed = true;
 
     test2Dpassed &= testPtr_2D<uchar>();
@@ -93,13 +87,11 @@ int main() {
 
     gpuErrchk(cudaStreamSynchronize(stream));
 
-    int returnValue = 0;
     if (test2Dpassed) {
-        std::cout << "testFusedKernel passed!!" << std::endl; 
+        std::cout << "cuda_transform executed!!" << std::endl; 
     } else {
-        std::cout << "testFusedKernel failed!!" << std::endl;
-        returnValue = -1;
+        std::cout << "cuda_transform failed!!" << std::endl;
     }
 
-    return returnValue;
+    return 0;
 }

@@ -18,6 +18,8 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
+#include "tests/main.h"
+
 #ifdef ENABLE_BENCHMARK
 constexpr size_t NUM_EXPERIMENTS = 16;
 constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
@@ -1084,7 +1086,7 @@ bool launch_benchmark_vertical_fusion(const size_t NUM_ELEMS_X, const size_t NUM
 }
 #endif
 
-int main() {
+int launch() {
 #ifdef ENABLE_BENCHMARK
     constexpr size_t NUM_ELEMS_X = 60;
     constexpr size_t NUM_ELEMS_Y = 120;

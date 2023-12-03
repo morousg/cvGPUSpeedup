@@ -171,7 +171,7 @@ bool testCvtColor(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream,
     return passed;
 }
 
-int main() {
+int launch() {
     constexpr size_t NUM_ELEMS_X = 3840;
     constexpr size_t NUM_ELEMS_Y = 2160;
 

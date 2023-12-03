@@ -21,7 +21,9 @@
 #include <opencv2/core/cuda_stream_accessor.hpp>
 #include <opencv2/cudaarithm.hpp>
 
-int main() {
+#include "tests/main.h"
+
+int launch() {
 
     cv::cuda::Stream cv_stream;
 
