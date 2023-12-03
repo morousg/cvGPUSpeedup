@@ -18,8 +18,8 @@
 #include <string>
 #include <iostream>
 
-#include <fused_kernel/cuda_vector_utils.cuh>
-#include <fused_kernel/ptr_nd.cuh>
+#include <fused_kernel/utils/cuda_vector_utils.cuh>
+#include <fused_kernel/data/ptr_nd.cuh>
 
 template <int Depth>
 std::string depthToString() { return ""; }
