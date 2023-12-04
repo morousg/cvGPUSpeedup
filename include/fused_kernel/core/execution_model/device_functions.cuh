@@ -15,7 +15,7 @@
 #pragma once
 
 #include <vector_types.h>
-#include <fused_kernel/fusionable_operations/operations.cuh>
+#include <fused_kernel/core/fusionable_operations/operations.cuh>
 
 namespace fk { // namespace FusedKernel
 

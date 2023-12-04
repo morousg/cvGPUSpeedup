@@ -14,9 +14,13 @@
 
 #pragma once
 
-#include <fused_kernel/utils/parameter_pack_utils.cuh>
-#include <fused_kernel/fusionable_operations/memory_operations.cuh>
-#include <fused_kernel/execution_model/device_functions.cuh>
+#include <cooperative_groups.h>
+
+namespace cooperative_groups {};
+namespace cg = cooperative_groups;
+
+#include <fused_kernel/core/utils/parameter_pack_utils.cuh>
+#include <fused_kernel/core/execution_model/device_functions.cuh>
 
 namespace fk { // namespace FusedKernel
     struct TransformGridPattern {

@@ -13,8 +13,8 @@
    limitations under the License. */
 
 #pragma once
-#include <fused_kernel/data/ptr_nd.cuh>
-#include <fused_kernel/utils/vlimits.cuh>
+#include <fused_kernel/core/data/ptr_nd.cuh>
+#include <fused_kernel/core/utils/vlimits.cuh>
 
 #include <climits>
 

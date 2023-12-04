@@ -15,6 +15,7 @@
 #include <iostream>
 
 #include <fused_kernel/fused_kernel.cuh>
+#include <fused_kernel/core/fusionable_operations/memory_operations.cuh>
 #include "tests/main.h"
 
 template <typename T>

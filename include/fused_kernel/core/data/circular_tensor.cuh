@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include <fused_kernel/data/ptr_nd.cuh>
-#include <fused_kernel/execution_model/grid_patterns.cuh>
+#include <fused_kernel/core/data/ptr_nd.cuh>
+#include <fused_kernel/core/execution_model/grid_patterns.cuh>
 
 namespace fk {
 
