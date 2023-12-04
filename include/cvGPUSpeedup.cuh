@@ -108,15 +108,6 @@ inline constexpr auto add(const cv::Scalar& src2) {
     return fk::Binary<fk::Sum<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
-template <int I>
-constexpr auto getMaxValue() {
-    if constexpr (CV_MAT_DEPTH(I) == CV_32F) {
-        return 1.f;
-    } else {
-        return fk::maxValue<CUDA_T(CV_MAT_DEPTH(I))>;
-    }
-}
-
 template <cv::ColorConversionCodes CODE, int I, int O = I>
 inline constexpr auto cvtColor() {
     static_assert((CV_MAT_DEPTH(I) == CV_8U || CV_MAT_DEPTH(I) == CV_16U || CV_MAT_DEPTH(I) == CV_32F) &&
@@ -125,25 +116,8 @@ inline constexpr auto cvtColor() {
     static_assert(isSupportedColorConversion<CODE>, "Color conversion type not supported yet.");
     using InputType = CUDA_T(I);
     using OutputType = CUDA_T(O);
-    using BaseIT = BASE_CUDA_T(I);
 
-    using DeviceFunctionType = fk::ColorConversion<(fk::ColorConversionCodes)CODE, InputType, OutputType>;
-    if constexpr (CODE == cv::COLOR_BGR2BGRA || CODE == cv::COLOR_RGB2RGBA ||
-                  CODE == cv::COLOR_BGR2RGBA || CODE == cv::COLOR_RGB2BGRA) {
-        constexpr auto alpha = getMaxValue<I>();
-        if constexpr (CODE == cv::COLOR_BGR2BGRA || CODE == cv::COLOR_RGB2RGBA) {
-            return DeviceFunctionType{ alpha };
-        } else if constexpr (CODE == cv::COLOR_BGR2RGBA || CODE == cv::COLOR_RGB2BGRA) {
-            return DeviceFunctionType{{{alpha}}};
-        }
-    } else if constexpr (CODE == cv::COLOR_BGRA2BGR  || CODE == cv::COLOR_RGBA2RGB  ||
-                         CODE == cv::COLOR_BGRA2RGB  || CODE == cv::COLOR_RGBA2BGR  ||
-                         CODE == cv::COLOR_BGR2RGB   || CODE == cv::COLOR_RGB2BGR   ||
-                         CODE == cv::COLOR_BGRA2RGBA || CODE == cv::COLOR_RGBA2BGRA ||
-                         CODE == cv::COLOR_RGB2GRAY  || CODE == cv::COLOR_RGBA2GRAY ||
-                         CODE == cv::COLOR_BGR2GRAY  || CODE == cv::COLOR_BGRA2GRAY) {
-        return DeviceFunctionType{};
-    }
+    return fk::ColorConversion<(fk::ColorConversionCodes)CODE, InputType, OutputType>{};
 }
 
 template <int O>

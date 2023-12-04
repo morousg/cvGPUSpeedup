@@ -59,7 +59,7 @@ namespace fk {
     // Will work for COLOR_RGB2RGBA too
     template <typename I, typename O>
     struct ColorConversionType<COLOR_BGR2BGRA, I, O> {
-        using type = Binary<AddLast<I, VectorType_t<VBase<I>, cn<I> + 1>>>;
+        using type = Unary<AddAlpha<I>>;
     };
 
     // Will work for COLOR_RGBA2RGB too
@@ -71,8 +71,7 @@ namespace fk {
     // Will work for COLOR_RGB2BGRA too
     template <typename I, typename O>
     struct ColorConversionType<COLOR_BGR2RGBA, I, O> {
-        using type = Composed<VectorReorder<I, 2, 1, 0>,
-                              AddLast<I, VectorType_t<VBase<I>, cn<I> + 1>>>;
+        using type = Unary<VectorReorder<I, 2, 1, 0>, AddAlpha<I>>;
     };
 
     // Will work for COLOR_RGBA2BGR too
@@ -116,5 +115,4 @@ namespace fk {
 
     template <ColorConversionCodes code, typename I, typename O = I>
     using ColorConversion = typename ColorConversionType<code, I, O>::type;
-
 }; // namespace fk (Fused Kernel)

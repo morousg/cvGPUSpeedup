@@ -749,4 +749,19 @@ public:
     }
 };
 
+template <typename I>
+struct AddAlpha {
+    using InputType = I;
+    using OutputType = VectorType_t<VBase<I>, (cn<I> + 1)>;
+    using InstanceType = UnaryType;
+    FK_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if constexpr (std::is_same_v<VBase<InputType>, float>) {
+            return AddLast<InputType, OutputType>::exec(input, 1.f);
+        } else {
+            constexpr VBase<I> alpha = maxValue<VBase<I>>;
+            return AddLast<InputType, OutputType>::exec(input, alpha);
+        }
+    }
+};
+
 } //namespace fk
