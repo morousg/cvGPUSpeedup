@@ -28,7 +28,7 @@ namespace fk { // namespace FusedKernel
             template <typename DeviceFunction, typename... DeviceFunctionTypes>
             FK_DEVICE_FUSE auto operate(const Point& thread, const typename DeviceFunction::Operation::InputType& i_data, const DeviceFunction& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
                 if constexpr (DeviceFunction::template is<BinaryType>) {
-                    return operate(thread, DeviceFunction::Operation::exec(i_data, df.params), deviceFunctionInstances...);
+                    return operate(thread, DeviceFunction::Operation::exec(i_data, df.head), deviceFunctionInstances...);
                 } else if constexpr (DeviceFunction::template is<UnaryType>) {
                     return operate(thread, DeviceFunction::Operation::exec(i_data), deviceFunctionInstances...);
                 } else if constexpr (DeviceFunction::template is<MidWriteType>) {

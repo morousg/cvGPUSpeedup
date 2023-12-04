@@ -74,7 +74,7 @@ inline constexpr auto convertTo(float alpha) {
 
     using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
     using SecondOp = fk::Mul<CUDA_T(O)>;
-    return fk::Composed<FirstOp, SecondOp>{{{ fk::make_set<CUDA_T(O)>(alpha) }}};
+    return fk::Binary<FirstOp, SecondOp>{{{ fk::make_set<CUDA_T(O)>(alpha) }}};
 }
 
 template <int I, int O>
@@ -85,27 +85,27 @@ inline constexpr auto convertTo(float alpha, float beta) {
     using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
     using SecondOp = fk::Mul<CUDA_T(O)>;
     using ThirdOp = fk::Sum<CUDA_T(O)>;
-    return fk::Composed<FirstOp, SecondOp, ThirdOp>{{{fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }}}};
+    return fk::Binary<FirstOp, SecondOp, ThirdOp>{{{fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }}}};
 }
 
 template <int I>
 inline constexpr auto multiply(const cv::Scalar& src2) {
-    return fk::Binary<fk::Mul<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
+    return fk::Binary<fk::Mul<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
 }
 
 template <int I>
 inline constexpr auto subtract(const cv::Scalar& src2) {
-    return fk::Binary<fk::Sub<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
+    return fk::Binary<fk::Sub<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
 }
 
 template <int I>
 inline constexpr auto divide(const cv::Scalar& src2) {
-    return fk::Binary<fk::Div<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
+    return fk::Binary<fk::Div<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
 }
 
 template <int I>
 inline constexpr auto add(const cv::Scalar& src2) {
-    return fk::Binary<fk::Sum<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
+    return fk::Binary<fk::Sum<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
 }
 
 template <cv::ColorConversionCodes CODE, int I, int O = I>

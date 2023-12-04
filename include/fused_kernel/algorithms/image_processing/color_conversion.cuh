@@ -50,11 +50,13 @@ namespace fk {
                                   CCC_t<COLOR_RGB2GRAY>,  CCC_t<COLOR_RGBA2GRAY>,
                                   CCC_t<COLOR_BGR2GRAY>,  CCC_t<COLOR_BGRA2GRAY>>;
 
-    template <ColorConversionCodes code>
-    static constexpr bool isSuportedCCC = one_of_v<CCC_t<code>, SupportedCCC>;
+    template <ColorConversionCodes CODE>
+    static constexpr bool isSuportedCCC = one_of_v<CCC_t<CODE>, SupportedCCC>;
 
-    template <ColorConversionCodes code, typename I, typename O>
-    struct ColorConversionType{};
+    template <ColorConversionCodes CODE, typename I, typename O>
+    struct ColorConversionType{
+        static_assert(isSuportedCCC<CODE>, "Color conversion code not supported");
+    };
 
     // Will work for COLOR_RGB2RGBA too
     template <typename I, typename O>
