@@ -27,15 +27,15 @@ For Memory Bound kernels, this fusion is bringing most of the performance improv
 
 Not only that, but the way the code is written, the nvcc compiler will treat the consecutive functions as if you where writting the code in one line, adding all sorts of optimizations. This can be seen by compiling the code in Release mode, or in Debug mode. The performance difference is abismal.
 
-### Compute only what you need
+### Backwards Vertical Fusion (read and compute only what you need)
 
 This is an optimization that can already be used with the current code, but will further increase the use cases, when addind more Operations.
 
 The idea, is aplicable for situations where you have a big plane, from which you will only use a subset of the data. If you need to transform that plane into something different, before doing the operation that will read the subset of elements, you can use vertical fusion in order to have a single kernel, that will read only what it needs, and apply to it all the transformations needed.
 
-For example, let's assume that you receive an image in YUV420_NV12 format, and you need to crop a region of this image, then convert the pixels to RGB, then resize the crop, normalize it to floating point values from 0 to 1, and store the resulting image in RGB planar format. Usually, this would lead to many kernels, one after the other. The first kernel that converts to RGB, will convert the full image, and write the result to memory. Instead, with the Fused Kernel library (when the YUV conversion functionality is integrated), it will be possible to create a Fused Kernel in a few lines, that will only read the YUV data for the pixels required by the interpolation process, in the resize. And all the steps will be performed using GPU registers, until the last step where we will finally write into GPU ram memory.
+For example, let's assume that you receive an image in YUV420_NV12 format, and you need to crop a region of this image, then convert the pixels to RGB, then resize the crop, normalize it to floating point values from 0 to 1, and store the resulting image in RGB planar format. Usually, this would lead to many kernels, one after the other. The first kernel that converts to RGB, will convert the full image, and write the result to memory. Instead, with the Fused Kernel library, it is possible to create a Fused Kernel in a few lines, that will only read the YUV data for the pixels required by the interpolation process, in the resize. All the steps will be performed using GPU registers, until the last step where we will finally write into GPU ram memory.
 
-Obviously, this is way faster than the conventional way of programming CUDA.
+This is way faster than the conventional way of programming CUDA.
 
 ## Closed source friendly
 
