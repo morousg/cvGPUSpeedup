@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <external/carotene/saturate_cast.hpp>
+#include <fused_kernel/external/carotene/saturate_cast.hpp>
 #include <fused_kernel/execution_model/device_functions.cuh>
 #include <fused_kernel/fusionable_operations/memory_operations.cuh>
 

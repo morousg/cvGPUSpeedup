@@ -16,12 +16,10 @@
 
 #include <cvGPUSpeedupHelpers.cuh>
 #include <fused_kernel/fused_kernel.cuh>
-#include <fused_kernel/image_processing/color_conversion.cuh>
+#include <image_processing/color_conversion.cuh>
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>
-
-#include <algorithm>
 
 namespace cvGS {
 
