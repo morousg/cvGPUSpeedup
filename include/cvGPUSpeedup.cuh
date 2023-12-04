@@ -16,6 +16,7 @@
 
 #include <cvGPUSpeedupHelpers.cuh>
 #include <fused_kernel/fused_kernel.cuh>
+#include <fused_kernel/data/circular_tensor.cuh>
 #include <image_processing/color_conversion.cuh>
 
 #include <opencv2/core.hpp>
