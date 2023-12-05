@@ -1,4 +1,4 @@
-/*Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -12,84 +12,12 @@
    See the License for the specific language governing permissions and
    limitations under the License.*/
 
-#include <fused_kernel/execution_model/grid_patterns.cuh>
+#pragma once
+
+#include <fused_kernel/core/data/ptr_nd.cuh>
+#include <fused_kernel/core/execution_model/grid_patterns.cuh>
 
 namespace fk {
-
-    template <typename... DeviceFunctionTypes>
-    inline constexpr void executeOperations(const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
-        const auto readDeviceFunction = first(deviceFunctions...);
-        const dim3 dataDims = { readDeviceFunction.activeThreads };
-        const dim3 block{ fk::getBlockSize(dataDims.x, dataDims.y) };
-        const dim3 grid{ (unsigned int)ceil(dataDims.x / (float)block.x),
-                         (unsigned int)ceil(dataDims.y / (float)block.y),
-                         dataDims.z };
-
-        cuda_transform<<<grid, block, 0, stream >>>(deviceFunctions...);
-        gpuErrchk(cudaGetLastError());
-    }
-
-    template <typename I, typename... DeviceFunctionTypes>
-    inline constexpr void executeOperations(const Ptr2D<I>& input, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
-        const dim3 block = input.getBlockSize();
-        const dim3 grid{ (uint)ceil(input.dims().width / (float)block.x),
-                         (uint)ceil(input.dims().height / (float)block.y) };
-        const dim3 gridActiveThreads(input.dims().width, input.dims().height);
-
-        cuda_transform<<<grid, block, 0, stream>>>(ReadDeviceFunction<PerThreadRead<_2D, I>>{input, gridActiveThreads}, deviceFunctions...);
-
-        gpuErrchk(cudaGetLastError());
-    }
-
-    template <typename I, typename O, typename... DeviceFunctionTypes>
-    inline constexpr void executeOperations(const Ptr2D<I>& input, const Ptr2D<O>& output, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
-        const dim3 block = input.getBlockSize();
-        const dim3 grid((uint)ceil(input.dims().width / (float)block.x), (uint)ceil(input.dims().height / (float)block.y));
-        const dim3 gridActiveThreads(input.dims().width, input.dims().height);
-
-        const ReadDeviceFunction<PerThreadRead<_2D, I>> firstOp { input, gridActiveThreads };
-        const WriteDeviceFunction<PerThreadWrite<_2D, O>> opFinal { output };
-
-        cuda_transform<<<grid, block, 0, stream>>>(firstOp, deviceFunctions..., opFinal);
-        gpuErrchk(cudaGetLastError());
-    }
-
-    template <typename I, int Batch, typename... DeviceFunctionTypes>
-    inline constexpr void executeOperations(const std::array<fk::Ptr2D<I>, Batch>& input, const int& activeBatch, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
-        const Ptr2D<I>& firstInput = input[0];
-        const dim3 block = firstInput.getBlockSize();
-        const dim3 grid{ (uint)ceil(firstInput.dims().width / (float)block.x),
-                         (uint)ceil(firstInput.dims().height / (float)block.y),
-                         (uint)activeBatch };
-        const dim3 gridActiveThreads(firstInput.dims().width, firstInput.dims().height, activeBatch);
-
-        ReadDeviceFunction<BatchRead<PerThreadRead<_2D, I>, Batch>> firstOp;
-        for (int plane = 0; plane < activeBatch; plane++) {
-            firstOp.params[plane] = input[plane];
-        }
-        firstOp.activeThreads = gridActiveThreads;
-
-        cuda_transform<<<grid, block, 0, stream>>>(firstOp, deviceFunctions...);
-        gpuErrchk(cudaGetLastError());
-    }
-
-    template <typename I, typename O, int Batch, typename... operations>
-    inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const Tensor<O>& output, const cudaStream_t& stream, const operations&... ops) {
-        const Ptr2D<I>& firstInput = input[0];
-        const dim3 block = output.getBlockSize();
-        const dim3 grid(ceil(firstInput.dims().width / (float)block.x), ceil(firstInput.dims().rows / (float)block.y), activeBatch);
-        const dim3 gridActiveThreads(firstInput.dims().width, firstInput.dims().height, activeBatch);
-
-        ReadDeviceFunction<BatchRead<PerThreadRead<_2D, I>, Batch>> firstOp;
-        for (int plane = 0; plane < activeBatch; plane++) {
-            firstOp.params[plane] = input[plane];
-        }
-        firstOp.activeThreads = gridActiveThreads;
-        const WriteDeviceFunction<PerThreadWrite<_3D, O>> opFinal { output };
-
-        cuda_transform<<<grid, block, 0, stream >>>(firstOp, ops..., opFinal);
-        gpuErrchk(cudaGetLastError());
-    }
 
     enum CircularTensorOrder { NewestFirst, OldestFirst };
 
@@ -120,7 +48,7 @@ namespace fk {
     template <CircularTensorOrder CT_ORDER>
     static constexpr CircularDirection CTReadDirection_v = CTReadDirection<CT_ORDER>::dir;
 
-    enum ColorPlanes {Standard, Transposed};
+    enum ColorPlanes { Standard, Transposed };
 
     template <typename T, ColorPlanes CP_MODE>
     struct CoreType;
@@ -138,11 +66,11 @@ namespace fk {
     template <typename T, ColorPlanes CP_MODE>
     using CoreType_t = typename CoreType<T, CP_MODE>::type;
 
-    template <typename T, int COLOR_PLANES, typename Enabler=void>
+    template <typename T, int COLOR_PLANES, typename Enabler = void>
     struct CircularTensorStoreType {};
 
     template <typename T, int COLOR_PLANES>
-    struct CircularTensorStoreType<T, COLOR_PLANES, std::enable_if_t<std::is_aggregate_v<T> && COLOR_PLANES == 1>> {
+    struct CircularTensorStoreType<T, COLOR_PLANES, std::enable_if_t<std::is_aggregate_v<T>&& COLOR_PLANES == 1>> {
         using type = T;
     };
 
@@ -159,12 +87,12 @@ namespace fk {
         using StoreT = typename CircularTensorStoreType<T, COLOR_PLANES>::type;//typename VectorType<T, COLOR_PLANES>::type;
 
         using WriteDeviceFunctions = TypeList<Write<TensorWrite<StoreT>>,
-                                              Write<TensorSplit<StoreT>>,
-                                              Write<TensorTSplit<StoreT>>>;
+            Write<TensorSplit<StoreT>>,
+            Write<TensorTSplit<StoreT>>>;
 
         using ReadDeviceFunctions = TypeList<Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorRead<StoreT>, BATCH>>,
-                                             Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorPack<StoreT>, BATCH>>,
-                                             Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorTPack<StoreT>, BATCH>>>;
+            Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorPack<StoreT>, BATCH>>,
+            Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorTPack<StoreT>, BATCH>>>;
 
     public:
         __host__ inline constexpr CircularTensor() {};
@@ -180,7 +108,7 @@ namespace fk {
 
         template <typename... DeviceFunctionTypes>
         __host__ inline constexpr void update(const cudaStream_t& stream,
-                                              const DeviceFunctionTypes&... deviceFunctionInstances) {
+            const DeviceFunctionTypes&... deviceFunctionInstances) {
             const auto writeDeviceFunction = last(deviceFunctionInstances...);
             using writeDFType = std::decay_t<decltype(writeDeviceFunction)>;
             using writeOpType = typename writeDFType::Operation;
@@ -207,18 +135,17 @@ namespace fk {
             const auto copyOps = buildOperationSequence(nonUpdateRead, writeDeviceFunction);
 
             dim3 grid((uint)ceil((float)this->ptr_a.dims.width / (float)this->adjusted_blockSize.x),
-                      (uint)ceil((float)this->ptr_a.dims.height / (float)this->adjusted_blockSize.y),
-                      BATCH);
+                (uint)ceil((float)this->ptr_a.dims.height / (float)this->adjusted_blockSize.y),
+                BATCH);
 
             cuda_transform_divergent_batch<SequenceSelectorType<CT_ORDER, BATCH>> << <grid, this->adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
-           
+
             m_nextUpdateIdx = (m_nextUpdateIdx + 1) % BATCH;
             gpuErrchk(cudaGetLastError());
         }
-        
+
     private:
         CoreType_t<T, CP_MODE> m_tempTensor;
-        int m_nextUpdateIdx{0};
+        int m_nextUpdateIdx{ 0 };
     };
-
-};
+} // namespace fk

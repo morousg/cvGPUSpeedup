@@ -16,12 +16,12 @@
 
 #include <cvGPUSpeedupHelpers.cuh>
 #include <fused_kernel/fused_kernel.cuh>
-#include <fused_kernel/image_processing/color_conversion.cuh>
+#include <fused_kernel/core/data/circular_tensor.cuh>
+#include <fused_kernel/algorithms/image_processing/resize.cuh>
+#include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>
-
-#include <algorithm>
 
 namespace cvGS {
 
@@ -74,7 +74,7 @@ inline constexpr auto convertTo(float alpha) {
 
     using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
     using SecondOp = fk::Mul<CUDA_T(O)>;
-    return fk::Composed<FirstOp, SecondOp>{{{ fk::make_set<CUDA_T(O)>(alpha) }}};
+    return fk::Binary<FirstOp, SecondOp>{{{ fk::make_set<CUDA_T(O)>(alpha) }}};
 }
 
 template <int I, int O>
@@ -85,36 +85,27 @@ inline constexpr auto convertTo(float alpha, float beta) {
     using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
     using SecondOp = fk::Mul<CUDA_T(O)>;
     using ThirdOp = fk::Sum<CUDA_T(O)>;
-    return fk::Composed<FirstOp, SecondOp, ThirdOp>{{{fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }}}};
+    return fk::Binary<FirstOp, SecondOp, ThirdOp>{{{fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }}}};
 }
 
 template <int I>
 inline constexpr auto multiply(const cv::Scalar& src2) {
-    return fk::Binary<fk::Mul<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
+    return fk::Binary<fk::Mul<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
 }
 
 template <int I>
 inline constexpr auto subtract(const cv::Scalar& src2) {
-    return fk::Binary<fk::Sub<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
+    return fk::Binary<fk::Sub<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
 }
 
 template <int I>
 inline constexpr auto divide(const cv::Scalar& src2) {
-    return fk::Binary<fk::Div<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
+    return fk::Binary<fk::Div<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
 }
 
 template <int I>
 inline constexpr auto add(const cv::Scalar& src2) {
-    return fk::Binary<fk::Sum<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
-}
-
-template <int I>
-constexpr auto getMaxValue() {
-    if constexpr (CV_MAT_DEPTH(I) == CV_32F) {
-        return 1.f;
-    } else {
-        return fk::maxValue<CUDA_T(CV_MAT_DEPTH(I))>;
-    }
+    return fk::Binary<fk::Sum<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
 }
 
 template <cv::ColorConversionCodes CODE, int I, int O = I>
@@ -125,25 +116,8 @@ inline constexpr auto cvtColor() {
     static_assert(isSupportedColorConversion<CODE>, "Color conversion type not supported yet.");
     using InputType = CUDA_T(I);
     using OutputType = CUDA_T(O);
-    using BaseIT = BASE_CUDA_T(I);
 
-    using DeviceFunctionType = fk::ColorConversion<(fk::ColorConversionCodes)CODE, InputType, OutputType>;
-    if constexpr (CODE == cv::COLOR_BGR2BGRA || CODE == cv::COLOR_RGB2RGBA ||
-                  CODE == cv::COLOR_BGR2RGBA || CODE == cv::COLOR_RGB2BGRA) {
-        constexpr auto alpha = getMaxValue<I>();
-        if constexpr (CODE == cv::COLOR_BGR2BGRA || CODE == cv::COLOR_RGB2RGBA) {
-            return DeviceFunctionType{ alpha };
-        } else if constexpr (CODE == cv::COLOR_BGR2RGBA || CODE == cv::COLOR_RGB2BGRA) {
-            return DeviceFunctionType{{{alpha}}};
-        }
-    } else if constexpr (CODE == cv::COLOR_BGRA2BGR  || CODE == cv::COLOR_RGBA2RGB  ||
-                         CODE == cv::COLOR_BGRA2RGB  || CODE == cv::COLOR_RGBA2BGR  ||
-                         CODE == cv::COLOR_BGR2RGB   || CODE == cv::COLOR_RGB2BGR   ||
-                         CODE == cv::COLOR_BGRA2RGBA || CODE == cv::COLOR_RGBA2BGRA ||
-                         CODE == cv::COLOR_RGB2GRAY  || CODE == cv::COLOR_RGBA2GRAY ||
-                         CODE == cv::COLOR_BGR2GRAY  || CODE == cv::COLOR_BGRA2GRAY) {
-        return DeviceFunctionType{};
-    }
+    return fk::ColorConversion<(fk::ColorConversionCodes)CODE, InputType, OutputType>{};
 }
 
 template <int O>

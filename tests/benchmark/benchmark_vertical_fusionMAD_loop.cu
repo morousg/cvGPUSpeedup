@@ -42,7 +42,7 @@ struct VerticalFusionMAD {
         using Loop = fk::Binary<fk::StaticLoop<fk::StaticLoop<fk::ComposedOperationSequence<fk::Mul<OutputType>, fk::Sum<OutputType>>, INCREMENT / 2>, NumOps / INCREMENT>>;
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
-            Loop{ {{cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul)},{cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_add)}} },
+            Loop{ {{{cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul)},{cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_add)}}} },
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };

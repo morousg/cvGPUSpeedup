@@ -15,7 +15,7 @@
 #pragma once
 
 #include <vector_types.h>
-#include <fused_kernel/fusionable_operations/operations.cuh>
+#include <fused_kernel/core/fusionable_operations/operations.cuh>
 
 namespace fk { // namespace FusedKernel
 
@@ -34,20 +34,13 @@ namespace fk { // namespace FusedKernel
         dim3 activeThreads;
     };
 
-    template <typename Operation_t>
-    struct BinaryDeviceFunction {
-        static_assert(std::is_same_v<typename Operation_t::InstanceType, BinaryType>, "Operation is not Binary.");
-        DEVICE_FUNCTION_DETAILS(BinaryType)
-        typename Operation_t::ParamsType params;
-    };
-
     template <typename... Operations>
-    struct ComposedDeviceFunction {
+    struct BinaryDeviceFunction {
         using Operation = ComposedOperationSequence<Operations...>;
         using InstanceType = BinaryType;
         template <typename IT>
         static constexpr bool is{ std::is_same_v<IT, InstanceType> };
-        typename Operation::ParamsType params;
+        typename Operation::ParamsType head;
     };
 
     template <typename... Operations>
@@ -78,12 +71,10 @@ namespace fk { // namespace FusedKernel
     using Read = ReadDeviceFunction<Operation>;
     template <typename... Operations>
     using Unary = UnaryDeviceFunction<Operations...>;
-    template <typename Operation>
-    using Binary = BinaryDeviceFunction<Operation>;
+    template <typename... Operations>
+    using Binary = BinaryDeviceFunction<Operations...>;
     template <typename Operation>
     using MidWrite = MidWriteDeviceFunction<Operation>;
-    template <typename... Operations>
-    using Composed = ComposedDeviceFunction<Operations...>;
     template <typename Operation>
     using Write = WriteDeviceFunction<Operation>;
 } // namespace FusedKernel

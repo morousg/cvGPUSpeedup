@@ -17,7 +17,7 @@
 
 #include <thrust/tuple.h>
 #include <thrust/functional.h>
-#include <fused_kernel/utils/cuda_utils.cuh>
+#include <fused_kernel/core/utils/cuda_utils.cuh>
 
 namespace fk { // namespace fused kernel
 

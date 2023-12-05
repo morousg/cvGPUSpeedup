@@ -14,9 +14,13 @@
 
 #pragma once
 
-#include <fused_kernel/utils/parameter_pack_utils.cuh>
-#include <fused_kernel/fusionable_operations/memory_operations.cuh>
-#include <fused_kernel/execution_model/device_functions.cuh>
+#include <cooperative_groups.h>
+
+namespace cooperative_groups {};
+namespace cg = cooperative_groups;
+
+#include <fused_kernel/core/utils/parameter_pack_utils.cuh>
+#include <fused_kernel/core/execution_model/device_functions.cuh>
 
 namespace fk { // namespace FusedKernel
     struct TransformGridPattern {
@@ -24,7 +28,7 @@ namespace fk { // namespace FusedKernel
             template <typename DeviceFunction, typename... DeviceFunctionTypes>
             FK_DEVICE_FUSE auto operate(const Point& thread, const typename DeviceFunction::Operation::InputType& i_data, const DeviceFunction& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
                 if constexpr (DeviceFunction::template is<BinaryType>) {
-                    return operate(thread, DeviceFunction::Operation::exec(i_data, df.params), deviceFunctionInstances...);
+                    return operate(thread, DeviceFunction::Operation::exec(i_data, df.head), deviceFunctionInstances...);
                 } else if constexpr (DeviceFunction::template is<UnaryType>) {
                     return operate(thread, DeviceFunction::Operation::exec(i_data), deviceFunctionInstances...);
                 } else if constexpr (DeviceFunction::template is<MidWriteType>) {

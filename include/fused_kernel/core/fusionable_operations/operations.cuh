@@ -13,8 +13,8 @@
    limitations under the License. */
 
 #pragma once
-#include <fused_kernel/data/ptr_nd.cuh>
-#include <fused_kernel/utils/vlimits.cuh>
+#include <fused_kernel/core/data/ptr_nd.cuh>
+#include <fused_kernel/core/utils/vlimits.cuh>
 
 #include <climits>
 
@@ -50,7 +50,7 @@ template <typename Operation, typename... Operations>
 struct UnaryParams<Operation, Operations...> {
     static_assert(sizeof...(Operations) > 0, "Invalid specialization of Params");
     static_assert(std::is_same_v<typename Operation::InstanceType, UnaryType>, "Operation is not Unary");
-    NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> nextParams;
+    NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> next;
 };
 
 template <typename Operation>
@@ -66,7 +66,7 @@ struct BinaryParams<Operation, Operations...> {
         std::is_same_v<typename Operation::InstanceType, WriteType> ||
         std::is_same_v<typename Operation::InstanceType, ReadType>, "Operation is not Binary, Write or Read");
     typename Operation::ParamsType params;
-    NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> nextParams;
+    NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> next;
 };
 
 template <typename... Operations>
@@ -77,31 +77,31 @@ struct ComposedOperationSequence {
     using InstanceType = BinaryType;
 private:
     template <typename Operation, typename ComposedParamsType>
-    FK_HOST_DEVICE_FUSE auto exec_operate(const typename Operation::InputType& i_data, const ComposedParamsType& c_params) {
+    FK_HOST_DEVICE_FUSE auto exec_operate(const typename Operation::InputType& i_data, const ComposedParamsType& head) {
         if constexpr (std::is_same_v<typename Operation::InstanceType, BinaryType> ||
             std::is_same_v<typename Operation::InstanceType, ReadType>) {
-            return Operation::exec(i_data, c_params.params);
+            return Operation::exec(i_data, head.params);
         } else if constexpr (std::is_same_v<typename Operation::InstanceType, UnaryType>) {
             return Operation::exec(i_data);
         } else if constexpr (std::is_same_v<typename Operation::InstanceType, WriteType>) {
-            Operation::exec(i_data, c_params.params);
+            Operation::exec(i_data, head.params);
             return i_data;
         }
     }
     template <typename ComposedParamsType, typename Operation, typename... OperationTypes>
     FK_HOST_DEVICE_FUSE OutputType composed_operate(const typename Operation::InputType& i_data,
-        const ComposedParamsType& c_params) {
+                                                    const ComposedParamsType& head) {
         if constexpr (sizeof...(OperationTypes) > 0) {
-            using NextComposedParamsType = decltype(c_params.nextParams);
-            const auto result = exec_operate<Operation, ComposedParamsType>(i_data, c_params);
-            return composed_operate<NextComposedParamsType, OperationTypes...>(result, c_params.nextParams);
+            using NextComposedParamsType = decltype(head.next);
+            const auto result = exec_operate<Operation, ComposedParamsType>(i_data, head);
+            return composed_operate<NextComposedParamsType, OperationTypes...>(result, head.next);
         } else {
-            return exec_operate<Operation>(i_data, c_params);
+            return exec_operate<Operation>(i_data, head);
         }
     }
 public:
-    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
-        return ComposedOperationSequence<Operations...>::composed_operate<ParamsType, Operations...>(input, params);
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& head) {
+        return ComposedOperationSequence<Operations...>::composed_operate<ParamsType, Operations...>(input, head);
     }
 };
 
@@ -490,12 +490,12 @@ private:
         return params.dims.height;
     }
     template <typename... Operations>
-    static constexpr __device__ __forceinline__ uint getSourceWidth(const BinaryParams<Operations...>& params) {
-        return params.params.dims.width;
+    static constexpr __device__ __forceinline__ uint getSourceWidth(const BinaryParams<Operations...>& head) {
+        return head.params.dims.width;
     }
     template <typename... Operations>
-    static constexpr __device__ __forceinline__ uint getSourceHeight(const BinaryParams<Operations...>& params) {
-        return params.params.dims.height;
+    static constexpr __device__ __forceinline__ uint getSourceHeight(const BinaryParams<Operations...>& head) {
+        return head.params.dims.height;
     }
 };
 
@@ -746,6 +746,21 @@ private:
 public:
     FK_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
         return helper_exec<0>(Operation::exec(input, params), params);
+    }
+};
+
+template <typename I>
+struct AddAlpha {
+    using InputType = I;
+    using OutputType = VectorType_t<VBase<I>, (cn<I> + 1)>;
+    using InstanceType = UnaryType;
+    FK_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if constexpr (std::is_same_v<VBase<InputType>, float>) {
+            return AddLast<InputType, OutputType>::exec(input, 1.f);
+        } else {
+            constexpr VBase<I> alpha = maxValue<VBase<I>>;
+            return AddLast<InputType, OutputType>::exec(input, alpha);
+        }
     }
 };
 
