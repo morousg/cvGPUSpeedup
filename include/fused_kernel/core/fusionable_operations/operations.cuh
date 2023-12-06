@@ -182,18 +182,6 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
         }
     };
 
-    template <typename I>
-    struct IsEven {
-        using InputType = I;
-        using OutputType = bool;
-        using InstanceType = UnaryType;
-        using AcceptedTypes = TypeList<uchar, ushort, uint>;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-            static_assert(one_of_v<InputType, AcceptedTypes>, "Input type not valid for UnaryIsEven");
-            return (input & 1u) == 0;
-        }
-    };
-
     template <typename Operation, int ITERATIONS>
     struct StaticLoop {
         using InputType = typename Operation::InputType;

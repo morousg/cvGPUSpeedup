@@ -31,15 +31,27 @@ namespace fk {
             }
         }
     };
-
-    template <typename I, typename P = I, typename O = I>
-    using Max = BinaryV<Max_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
-    template <typename I, typename P = I, typename O = I>
-    using Min = BinaryV<Min_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
     template <typename T, typename P, ShiftDirection SD>
     using Shift = BinaryV<Shift_<VBase<T>, SD>, T, P>;
     template <typename T, typename P = uint>
     using ShiftLeft = Shift<T, P, ShiftDirection::Left>;
     template <typename T, typename P = uint>
     using ShiftRight = Shift<T, P, ShiftDirection::Right>;
+
+    template <typename I>
+    struct IsEven {
+        using InputType = I;
+        using OutputType = bool;
+        using InstanceType = UnaryType;
+        using AcceptedTypes = TypeList<uchar, ushort, uint>;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+            static_assert(one_of_v<InputType, AcceptedTypes>, "Input type not valid for UnaryIsEven");
+            return (input & 1u) == 0;
+        }
+    };
+
+    template <typename I, typename P = I, typename O = I>
+    using Max = BinaryV<Max_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+    template <typename I, typename P = I, typename O = I>
+    using Min = BinaryV<Min_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
 } //namespace fk
