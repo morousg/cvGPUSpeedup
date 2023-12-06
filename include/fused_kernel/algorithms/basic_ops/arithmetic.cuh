@@ -50,22 +50,6 @@ namespace fk {
     };
 
     template <typename I, typename P = I, typename O = I>
-    struct Max_ {
-        BINARY_DECL_EXEC(O, I, P) {
-            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Max_ can't work with cuda vector types.");
-            return input >= params ? input : params;
-        }
-    };
-
-    template <typename I, typename P = I, typename O = I>
-    struct Min_ {
-        BINARY_DECL_EXEC(O, I, P) {
-            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Min_ can't work with cuda vector types.");
-            return input <= params ? input : params;
-        }
-    };
-
-    template <typename I, typename P = I, typename O = I>
     using Sum = BinaryV<Sum_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
     template <typename I, typename P = I, typename O = I>
     using Sub = BinaryV<Sub_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
