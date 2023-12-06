@@ -48,7 +48,7 @@ namespace fk {
     };
 
     template <typename T, typename Operation>
-    struct CUDAVecReduce {
+    struct VectorReduce {
         UNARY_DECL_EXEC(T, VBase<T>) {
             if constexpr (cn<T> == 2) {
                 return Operation::exec(input.x, input.y);

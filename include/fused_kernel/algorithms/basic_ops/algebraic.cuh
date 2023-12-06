@@ -30,7 +30,7 @@ namespace fk {
             const float3 xOut = input * params.x;
             const float3 yOut = input * params.y;
             const float3 zOut = input * params.z;
-            using Reduce = CUDAVecReduce<float3, Sum<float>>;
+            using Reduce = VectorReduce<float3, Sum<float>>;
             return { Reduce::exec(xOut), Reduce::exec(yOut), Reduce::exec(zOut) };
         }
     };
