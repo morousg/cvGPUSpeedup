@@ -17,8 +17,25 @@
 #include <fused_kernel/core/external/carotene/saturate_cast.hpp>
 #include <fused_kernel/core/execution_model/device_functions.cuh>
 #include <fused_kernel/core/fusionable_operations/memory_operations.cuh>
+#include <fused_kernel/algorithms/image_processing/interpolation.cuh>
 
 namespace fk {
+
+    template <typename PixelReadOp, InterpolationType INTER_T>
+    struct ResizeRead {
+        using InterpolationOp = Interpolate<PixelReadOp, INTER_T>;
+        using OutputType = typename InterpolationOp::OutputType;
+        using ParamsType = ResizeReadParams<InterpolationOp>;
+        using InstanceType = ReadType;
+        static __device__ __forceinline__ const OutputType exec(const Point& thread, const ParamsType& params) {
+            // This is what makes the interpolation a resize operation
+            const float src_x = thread.x * params.fx;
+            const float src_y = thread.y * params.fy;
+
+            static_assert(std::is_same_v<typename InterpolationOp::InputType, float2>, "Wrong InputType for interpolation operation.");
+            return InterpolationOp::exec(make_<float2>(src_x, src_y), params.params);
+        }
+    };
 
     enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
 
@@ -39,12 +56,12 @@ namespace fk {
         if (dSize.width != 0 && dSize.height != 0) {
             const double cfx = static_cast<double>(dSize.width) / input.dims.width;
             const double cfy = static_cast<double>(dSize.height) / input.dims.height;
-            return Read<ResizeRead<ReadRawPtr<_2D, I>, IType>>
+            return Read<ResizeRead<PerThreadRead<_2D, I>, IType>>
             { {{input}, static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
                 { (uint)dSize.width, (uint)dSize.height }
             };
         } else {
-            return Read<ResizeRead<ReadRawPtr<_2D, I>, IType>>
+            return Read<ResizeRead<PerThreadRead<_2D, I>, IType>>
             {   { {input}, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy) },
                 { CAROTENE_NS::internal::saturate_cast<uint>(input.dims.width * fx),
                   CAROTENE_NS::internal::saturate_cast<uint>(input.dims.height * fy) }
