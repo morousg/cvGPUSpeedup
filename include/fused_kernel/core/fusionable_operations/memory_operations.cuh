@@ -215,13 +215,6 @@ namespace fk {
         }
     };
 
-    template <typename InperpolationOp>
-    struct ResizeReadParams {
-        typename InperpolationOp::ParamsType params;
-        float fx;
-        float fy;
-    };
-
     /* The following code has the following copy right
 
        Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huget)

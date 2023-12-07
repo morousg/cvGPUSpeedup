@@ -162,24 +162,6 @@ namespace fk {
         }
     };
 
-#define UNARY_EXECUTE_PER_CHANNEL(function_name) \
-if constexpr (cn<O> == 1) { \
-    if constexpr (std::is_aggregate_v<I>) { \
-        return { function_name(input.x) }; \
-    } else { \
-        return function_name(input.x); \
-    } \
-} else if constexpr (cn<O> == 2) { \
-    return { function_name(input.x), function_name(input.y) }; \
-} else if constexpr (cn<O> == 3) { \
-    return { function_name(input.x), function_name(input.y), function_name(input.z) }; \
-} else { \
-    return { function_name(input.x), \
-             function_name(input.y), \
-             function_name(input.z), \
-             function_name(input.w) }; \
-}
-
     template <typename T>
     struct UnaryVectorSet<T, typename std::enable_if_t<validCUDAVec<T>>> {
         FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {

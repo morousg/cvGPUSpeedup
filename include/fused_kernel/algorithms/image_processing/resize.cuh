@@ -21,6 +21,13 @@
 
 namespace fk {
 
+    template <typename InperpolationOp>
+    struct ResizeReadParams {
+        typename InperpolationOp::ParamsType params;
+        float fx;
+        float fy;
+    };
+
     template <typename PixelReadOp, InterpolationType INTER_T>
     struct ResizeRead {
         using InterpolationOp = Interpolate<PixelReadOp, INTER_T>;

@@ -15,44 +15,13 @@
 #pragma once
 
 #include <fused_kernel/core/utils/type_lists.cuh>
-#include <fused_kernel/algorithms/basic_ops/algebraic.cuh>
 #include <fused_kernel/core/fusionable_operations/operations.cuh>
-#include <fused_kernel/algorithms/basic_ops/logical.cuh>
 #include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/algorithms/basic_ops/logical.cuh>
+#include <fused_kernel/algorithms/basic_ops/algebraic.cuh>
+#include <fused_kernel/algorithms/image_processing/saturate.cuh>
 
 namespace fk {
-    template <typename I, typename O>
-    struct SaturateCast {
-        UNARY_DECL_EXEC(I, O) {
-            return saturate_cast<OutputType>(input);
-        }
-    };
-
-    template <typename T>
-    struct SaturateFloat {
-        using InputType = T;
-        using OutputType = T;
-        using Base = typename VectorTraits<T>::base;
-        using InstanceType = UnaryType;
-
-    private:
-        static constexpr __device__ __forceinline__ float saturate_channel(const float& input) {
-            return Max<Base>::exec(0.f, Min<Base>::exec(input, 1.f));
-        }
-
-    public:
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-            if constexpr (std::is_same_v<InputType, float>) {
-                return SaturateFloat<T>::saturate_channel(input);
-            } else {
-                static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnarySaturateFloat");
-                static_assert(std::is_same_v<Base, float>, "This function only works with floats");
-                using I = T; using O = T;
-                UNARY_EXECUTE_PER_CHANNEL(saturate_channel)
-            }
-        }
-    };
-
     template <typename I>
     struct AddAlpha {
         using InputType = I;
@@ -142,6 +111,24 @@ namespace fk {
     template <> constexpr ColorDepthPixelBaseType<p10bit> maxDepthValue<p10bit> { 1023u };
     template <> constexpr ColorDepthPixelBaseType<p12bit> maxDepthValue<p12bit> { 4095u };
 
+    template <typename T, ColorDepth CD>
+    struct SaturateDepth {
+        using InputType = T;
+        using OutputType = T;
+        using InstanceType = UnaryType;
+        using Base = typename VectorTraits<T>::base;
+
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+            if constexpr (CD == p8bit) {
+                return UnaryV<Saturate<float>, T>::exec(input, {0.f, 255.f});
+            } else if constexpr (CD == p10bit) {
+                return UnaryV<Saturate<float>, T>::exec(input, {0.f, 1023.f});
+            } else if constexpr (CD == p12bit) {
+                return UnaryV<Saturate<float>, T>::exec(input, {0.f, 4095.f});
+            }
+        }
+    };
+
     enum ColorConversionDir { YCbCr2RGB, RGB2YCbCr };
 
     template <ColorRange CR, ColorPrimitives CP, ColorConversionDir CCD>
@@ -181,37 +168,6 @@ namespace fk {
         { -0.73792134831461f, 1.90449438202248f, -0.16657303370787f },
         { 0.39221927730127f, -1.01227510472121f,  0.62005582741994f },
         { 1.17857137414527f, -1.29153287808387f,  0.11296150393861f }};
-
-    template <typename T, ColorDepth CD>
-    struct SaturateDepth {
-        using InputType = T;
-        using OutputType = T;
-        using InstanceType = UnaryType;
-        using Base = typename VectorTraits<T>::base;
-
-    private:
-        static constexpr __device__ __forceinline__ float saturate_channel(const float& input) {
-            if constexpr (CD == p8bit) {
-                return Max<Base>::exec(0.f, Min<Base>::exec(input, 255.f));
-            } else if constexpr (CD == p10bit) {
-                return Max<Base>::exec(0.f, Min<Base>::exec(input, 1023.f));
-            } else if constexpr (CD == p12bit) {
-                return Max<Base>::exec(0.f, Min<Base>::exec(input, 4095.f));
-            }
-        }
-
-    public:
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-            if constexpr (std::is_same_v<InputType, float>) {
-                return SaturateDepth<T, CD>::saturate_channel(input);
-            } else {
-                static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnarySaturateFloat");
-                static_assert(std::is_same_v<Base, float>, "This function only works with floats");
-                using I = T; using O = T;
-                UNARY_EXECUTE_PER_CHANNEL(saturate_channel)
-            }
-        }
-    };
 
     template <ColorDepth CD> constexpr ColorDepthPixelBaseType<CD> shiftFactor{};
     template <> constexpr ColorDepthPixelBaseType<p8bit>  shiftFactor<p8bit>{ 0u };

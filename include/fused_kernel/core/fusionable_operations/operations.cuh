@@ -131,6 +131,36 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
         }
     };
 
+    template <typename Operation, typename I, typename O = I>
+    struct UnaryV {
+        UNARY_DECL_EXEC(I, O) {
+            static_assert(cn<I> == cn<O>, "Unary struct requires same number of channels for input and output types.");
+            constexpr bool allCUDAOrNotCUDA = (validCUDAVec<I> && validCUDAVec<O>) || !(validCUDAVec<I> || validCUDAVec<O>);
+            static_assert(allCUDAOrNotCUDA, "Binary struct requires input and output types to be either both valild CUDA vectors or none.");
+
+            if constexpr (cn<I> == 1) {
+                if constexpr (validCUDAVec<I>) {
+                    return { Operation::exec(input.x) };
+                } else {
+                    return Operation::exec(input);
+                }
+            } else if constexpr (cn<I> == 2) {
+                return { Operation::exec(input.x),
+                         Operation::exec(input.y) };
+
+            } else if constexpr (cn<I> == 3) {
+                return { Operation::exec(input.x),
+                         Operation::exec(input.y),
+                         Operation::exec(input.z) };
+            } else {
+                return { Operation::exec(input.x),
+                         Operation::exec(input.y),
+                         Operation::exec(input.z),
+                         Operation::exec(input.w) };
+            }
+        }
+    };
+
     template <typename Operation, typename I, typename P = I, typename O = I>
     struct BinaryV {
         BINARY_DECL_EXEC(O, I, P) {
