@@ -59,40 +59,63 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
     template <typename... Operations>
     struct BinaryParams {};
 
+    // TypeList of different device function types
     using OpTypes = TypeList<UnaryType, BinaryType, WriteType, ReadType>;
-
+    // TypeList of the corresponding Parameter Types
     template <typename... Operations>
     using ParamTypes = TypeList<UnaryParams<Operations...>, BinaryParams<Operations...>, BinaryParams<Operations...>, BinaryParams<Operations...>>;
-
+    // Util to compute at compile time the types of the next device functions
     template <typename T, typename... Operations>
     using NextType = EquivalentType_t<T, OpTypes, ParamTypes<Operations...>>;
 
-    template <typename Operation>
-    struct UnaryParams<Operation> {
-        static_assert(std::is_same_v<typename Operation::InstanceType, UnaryType>, "Operation is not Unary");
+    template <typename Operation_t>
+    struct UnaryParams<Operation_t> {
+        static_assert(std::is_same_v<typename Operation_t::InstanceType, UnaryType>, "Operation is not Unary");
+        using Operation = Operation_t;
     };
 
-    template <typename Operation, typename... Operations>
-    struct UnaryParams<Operation, Operations...> {
+    template <typename Operation_t, typename... Operations>
+    struct UnaryParams<Operation_t, Operations...> {
         static_assert(sizeof...(Operations) > 0, "Invalid specialization of Params");
-        static_assert(std::is_same_v<typename Operation::InstanceType, UnaryType>, "Operation is not Unary");
+        static_assert(std::is_same_v<typename Operation_t::InstanceType, UnaryType>, "Operation is not Unary");
+        using Operation = Operation_t;
         NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> next;
     };
 
-    template <typename Operation>
-    struct BinaryParams<Operation> {
-        static_assert(std::is_same_v<typename Operation::InstanceType, BinaryType>, "Operation is not Binary");
-        typename Operation::ParamsType params;
+    template <typename Operation_t>
+    struct BinaryParams<Operation_t> {
+        static_assert(std::is_same_v<typename Operation_t::InstanceType, BinaryType>, "Operation is not Binary");
+        using Operation = Operation_t;
+        typename Operation_t::ParamsType params;
     };
 
-    template <typename Operation, typename... Operations>
-    struct BinaryParams<Operation, Operations...> {
+    template <typename Operation_t, typename... Operations>
+    struct BinaryParams<Operation_t, Operations...> {
         static_assert(sizeof...(Operations) > 0, "Invalid specialization of Params");
         static_assert(std::is_same_v<typename Operation::InstanceType, BinaryType> ||
-            std::is_same_v<typename Operation::InstanceType, WriteType> ||
-            std::is_same_v<typename Operation::InstanceType, ReadType>, "Operation is not Binary, Write or Read");
+            std::is_same_v<typename Operation_t::InstanceType, WriteType> ||
+            std::is_same_v<typename Operation_t::InstanceType, ReadType>, "Operation is not Binary, Write or Read");
+        using Operation = Operation_t;
         typename Operation::ParamsType params;
         NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> next;
+    };
+
+    template <typename T, typename... Types>
+    struct TupleNode {
+        T instance;
+        TupleNode<Types...> next;
+    };
+
+    template <typename... Types>
+    struct Tuple {
+        TupleNode<Types...> head;
+        enum { size=sizeof...(Types) };
+    };
+
+    template <typename... Operations>
+    struct DeviceFunctionTuple {
+        NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> head;
+        enum { size = sizeof...(Operations) };
     };
 
     template <typename... Operations>
@@ -223,34 +246,8 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
             }
         };
 
-        template <typename Params>
-        FK_HOST_DEVICE_FUSE const auto& const_params(const Params& params) {
-            if constexpr (INDEX > 0) {
-                return Get<INDEX - 1>::params(params.next);
-            } else {
-                return params.params;
-            }
-        };
-
         template <typename DeviceFunction, typename... DeviceFunctionTypes>
         FK_HOST_DEVICE_FUSE auto& instance(DeviceFunction& df, DeviceFunctionTypes&... dfInstances) {
-            constexpr int numberOfInstances = sizeof...(dfInstances);
-            static_assert(INDEX <= numberOfInstances, "Index out of range. There are not so many instances in the parameter pack.");
-            if constexpr (INDEX > 0) {
-                return Get<INDEX - 1>::instance(dfInstances...);
-            } else if constexpr (INDEX == -1) {
-                if constexpr (numberOfInstances > 0) {
-                    return Get<sizeof...(dfInstances) - 1>::instance(dfInstances...);
-                } else {
-                    return df;
-                }
-            } else {
-                return df;
-            }
-        };
-
-        template <typename DeviceFunction, typename... DeviceFunctionTypes>
-        FK_HOST_DEVICE_FUSE const auto& const_instance(const DeviceFunction& df, const DeviceFunctionTypes&... dfInstances) {
             constexpr int numberOfInstances = sizeof...(dfInstances);
             static_assert(INDEX <= numberOfInstances, "Index out of range. There are not so many instances in the parameter pack.");
             if constexpr (INDEX > 0) {
