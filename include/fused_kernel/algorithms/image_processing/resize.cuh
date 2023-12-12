@@ -21,14 +21,7 @@
 
 namespace fk {
 
-    template <typename InperpolationOp>
-    struct ResizeReadParams {
-        typename InperpolationOp::ParamsType params;
-        float fx;
-        float fy;
-    };
-
-    template <typename PixelReadOp, InterpolationType INTER_T>
+    /*template <typename PixelReadOp, InterpolationType INTER_T>
     struct ResizeRead {
         using InterpolationOp = Interpolate<PixelReadOp, INTER_T>;
         using OutputType = typename InterpolationOp::OutputType;
@@ -42,19 +35,55 @@ namespace fk {
             static_assert(std::is_same_v<typename InterpolationOp::InputType, float2>, "Wrong InputType for interpolation operation.");
             return InterpolationOp::exec(make_<float2>(src_x, src_y), params.params);
         }
+    };*/
+
+    struct ComputeResizePoint {
+        using OutputType = float2;
+        using ParamsType = float2;
+        using InstanceType = ReadType;
+        static __device__ __forceinline__ const OutputType exec(const Point& thread, const ParamsType& params) {
+            // This is what makes the interpolation a resize operation
+            const float fx = params.x;
+            const float fy = params.y;
+
+            const float src_x = thread.x * fx;
+            const float src_y = thread.y * fy;
+
+            return { src_x, src_y };
+        }
     };
+
+    template <typename PixelReadOp, InterpolationType IType>
+    using ResizeRead = ComposedOperationSequence<
+                           ComputeResizePoint,
+                           ComputeInterpolationPoints<IType>,
+                           ReadInterpolationPoints<PixelReadOp, IType>,
+                           InterpolateSlice<typename ReadInterpolationPoints<PixelReadOp, IType>::OutputType,
+                                            VectorType_t<float, cn<typename ReadInterpolationPoints<PixelReadOp, IType>::InputType>>,
+                                            IType>
+                       >;
 
     enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
 
     template <typename PixelReadOp, InterpolationType IType>
     inline const auto resize(const typename PixelReadOp::ParamsType& input,
-        const Size& srcSize, const Size& dstSize) {
+                             const Size& srcSize, const Size& dstSize) {
         const double cfx = static_cast<double>(dstSize.width) / srcSize.width;
         const double cfy = static_cast<double>(dstSize.height) / srcSize.height;
-        return Read<ResizeRead<PixelReadOp, IType>>
-        { { {input}, static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
-            { (uint)dstSize.width, (uint)dstSize.height }
-        };
+
+        Read<ResizeRead<PerThreadRead<_2D, uchar4>, InterpolationType::INTER_LINEAR>> resizeInstance{};
+
+        Get<0>::params(resizeInstance.params) = {0.f,0.f};
+        Get<1>::params(resizeInstance.params) = {0,0};
+        Get<2>::params(resizeInstance.params) = input;
+
+        using MyList = TypeList<float, int, char, char, char>;
+
+        using MyNewList = InsertType_t<0, uint, MyList>;
+
+        TypeAt_t<0, MyNewList>;
+
+        return resizeInstance;
     }
 
     template <typename I, InterpolationType IType>
@@ -63,12 +92,25 @@ namespace fk {
         if (dSize.width != 0 && dSize.height != 0) {
             const double cfx = static_cast<double>(dSize.width) / input.dims.width;
             const double cfy = static_cast<double>(dSize.height) / input.dims.height;
-            return Read<ResizeRead<PerThreadRead<_2D, I>, IType>>
-            { {{input}, static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
-                { (uint)dSize.width, (uint)dSize.height }
-            };
+
+            using ResizeType = Read<ResizeRead<PerThreadRead<_2D, I>, InterpolationType::INTER_LINEAR>>;
+
+            ResizeType resizeInstance{};
+
+            Get<0>::params(resizeInstance.params) = { static_cast<float>(cfx),
+                                                      static_cast<float>(cfy) };
+            Get<1>::params(resizeInstance.params) = dSize;
+            Get<2>::params(resizeInstance.params) = input;
+
+            constexpr bool areSame = std::is_same_v<FirstType, FirstType_>;
+
+            return ResizeType{  {
+                                  { static_cast<float>(cfx), static_cast<float>(cfy) },
+                                  { dSize, { input } }
+                                }
+                              };
         } else {
-            return Read<ResizeRead<PerThreadRead<_2D, I>, IType>>
+            return ResizeType
             {   { {input}, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy) },
                 { CAROTENE_NS::internal::saturate_cast<uint>(input.dims.width * fx),
                   CAROTENE_NS::internal::saturate_cast<uint>(input.dims.height * fy) }

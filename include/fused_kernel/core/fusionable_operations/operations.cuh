@@ -212,6 +212,64 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
         }
     };
 
+    template <int INDEX>
+    struct Get {
+        template <typename Params>
+        FK_HOST_DEVICE_FUSE auto& params(Params& params) {
+            if constexpr (INDEX > 0) {
+                return Get<INDEX - 1>::params(params.next);
+            } else {
+                return params.params;
+            }
+        };
+
+        template <typename Params>
+        FK_HOST_DEVICE_FUSE const auto& const_params(const Params& params) {
+            if constexpr (INDEX > 0) {
+                return Get<INDEX - 1>::params(params.next);
+            } else {
+                return params.params;
+            }
+        };
+
+        template <typename DeviceFunction, typename... DeviceFunctionTypes>
+        FK_HOST_DEVICE_FUSE auto& instance(DeviceFunction& df, DeviceFunctionTypes&... dfInstances) {
+            constexpr int numberOfInstances = sizeof...(dfInstances);
+            static_assert(INDEX <= numberOfInstances, "Index out of range. There are not so many instances in the parameter pack.");
+            if constexpr (INDEX > 0) {
+                return Get<INDEX - 1>::instance(dfInstances...);
+            } else if constexpr (INDEX == -1) {
+                if constexpr (numberOfInstances > 0) {
+                    return Get<sizeof...(dfInstances) - 1>::instance(dfInstances...);
+                } else {
+                    return df;
+                }
+            } else {
+                return df;
+            }
+        };
+
+        template <typename DeviceFunction, typename... DeviceFunctionTypes>
+        FK_HOST_DEVICE_FUSE const auto& const_instance(const DeviceFunction& df, const DeviceFunctionTypes&... dfInstances) {
+            constexpr int numberOfInstances = sizeof...(dfInstances);
+            static_assert(INDEX <= numberOfInstances, "Index out of range. There are not so many instances in the parameter pack.");
+            if constexpr (INDEX > 0) {
+                return Get<INDEX - 1>::instance(dfInstances...);
+            } else if constexpr (INDEX == -1) {
+                if constexpr (numberOfInstances > 0) {
+                    return Get<sizeof...(dfInstances) - 1>::instance(dfInstances...);
+                } else {
+                    return df;
+                }
+            } else {
+                return df;
+            }
+        };
+
+        template <typename... DeviceFunctionTypes>
+        using type = TypeAt_t<INDEX, TypeList<DeviceFunctionTypes...>>;
+    };
+
     template <typename Operation, int ITERATIONS>
     struct StaticLoop {
         using InputType = typename Operation::InputType;
