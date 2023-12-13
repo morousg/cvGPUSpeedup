@@ -57,9 +57,10 @@ namespace fk {
         const double cfy = static_cast<double>(dstSize.height) / srcSize.height;
 
         Read<ResizeRead<PixelReadOp, InterpolationType::INTER_LINEAR>> resizeInstance{};
+        resizeInstance.activeThreads = dim3(dstSize.width, dstSize.height);
 
-        OpTupUtils<0>::get_params(resizeInstance.params) = { static_cast<float>(cfx), static_cast<float>(cfy) };
-        OpTupUtils<1>::get_params(resizeInstance.params) = {0,0};
+        OpTupUtils<0>::get_params(resizeInstance.params) = { static_cast<float>(1.0/cfx), static_cast<float>(1.0/cfy) };
+        OpTupUtils<1>::get_params(resizeInstance.params) = dstSize;
         OpTupUtils<2>::get_params(resizeInstance.params) = input;
 
         return resizeInstance;
@@ -71,16 +72,19 @@ namespace fk {
         using ResizeType = Read<ResizeRead<PerThreadRead<_2D, I>, InterpolationType::INTER_LINEAR>>;
         ResizeType resizeInstance{};
         if (dSize.width != 0 && dSize.height != 0) {
+            resizeInstance.activeThreads = dim3(dSize.width, dSize.height);
             const double cfx = static_cast<double>(dSize.width) / input.dims.width;
             const double cfy = static_cast<double>(dSize.height) / input.dims.height;
 
-            OpTupUtils<0>::get_params(resizeInstance.params) = { static_cast<float>(cfx), static_cast<float>(cfy) };
+            OpTupUtils<0>::get_params(resizeInstance.params) = { static_cast<float>(1.0/cfx), static_cast<float>(1.0/cfy) };
             OpTupUtils<1>::get_params(resizeInstance.params) = dSize;
             OpTupUtils<2>::get_params(resizeInstance.params) = input;
         } else {
+            const Size computedDSize{ CAROTENE_NS::internal::saturate_cast<int>(input.dims.width * fx),
+                                      CAROTENE_NS::internal::saturate_cast<int>(input.dims.height * fy) };
+            resizeInstance.activeThreads = dim3(computedDSize.width, computedDSize.height);
             OpTupUtils<0>::get_params(resizeInstance.params) = { static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy) };
-            OpTupUtils<1>::get_params(resizeInstance.params) = { CAROTENE_NS::internal::saturate_cast<int>(input.dims.width * fx),
-                                                                 CAROTENE_NS::internal::saturate_cast<int>(input.dims.height * fy) };
+            OpTupUtils<1>::get_params(resizeInstance.params) = computedDSize;
             OpTupUtils<2>::get_params(resizeInstance.params) = input;
         }
         return resizeInstance;

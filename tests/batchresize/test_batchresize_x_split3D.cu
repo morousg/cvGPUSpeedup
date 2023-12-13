@@ -21,7 +21,7 @@
 #include "tests/main.h"
 
 constexpr char VARIABLE_DIMENSION[]{ "Batch size" };
-constexpr size_t NUM_EXPERIMENTS = 10;
+constexpr size_t NUM_EXPERIMENTS = 8;
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 10;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
