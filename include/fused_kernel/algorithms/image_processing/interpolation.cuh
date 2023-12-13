@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <fused_kernel/core/fusionable_operations/memory_operations.cuh>
+#include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/algorithms/basic_ops/logical.cuh>
 
 namespace fk {
@@ -79,7 +79,7 @@ namespace fk {
                                               Point(x1, y2_read),
                                               Point(x2_read, y2_read) };
 
-            return { {src_x, src_y}, pixelCoords, readPoints };
+            return { input, pixelCoords, readPoints };
         }
     };
 

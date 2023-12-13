@@ -16,28 +16,13 @@
 
 #include <fused_kernel/core/external/carotene/saturate_cast.hpp>
 #include <fused_kernel/core/execution_model/device_functions.cuh>
-#include <fused_kernel/core/fusionable_operations/memory_operations.cuh>
+#include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/algorithms/image_processing/interpolation.cuh>
 
 namespace fk {
 
-    /*template <typename PixelReadOp, InterpolationType INTER_T>
-    struct ResizeRead {
-        using InterpolationOp = Interpolate<PixelReadOp, INTER_T>;
-        using OutputType = typename InterpolationOp::OutputType;
-        using ParamsType = ResizeReadParams<InterpolationOp>;
-        using InstanceType = ReadType;
-        static __device__ __forceinline__ const OutputType exec(const Point& thread, const ParamsType& params) {
-            // This is what makes the interpolation a resize operation
-            const float src_x = thread.x * params.fx;
-            const float src_y = thread.y * params.fy;
-
-            static_assert(std::is_same_v<typename InterpolationOp::InputType, float2>, "Wrong InputType for interpolation operation.");
-            return InterpolationOp::exec(make_<float2>(src_x, src_y), params.params);
-        }
-    };*/
-
     struct ComputeResizePoint {
+        using InputType = Point;
         using OutputType = float2;
         using ParamsType = float2;
         using InstanceType = ReadType;
@@ -54,12 +39,12 @@ namespace fk {
     };
 
     template <typename PixelReadOp, InterpolationType IType>
-    using ResizeRead = ComposedOperationSequence<
+    using ResizeRead = OperationTupleOperation<
                            ComputeResizePoint,
                            ComputeInterpolationPoints<IType>,
                            ReadInterpolationPoints<PixelReadOp, IType>,
                            InterpolateSlice<typename ReadInterpolationPoints<PixelReadOp, IType>::OutputType,
-                                            VectorType_t<float, cn<typename ReadInterpolationPoints<PixelReadOp, IType>::InputType>>,
+                                            VectorType_t<float, cn<typename PixelReadOp::OutputType>>,
                                             IType>
                        >;
 
@@ -71,17 +56,11 @@ namespace fk {
         const double cfx = static_cast<double>(dstSize.width) / srcSize.width;
         const double cfy = static_cast<double>(dstSize.height) / srcSize.height;
 
-        Read<ResizeRead<PerThreadRead<_2D, uchar4>, InterpolationType::INTER_LINEAR>> resizeInstance{};
+        Read<ResizeRead<PixelReadOp, InterpolationType::INTER_LINEAR>> resizeInstance{};
 
-        Get<0>::params(resizeInstance.params) = {0.f,0.f};
-        Get<1>::params(resizeInstance.params) = {0,0};
-        Get<2>::params(resizeInstance.params) = input;
-
-        using MyList = TypeList<float, int, char, char, char>;
-
-        using MyNewList = InsertType_t<0, uint, MyList>;
-
-        TypeAt_t<0, MyNewList>;
+        OpTupUtils<0>::get_params(resizeInstance.params) = { static_cast<float>(cfx), static_cast<float>(cfy) };
+        OpTupUtils<1>::get_params(resizeInstance.params) = {0,0};
+        OpTupUtils<2>::get_params(resizeInstance.params) = input;
 
         return resizeInstance;
     }
@@ -89,33 +68,22 @@ namespace fk {
     template <typename I, InterpolationType IType>
     inline const auto resize(const RawPtr<_2D, I>& input, const Size& dSize, const double& fx, const double& fy) {
         const fk::Size sourceSize(input.dims.width, input.dims.height);
+        using ResizeType = Read<ResizeRead<PerThreadRead<_2D, I>, InterpolationType::INTER_LINEAR>>;
+        ResizeType resizeInstance{};
         if (dSize.width != 0 && dSize.height != 0) {
             const double cfx = static_cast<double>(dSize.width) / input.dims.width;
             const double cfy = static_cast<double>(dSize.height) / input.dims.height;
 
-            using ResizeType = Read<ResizeRead<PerThreadRead<_2D, I>, InterpolationType::INTER_LINEAR>>;
-
-            ResizeType resizeInstance{};
-
-            Get<0>::params(resizeInstance.params) = { static_cast<float>(cfx),
-                                                      static_cast<float>(cfy) };
-            Get<1>::params(resizeInstance.params) = dSize;
-            Get<2>::params(resizeInstance.params) = input;
-
-            constexpr bool areSame = std::is_same_v<FirstType, FirstType_>;
-
-            return ResizeType{  {
-                                  { static_cast<float>(cfx), static_cast<float>(cfy) },
-                                  { dSize, { input } }
-                                }
-                              };
+            OpTupUtils<0>::get_params(resizeInstance.params) = { static_cast<float>(cfx), static_cast<float>(cfy) };
+            OpTupUtils<1>::get_params(resizeInstance.params) = dSize;
+            OpTupUtils<2>::get_params(resizeInstance.params) = input;
         } else {
-            return ResizeType
-            {   { {input}, static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy) },
-                { CAROTENE_NS::internal::saturate_cast<uint>(input.dims.width * fx),
-                  CAROTENE_NS::internal::saturate_cast<uint>(input.dims.height * fy) }
-            };
+            OpTupUtils<0>::get_params(resizeInstance.params) = { static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy) };
+            OpTupUtils<1>::get_params(resizeInstance.params) = { CAROTENE_NS::internal::saturate_cast<int>(input.dims.width * fx),
+                                                                 CAROTENE_NS::internal::saturate_cast<int>(input.dims.height * fy) };
+            OpTupUtils<2>::get_params(resizeInstance.params) = input;
         }
+        return resizeInstance;
     }
 
     template <typename PixelReadOp, typename O, InterpolationType IType, int NPtr, AspectRatio AR>
@@ -138,7 +106,8 @@ namespace fk {
 
             // targetWidth and targetHeight are the dimensions for the resized image
             int targetWidth, targetHeight;
-            fk::ResizeReadParams<Interpolate<PixelReadOp, IType>>* interParams;
+            using ResizeReadParams = typename ResizeRead<PixelReadOp, IType>::ParamsType;
+            ResizeReadParams* interParams{};
             if constexpr (AR != IGNORE_AR) {
                 float scaleFactor = dsize.height / (float)dims.height;
                 targetHeight = dsize.height;
@@ -168,9 +137,10 @@ namespace fk {
                 targetHeight = dsize.height;
                 interParams = &resizeArray.params[i];
             }
-            interParams->params = { input[i] };
-            interParams->fx = static_cast<float>(1.0 / (static_cast<double>(targetWidth) / (double)dims.width));
-            interParams->fy = static_cast<float>(1.0 / (static_cast<double>(targetHeight) / (double)dims.height));
+            OpTupUtils<0>::get_params(*interParams) = { static_cast<float>(1.0 / (static_cast<double>(targetWidth)  / (double)dims.width)),
+                                                        static_cast<float>(1.0 / (static_cast<double>(targetHeight) / (double)dims.height)) };
+            OpTupUtils<1>::get_params(*interParams) = dsize;
+            OpTupUtils<2>::get_params(*interParams) = input[i];
         }
 
         if constexpr (AR != IGNORE_AR) {

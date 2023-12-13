@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <fused_kernel/core/fusionable_operations/operations.cuh>
+#include <fused_kernel/core/execution_model/operations.cuh>
 
 namespace fk {
     template <typename I, typename O>

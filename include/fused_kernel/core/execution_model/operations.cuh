@@ -15,7 +15,8 @@
 #pragma once
 #include <fused_kernel/core/data/ptr_nd.cuh>
 #include <fused_kernel/core/utils/vlimits.cuh>
-#include <fused_kernel/core/utils/tuple.cuh>
+#include <fused_kernel/core/utils/operation_tuple.cuh>
+#include <fused_kernel/core/execution_model/operation_types.cuh>
 
 #include <climits>
 
@@ -28,12 +29,6 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
 #define BINARY_DECL_EXEC(O, I, P) \
 using OutputType = O; using InputType = I; using ParamsType = P; using InstanceType = BinaryType; \
 static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params)
-
-    struct ReadType {};
-    struct WriteType {};
-    struct UnaryType {};
-    struct BinaryType {};
-    struct MidWriteType {};
 
     template <typename... OperationTypes>
     struct UnaryOperationSequence {
@@ -59,7 +54,7 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
         using InputType = typename FirstType_t<Operations...>::InputType;
         using ParamsType = OperationTuple<Operations...>;
         using OutputType = typename LastType_t<Operations...>::OutputType;
-        using InstanceType = BinaryType;
+        using InstanceType = typename FirstType_t<Operations...>::InstanceType;
     private:
         template <typename Tuple_>
         FK_HOST_DEVICE_FUSE auto exec_operate(const typename Tuple_::Operation::InputType& i_data, const Tuple_& tuple) {
@@ -169,38 +164,6 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
                 }
             }
         }
-    };
-
-    template <int INDEX>
-    struct Get {
-        template <typename Params>
-        FK_HOST_DEVICE_FUSE auto& params(Params& params) {
-            if constexpr (INDEX > 0) {
-                return Get<INDEX - 1>::params(params.next);
-            } else {
-                return params.params;
-            }
-        };
-
-        template <typename DeviceFunction, typename... DeviceFunctionTypes>
-        FK_HOST_DEVICE_FUSE auto& instance(DeviceFunction& df, DeviceFunctionTypes&... dfInstances) {
-            constexpr int numberOfInstances = sizeof...(dfInstances);
-            static_assert(INDEX <= numberOfInstances, "Index out of range. There are not so many instances in the parameter pack.");
-            if constexpr (INDEX > 0) {
-                return Get<INDEX - 1>::instance(dfInstances...);
-            } else if constexpr (INDEX == -1) {
-                if constexpr (numberOfInstances > 0) {
-                    return Get<sizeof...(dfInstances) - 1>::instance(dfInstances...);
-                } else {
-                    return df;
-                }
-            } else {
-                return df;
-            }
-        };
-
-        template <typename... DeviceFunctionTypes>
-        using type = TypeAt_t<INDEX, TypeList<DeviceFunctionTypes...>>;
     };
 
     template <typename Operation, int ITERATIONS>

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <fused_kernel/core/utils/cuda_utils.cuh>
 
 namespace fk { // namespace fused kernel
     /**
@@ -119,7 +120,7 @@ namespace fk { // namespace fused kernel
     constexpr size_t TypeIndex_v = TypeIndex<T, TypeList_t>::value;
 
     // Obtain the type found in the index Idx, in TypeList
-    template <std::size_t n, typename... TypeList_t>
+    template <int n, typename... TypeList_t>
     struct TypeAt;
 
     template <typename Head, typename... Tail>
@@ -132,12 +133,12 @@ namespace fk { // namespace fused kernel
         using type = typename TypeAt<sizeof...(Tail)-1, TypeList<Tail...>>::type;
     };
 
-    template <std::size_t n, typename Head, typename... Tail>
+    template <int n, typename Head, typename... Tail>
     struct TypeAt<n, TypeList<Head, Tail...>> {
         using type = typename TypeAt<n - 1, TypeList<Tail...>>::type;
     };
 
-    template <std::size_t n, typename TypeList_t>
+    template <int n, typename TypeList_t>
     using TypeAt_t = typename TypeAt<n, TypeList_t>::type;
 
     template <typename... Types>
