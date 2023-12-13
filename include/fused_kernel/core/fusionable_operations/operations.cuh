@@ -15,6 +15,7 @@
 #pragma once
 #include <fused_kernel/core/data/ptr_nd.cuh>
 #include <fused_kernel/core/utils/vlimits.cuh>
+#include <fused_kernel/core/utils/tuple.cuh>
 
 #include <climits>
 
@@ -54,103 +55,38 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
     };
 
     template <typename... Operations>
-    struct UnaryParams {};
-
-    template <typename... Operations>
-    struct BinaryParams {};
-
-    // TypeList of different device function types
-    using OpTypes = TypeList<UnaryType, BinaryType, WriteType, ReadType>;
-    // TypeList of the corresponding Parameter Types
-    template <typename... Operations>
-    using ParamTypes = TypeList<UnaryParams<Operations...>, BinaryParams<Operations...>, BinaryParams<Operations...>, BinaryParams<Operations...>>;
-    // Util to compute at compile time the types of the next device functions
-    template <typename T, typename... Operations>
-    using NextType = EquivalentType_t<T, OpTypes, ParamTypes<Operations...>>;
-
-    template <typename Operation_t>
-    struct UnaryParams<Operation_t> {
-        static_assert(std::is_same_v<typename Operation_t::InstanceType, UnaryType>, "Operation is not Unary");
-        using Operation = Operation_t;
-    };
-
-    template <typename Operation_t, typename... Operations>
-    struct UnaryParams<Operation_t, Operations...> {
-        static_assert(sizeof...(Operations) > 0, "Invalid specialization of Params");
-        static_assert(std::is_same_v<typename Operation_t::InstanceType, UnaryType>, "Operation is not Unary");
-        using Operation = Operation_t;
-        NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> next;
-    };
-
-    template <typename Operation_t>
-    struct BinaryParams<Operation_t> {
-        static_assert(std::is_same_v<typename Operation_t::InstanceType, BinaryType>, "Operation is not Binary");
-        using Operation = Operation_t;
-        typename Operation_t::ParamsType params;
-    };
-
-    template <typename Operation_t, typename... Operations>
-    struct BinaryParams<Operation_t, Operations...> {
-        static_assert(sizeof...(Operations) > 0, "Invalid specialization of Params");
-        static_assert(std::is_same_v<typename Operation::InstanceType, BinaryType> ||
-            std::is_same_v<typename Operation_t::InstanceType, WriteType> ||
-            std::is_same_v<typename Operation_t::InstanceType, ReadType>, "Operation is not Binary, Write or Read");
-        using Operation = Operation_t;
-        typename Operation::ParamsType params;
-        NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> next;
-    };
-
-    template <typename T, typename... Types>
-    struct TupleNode {
-        T instance;
-        TupleNode<Types...> next;
-    };
-
-    template <typename... Types>
-    struct Tuple {
-        TupleNode<Types...> head;
-        enum { size=sizeof...(Types) };
-    };
-
-    template <typename... Operations>
-    struct DeviceFunctionTuple {
-        NextType<typename FirstType_t<Operations...>::InstanceType, Operations...> head;
-        enum { size = sizeof...(Operations) };
-    };
-
-    template <typename... Operations>
-    struct ComposedOperationSequence {
+    struct OperationTupleOperation {
         using InputType = typename FirstType_t<Operations...>::InputType;
-        using ParamsType = NextType<typename FirstType_t<Operations...>::InstanceType, Operations...>;
+        using ParamsType = OperationTuple<Operations...>;
         using OutputType = typename LastType_t<Operations...>::OutputType;
         using InstanceType = BinaryType;
     private:
-        template <typename Operation, typename ComposedParamsType>
-        FK_HOST_DEVICE_FUSE auto exec_operate(const typename Operation::InputType& i_data, const ComposedParamsType& head) {
+        template <typename Tuple_>
+        FK_HOST_DEVICE_FUSE auto exec_operate(const typename Tuple_::Operation::InputType& i_data, const Tuple_& tuple) {
+            using Operation = typename Tuple_::Operation;
             if constexpr (std::is_same_v<typename Operation::InstanceType, BinaryType> ||
                 std::is_same_v<typename Operation::InstanceType, ReadType>) {
-                return Operation::exec(i_data, head.params);
+                return Operation::exec(i_data, tuple.params);
             } else if constexpr (std::is_same_v<typename Operation::InstanceType, UnaryType>) {
                 return Operation::exec(i_data);
             } else if constexpr (std::is_same_v<typename Operation::InstanceType, WriteType>) {
-                Operation::exec(i_data, head.params);
+                Operation::exec(i_data, tuple.params);
                 return i_data;
             }
         }
-        template <typename ComposedParamsType, typename Operation, typename... OperationTypes>
-        FK_HOST_DEVICE_FUSE OutputType composed_operate(const typename Operation::InputType& i_data,
-            const ComposedParamsType& head) {
-            if constexpr (sizeof...(OperationTypes) > 0) {
-                using NextComposedParamsType = decltype(head.next);
-                const auto result = exec_operate<Operation, ComposedParamsType>(i_data, head);
-                return composed_operate<NextComposedParamsType, OperationTypes...>(result, head.next);
+        template <typename Tuple_>
+        FK_HOST_DEVICE_FUSE auto tuple_operate(const typename Tuple_::Operation::InputType& i_data,
+                                                     const Tuple_& tuple) {
+            const auto result = exec_operate(i_data, tuple);
+            if constexpr (Tuple_::size > 1) {
+                return tuple_operate(result, tuple.next);
             } else {
-                return exec_operate<Operation>(i_data, head);
+                return result;
             }
         }
     public:
-        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& head) {
-            return ComposedOperationSequence<Operations...>::composed_operate<ParamsType, Operations...>(input, head);
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& tuple) {
+            return tuple_operate(input, tuple);
         }
     };
 

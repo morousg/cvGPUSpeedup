@@ -36,7 +36,7 @@ namespace fk { // namespace FusedKernel
 
     template <typename... Operations>
     struct BinaryDeviceFunction {
-        using Operation = ComposedOperationSequence<Operations...>;
+        using Operation = OperationTupleOperation<Operations...>;
         using InstanceType = BinaryType;
         template <typename IT>
         static constexpr bool is{ std::is_same_v<IT, InstanceType> };
