@@ -60,7 +60,7 @@ namespace fk {
         resizeInstance.activeThreads = dim3(dstSize.width, dstSize.height);
 
         OpTupUtils<0>::get_params(resizeInstance.params) = { static_cast<float>(1.0/cfx), static_cast<float>(1.0/cfy) };
-        OpTupUtils<1>::get_params(resizeInstance.params) = dstSize;
+        OpTupUtils<1>::get_params(resizeInstance.params) = srcSize;
         OpTupUtils<2>::get_params(resizeInstance.params) = input;
 
         return resizeInstance;
@@ -77,14 +77,14 @@ namespace fk {
             const double cfy = static_cast<double>(dSize.height) / input.dims.height;
 
             OpTupUtils<0>::get_params(resizeInstance.params) = { static_cast<float>(1.0/cfx), static_cast<float>(1.0/cfy) };
-            OpTupUtils<1>::get_params(resizeInstance.params) = dSize;
+            OpTupUtils<1>::get_params(resizeInstance.params) = sourceSize;
             OpTupUtils<2>::get_params(resizeInstance.params) = input;
         } else {
             const Size computedDSize{ CAROTENE_NS::internal::saturate_cast<int>(input.dims.width * fx),
                                       CAROTENE_NS::internal::saturate_cast<int>(input.dims.height * fy) };
             resizeInstance.activeThreads = dim3(computedDSize.width, computedDSize.height);
             OpTupUtils<0>::get_params(resizeInstance.params) = { static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy) };
-            OpTupUtils<1>::get_params(resizeInstance.params) = computedDSize;
+            OpTupUtils<1>::get_params(resizeInstance.params) = sourceSize;
             OpTupUtils<2>::get_params(resizeInstance.params) = input;
         }
         return resizeInstance;
@@ -143,7 +143,7 @@ namespace fk {
             }
             OpTupUtils<0>::get_params(*interParams) = { static_cast<float>(1.0 / (static_cast<double>(targetWidth)  / (double)dims.width)),
                                                         static_cast<float>(1.0 / (static_cast<double>(targetHeight) / (double)dims.height)) };
-            OpTupUtils<1>::get_params(*interParams) = dsize;
+            OpTupUtils<1>::get_params(*interParams) = {static_cast<int>(dims.width), static_cast<int>(dims.height)};
             OpTupUtils<2>::get_params(*interParams) = input[i];
         }
 
