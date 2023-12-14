@@ -16,6 +16,7 @@
 
 #include <fused_kernel/fused_kernel.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
+#include <fused_kernel/core/utils/template_operations.cuh>
 #include "tests/main.h"
 
 template <typename T>
@@ -63,11 +64,6 @@ bool testPtr_2D() {
     } else {
         return true;
     }
-}
-
-namespace fk {
-    template <bool... results>
-    constexpr bool and_v = (results && ...);
 }
 
 int launch() {

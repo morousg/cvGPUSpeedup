@@ -15,7 +15,7 @@
 #pragma once
 #include <fused_kernel/core/data/ptr_nd.cuh>
 #include <fused_kernel/core/utils/vlimits.cuh>
-#include <fused_kernel/core/utils/operation_tuple.cuh>
+#include <fused_kernel/core/utils/tuple.cuh>
 #include <fused_kernel/core/execution_model/operation_types.cuh>
 
 #include <climits>
