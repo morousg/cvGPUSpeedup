@@ -66,9 +66,9 @@ namespace fk {
                          (uint)activeBatch };
         const dim3 gridActiveThreads(firstInput.dims().width, firstInput.dims().height, activeBatch);
 
-        ReadDeviceFunction<BatchRead<PerThreadRead<_2D, I>, Batch>> firstOp;
+        Read<BatchRead<PerThreadRead<_2D, I>, Batch>> firstOp;
         for (int plane = 0; plane < activeBatch; plane++) {
-            firstOp.params[plane] = input[plane];
+            firstOp.head.params[plane] = input[plane];
         }
         firstOp.activeThreads = gridActiveThreads;
 

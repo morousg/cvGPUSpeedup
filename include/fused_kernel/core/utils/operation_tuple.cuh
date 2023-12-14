@@ -80,20 +80,4 @@ namespace fk {
 
     template <int INDEX>
     using OpTupUtils = OperationTupleUtils<INDEX>;
-
-    template <int INDEX, typename TupleLike>
-    struct tuple_element {};
-
-    template <int INDEX, typename... Instances>
-    struct tuple_element<INDEX, Tuple<Instances...>> {
-        using type = TypeAt_t<INDEX, TypeList<Instances...>>;
-    };
-
-    template <int INDEX, typename... Operations>
-    struct tuple_element<INDEX, OperationTuple<Operations...>> {
-        using type = TypeAt_t<INDEX, TypeList<Operations...>>;
-    };
-
-    template <int INDEX, typename TupleLike>
-    using tuple_element_t = typename tuple_element<INDEX, TupleLike>::type;
 }

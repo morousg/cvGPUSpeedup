@@ -84,7 +84,7 @@ namespace fk {
 
         using ParentType = CoreType_t<T, CP_MODE>;
 
-        using StoreT = typename CircularTensorStoreType<T, COLOR_PLANES>::type;//typename VectorType<T, COLOR_PLANES>::type;
+        using StoreT = typename CircularTensorStoreType<T, COLOR_PLANES>::type;
 
         using WriteDeviceFunctions = TypeList<Write<TensorWrite<StoreT>>,
             Write<TensorSplit<StoreT>>,
@@ -126,8 +126,8 @@ namespace fk {
 
             // Build copy pipeline
             equivalentReadDFType nonUpdateRead;
-            nonUpdateRead.params.first = m_nextUpdateIdx;
-            nonUpdateRead.params.params = m_tempTensor.ptr();
+            nonUpdateRead.head.params.first = m_nextUpdateIdx;
+            nonUpdateRead.head.params.params = m_tempTensor.ptr();
             nonUpdateRead.activeThreads.x = this->ptr_a.dims.width;
             nonUpdateRead.activeThreads.y = this->ptr_a.dims.height;
             nonUpdateRead.activeThreads.z = BATCH;

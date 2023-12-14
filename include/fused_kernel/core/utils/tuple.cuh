@@ -89,5 +89,16 @@ namespace fk {
         }
     };
 
+    template <int INDEX, typename TupleLike>
+    struct tuple_element {};
+
+    template <int INDEX, template <typename...> class TupleLike, typename... Instances>
+    struct tuple_element<INDEX, TupleLike<Instances...>> {
+        using type = TypeAt_t<INDEX, TypeList<Instances...>>;
+    };
+
+    template <int INDEX, typename TupleLike>
+    using tuple_element_t = typename tuple_element<INDEX, TupleLike>::type;
+
 } // namespace fk
 
