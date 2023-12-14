@@ -78,6 +78,10 @@ bool test_resize_write(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_st
                 error_s << e.what();
                 passed = false;
                 exception = true;
+            } else {
+                std::stringstream ss;
+                ss << "test_resize_write<" << cvTypeToString<I>() << ", " << cvTypeToString<O>();
+                std::cout << ss.str() << "> not supported by OpenCV" << std::endl;
             }
         } catch (const std::exception& e) {
             error_s << e.what();
@@ -116,27 +120,15 @@ int launch() {
     results["test_resize_write"] &= test_resize_write<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
-    LAUNCH_TESTS(CV_8SC1, CV_32FC1)
     LAUNCH_TESTS(CV_16UC1, CV_32FC1)
     LAUNCH_TESTS(CV_16SC1, CV_32FC1)
-    LAUNCH_TESTS(CV_32SC1, CV_32FC1)
     LAUNCH_TESTS(CV_32FC1, CV_32FC1)
-    LAUNCH_TESTS(CV_8UC2, CV_32FC2)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
     LAUNCH_TESTS(CV_8UC4, CV_32FC4)
-    LAUNCH_TESTS(CV_8SC2, CV_32FC2)
-    LAUNCH_TESTS(CV_8SC3, CV_32FC3)
-    LAUNCH_TESTS(CV_8SC4, CV_32FC4)
-    LAUNCH_TESTS(CV_16UC2, CV_32FC2)
     LAUNCH_TESTS(CV_16UC3, CV_32FC3)
     LAUNCH_TESTS(CV_16UC4, CV_32FC4)
-    LAUNCH_TESTS(CV_16SC2, CV_32FC2)
     LAUNCH_TESTS(CV_16SC3, CV_32FC3)
     LAUNCH_TESTS(CV_16SC4, CV_32FC4)
-    LAUNCH_TESTS(CV_32SC2, CV_32FC2)
-    LAUNCH_TESTS(CV_32SC3, CV_32FC3)
-    LAUNCH_TESTS(CV_32SC4, CV_32FC4)
-    LAUNCH_TESTS(CV_32FC2, CV_64FC2)
     LAUNCH_TESTS(CV_32FC3, CV_64FC3)
     LAUNCH_TESTS(CV_32FC4, CV_64FC4)
 

@@ -15,7 +15,7 @@
 #pragma once
 
 #include <fused_kernel/core/execution_model/grid_patterns.cuh>
-#include <fused_kernel/core/fusionable_operations/memory_operations.cuh>
+#include <fused_kernel/core/execution_model/memory_operations.cuh>
 
 namespace fk {
 
@@ -66,9 +66,9 @@ namespace fk {
                          (uint)activeBatch };
         const dim3 gridActiveThreads(firstInput.dims().width, firstInput.dims().height, activeBatch);
 
-        ReadDeviceFunction<BatchRead<PerThreadRead<_2D, I>, Batch>> firstOp;
+        Read<BatchRead<PerThreadRead<_2D, I>, Batch>> firstOp;
         for (int plane = 0; plane < activeBatch; plane++) {
-            firstOp.params[plane] = input[plane];
+            firstOp.head.params[plane] = input[plane];
         }
         firstOp.activeThreads = gridActiveThreads;
 

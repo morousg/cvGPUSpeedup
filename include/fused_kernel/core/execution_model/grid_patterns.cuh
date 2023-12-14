@@ -40,8 +40,8 @@ namespace fk { // namespace FusedKernel
             }
 
         public:
-            template <typename ReadOperation, typename... DeviceFunctionTypes>
-            FK_DEVICE_FUSE void exec(const ReadDeviceFunction<ReadOperation>& readDeviceFunction, const DeviceFunctionTypes&... deviceFunctionInstances) {
+            template <typename ReadDeviceFunction, typename... DeviceFunctionTypes>
+            FK_DEVICE_FUSE void exec(const ReadDeviceFunction& readDeviceFunction, const DeviceFunctionTypes&... deviceFunctionInstances) {
                 const auto writeDeviceFunction = last(deviceFunctionInstances...);
                 using WriteOperation = typename decltype(writeDeviceFunction)::Operation;
 
@@ -53,7 +53,7 @@ namespace fk { // namespace FusedKernel
                 const Point thread{ x, y, z };
 
                 if (x < readDeviceFunction.activeThreads.x && y < readDeviceFunction.activeThreads.y) {
-                    const auto tempI = ReadOperation::exec(thread, readDeviceFunction.params);
+                    const auto tempI = ReadDeviceFunction::Operation::exec(thread, readDeviceFunction.head);
                     if constexpr (sizeof...(deviceFunctionInstances) > 1) {
                         const auto tempO = operate(thread, tempI, deviceFunctionInstances...);
                         WriteOperation::exec(thread, tempO, writeDeviceFunction.params);
@@ -67,11 +67,11 @@ namespace fk { // namespace FusedKernel
     template <typename SequenceSelector>
     struct DivergentBatchTransformGridPattern {
         private:
-            template <int OpSequenceNumber, typename ReadOperation, typename... DeviceFunctionTypes, typename... DeviceFunctionSequenceTypes>
-            FK_DEVICE_FUSE void divergent_operate(const uint& z, const DeviceFunctionSequence<ReadDeviceFunction<ReadOperation>, DeviceFunctionTypes...>& dfSeq,
+            template <int OpSequenceNumber, typename... DeviceFunctionTypes, typename... DeviceFunctionSequenceTypes>
+            FK_DEVICE_FUSE void divergent_operate(const uint& z, const DeviceFunctionSequence<DeviceFunctionTypes...>& dfSeq,
                                                   const DeviceFunctionSequenceTypes&... dfSequenceInstances) {
                 if (OpSequenceNumber == SequenceSelector::at(z)) {
-                    fk::apply(TransformGridPattern::exec<ReadOperation, DeviceFunctionTypes...>, dfSeq.deviceFunctions);
+                    fk::apply(TransformGridPattern::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
                 } else if constexpr (sizeof...(dfSequenceInstances) > 0) {
                     divergent_operate<OpSequenceNumber + 1>(z, dfSequenceInstances...);
                 }
@@ -112,19 +112,19 @@ namespace fk { // namespace FusedKernel
     template <int BATCH>
     struct DivergentBatchTransformGridPattern_vec {
         private:
-            template <int OpSequenceNumber, typename ReadOperation, typename... DeviceFunctionTypes>
+            template <int OpSequenceNumber, typename... DeviceFunctionTypes>
             FK_DEVICE_FUSE void divergent_operate(const uint& z, const Array<int, BATCH>& dfSeqSelector,
-                                                  const DeviceFunctionSequence<ReadDeviceFunction<ReadOperation>, DeviceFunctionTypes...>& dfSeq) {
+                                                  const DeviceFunctionSequence<DeviceFunctionTypes...>& dfSeq) {
                 // If the threads with this z, arrived here, we assume they have to execute this operation sequence
-                fk::apply(TransformGridPattern::exec<ReadOperation, DeviceFunctionTypes...>, dfSeq.deviceFunctions);
+                fk::apply(TransformGridPattern::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
             }
 
-            template <int OpSequenceNumber, typename ReadOperation, typename... DeviceFunctionTypes, typename... DeviceFunctionSequenceTypes>
+            template <int OpSequenceNumber, typename... DeviceFunctionTypes, typename... DeviceFunctionSequenceTypes>
             FK_DEVICE_FUSE void divergent_operate(const uint& z, const Array<int, BATCH>& dfSeqSelector,
-                                                  const DeviceFunctionSequence<ReadDeviceFunction<ReadOperation>, DeviceFunctionTypes...>& dfSeq,
+                                                  const DeviceFunctionSequence<DeviceFunctionTypes...>& dfSeq,
                                                   const DeviceFunctionSequenceTypes&... dfSequenceInstances) {
                 if (OpSequenceNumber == dfSeqSelector.at[z]) {
-                    fk::apply(TransformGridPattern::exec<ReadOperation, DeviceFunctionTypes...>, dfSeq.deviceFunctions);
+                    fk::apply(TransformGridPattern::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
                 } else {
                     DivergentBatchTransformGridPattern_vec<BATCH>::divergent_operate<OpSequenceNumber + 1>(z, dfSeqSelector, dfSequenceInstances...);
                 }

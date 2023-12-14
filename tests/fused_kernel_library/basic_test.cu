@@ -15,7 +15,8 @@
 #include <iostream>
 
 #include <fused_kernel/fused_kernel.cuh>
-#include <fused_kernel/core/fusionable_operations/memory_operations.cuh>
+#include <fused_kernel/core/execution_model/memory_operations.cuh>
+#include <fused_kernel/core/utils/template_operations.cuh>
 #include "tests/main.h"
 
 template <typename T>
@@ -86,9 +87,16 @@ int launch() {
 
     fk::cuda_transform<<<dim3(1,8),dim3(64,8),0,stream>>>(read, cast, write);
 
+    fk::OperationTuple<fk::PerThreadRead<fk::_2D, uchar>, fk::SaturateCast<uchar, uint>, fk::PerThreadWrite<fk::_2D, uint>> myTup{};
+
+    fk::OpTupUtils<2>::get_params(myTup);
+    constexpr bool test1 = std::is_same_v<fk::tuple_element_t<0, decltype(myTup)>, fk::PerThreadRead<fk::_2D, uchar>>;
+    constexpr bool test2 = std::is_same_v<fk::tuple_element_t<1, decltype(myTup)>, fk::SaturateCast<uchar, uint>>;
+    constexpr bool test3 = std::is_same_v<fk::tuple_element_t<2, decltype(myTup)>, fk::PerThreadWrite<fk::_2D, uint>>;
+
     gpuErrchk(cudaStreamSynchronize(stream));
 
-    if (test2Dpassed) {
+    if (test2Dpassed && fk::and_v<test1, test2, test3>) {
         std::cout << "cuda_transform executed!!" << std::endl; 
     } else {
         std::cout << "cuda_transform failed!!" << std::endl;

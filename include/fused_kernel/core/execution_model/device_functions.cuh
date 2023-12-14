@@ -15,7 +15,7 @@
 #pragma once
 
 #include <vector_types.h>
-#include <fused_kernel/core/fusionable_operations/operations.cuh>
+#include <fused_kernel/core/execution_model/operations.cuh>
 
 namespace fk { // namespace FusedKernel
 
@@ -26,26 +26,32 @@ namespace fk { // namespace FusedKernel
     static constexpr bool is{ std::is_same_v<IT, InstanceType> };
 
     // generic operation structs
-    template <typename Operation_t>
+    template <typename... Operations>
     struct ReadDeviceFunction {
-        static_assert(std::is_same_v<typename Operation_t::InstanceType, ReadType>, "Operation is not Read.");
-        DEVICE_FUNCTION_DETAILS(ReadType)
-        typename Operation_t::ParamsType params;
+        using Operation = OperationTupleOperation<Operations...>;
+        static_assert(std::is_same_v<typename Operation::InstanceType, ReadType>, "Operation is not Read.");
+        using InstanceType = ReadType;
+        template <typename IT>
+        static constexpr bool is{ std::is_same_v<IT, InstanceType> };
+
+        OperationTuple<Operations... > head;
         dim3 activeThreads;
     };
 
     template <typename... Operations>
     struct BinaryDeviceFunction {
-        using Operation = ComposedOperationSequence<Operations...>;
+        using Operation = OperationTupleOperation<Operations...>;
         using InstanceType = BinaryType;
         template <typename IT>
         static constexpr bool is{ std::is_same_v<IT, InstanceType> };
-        typename Operation::ParamsType head;
+
+        OperationTuple<Operations... > head;
     };
 
     template <typename... Operations>
     struct UnaryDeviceFunction {
         using Operation = UnaryOperationSequence<Operations...>;
+        static_assert(std::is_same_v<typename Operation::InstanceType, UnaryType>, "Operation is not Unary.");
         using InstanceType = UnaryType;
         template <typename IT>
         static constexpr bool is{ std::is_same_v<IT, InstanceType> };
@@ -55,6 +61,7 @@ namespace fk { // namespace FusedKernel
     struct MidWriteDeviceFunction {
         static_assert(std::is_same_v<typename Operation_t::InstanceType, WriteType>, "Operation is not Write.");
         DEVICE_FUNCTION_DETAILS(MidWriteType)
+
         typename Operation_t::ParamsType params;
     };
 
@@ -62,13 +69,14 @@ namespace fk { // namespace FusedKernel
     struct WriteDeviceFunction {
         static_assert(std::is_same_v<typename Operation_t::InstanceType, WriteType>, "Operation is not Write.");
         DEVICE_FUNCTION_DETAILS(WriteType)
+
         typename Operation_t::ParamsType params;
     };
 
 #undef DEVICE_FUNCTION_DETAILS
 
-    template <typename Operation>
-    using Read = ReadDeviceFunction<Operation>;
+    template <typename... Operations>
+    using Read = ReadDeviceFunction<Operations...>;
     template <typename... Operations>
     using Unary = UnaryDeviceFunction<Operations...>;
     template <typename... Operations>

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <fused_kernel/core/utils/cuda_utils.cuh>
 
 namespace fk { // namespace fused kernel
     /**
@@ -39,6 +40,17 @@ namespace fk { // namespace fused kernel
     struct TypeList<TypeList<Args1...>, TypeList<Args2...>, TypeList<Args3...>, TypeList<Args4...>> {
         using type = TypeList<Args1..., Args2..., Args3..., Args4...>;
     };
+
+    template<typename... Types>
+    struct TypeListCat{};
+
+    template<typename... Args1, typename... Args2>
+    struct TypeListCat<TypeList<Args1...>, TypeList<Args2...>> {
+        using type = TypeList<Args1..., Args2...>;
+    };
+
+    template <typename TypeList1, typename TypeList2>
+    using TypeListCat_t = typename TypeListCat<TypeList1, TypeList2>::type;
 
     template <typename... Args>
     struct one_of {};
@@ -108,7 +120,7 @@ namespace fk { // namespace fused kernel
     constexpr size_t TypeIndex_v = TypeIndex<T, TypeList_t>::value;
 
     // Obtain the type found in the index Idx, in TypeList
-    template <std::size_t n, typename... TypeList_t>
+    template <int n, typename... TypeList_t>
     struct TypeAt;
 
     template <typename Head, typename... Tail>
@@ -116,12 +128,17 @@ namespace fk { // namespace fused kernel
         using type = Head;
     };
 
-    template <std::size_t n, typename Head, typename... Tail>
+    template <typename Head, typename... Tail>
+    struct TypeAt<-1, TypeList<Head, Tail...>> {
+        using type = typename TypeAt<sizeof...(Tail)-1, TypeList<Tail...>>::type;
+    };
+
+    template <int n, typename Head, typename... Tail>
     struct TypeAt<n, TypeList<Head, Tail...>> {
         using type = typename TypeAt<n - 1, TypeList<Tail...>>::type;
     };
 
-    template <std::size_t n, typename TypeList_t>
+    template <int n, typename TypeList_t>
     using TypeAt_t = typename TypeAt<n, TypeList_t>::type;
 
     template <typename... Types>
@@ -162,4 +179,31 @@ namespace fk { // namespace fused kernel
 
     template<typename T, typename... Ts>
     constexpr bool all_types_are_same = std::conjunction_v<std::is_same<T, Ts>...>;
+
+    template <std::size_t Index, typename T, typename... Types>
+    struct InsertType {};
+
+    template <typename T>
+    struct InsertType<0, T> {
+        using type = TypeList<T>;
+    };
+
+    template <std::size_t Index, typename T, typename Head>
+    struct InsertType<Index, T, TypeList<Head>> {
+        using type = std::conditional_t<Index == 0,
+            TypeList<T, Head>,
+            TypeList<Head, T>
+        >;
+    };
+
+    template <std::size_t Index, typename T, typename Head, typename... Tail>
+    struct InsertType<Index, T, TypeList<Head, Tail...>> {
+        using type = std::conditional_t<Index == 0,
+                                        TypeList<T, Head, Tail...>,
+                                        TypeListCat_t<TypeList<Head>, typename InsertType<Index - 1, T, TypeList<Tail...>>::type>
+                                       >;
+    };
+
+    template <std::size_t Index, typename T, typename... Types>
+    using InsertType_t = typename InsertType<Index, T, Types...>::type;
 }; // namespace fused kernel
