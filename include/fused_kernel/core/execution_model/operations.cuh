@@ -49,12 +49,22 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
         }
     };
 
+    template <typename Operation, typename Enabler=void>
+    constexpr bool getBigType{};
+
+    template <typename Operation>
+    constexpr bool getBigType<Operation, std::enable_if_t<!std::is_same_v<typename Operation::InstanceType, ReadType>>>{ false };
+
+    template <typename Operation>
+    constexpr bool getBigType<Operation, std::enable_if_t<std::is_same_v<typename Operation::InstanceType, ReadType>>>{ Operation::BIG_TYPE };
+
     template <typename... Operations>
     struct OperationTupleOperation {
         using InputType = typename FirstType_t<Operations...>::InputType;
         using ParamsType = OperationTuple<Operations...>;
         using OutputType = typename LastType_t<Operations...>::OutputType;
         using InstanceType = typename FirstType_t<Operations...>::InstanceType;
+        static constexpr bool BIG_TYPE{ getBigType<FirstType_t<Operations...>> };
     private:
         template <typename Tuple_>
         FK_HOST_DEVICE_FUSE auto exec_operate(const typename Tuple_::Operation::InputType& i_data, const Tuple_& tuple) {

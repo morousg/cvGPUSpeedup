@@ -17,15 +17,20 @@
 #include <fused_kernel/core/utils/cuda_vector_utils.cuh>
 #include <fused_kernel/core/execution_model/operations.cuh>
 #include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
+#include <fused_kernel/core/execution_model/bigger_type.cuh>
 
 namespace fk {
+#define READ_OPERATION_DETAILS \
+using InputType = Point; \
+using InstanceType = ReadType; \
+static constexpr bool BIG_TYPE{USE_BIG_TYPE}; \
+using BiggerTypeInfo = std::conditional_t<USE_BIG_TYPE, BiggerType_t<OutputType>, BiggerTypeSize<OutputType, 1>>;
 
-    template <ND D, typename T>
+    template <ND D, typename T, bool USE_BIG_TYPE=false>
     struct PerThreadRead {
-        using InputType = Point;
         using OutputType = T;
         using ParamsType = RawPtr<D, T>;
-        using InstanceType = ReadType;
+        READ_OPERATION_DETAILS
         FK_DEVICE_FUSE OutputType exec(const InputType& thread, const ParamsType& ptr) {
             return *PtrAccessor<D>::cr_point(thread, ptr);
         }
@@ -41,12 +46,11 @@ namespace fk {
         }
     };
 
-    template <typename T>
+    template <typename T, bool USE_BIG_TYPE = false>
     struct TensorRead {
-        using InputType = Point;
         using OutputType = T;
         using ParamsType = RawPtr<_3D, T>;
-        using InstanceType = ReadType;
+        READ_OPERATION_DETAILS
         FK_DEVICE_FUSE OutputType exec(const InputType& thread, const ParamsType& ptr) {
             return *PtrAccessor<_3D>::cr_point(thread, ptr);
         }
@@ -106,12 +110,11 @@ namespace fk {
         }
     };
 
-    template <typename T>
+    template <typename T, bool USE_BIG_TYPE = false>
     struct TensorPack {
-        using InputType = Point;
         using OutputType = T;
         using ParamsType = RawPtr<_3D, VBase<T>>;
-        using InstanceType = ReadType;
+        READ_OPERATION_DETAILS
         FK_DEVICE_FUSE OutputType exec(const InputType& thread, const ParamsType& ptr) {
             static_assert(cn<OutputType> >= 2, "Wrong type for split tensor read. It must be one of <type>2, <type>3 or <type>4.");
 
@@ -134,10 +137,10 @@ namespace fk {
 
     template <typename T>
     struct TensorTPack {
-        using InputType = Point;
+        static constexpr bool USE_BIG_TYPE{ false };
         using OutputType = T;
         using ParamsType = RawPtr<T3D, VBase<T>>;
-        using InstanceType = ReadType;
+        READ_OPERATION_DETAILS
         FK_DEVICE_FUSE OutputType exec(const Point& thread, const ParamsType& ptr) {
             static_assert(cn<OutputType> >= 2, "Wrong type for split tensor read. It must be one of <type>2, <type>3 or <type>4.");
 
@@ -198,10 +201,10 @@ namespace fk {
 
     template <typename Operation, int NPtr>
     struct BatchRead {
-        using InputType = Point;
+        static constexpr bool USE_BIG_TYPE{ Operation::BIG_TYPE };
         using OutputType = typename Operation::OutputType;
         using ParamsType = typename Operation::ParamsType[NPtr];
-        using InstanceType = ReadType;
+        READ_OPERATION_DETAILS
         FK_DEVICE_FUSE const OutputType exec(const InputType& thread, const typename Operation::ParamsType(&params)[NPtr]) {
             return Operation::exec(thread, params[thread.z]);
         }
@@ -255,10 +258,10 @@ namespace fk {
 
     template <CircularDirection direction, typename Operation, int BATCH>
     struct CircularBatchRead {
-        using InputType = Point;
+        static constexpr bool USE_BIG_TYPE{Operation::BIG_TYPE};
         using OutputType = typename Operation::OutputType;
         using ParamsType = CircularMemoryParams<typename Operation::ParamsType[BATCH]>;
-        using InstanceType = ReadType;
+        READ_OPERATION_DETAILS
         FK_DEVICE_FUSE const OutputType exec(const InputType& thread, const ParamsType& c_params) {
             const Point newThreadIdx = computeCircularThreadIdx<direction, BATCH>(thread, c_params.first);
             return Operation::exec(newThreadIdx, c_params.params[newThreadIdx.z]);
@@ -278,10 +281,10 @@ namespace fk {
 
     template <CircularDirection direction, typename Operation, int BATCH>
     struct CircularTensorRead {
-        using InputType = Point;
+        static constexpr bool USE_BIG_TYPE{Operation::BIG_TYPE};
         using OutputType = typename Operation::OutputType;
         using ParamsType = CircularMemoryParams<typename Operation::ParamsType>;
-        using InstanceType = ReadType;
+        READ_OPERATION_DETAILS
         FK_DEVICE_FUSE const OutputType exec(const InputType& thread, const ParamsType& c_params) {
             const Point newThreadIdx = computeCircularThreadIdx<direction, BATCH>(thread, c_params.first);
             return Operation::exec(newThreadIdx, c_params.params);
@@ -311,10 +314,11 @@ namespace fk {
 
     template <typename Operation, ROI USE>
     struct ApplyROI {
-        using InputType = Point;
+        static_assert(Operation::BIG_TYPE == false, "AppyROI is not compatible with Read Operations that have BIG_TYPE enabled.");
+        static constexpr bool USE_BIG_TYPE{ Operation::BIG_TYPE };
         using OutputType = typename Operation::OutputType;
         using ParamsType = ApplyROIParams<Operation>;
-        using InstanceType = ReadType;
+        READ_OPERATION_DETAILS
         static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
             if (thread.x >= params.x1 && thread.x <= params.x2 && thread.y >= params.y1 && thread.y <= params.y2) {
                 if constexpr (USE == OFFSET_THREADS) {
