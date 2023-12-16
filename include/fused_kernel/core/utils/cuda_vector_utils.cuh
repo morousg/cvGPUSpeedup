@@ -435,6 +435,10 @@ namespace fk {
     VEC_BINARY_OP(== , short, uchar)
     VEC_BINARY_OP(== , int, uchar)
     VEC_BINARY_OP(== , uint, uchar)
+    VEC_BINARY_OP(== , long, uchar)
+    VEC_BINARY_OP(== , ulong, uchar)
+    VEC_BINARY_OP(== , longlong, uchar)
+    VEC_BINARY_OP(== , ulonglong, uchar)
     VEC_BINARY_OP(== , float, uchar)
     VEC_BINARY_OP(== , double, uchar)
 
