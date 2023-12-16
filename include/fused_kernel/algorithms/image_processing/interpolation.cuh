@@ -41,7 +41,7 @@ namespace fk {
         using OutputType = VectorType_t<float, cn<ReadOutputType>>;
         using InputType = float2;
         using ParamsType = typename PixelReadOp::ParamsType;
-        using InstanceType = ReadType;
+        using InstanceType = BinaryType;
         static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             const float src_x = input.x;
             const float src_y = input.y;

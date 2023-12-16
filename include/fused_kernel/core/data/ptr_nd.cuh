@@ -584,7 +584,7 @@ public:
     __host__ inline constexpr Ptr3D<T> crop3D(const Point& p, const PtrDims<_3D>& newDims) { return Ptr<_3D, T>::crop(p, newDims); }
 };
 
-// A color plane transposed 3D pointer PtrT3D
+// A color-plane-transposed 3D pointer PtrT3D
 template <typename T>
 class PtrT3D : public Ptr<T3D, T> {
 public:
@@ -618,7 +618,7 @@ public:
     }
 };
 
-// A color-planes-transposed Tensor pointer
+// A color-plane-transposed Tensor pointer
 template <typename T>
 class TensorT : public Ptr<T3D, T> {
 public:
