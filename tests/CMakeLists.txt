@@ -46,6 +46,7 @@ function (discover_tests DIR)
     endforeach()
 endfunction()
 
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OUT_DIR})
 
 MACRO(SUBDIRLIST result curdir)
 FILE(GLOB children ${curdir}/*) # 
