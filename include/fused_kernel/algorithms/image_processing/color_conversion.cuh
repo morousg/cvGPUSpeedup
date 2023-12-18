@@ -15,8 +15,9 @@
 #pragma once
 
 #include <fused_kernel/core/utils/type_lists.cuh>
-#include <fused_kernel/core/execution_model/operations.cuh>
+#include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/thread_fusion.cuh>
 #include <fused_kernel/algorithms/basic_ops/logical.cuh>
 #include <fused_kernel/algorithms/basic_ops/algebraic.cuh>
 #include <fused_kernel/algorithms/image_processing/saturate.cuh>
@@ -265,11 +266,14 @@ namespace fk {
 
     template <PixelFormat PF>
     struct ReadYUV {
-        using InputType = Point;
         using OutputType = ColorDepthPixelType<(ColorDepth)PixelFormatTraits<PF>::depth>;
         using PixelBaseType = ColorDepthPixelBaseType<(ColorDepth)PixelFormatTraits<PF>::depth>;
         using ParamsType = RawPtr<_2D, PixelBaseType>;
+        static constexpr bool USE_BIG_TYPE{ false };
+        using InputType = Point;
         using InstanceType = ReadType;
+        static constexpr bool BIG_TYPE{ USE_BIG_TYPE };
+        using ThreadFusion = std::conditional_t<USE_BIG_TYPE, ThreadFusionInfo_t<OutputType>, ThreadFusionInfo<OutputType, 1>>;
         static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
             if constexpr (PF == NV12 || PF == P010 || PF == P016 || PF == P210 || PF == P216) {
                 // Planar luma

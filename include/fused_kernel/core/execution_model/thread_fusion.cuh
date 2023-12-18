@@ -60,16 +60,16 @@ namespace fk {
     using BiggerType = typename BiggerTypeSelect<OriginalType, times_bigger>::type;
 
     template <typename OriginalType, int TIMES_BIGGER>
-    struct BiggerTypeSize {};
+    struct ThreadFusionInfo {};
 
     template <typename OriginalType>
-    struct BiggerTypeSize<OriginalType, 1> {
+    struct ThreadFusionInfo<OriginalType, 1> {
         enum { times_bigger = 1 };
         using type = OriginalType;
     };
 
     template <typename OriginalType>
-    struct BiggerTypeSize<OriginalType, 2> {
+    struct ThreadFusionInfo<OriginalType, 2> {
         enum { times_bigger = 2 };
         using type = BiggerType<OriginalType, 2>;
         template <int IDX>
@@ -93,7 +93,7 @@ namespace fk {
     };
 
     template <typename OriginalType>
-    struct BiggerTypeSize<OriginalType, 4> {
+    struct ThreadFusionInfo<OriginalType, 4> {
         enum { times_bigger = 4 };
         using type = BiggerType<OriginalType, 4>;
         template <int IDX>
@@ -129,19 +129,19 @@ namespace fk {
 
     using TypeSizes =
         TypeList<TypeSize<1>, TypeSize<2>,
-        TypeSize<3>, TypeSize<4>,
-        TypeSize<6>, TypeSize<8>,
-        TypeSize<12>, TypeSize<16>,
-        TypeSize<24>, TypeSize<32>>;
+                 TypeSize<3>, TypeSize<4>,
+                 TypeSize<6>, TypeSize<8>,
+                 TypeSize<12>, TypeSize<16>,
+                 TypeSize<24>, TypeSize<32>>;
 
     template <typename OriginalType>
-    using BiggerTypeSizes =
-        TypeList<BiggerTypeSize<OriginalType, 4>, BiggerTypeSize<OriginalType, 4>,
-                 BiggerTypeSize<OriginalType, 1>, BiggerTypeSize<OriginalType, 4>,
-                 BiggerTypeSize<OriginalType, 1>, BiggerTypeSize<OriginalType, 2>,
-                 BiggerTypeSize<OriginalType, 1>, BiggerTypeSize<OriginalType, 1>,
-                 BiggerTypeSize<OriginalType, 1>, BiggerTypeSize<OriginalType, 1>>;
+    using ThreadFusionInfos =
+        TypeList<ThreadFusionInfo<OriginalType, 4>, ThreadFusionInfo<OriginalType, 4>,
+                 ThreadFusionInfo<OriginalType, 1>, ThreadFusionInfo<OriginalType, 4>,
+                 ThreadFusionInfo<OriginalType, 1>, ThreadFusionInfo<OriginalType, 2>,
+                 ThreadFusionInfo<OriginalType, 1>, ThreadFusionInfo<OriginalType, 1>,
+                 ThreadFusionInfo<OriginalType, 1>, ThreadFusionInfo<OriginalType, 1>>;
 
     template <typename OriginalType>
-    using BiggerType_t = EquivalentType_t<TypeSize<sizeof(OriginalType)>, TypeSizes, BiggerTypeSizes<OriginalType>>;
+    using ThreadFusionInfo_t = EquivalentType_t<TypeSize<sizeof(OriginalType)>, TypeSizes, ThreadFusionInfos<OriginalType>>;
 } // namespace fk

@@ -73,7 +73,7 @@ namespace fk {
     private:
         template <typename... Operations>
         static __device__ __forceinline__ PtrDims<_2D> getSourceSize(const OperationTuple<Operations...>& params) {
-            return OpTupUtils<0>::get_params(params).dims;
+            return get_params<0>(params).dims;
         }
 
         template <typename T>

@@ -17,14 +17,15 @@
 #include <fused_kernel/core/utils/cuda_vector_utils.cuh>
 #include <fused_kernel/core/execution_model/operations.cuh>
 #include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
-#include <fused_kernel/core/execution_model/bigger_type.cuh>
+#include <fused_kernel/core/execution_model/thread_fusion.cuh>
 
-namespace fk {
 #define READ_OPERATION_DETAILS \
 using InputType = Point; \
 using InstanceType = ReadType; \
 static constexpr bool BIG_TYPE{USE_BIG_TYPE}; \
-using BiggerTypeInfo = std::conditional_t<USE_BIG_TYPE, BiggerType_t<OutputType>, BiggerTypeSize<OutputType, 1>>;
+using ThreadFusion = std::conditional_t<USE_BIG_TYPE, ThreadFusionInfo_t<OutputType>, ThreadFusionInfo<OutputType, 1>>;
+
+namespace fk {
 
     template <ND D, typename T, bool USE_BIG_TYPE=false>
     struct PerThreadRead {
