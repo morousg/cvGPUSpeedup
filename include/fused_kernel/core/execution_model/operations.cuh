@@ -192,10 +192,21 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
                 return input;
             }
         }
+        template <int ITERATION>
+        FK_DEVICE_FUSE OutputType helper_exec(const InputType& input) {
+            if constexpr (ITERATION + 1 < ITERATIONS) {
+                return helper_exec<ITERATION + 1>(Operation::exec(input));
+            } else {
+                return input;
+            }
+        }
 
     public:
         FK_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
             return helper_exec<0>(Operation::exec(input, params), params);
+        }
+        FK_DEVICE_FUSE OutputType exec(const InputType& input) {
+            return helper_exec<0>(Operation::exec(input));
         }
     };
 }//namespace fk
