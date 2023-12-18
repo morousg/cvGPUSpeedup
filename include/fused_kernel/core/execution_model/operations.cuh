@@ -50,13 +50,26 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
     };
 
     template <typename Operation, typename Enabler=void>
-    constexpr bool getBigType{};
+    constexpr bool getThreadFusion{};
 
     template <typename Operation>
-    constexpr bool getBigType<Operation, std::enable_if_t<!std::is_same_v<typename Operation::InstanceType, ReadType>>>{ false };
+    constexpr bool getThreadFusion<Operation, std::enable_if_t<!isReadOperation<Operation>>>{ false };
 
     template <typename Operation>
-    constexpr bool getBigType<Operation, std::enable_if_t<std::is_same_v<typename Operation::InstanceType, ReadType>>>{ Operation::BIG_TYPE };
+    constexpr bool getThreadFusion<Operation, std::enable_if_t<isReadOperation<Operation>>>{ Operation::THREAD_FUSION };
+
+    template <typename Operation, typename Enabler=void>
+    struct GetThreadFusionInfo {};
+
+    template <typename Operation>
+    struct GetThreadFusionInfo<Operation, std::enable_if_t<!isReadOperation<Operation>>> {
+        using type = void;
+    };
+
+    template <typename Operation>
+    struct GetThreadFusionInfo<Operation, std::enable_if_t<isReadOperation<Operation>>> {
+        using type = typename Operation::ThreadFusion;
+    };
 
     template <typename... Operations>
     struct OperationTupleOperation {
@@ -64,7 +77,8 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
         using ParamsType = OperationTuple<Operations...>;
         using OutputType = typename LastType_t<Operations...>::OutputType;
         using InstanceType = typename FirstType_t<Operations...>::InstanceType;
-        static constexpr bool BIG_TYPE{ getBigType<FirstType_t<Operations...>> };
+        static constexpr bool THREAD_FUSION{ getThreadFusion<FirstType_t<Operations...>> };
+        using ThreadFusion = typename GetThreadFusionInfo<FirstType_t<Operations...>>::type;
     private:
         template <typename Tuple_>
         FK_HOST_DEVICE_FUSE auto exec_operate(const typename Tuple_::Operation::InputType& i_data, const Tuple_& tuple) {

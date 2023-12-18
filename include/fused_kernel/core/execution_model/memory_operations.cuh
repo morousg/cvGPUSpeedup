@@ -19,21 +19,28 @@
 #include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>
 
-#define READ_OPERATION_DETAILS \
+#define READ_OPERATION_DETAILS_THREAD_FUSION(OriginalOutputType) \
 using InputType = Point; \
 using InstanceType = ReadType; \
-static constexpr bool BIG_TYPE{USE_BIG_TYPE}; \
-using ThreadFusion = std::conditional_t<USE_BIG_TYPE, ThreadFusionInfo_t<OutputType>, ThreadFusionInfo<OutputType, 1>>;
+static constexpr bool THREAD_FUSION{USE_THREAD_FUSION}; \
+using ThreadFusion = std::conditional_t<THREAD_FUSION, ThreadFusionInfo_t<OriginalOutputType>, ThreadFusionInfo<OriginalOutputType, 1>>; \
+using OutputType = typename ThreadFusion::type;
+
+#define READ_OPERATION_DETAILS(OriginalOutputType) \
+using InputType = Point; \
+using InstanceType = ReadType; \
+static constexpr bool THREAD_FUSION{false}; \
+using ThreadFusion = ThreadFusionInfo<OriginalOutputType, 1>; \
+using OutputType = OriginalOutputType;
 
 namespace fk {
 
-    template <ND D, typename T, bool USE_BIG_TYPE=false>
+    template <ND D, typename T, bool USE_THREAD_FUSION=false>
     struct PerThreadRead {
-        using OutputType = T;
         using ParamsType = RawPtr<D, T>;
-        READ_OPERATION_DETAILS
+        READ_OPERATION_DETAILS_THREAD_FUSION(T)
         FK_DEVICE_FUSE OutputType exec(const InputType& thread, const ParamsType& ptr) {
-            return *PtrAccessor<D>::cr_point(thread, ptr);
+            return *PtrAccessor<D>::template cr_point<T, typename ThreadFusion::type>(thread, ptr);
         }
     };
 
@@ -47,13 +54,12 @@ namespace fk {
         }
     };
 
-    template <typename T, bool USE_BIG_TYPE = false>
+    template <typename T, bool USE_THREAD_FUSION = false>
     struct TensorRead {
-        using OutputType = T;
         using ParamsType = RawPtr<_3D, T>;
-        READ_OPERATION_DETAILS
+        READ_OPERATION_DETAILS_THREAD_FUSION(T)
         FK_DEVICE_FUSE OutputType exec(const InputType& thread, const ParamsType& ptr) {
-            return *PtrAccessor<_3D>::cr_point(thread, ptr);
+            return *PtrAccessor<_3D>::template cr_point<T, typename ThreadFusion::type>(thread, ptr);
         }
     };
 
@@ -111,11 +117,10 @@ namespace fk {
         }
     };
 
-    template <typename T, bool USE_BIG_TYPE = false>
+    template <typename T>
     struct TensorPack {
-        using OutputType = T;
         using ParamsType = RawPtr<_3D, VBase<T>>;
-        READ_OPERATION_DETAILS
+        READ_OPERATION_DETAILS(T)
         FK_DEVICE_FUSE OutputType exec(const InputType& thread, const ParamsType& ptr) {
             static_assert(cn<OutputType> >= 2, "Wrong type for split tensor read. It must be one of <type>2, <type>3 or <type>4.");
 
@@ -138,10 +143,8 @@ namespace fk {
 
     template <typename T>
     struct TensorTPack {
-        static constexpr bool USE_BIG_TYPE{ false };
-        using OutputType = T;
         using ParamsType = RawPtr<T3D, VBase<T>>;
-        READ_OPERATION_DETAILS
+        READ_OPERATION_DETAILS(T)
         FK_DEVICE_FUSE OutputType exec(const Point& thread, const ParamsType& ptr) {
             static_assert(cn<OutputType> >= 2, "Wrong type for split tensor read. It must be one of <type>2, <type>3 or <type>4.");
 
@@ -202,10 +205,10 @@ namespace fk {
 
     template <typename Operation, int NPtr>
     struct BatchRead {
-        static constexpr bool USE_BIG_TYPE{ Operation::BIG_TYPE };
-        using OutputType = typename Operation::OutputType;
+        static constexpr bool USE_THREAD_FUSION{ Operation::THREAD_FUSION };
+        using OriginalOutputType = typename Operation::OutputType;
         using ParamsType = typename Operation::ParamsType[NPtr];
-        READ_OPERATION_DETAILS
+        READ_OPERATION_DETAILS(OriginalOutputType)
         FK_DEVICE_FUSE const OutputType exec(const InputType& thread, const typename Operation::ParamsType(&params)[NPtr]) {
             return Operation::exec(thread, params[thread.z]);
         }
@@ -259,10 +262,10 @@ namespace fk {
 
     template <CircularDirection direction, typename Operation, int BATCH>
     struct CircularBatchRead {
-        static constexpr bool USE_BIG_TYPE{Operation::BIG_TYPE};
-        using OutputType = typename Operation::OutputType;
+        static constexpr bool USE_THREAD_FUSION{Operation::THREAD_FUSION};
+        using OriginalOutputType = typename Operation::OutputType;
         using ParamsType = CircularMemoryParams<typename Operation::ParamsType[BATCH]>;
-        READ_OPERATION_DETAILS
+        READ_OPERATION_DETAILS_THREAD_FUSION(OriginalOutputType)
         FK_DEVICE_FUSE const OutputType exec(const InputType& thread, const ParamsType& c_params) {
             const Point newThreadIdx = computeCircularThreadIdx<direction, BATCH>(thread, c_params.first);
             return Operation::exec(newThreadIdx, c_params.params[newThreadIdx.z]);
@@ -282,10 +285,10 @@ namespace fk {
 
     template <CircularDirection direction, typename Operation, int BATCH>
     struct CircularTensorRead {
-        static constexpr bool USE_BIG_TYPE{Operation::BIG_TYPE};
-        using OutputType = typename Operation::OutputType;
+        static constexpr bool USE_THREAD_FUSION{Operation::THREAD_FUSION};
+        using OriginalOutputType = typename Operation::OutputType;
         using ParamsType = CircularMemoryParams<typename Operation::ParamsType>;
-        READ_OPERATION_DETAILS
+        READ_OPERATION_DETAILS_THREAD_FUSION(OriginalOutputType)
         FK_DEVICE_FUSE const OutputType exec(const InputType& thread, const ParamsType& c_params) {
             const Point newThreadIdx = computeCircularThreadIdx<direction, BATCH>(thread, c_params.first);
             return Operation::exec(newThreadIdx, c_params.params);
@@ -315,11 +318,10 @@ namespace fk {
 
     template <typename Operation, ROI USE>
     struct ApplyROI {
-        static_assert(Operation::BIG_TYPE == false, "AppyROI is not compatible with Read Operations that have BIG_TYPE enabled.");
-        static constexpr bool USE_BIG_TYPE{ Operation::BIG_TYPE };
-        using OutputType = typename Operation::OutputType;
+        static_assert(Operation::THREAD_FUSION == false, "AppyROI is not compatible with Read Operations that have BIG_TYPE enabled.");
+        using OriginalOutputType = typename Operation::OutputType;
         using ParamsType = ApplyROIParams<Operation>;
-        READ_OPERATION_DETAILS
+        READ_OPERATION_DETAILS(OriginalOutputType)
         static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
             if (thread.x >= params.x1 && thread.x <= params.x2 && thread.y >= params.y1 && thread.y <= params.y2) {
                 if constexpr (USE == OFFSET_THREADS) {

@@ -234,9 +234,9 @@ struct PtrAccessor;
 
 template <>
 struct PtrAccessor<_1D> {
-    template <typename T>
-    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const Point& p, const RawPtr<_1D, T>& ptr) {
-        return (const T*)(ptr.data + p.x);
+    template <typename T, typename BiggerType = T>
+    FK_HOST_DEVICE_FUSE const BiggerType*__restrict__ cr_point(const Point& p, const RawPtr<_1D, T>& ptr) {
+        return ((const BiggerType*)ptr.data) + p.x;
     }
 
     template <typename T>
@@ -247,9 +247,9 @@ struct PtrAccessor<_1D> {
 
 template <>
 struct PtrAccessor<_2D> {
-    template <typename T>
-    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const Point& p, const RawPtr<_2D, T>& ptr) {
-        return (const T*)((const char*)ptr.data + (p.y * ptr.dims.pitch)) + p.x;
+    template <typename T, typename BiggerType=T>
+    FK_HOST_DEVICE_FUSE const BiggerType* __restrict__ cr_point(const Point& p, const RawPtr<_2D, T>& ptr) {
+        return (const BiggerType*)((const char*)ptr.data + (p.y * ptr.dims.pitch)) + p.x;
     }
 
     template <typename T>
@@ -260,9 +260,9 @@ struct PtrAccessor<_2D> {
 
 template <>
 struct PtrAccessor<_3D> {
-    template <typename T>
-    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const Point& p, const RawPtr<_3D, T>& ptr) {
-        return (const T*)((const char*)ptr.data + (ptr.dims.plane_pitch * ptr.dims.color_planes * p.z) + (p.y * ptr.dims.pitch)) + p.x;
+    template <typename T, typename BiggerType = T>
+    FK_HOST_DEVICE_FUSE const BiggerType*__restrict__ cr_point(const Point& p, const RawPtr<_3D, T>& ptr) {
+        return (const BiggerType*)((const char*)ptr.data + (ptr.dims.plane_pitch * ptr.dims.color_planes * p.z) + (p.y * ptr.dims.pitch)) + p.x;
     }
 
     template <typename T>
@@ -273,9 +273,9 @@ struct PtrAccessor<_3D> {
 
 template <>
 struct PtrAccessor<T3D> {
-    template <typename T>
-    FK_HOST_DEVICE_FUSE const T* __restrict__ cr_point(const Point& p, const RawPtr<T3D, T>& ptr, const uint& color_plane = 0) {
-        return (const T*)((const char*)ptr.data + (color_plane * ptr.dims.color_planes_pitch) + (ptr.dims.plane_pitch * p.z) + (ptr.dims.pitch * p.y)) + p.x;
+    template <typename T, typename BiggerType = T>
+    FK_HOST_DEVICE_FUSE const BiggerType* __restrict__ cr_point(const Point& p, const RawPtr<T3D, T>& ptr, const uint& color_plane = 0) {
+        return (const BiggerType*)((const char*)ptr.data + (color_plane * ptr.dims.color_planes_pitch) + (ptr.dims.plane_pitch * p.z) + (ptr.dims.pitch * p.y)) + p.x;
     }
 
     template <typename T>

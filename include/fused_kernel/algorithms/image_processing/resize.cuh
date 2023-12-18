@@ -22,10 +22,9 @@
 namespace fk {
 
     struct ComputeResizePoint {
-        using OutputType = float2;
         using ParamsType = float2;
         static constexpr bool USE_BIG_TYPE{ false };
-        READ_OPERATION_DETAILS
+        READ_OPERATION_DETAILS(float2)
         static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
             // This is what makes the interpolation a resize operation
             const float fx = params.x;

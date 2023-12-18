@@ -22,4 +22,7 @@ namespace fk {
     struct BinaryType {};
     struct MidWriteType {};
 
+    template <typename Operation>
+    constexpr bool isReadOperation = std::is_same_v<typename Operation::InstanceType, ReadType>;
+
 } // namespace fk

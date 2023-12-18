@@ -54,11 +54,53 @@ namespace fk { // namespace FusedKernel
 
                 if (x < readDeviceFunction.activeThreads.x && y < readDeviceFunction.activeThreads.y) {
                     const auto tempI = ReadDeviceFunction::Operation::exec(thread, readDeviceFunction.head);
-                    if constexpr (sizeof...(deviceFunctionInstances) > 1) {
-                        const auto tempO = operate(thread, tempI, deviceFunctionInstances...);
-                        WriteOperation::exec(thread, tempO, writeDeviceFunction.params);
-                    } else {
-                        WriteOperation::exec(thread, tempI, writeDeviceFunction.params);
+                    using ThreadFusion = typename ReadDeviceFunction::Operation::ThreadFusion;
+                    constexpr uint elems_per_thread = ThreadFusion::times_bigger;
+                    if constexpr (elems_per_thread == 1) {
+                        if constexpr (sizeof...(deviceFunctionInstances) > 1) {
+                            const auto tempO = operate(thread, tempI, deviceFunctionInstances...);
+                            WriteOperation::exec(thread, tempO, writeDeviceFunction.params);
+                        } else {
+                            WriteOperation::exec(thread, tempI, writeDeviceFunction.params);
+                        }
+                    } else if constexpr (elems_per_thread == 2) {
+                        const auto tempI0 = ThreadFusion::get<0>(tempI);
+                        const auto tempI1 = ThreadFusion::get<1>(tempI);
+                        const Point thread0{  thread.x * elems_per_thread,      thread.y, thread.z };
+                        const Point thread1{ (thread.x * elems_per_thread) + 1, thread.y, thread.z };
+                        if constexpr (sizeof...(deviceFunctionInstances) > 1) {
+                            const auto tempO0 = operate(thread, tempI0, deviceFunctionInstances...);
+                            WriteOperation::exec(thread0, tempO0, writeDeviceFunction.params);
+                            const auto tempO1 = operate(thread, tempI1, deviceFunctionInstances...);
+                            WriteOperation::exec(thread1, tempO1, writeDeviceFunction.params);
+                        } else {
+                            WriteOperation::exec(thread0, tempI0, writeDeviceFunction.params);
+                            WriteOperation::exec(thread1, tempI1, writeDeviceFunction.params);
+                        }
+                    } else if constexpr (elems_per_thread == 4) {
+                        const auto tempI0 = ThreadFusion::get<0>(tempI);
+                        const auto tempI1 = ThreadFusion::get<1>(tempI);
+                        const auto tempI2 = ThreadFusion::get<2>(tempI);
+                        const auto tempI3 = ThreadFusion::get<3>(tempI);
+                        const Point thread0{  thread.x * elems_per_thread,      thread.y, thread.z };
+                        const Point thread1{ (thread.x * elems_per_thread) + 1, thread.y, thread.z };
+                        const Point thread2{ (thread.x * elems_per_thread) + 2, thread.y, thread.z };
+                        const Point thread3{ (thread.x * elems_per_thread) + 3, thread.y, thread.z };
+                        if constexpr (sizeof...(deviceFunctionInstances) > 1) {
+                            const auto tempO0 = operate(thread0, tempI0, deviceFunctionInstances...);
+                            WriteOperation::exec(thread0, tempO0, writeDeviceFunction.params);
+                            const auto tempO1 = operate(thread1, tempI1, deviceFunctionInstances...);
+                            WriteOperation::exec(thread1, tempO1, writeDeviceFunction.params);
+                            const auto tempO2 = operate(thread2, tempI2, deviceFunctionInstances...);
+                            WriteOperation::exec(thread2, tempO2, writeDeviceFunction.params);
+                            const auto tempO3 = operate(thread3, tempI3, deviceFunctionInstances...);
+                            WriteOperation::exec(thread3, tempO3, writeDeviceFunction.params);
+                        } else {
+                            WriteOperation::exec(thread0, tempI0, writeDeviceFunction.params);
+                            WriteOperation::exec(thread1, tempI1, writeDeviceFunction.params);
+                            WriteOperation::exec(thread2, tempI2, writeDeviceFunction.params);
+                            WriteOperation::exec(thread3, tempI3, writeDeviceFunction.params);
+                        }
                     }
                 }
             }
