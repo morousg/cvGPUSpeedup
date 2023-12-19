@@ -239,9 +239,9 @@ struct PtrAccessor<_1D> {
         return ((const BiggerType*)ptr.data) + p.x;
     }
 
-    template <typename T>
-    static __device__ __forceinline__ __host__ T* point(const Point& p, const RawPtr<_1D, T>& ptr) {
-        return ptr.data + p.x;
+    template <typename T, typename BiggerType = T>
+    static __device__ __forceinline__ __host__ BiggerType* point(const Point& p, const RawPtr<_1D, T>& ptr) {
+        return (BiggerType*)ptr.data + p.x;
     }
 };
 
@@ -252,9 +252,9 @@ struct PtrAccessor<_2D> {
         return (const BiggerType*)((const char*)ptr.data + (p.y * ptr.dims.pitch)) + p.x;
     }
 
-    template <typename T>
-    static __device__ __forceinline__ __host__ T* point(const Point& p, const RawPtr<_2D, T>& ptr) {
-        return (T*)((char*)ptr.data + (p.y * ptr.dims.pitch)) + p.x;
+    template <typename T, typename BiggerType = T>
+    static __device__ __forceinline__ __host__ BiggerType* point(const Point& p, const RawPtr<_2D, T>& ptr) {
+        return (BiggerType*)((char*)ptr.data + (p.y * ptr.dims.pitch)) + p.x;
     }
 };
 
@@ -265,9 +265,9 @@ struct PtrAccessor<_3D> {
         return (const BiggerType*)((const char*)ptr.data + (ptr.dims.plane_pitch * ptr.dims.color_planes * p.z) + (p.y * ptr.dims.pitch)) + p.x;
     }
 
-    template <typename T>
-    static __device__ __forceinline__ __host__ T* point(const Point& p, const RawPtr<_3D, T>& ptr) {
-        return (T*)((char*)ptr.data + (ptr.dims.plane_pitch * ptr.dims.color_planes * p.z) + (p.y * ptr.dims.pitch)) + p.x;
+    template <typename T, typename BiggerType = T>
+    static __device__ __forceinline__ __host__ BiggerType* point(const Point& p, const RawPtr<_3D, T>& ptr) {
+        return (BiggerType*)((char*)ptr.data + (ptr.dims.plane_pitch * ptr.dims.color_planes * p.z) + (p.y * ptr.dims.pitch)) + p.x;
     }
 };
 
@@ -278,9 +278,9 @@ struct PtrAccessor<T3D> {
         return (const BiggerType*)((const char*)ptr.data + (color_plane * ptr.dims.color_planes_pitch) + (ptr.dims.plane_pitch * p.z) + (ptr.dims.pitch * p.y)) + p.x;
     }
 
-    template <typename T>
-    static __device__ __forceinline__ __host__ T* point(const Point& p, const RawPtr<T3D, T>& ptr, const uint& color_plane = 0) {
-        return (T*)((char*)ptr.data + (color_plane * ptr.dims.color_planes_pitch) + (ptr.dims.plane_pitch * p.z) + (ptr.dims.pitch * p.y)) + p.x;
+    template <typename T, typename BiggerType = T>
+    static __device__ __forceinline__ __host__ BiggerType* point(const Point& p, const RawPtr<T3D, T>& ptr, const uint& color_plane = 0) {
+        return (BiggerType*)((char*)ptr.data + (color_plane * ptr.dims.color_planes_pitch) + (ptr.dims.plane_pitch * p.z) + (ptr.dims.pitch * p.y)) + p.x;
     }
 };
 

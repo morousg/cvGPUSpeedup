@@ -25,8 +25,8 @@ namespace cg = cooperative_groups;
 namespace fk { // namespace FusedKernel
     struct TransformGridPattern {
         private:
-            template <typename DeviceFunction, typename... DeviceFunctionTypes>
-            FK_DEVICE_FUSE auto operate(const Point& thread, const typename DeviceFunction::Operation::InputType& i_data, const DeviceFunction& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
+            template <typename T, typename DeviceFunction, typename... DeviceFunctionTypes>
+            FK_DEVICE_FUSE auto operate(const Point& thread, const T& i_data, const DeviceFunction& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
                 if constexpr (DeviceFunction::template is<BinaryType>) {
                     return operate(thread, DeviceFunction::Operation::exec(i_data, df.head), deviceFunctionInstances...);
                 } else if constexpr (DeviceFunction::template is<UnaryType>) {
@@ -43,7 +43,7 @@ namespace fk { // namespace FusedKernel
             template <typename ReadDeviceFunction, typename... DeviceFunctionTypes>
             FK_DEVICE_FUSE void exec(const ReadDeviceFunction& readDeviceFunction, const DeviceFunctionTypes&... deviceFunctionInstances) {
                 const auto writeDeviceFunction = last(deviceFunctionInstances...);
-                using WriteOperation = typename decltype(writeDeviceFunction)::Operation;
+                using WriteOperation = typename LastType_t<DeviceFunctionTypes...>::Operation;
 
                 const cg::thread_block g = cg::this_thread_block();
 
@@ -54,8 +54,12 @@ namespace fk { // namespace FusedKernel
 
                 if (x < readDeviceFunction.activeThreads.x && y < readDeviceFunction.activeThreads.y) {
                     const auto tempI = ReadDeviceFunction::Operation::exec(thread, readDeviceFunction.head);
-                    using ThreadFusion = typename ReadDeviceFunction::Operation::ThreadFusion;
-                    constexpr uint elems_per_thread = ThreadFusion::times_bigger;
+                    using ReadThreadFusion = typename ReadDeviceFunction::Operation::ThreadFusion;
+                    using WriteThreadFusion = typename WriteOperation::ThreadFusion;
+                    static_assert(ReadThreadFusion::times_bigger == WriteThreadFusion::times_bigger,
+                        "Different Thread fusion configurations for Read and Write not supported");
+                    constexpr uint elems_per_thread = ReadThreadFusion::times_bigger;
+                    using BigType = typename WriteThreadFusion::type;
                     if constexpr (elems_per_thread == 1) {
                         if constexpr (sizeof...(deviceFunctionInstances) > 1) {
                             const auto tempO = operate(thread, tempI, deviceFunctionInstances...);
@@ -64,42 +68,42 @@ namespace fk { // namespace FusedKernel
                             WriteOperation::exec(thread, tempI, writeDeviceFunction.params);
                         }
                     } else if constexpr (elems_per_thread == 2) {
-                        const auto tempI0 = ThreadFusion::get<0>(tempI);
-                        const auto tempI1 = ThreadFusion::get<1>(tempI);
-                        const Point thread0{  thread.x * elems_per_thread,      thread.y, thread.z };
-                        const Point thread1{ (thread.x * elems_per_thread) + 1, thread.y, thread.z };
+                        const auto tempI0 = ReadThreadFusion::get<0>(tempI);
+                        const auto tempI1 = ReadThreadFusion::get<1>(tempI);
                         if constexpr (sizeof...(deviceFunctionInstances) > 1) {
                             const auto tempO0 = operate(thread, tempI0, deviceFunctionInstances...);
-                            WriteOperation::exec(thread0, tempO0, writeDeviceFunction.params);
                             const auto tempO1 = operate(thread, tempI1, deviceFunctionInstances...);
-                            WriteOperation::exec(thread1, tempO1, writeDeviceFunction.params);
+                            const VBase<BigType> tempO0_ = *((VBase<BigType>*) & tempO0);
+                            const VBase<BigType> tempO1_ = *((VBase<BigType>*) & tempO1);
+                            WriteOperation::exec(thread, make_<BigType>(tempO0_, tempO1_), writeDeviceFunction.params);
                         } else {
-                            WriteOperation::exec(thread0, tempI0, writeDeviceFunction.params);
-                            WriteOperation::exec(thread1, tempI1, writeDeviceFunction.params);
+                            const VBase<BigType> tempI0_ = *((VBase<BigType>*) & tempI0);
+                            const VBase<BigType> tempI1_ = *((VBase<BigType>*) & tempI1);
+                            WriteOperation::exec(thread, make_<BigType>(tempI0_, tempI1_), writeDeviceFunction.params);
                         }
                     } else if constexpr (elems_per_thread == 4) {
-                        const auto tempI0 = ThreadFusion::get<0>(tempI);
-                        const auto tempI1 = ThreadFusion::get<1>(tempI);
-                        const auto tempI2 = ThreadFusion::get<2>(tempI);
-                        const auto tempI3 = ThreadFusion::get<3>(tempI);
-                        const Point thread0{  thread.x * elems_per_thread,      thread.y, thread.z };
-                        const Point thread1{ (thread.x * elems_per_thread) + 1, thread.y, thread.z };
-                        const Point thread2{ (thread.x * elems_per_thread) + 2, thread.y, thread.z };
-                        const Point thread3{ (thread.x * elems_per_thread) + 3, thread.y, thread.z };
+                        const auto tempI0 = ReadThreadFusion::get<0>(tempI);
+                        const auto tempI1 = ReadThreadFusion::get<1>(tempI);
+                        const auto tempI2 = ReadThreadFusion::get<2>(tempI);
+                        const auto tempI3 = ReadThreadFusion::get<3>(tempI);
                         if constexpr (sizeof...(deviceFunctionInstances) > 1) {
-                            const auto tempO0 = operate(thread0, tempI0, deviceFunctionInstances...);
-                            WriteOperation::exec(thread0, tempO0, writeDeviceFunction.params);
-                            const auto tempO1 = operate(thread1, tempI1, deviceFunctionInstances...);
-                            WriteOperation::exec(thread1, tempO1, writeDeviceFunction.params);
-                            const auto tempO2 = operate(thread2, tempI2, deviceFunctionInstances...);
-                            WriteOperation::exec(thread2, tempO2, writeDeviceFunction.params);
-                            const auto tempO3 = operate(thread3, tempI3, deviceFunctionInstances...);
-                            WriteOperation::exec(thread3, tempO3, writeDeviceFunction.params);
+                            const auto tempO0 = operate(thread, tempI0, deviceFunctionInstances...);
+                            const auto tempO1 = operate(thread, tempI1, deviceFunctionInstances...);
+                            const auto tempO2 = operate(thread, tempI2, deviceFunctionInstances...);
+                            const auto tempO3 = operate(thread, tempI3, deviceFunctionInstances...);
+                            const VBase<BigType> tempO0_ = *((VBase<BigType>*) & tempO0);
+                            const VBase<BigType> tempO1_ = *((VBase<BigType>*) & tempO1);
+                            const VBase<BigType> tempO2_ = *((VBase<BigType>*) & tempO2);
+                            const VBase<BigType> tempO3_ = *((VBase<BigType>*) & tempO3);
+                            const BigType result = make_<BigType>(tempO0_, tempO1_, tempO2_, tempO3_);
+                            WriteOperation::exec(thread, result, writeDeviceFunction.params);
                         } else {
-                            WriteOperation::exec(thread0, tempI0, writeDeviceFunction.params);
-                            WriteOperation::exec(thread1, tempI1, writeDeviceFunction.params);
-                            WriteOperation::exec(thread2, tempI2, writeDeviceFunction.params);
-                            WriteOperation::exec(thread3, tempI3, writeDeviceFunction.params);
+                            const VBase<BigType> tempI0_ = *((VBase<BigType>*) & tempI0);
+                            const VBase<BigType> tempI1_ = *((VBase<BigType>*) & tempI1);
+                            const VBase<BigType> tempI2_ = *((VBase<BigType>*) & tempI2);
+                            const VBase<BigType> tempI3_ = *((VBase<BigType>*) & tempI3);
+                            const BigType result = make_<BigType>(tempI0_, tempI1_, tempI2_, tempI3_);
+                            WriteOperation::exec(thread, result, writeDeviceFunction.params);
                         }
                     }
                 }
