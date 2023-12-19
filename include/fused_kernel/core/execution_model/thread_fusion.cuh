@@ -19,26 +19,30 @@
 #include <cuda_runtime.h>
 
 namespace fk {
+
     template <int SIZE>
-    struct TypeSize {};
+    struct TypeSize : std::false_type {};
 
     template <>
-    struct TypeSize<1> {
+    struct TypeSize<1> : std::true_type {
         enum { size = 1 };
         using default_type = uchar;
     };
+
     template <>
-    struct TypeSize<2> {
+    struct TypeSize<2> : std::true_type {
         enum { size = 2 };
         using default_type = ushort;
     };
+
     template <>
-    struct TypeSize<4> {
+    struct TypeSize<4> : std::true_type {
         enum { size = 4 };
         using default_type = uint;
     };
+
     template <>
-    struct TypeSize<8> {
+    struct TypeSize<8> : std::true_type {
         enum { size = 8 };
         using default_type = ulonglong;
     };
@@ -64,12 +68,14 @@ namespace fk {
 
     template <typename OriginalType>
     struct ThreadFusionInfo<OriginalType, 1> {
+        static constexpr bool ENABLED{ TypeSize<sizeof(OriginalType)>::value };
         enum { times_bigger = 1 };
         using type = OriginalType;
     };
 
     template <typename OriginalType>
     struct ThreadFusionInfo<OriginalType, 2> {
+        static constexpr bool ENABLED{ true };
         enum { times_bigger = 2 };
         using type = BiggerType<OriginalType, 2>;
         template <int IDX>
@@ -90,10 +96,20 @@ namespace fk {
                 }
             }
         }
+        FK_HOST_DEVICE_FUSE type make(const OriginalType& data0, const OriginalType& data1) {
+            if constexpr (std::is_same_v<VBase<type>, OriginalType>) {
+                return make_<type>(data0, data1);
+            } else {
+                const VBase<type> tempO0_ = *((VBase<type>*) & data0);
+                const VBase<type> tempO1_ = *((VBase<type>*) & data1);
+                return make_<type>(tempO0_, tempO1_);
+            }
+        }
     };
 
     template <typename OriginalType>
     struct ThreadFusionInfo<OriginalType, 4> {
+        static constexpr bool ENABLED{ true };
         enum { times_bigger = 4 };
         using type = BiggerType<OriginalType, 4>;
         template <int IDX>
@@ -125,14 +141,26 @@ namespace fk {
                 }
             }
         }
+        FK_HOST_DEVICE_FUSE type make(const OriginalType& data0, const OriginalType& data1,
+                                      const OriginalType& data2, const OriginalType& data3) {
+            if constexpr (std::is_same_v<VBase<type>, OriginalType>) {
+                return make_<type>(data0, data1, data2,  data3);
+            } else {
+                const VBase<type> tempO0_ = *((VBase<type>*) & data0);
+                const VBase<type> tempO1_ = *((VBase<type>*) & data1);
+                const VBase<type> tempO2_ = *((VBase<type>*) & data2);
+                const VBase<type> tempO3_ = *((VBase<type>*) & data3);
+                return make_<type>(tempO0_, tempO1_, tempO2_, tempO3_);
+            }
+        }
     };
 
     using TypeSizes =
-        TypeList<TypeSize<1>, TypeSize<2>,
-                 TypeSize<3>, TypeSize<4>,
-                 TypeSize<6>, TypeSize<8>,
-                 TypeSize<12>, TypeSize<16>,
-                 TypeSize<24>, TypeSize<32>>;
+                 TypeList<TypeSize<1>,              TypeSize<2>,
+                 TypeSize<3>,                       TypeSize<4>,
+                 TypeSize<6>,                       TypeSize<8>,
+                 TypeSize<12>,                      TypeSize<16>,
+                 TypeSize<24>,                      TypeSize<32>>;
 
     template <typename OriginalType>
     using ThreadFusionInfos =
@@ -144,4 +172,7 @@ namespace fk {
 
     template <typename OriginalType>
     using ThreadFusionInfo_t = EquivalentType_t<TypeSize<sizeof(OriginalType)>, TypeSizes, ThreadFusionInfos<OriginalType>>;
+
+    template <typename... ThreadFusionInfos>
+    constexpr bool allTFEnabled = (ThreadFusionInfos::ENABLED && ...);
 } // namespace fk

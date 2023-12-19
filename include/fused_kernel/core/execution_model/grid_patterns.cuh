@@ -73,13 +73,9 @@ namespace fk { // namespace FusedKernel
                         if constexpr (sizeof...(deviceFunctionInstances) > 1) {
                             const auto tempO0 = operate(thread, tempI0, deviceFunctionInstances...);
                             const auto tempO1 = operate(thread, tempI1, deviceFunctionInstances...);
-                            const VBase<BigType> tempO0_ = *((VBase<BigType>*) & tempO0);
-                            const VBase<BigType> tempO1_ = *((VBase<BigType>*) & tempO1);
-                            WriteOperation::exec(thread, make_<BigType>(tempO0_, tempO1_), writeDeviceFunction.params);
+                            WriteOperation::exec(thread, WriteThreadFusion::make(tempO0, tempO1), writeDeviceFunction.params);
                         } else {
-                            const VBase<BigType> tempI0_ = *((VBase<BigType>*) & tempI0);
-                            const VBase<BigType> tempI1_ = *((VBase<BigType>*) & tempI1);
-                            WriteOperation::exec(thread, make_<BigType>(tempI0_, tempI1_), writeDeviceFunction.params);
+                            WriteOperation::exec(thread, WriteThreadFusion::make(tempI0, tempI1), writeDeviceFunction.params);
                         }
                     } else if constexpr (elems_per_thread == 4) {
                         const auto tempI0 = ReadThreadFusion::get<0>(tempI);
@@ -91,18 +87,10 @@ namespace fk { // namespace FusedKernel
                             const auto tempO1 = operate(thread, tempI1, deviceFunctionInstances...);
                             const auto tempO2 = operate(thread, tempI2, deviceFunctionInstances...);
                             const auto tempO3 = operate(thread, tempI3, deviceFunctionInstances...);
-                            const VBase<BigType> tempO0_ = *((VBase<BigType>*) & tempO0);
-                            const VBase<BigType> tempO1_ = *((VBase<BigType>*) & tempO1);
-                            const VBase<BigType> tempO2_ = *((VBase<BigType>*) & tempO2);
-                            const VBase<BigType> tempO3_ = *((VBase<BigType>*) & tempO3);
-                            const BigType result = make_<BigType>(tempO0_, tempO1_, tempO2_, tempO3_);
+                            const BigType result = WriteThreadFusion::make(tempO0, tempO1, tempO2, tempO3);
                             WriteOperation::exec(thread, result, writeDeviceFunction.params);
                         } else {
-                            const VBase<BigType> tempI0_ = *((VBase<BigType>*) & tempI0);
-                            const VBase<BigType> tempI1_ = *((VBase<BigType>*) & tempI1);
-                            const VBase<BigType> tempI2_ = *((VBase<BigType>*) & tempI2);
-                            const VBase<BigType> tempI3_ = *((VBase<BigType>*) & tempI3);
-                            const BigType result = make_<BigType>(tempI0_, tempI1_, tempI2_, tempI3_);
+                            const BigType result = WriteThreadFusion::make(tempI0, tempI1, tempI2, tempI3);
                             WriteOperation::exec(thread, result, writeDeviceFunction.params);
                         }
                     }

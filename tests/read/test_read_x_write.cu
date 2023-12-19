@@ -51,41 +51,25 @@ bool test_read_x_write(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_st
             cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, I, val_init);
             cv::cuda::GpuMat d_temp(NUM_ELEMS_Y, NUM_ELEMS_X, OC);
             cv::cuda::GpuMat d_output_cv(NUM_ELEMS_Y, NUM_ELEMS_X, OC);
-            cv::cuda::GpuMat d_output_cvGS(NUM_ELEMS_Y, NUM_ELEMS_X, I);
+            cv::cuda::GpuMat d_output_cvGS(NUM_ELEMS_Y, NUM_ELEMS_X, OC);
 
             cv::Mat h_cvResults(NUM_ELEMS_Y, NUM_ELEMS_X, OC);
-            cv::Mat h_cvGSResults(NUM_ELEMS_Y, NUM_ELEMS_X, I);
+            cv::Mat h_cvGSResults(NUM_ELEMS_Y, NUM_ELEMS_X, OC);
 
             // OpenCV version
-            /*d_input.convertTo(d_temp, OC, cv_stream);
+            d_input.convertTo(d_temp, OC, cv_stream);
             cv::cuda::subtract(d_temp, val_sub, d_output_cv, cv::noArray(), -1, cv_stream);
             cv::cuda::multiply(d_output_cv, val_mul, d_temp, 1.0, -1, cv_stream);
             cv::cuda::divide(d_temp, val_div, d_output_cv, 1.0, -1, cv_stream);
-            cv::cuda::add(d_output_cv, val_add, d_output_cv, cv::noArray(), -1, cv_stream);*/
+            cv::cuda::add(d_output_cv, val_add, d_output_cv, cv::noArray(), -1, cv_stream);     
 
             // cvGPUSpeedup version
-            const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I)>> readDF{{cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)},
-                                                                          { (uint)NUM_ELEMS_X , (uint)NUM_ELEMS_Y , 1 } };
-            cvGS::executeOperations(cv_stream, readDF,
-                cvGS::convertTo<I, OC>(),
-                cvGS::subtract<OC>(val_sub),
-                cvGS::multiply<OC>(val_mul),
-                cvGS::divide<OC>(val_div),
-                cvGS::add<OC>(val_add),
-                cvGS::convertTo<OC, I>(),
-                fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(I)>>{cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_output_cvGS)});
-
-            const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I), true>> readDF2{{cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)},
-                                                                          { (uint)NUM_ELEMS_X , (uint)NUM_ELEMS_Y , 1 } };
-            const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(I), true>> writeDF{ cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_output_cvGS) };
-            cvGS::executeOperations(cv_stream, readDF2,
-                                               cvGS::convertTo<I, OC>(),
-                                               cvGS::subtract<OC>(val_sub),
-                                               cvGS::multiply<OC>(val_mul),
-                                               cvGS::divide<OC>(val_div),
-                                               cvGS::add<OC>(val_add),
-                                               cvGS::convertTo<OC, I>(),
-                                               writeDF);
+            cvGS::executeOperations(d_input, d_output_cvGS, cv_stream, 
+                                            cvGS::convertTo<I, OC>(),
+                                            cvGS::subtract<OC>(val_sub),
+                                            cvGS::multiply<OC>(val_mul),
+                                            cvGS::divide<OC>(val_div),
+                                            cvGS::add<OC>(val_add));
 
             // Verify results
             d_output_cv.download(h_cvResults, cv_stream);
@@ -229,7 +213,7 @@ int launch() {
 
 #undef LAUNCH_TESTS
 
-/*#define LAUNCH_TESTS(CV_COLOR_CONVERSION_CODE, CV_TYPE_DEPTH) \
+#define LAUNCH_TESTS(CV_COLOR_CONVERSION_CODE, CV_TYPE_DEPTH) \
 results["testCvtColor"] &= testCvtColor<CV_COLOR_CONVERSION_CODE, CV_TYPE_DEPTH>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
     LAUNCH_TESTS(cv::COLOR_BGR2BGRA, CV_8U)
@@ -251,7 +235,7 @@ results["testCvtColor"] &= testCvtColor<CV_COLOR_CONVERSION_CODE, CV_TYPE_DEPTH>
     LAUNCH_TESTS(cv::COLOR_BGRA2RGBA, CV_16U)
     LAUNCH_TESTS(cv::COLOR_BGRA2RGBA, CV_32F)
 
-#undef LAUNCH_TESTS*/
+#undef LAUNCH_TESTS
 
     int returnValue = 0;
     for (const auto& [key, passed] : results) {
