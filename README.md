@@ -25,7 +25,7 @@ In order to use it, you need to compile your code, along with cvGPUSpeedup libra
 
 You can use the cmake install target to copy the headers to any desired path. You can also use the cmake exported target.
 
-Both on windows and linux you will need to build opencv with cuda support.
+If you want to use the cvGS interface, along with OpenCV, both on windows and linux you will need to build opencv with cuda support. If you want to only use the fk (Fused Kernel) namespace, then you won't need OpenCV at all.
 
 ### OpenCV example
 Let's see an example in OpenCV:
