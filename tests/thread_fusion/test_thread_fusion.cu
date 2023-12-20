@@ -28,28 +28,45 @@
 
 template <typename OriginalType>
 bool testThreadFusion() {
-    constexpr OriginalType fourNumbers[4]{ static_cast<OriginalType>(10),
-                                           static_cast<OriginalType>(2),
-                                           static_cast<OriginalType>(3),
-                                           static_cast<OriginalType>(4) };
+    constexpr OriginalType eightNumbers[8]{ static_cast<OriginalType>(10),
+                                            static_cast<OriginalType>(2),
+                                            static_cast<OriginalType>(3),
+                                            static_cast<OriginalType>(4),
+                                            static_cast<OriginalType>(10),
+                                            static_cast<OriginalType>(2),
+                                            static_cast<OriginalType>(3),
+                                            static_cast<OriginalType>(4)};
 
     using BTInfo = fk::ThreadFusionInfo<OriginalType, true>;
 
-    const typename BTInfo::BiggerType biggerType = ((typename BTInfo::BiggerType*) fourNumbers)[0];
+    const typename BTInfo::BiggerType biggerType = ((typename BTInfo::BiggerType*) eightNumbers)[0];
 
     if constexpr (BTInfo::times_bigger == 1) {
-        return fourNumbers[0] == biggerType;
+        return eightNumbers[0] == biggerType;
     } else if constexpr (BTInfo::times_bigger == 2) {
         const OriginalType data0 = BTInfo::template get<0>(biggerType);
         const OriginalType data1 = BTInfo::template get<1>(biggerType);
-        return (data0 == fourNumbers[0]) && (data1 == fourNumbers[1]);
+        return (data0 == eightNumbers[0]) && (data1 == eightNumbers[1]);
     } else if constexpr (BTInfo::times_bigger == 4) {
         const OriginalType data0 = BTInfo::template get<0>(biggerType);
         const OriginalType data1 = BTInfo::template get<1>(biggerType);
         const OriginalType data2 = BTInfo::template get<2>(biggerType);
         const OriginalType data3 = BTInfo::template get<3>(biggerType);
-        return data0 == fourNumbers[0] && data1 == fourNumbers[1] &&
-               data2 == fourNumbers[2] && data3 == fourNumbers[3];
+        return data0 == eightNumbers[0] && data1 == eightNumbers[1] &&
+               data2 == eightNumbers[2] && data3 == eightNumbers[3];
+    } else if constexpr (BTInfo::times_bigger == 8) {
+        const OriginalType data0 = BTInfo::template get<0>(biggerType);
+        const OriginalType data1 = BTInfo::template get<1>(biggerType);
+        const OriginalType data2 = BTInfo::template get<2>(biggerType);
+        const OriginalType data3 = BTInfo::template get<3>(biggerType);
+        const OriginalType data4 = BTInfo::template get<4>(biggerType);
+        const OriginalType data5 = BTInfo::template get<5>(biggerType);
+        const OriginalType data6 = BTInfo::template get<6>(biggerType);
+        const OriginalType data7 = BTInfo::template get<7>(biggerType);
+        return data0 == eightNumbers[0] && data1 == eightNumbers[1] &&
+               data2 == eightNumbers[2] && data3 == eightNumbers[3] &&
+               data4 == eightNumbers[4] && data5 == eightNumbers[5] &&
+               data6 == eightNumbers[6] && data7 == eightNumbers[7];
     }
 }
 
@@ -114,14 +131,14 @@ bool testThreadFusionTimes(uint NUM_ELEMS_X, uint NUM_ELEMS_Y, cv::cuda::Stream&
             read{{cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1}};
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(I)>>
             write{cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_output_cvGS)};
-        cvGS::executeOperations(cv_stream, read, cvGS::add<I>(cv::Scalar(1)), write);
+        cvGS::executeOperations(cv_stream, read, cvGS::add<I>(cv::Scalar(100)), write);
 
         // cvGPUSpeedup fusion version
         const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I), true>>
             readTF{{cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 }};
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(I), true>>
             writeTF{cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_output_cvGS_ThreadFusion)};
-        cvGS::executeOperations(cv_stream, readTF, cvGS::add<I>(cv::Scalar(1)), writeTF);
+        cvGS::executeOperations(cv_stream, readTF, cvGS::add<I>(cv::Scalar(100)), writeTF);
 
         // Verify results
         d_output_cvGS_ThreadFusion.download(h_cvGSResults_ThreadFusion, cv_stream);
@@ -130,7 +147,6 @@ bool testThreadFusionTimes(uint NUM_ELEMS_X, uint NUM_ELEMS_Y, cv::cuda::Stream&
         cv_stream.waitForCompletion();
 
         passed = compareAndCheck<I>(NUM_ELEMS_X, NUM_ELEMS_Y, h_cvGSResults_ThreadFusion, h_cvGSResults);
-
     }
     catch (const std::exception& e) {
         error_s << e.what();
@@ -208,10 +224,6 @@ int launch() {
     LAUNCH_testThreadFusionTimes(CV_32S)
     LAUNCH_testThreadFusionTimes(CV_32F)
 #undef LAUNCH_testThreadFusionTimes
-
-    auto temp = fk::make_set<uchar8>(1u);
-
-    fk::ThreadFusionInfo<uchar, true>::make(temp.x, temp.y, temp.z, temp.w, temp.i, temp.j, temp.k, temp.l);
 
     if (passed) {
         std::cout << "test_thread_fusion Passed!!!" << std::endl;

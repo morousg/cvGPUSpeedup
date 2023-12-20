@@ -269,11 +269,10 @@ namespace fk {
         using OutputType = ColorDepthPixelType<(ColorDepth)PixelFormatTraits<PF>::depth>;
         using PixelBaseType = ColorDepthPixelBaseType<(ColorDepth)PixelFormatTraits<PF>::depth>;
         using ParamsType = RawPtr<_2D, PixelBaseType>;
-        static constexpr bool USE_THREAD_FUSION{ false };
         using InputType = Point;
         using InstanceType = ReadType;
-        static constexpr bool THREAD_FUSION{ USE_THREAD_FUSION };
-        using ThreadFusion = ThreadFusionInfo<OutputType, 1>;
+        static constexpr bool THREAD_FUSION{ false };
+        using ThreadFusion = ThreadFusionInfo<OutputType, THREAD_FUSION>;
         static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
             if constexpr (PF == NV12 || PF == P010 || PF == P016 || PF == P210 || PF == P216) {
                 // Planar luma
