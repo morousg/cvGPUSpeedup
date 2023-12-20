@@ -16,162 +16,125 @@
 
 #include <fused_kernel/core/utils/type_lists.cuh>
 #include <fused_kernel/core/utils/cuda_vector_utils.cuh>
+#include <fused_kernel/core/utils/template_operations.cuh>
+#include <fused_kernel/core/data/vector_types.cuh>
 #include <cuda_runtime.h>
 
 namespace fk {
 
-    template <int SIZE>
-    struct TypeSize : std::false_type {};
+    /* Possible combinations:
+    1,  1 char, uchar                     8,  8  char8, uchar8
+    2,  1 short, ushort                   8,  4  short4, ushort4
+    4,  1 int, uint, float                8,  2  int2, uint2, float2
+    8,  1 longlong, ulonglong, double     8,  1
+    2,  2 char2, uchar2                   8,  8  char8, uchar8
+    4,  2 short2, ushort2                 8,  4  short4, ushort4
+    8,  2 int2, uint2, float2             8,  2
+    16, 2 longlong2, ulonglong2, double2  16, 2
+    3,  3 char3, uchar3                   12, 12 char12, uchar12
+    6,  3 short3, ushort3                 24, 12 short12, ushort12
+    12, 3 int3, uint3, float3             12, 3
+    24, 3 longlong3, ulonglong3, double3  24, 3
+    4,  4 char4, uchar4                   8,  8  char8, uchar8
+    8,  4 short4, ushort4                 8,  4
+    16, 4 int4, uint4, float4             16, 4
+    32, 4 longlong4, ulonglong4, double4  32, 4
+    */
 
-    template <>
-    struct TypeSize<1> : std::true_type {
-        enum { size = 1 };
-        using default_type = uchar;
-    };
+    using TFSourceTypes = typename TypeList<StandardTypes, VTwo, VThree, VFour>::type;
+    using TFBiggerTypes = TypeList<uchar8,  char8,  ushort4,  short4,  uint2, int2, ulong,  long,  ulonglong,  longlong,  float2, double,
+                                   uchar8,  char8,  ushort4,  short4,  uint2, int2, ulong2, long2, ulonglong2, longlong2, float2, double2,
+                                   uchar12, char12, ushort12, short12, uint3, int3, ulong3, long3, ulonglong3, longlong3, float3, double3,
+                                   uchar8,  char8,  ushort4,  short4,  uint4, int4, ulong4, long4, ulonglong4, longlong4, float4, double4>;
+    template <typename SourceType>
+    using TFBiggerType_t = EquivalentType_t<SourceType, TFSourceTypes, TFBiggerTypes>;
 
-    template <>
-    struct TypeSize<2> : std::true_type {
-        enum { size = 2 };
-        using default_type = ushort;
-    };
-
-    template <>
-    struct TypeSize<4> : std::true_type {
-        enum { size = 4 };
-        using default_type = uint;
-    };
-
-    template <>
-    struct TypeSize<8> : std::true_type {
-        enum { size = 8 };
-        using default_type = ulonglong;
-    };
-
-    template <typename OriginalType, int times_bigger, typename Enabler=void>
-    struct BiggerTypeSelect {};
-
-    template <typename OriginalType, int times_bigger>
-    struct BiggerTypeSelect<OriginalType, times_bigger, std::enable_if_t<std::is_aggregate_v<OriginalType>>> {
-        using type = VectorType_t<typename TypeSize<sizeof(OriginalType)>::default_type, times_bigger>;
-    };
-
-    template <typename OriginalType, int times_bigger>
-    struct BiggerTypeSelect<OriginalType, times_bigger, std::enable_if_t<!std::is_aggregate_v<OriginalType>>> {
-        using type = VectorType_t<OriginalType, times_bigger>;
-    };
-
-    template <typename OriginalType, int times_bigger>
-    using BiggerType = typename BiggerTypeSelect<OriginalType, times_bigger>::type;
-
-    template <typename OriginalType, int TIMES_BIGGER>
-    struct ThreadFusionInfo {};
-
-    template <typename OriginalType>
-    struct ThreadFusionInfo<OriginalType, 1> {
-        static constexpr bool ENABLED{ TypeSize<sizeof(OriginalType)>::value };
-        enum { times_bigger = 1 };
-        using type = OriginalType;
-    };
-
-    template <typename OriginalType>
-    struct ThreadFusionInfo<OriginalType, 2> {
-        static constexpr bool ENABLED{ true };
-        enum { times_bigger = 2 };
-        using type = BiggerType<OriginalType, 2>;
+    template <typename OriginalType, bool ENABLED>
+    struct ThreadFusionInfo {
+        static constexpr bool ENABLED{ ENABLED };
+        using OriginalType = OriginalType;
+        using BiggerType = std::conditional_t<ENABLED, TFBiggerType_t<OriginalType>, OriginalType>;
+        enum { times_bigger = cn<BiggerType> / cn<OriginalType> };
         template <int IDX>
-        FK_HOST_DEVICE_FUSE OriginalType get(const type& data) {
-            if constexpr (std::is_aggregate_v<OriginalType>) {
-                if constexpr (IDX == 0) {
-                    const OriginalType* const smallerData = (OriginalType*)&(data.x);
-                    return *smallerData;
+        FK_HOST_DEVICE_FUSE OriginalType get(const BiggerType& data) {
+            if constexpr (ENABLED && times_bigger > 1) {
+                if constexpr (validCUDAVec<OriginalType>) {
+                    if constexpr (cn<OriginalType> == 2) {
+                        if constexpr (times_bigger == 2) {
+                            if constexpr (IDX == 0) {
+                                return make_<OriginalType>(data.x, data.y);
+                            } else if constexpr (IDX == 1) {
+                                return make_<OriginalType>(data.z, data.w);
+                            }
+                        } else if constexpr (times_bigger == 4) {
+                            if constexpr (IDX == 0) {
+                                return make_<OriginalType>(data.x, data.y);
+                            } else if constexpr (IDX == 1) {
+                                return make_<OriginalType>(data.z, data.w);
+                            } else if constexpr (IDX == 2) {
+                                return make_<OriginalType>(data.i, data.j);
+                            } else if constexpr (IDX == 3) {
+                                return make_<OriginalType>(data.k, data.l);
+                            }
+                        }
+                    } else if constexpr (cn<OriginalType> == 3) {
+                        if constexpr (times_bigger == 2) {
+                            if constexpr (IDX == 0) {
+                                return make_<OriginalType>(data.x, data.y, data.z);
+                            }
+                            else if constexpr (IDX == 1) {
+                                return make_<OriginalType>(data.x1, data.y1, data.z1);
+                            }
+                        } else if constexpr (times_bigger == 4) {
+                            if constexpr (IDX == 0) {
+                                return make_<OriginalType>(data.x, data.y, data.z);
+                            }
+                            else if constexpr (IDX == 1) {
+                                return make_<OriginalType>(data.x1, data.y1, data.z1);
+                            }
+                            else if constexpr (IDX == 2) {
+                                return make_<OriginalType>(data.x2, data.y2, data.z2);
+                            }
+                            else if constexpr (IDX == 3) {
+                                return make_<OriginalType>(data.x3, data.y3, data.z3);
+                            }
+                        }
+                    } else if constexpr (cn<OriginalType> == 4) {
+                        if constexpr (times_bigger == 2) {
+                            if constexpr (IDX == 0) {
+                                return make_<OriginalType>(data.x, data.y, data.z, data.w);
+                            } else if constexpr (IDX == 1) {
+                                return make_<OriginalType>(data.i, data.j, data.k, data.l);
+                            }
+                        }
+                    }
                 } else {
-                    const OriginalType* const smallerData = (OriginalType*)&(data.y);
-                    return *smallerData;
-                }
-            } else {
-                if constexpr (IDX == 0) {
-                    return data.x;
-                } else {
-                    return data.y;
+                    if constexpr (times_bigger == 2) {
+                        if constexpr (IDX == 0) {
+                            return data.x;
+                        } else if constexpr (IDX == 1) {
+                            return data.y;
+                        }
+                    } else if constexpr (times_bigger == 4) {
+                        if constexpr (IDX == 0) {
+                            return data.x;
+                        } else if constexpr (IDX == 1) {
+                            return data.y;
+                        } else if constexpr (IDX == 2) {
+                            return data.z;
+                        } else if constexpr (IDX == 3) {
+                            return data.w;
+                        }
+                    }
                 }
             }
         }
-        FK_HOST_DEVICE_FUSE type make(const OriginalType& data0, const OriginalType& data1) {
-            if constexpr (std::is_same_v<VBase<type>, OriginalType>) {
-                return make_<type>(data0, data1);
-            } else {
-                const VBase<type> tempO0_ = *((VBase<type>*) & data0);
-                const VBase<type> tempO1_ = *((VBase<type>*) & data1);
-                return make_<type>(tempO0_, tempO1_);
-            }
+        template <typename... OriginalTypes>
+        FK_HOST_DEVICE_FUSE BiggerType make(const OriginalTypes&... data) {
+            static_assert(and_v<std::is_same_v<OriginalType, OriginalTypes>...>, "Not all types are the same when making the ThreadFusion BiggerType value");
+            return make_<BiggerType>(data...);
         }
     };
-
-    template <typename OriginalType>
-    struct ThreadFusionInfo<OriginalType, 4> {
-        static constexpr bool ENABLED{ true };
-        enum { times_bigger = 4 };
-        using type = BiggerType<OriginalType, 4>;
-        template <int IDX>
-        FK_HOST_DEVICE_FUSE OriginalType get(const type& data) {
-            static_assert(IDX <= times_bigger, "The BiggerType has not so many elements.");
-            if constexpr (std::is_aggregate_v<OriginalType>) {
-                if constexpr (IDX == 0) {
-                    const OriginalType* const smallerData = (OriginalType*)&(data.x);
-                    return *smallerData;
-                } else if constexpr (IDX == 1) {
-                    const OriginalType* const smallerData = (OriginalType*)&(data.y);
-                    return *smallerData;
-                } else if constexpr (IDX == 2) {
-                    const OriginalType* const smallerData = (OriginalType*)&(data.z);
-                    return *smallerData;
-                } else {
-                    const OriginalType* const smallerData = (OriginalType*)&(data.w);
-                    return *smallerData;
-                }
-            } else {
-                if constexpr (IDX == 0) {
-                    return data.x;
-                } else if constexpr (IDX == 1) {
-                    return data.y;
-                } else if constexpr (IDX == 2) {
-                    return data.z;
-                } else {
-                    return data.w;
-                }
-            }
-        }
-        FK_HOST_DEVICE_FUSE type make(const OriginalType& data0, const OriginalType& data1,
-                                      const OriginalType& data2, const OriginalType& data3) {
-            if constexpr (std::is_same_v<VBase<type>, OriginalType>) {
-                return make_<type>(data0, data1, data2,  data3);
-            } else {
-                const VBase<type> tempO0_ = *((VBase<type>*) & data0);
-                const VBase<type> tempO1_ = *((VBase<type>*) & data1);
-                const VBase<type> tempO2_ = *((VBase<type>*) & data2);
-                const VBase<type> tempO3_ = *((VBase<type>*) & data3);
-                return make_<type>(tempO0_, tempO1_, tempO2_, tempO3_);
-            }
-        }
-    };
-
-    using TypeSizes =
-                 TypeList<TypeSize<1>,              TypeSize<2>,
-                 TypeSize<3>,                       TypeSize<4>,
-                 TypeSize<6>,                       TypeSize<8>,
-                 TypeSize<12>,                      TypeSize<16>,
-                 TypeSize<24>,                      TypeSize<32>>;
-
-    template <typename OriginalType>
-    using ThreadFusionInfos =
-        TypeList<ThreadFusionInfo<OriginalType, 4>, ThreadFusionInfo<OriginalType, 4>,
-                 ThreadFusionInfo<OriginalType, 1>, ThreadFusionInfo<OriginalType, 4>,
-                 ThreadFusionInfo<OriginalType, 1>, ThreadFusionInfo<OriginalType, 2>,
-                 ThreadFusionInfo<OriginalType, 1>, ThreadFusionInfo<OriginalType, 1>,
-                 ThreadFusionInfo<OriginalType, 1>, ThreadFusionInfo<OriginalType, 1>>;
-
-    template <typename OriginalType>
-    using ThreadFusionInfo_t = EquivalentType_t<TypeSize<sizeof(OriginalType)>, TypeSizes, ThreadFusionInfos<OriginalType>>;
 
     template <typename... ThreadFusionInfos>
     constexpr bool allTFEnabled = (ThreadFusionInfos::ENABLED && ...);

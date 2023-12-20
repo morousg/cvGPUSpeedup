@@ -19,7 +19,8 @@
 namespace fk {
     template <typename I, typename O>
     struct Discard {
-        UNARY_DECL_EXEC(I, O) {
+        using InputType = I; using OutputType = O; using InstanceType = UnaryType;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
             static_assert(cn<I> > cn<O>, "Output type should at least have one channel less");
             static_assert(std::is_same_v<typename VectorTraits<I>::base,
                 typename VectorTraits<O>::base>,
@@ -40,7 +41,10 @@ namespace fk {
 
     template <typename T, int... idxs>
     struct VectorReorder {
-        UNARY_DECL_EXEC(T, T) {
+        using InputType = T;
+        using OutputType = T;
+        using InstanceType = UnaryType;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
             static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnaryVectorReorder");
             static_assert(cn<InputType> >= 2, "Minimum number of channels is 2: UnaryVectorReorder");
             return VReorder<idxs...>::exec(input);
@@ -48,8 +52,11 @@ namespace fk {
     };
 
     template <typename T, typename Operation>
-    struct VectorReduce {
-        UNARY_DECL_EXEC(T, VBase<T>) {
+    struct VectorReduce { 
+        using InputType = T;
+        using OutputType = VBase<T>;
+        using InstanceType = UnaryType;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
             if constexpr (cn<T> == 2) {
                 return Operation::exec(input.x, input.y);
             } else if constexpr (cn<T> == 3) {
@@ -62,7 +69,11 @@ namespace fk {
 
     template <typename I, typename O>
     struct AddLast {
-        BINARY_DECL_EXEC(O, I, typename VectorTraits<I>::base) {
+        using InputType = I;
+        using OutputType = O;
+        using ParamsType = typename VectorTraits<I>::base;
+        using InstanceType = BinaryType;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(cn<InputType> == cn<OutputType> -1, "Output type should have one channel more");
             static_assert(std::is_same_v<typename VectorTraits<InputType>::base, typename VectorTraits<OutputType>::base>,
                 "Base types should be the same");

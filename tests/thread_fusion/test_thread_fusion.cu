@@ -33,9 +33,9 @@ bool testThreadFusion() {
                                            static_cast<OriginalType>(3),
                                            static_cast<OriginalType>(4) };
 
-    using BTInfo = fk::ThreadFusionInfo_t<OriginalType>;
+    using BTInfo = fk::ThreadFusionInfo<OriginalType, true>;
 
-    const typename BTInfo::type biggerType = ((typename BTInfo::type*) fourNumbers)[0];
+    const typename BTInfo::BiggerType biggerType = ((typename BTInfo::BiggerType*) fourNumbers)[0];
 
     if constexpr (BTInfo::times_bigger == 1) {
         return fourNumbers[0] == biggerType;
@@ -61,9 +61,9 @@ namespace fk {
                                                fk::make_<OriginalType>(3),
                                                fk::make_<OriginalType>(4) };
 
-        using BTInfo = fk::ThreadFusionInfo_t<OriginalType>;
+        using BTInfo = fk::ThreadFusionInfo<OriginalType, true>;
 
-        const typename BTInfo::type biggerType = ((typename BTInfo::type*) fourNumbers)[0];
+        const typename BTInfo::BiggerType biggerType = ((typename BTInfo::BiggerType*) fourNumbers)[0];
 
         using Reduction = VectorReduce<VectorType_t<uchar, (cn<OriginalType>)>, Sum<uchar>>;
 
@@ -208,6 +208,10 @@ int launch() {
     LAUNCH_testThreadFusionTimes(CV_32S)
     LAUNCH_testThreadFusionTimes(CV_32F)
 #undef LAUNCH_testThreadFusionTimes
+
+    auto temp = fk::make_set<uchar8>(1u);
+
+    fk::ThreadFusionInfo<uchar, true>::make(temp.x, temp.y, temp.z, temp.w, temp.i, temp.j, temp.k, temp.l);
 
     if (passed) {
         std::cout << "test_thread_fusion Passed!!!" << std::endl;

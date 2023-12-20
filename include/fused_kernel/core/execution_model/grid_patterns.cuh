@@ -59,7 +59,7 @@ namespace fk { // namespace FusedKernel
                     static_assert(ReadThreadFusion::times_bigger == WriteThreadFusion::times_bigger,
                         "Different Thread fusion configurations for Read and Write not supported");
                     constexpr uint elems_per_thread = ReadThreadFusion::times_bigger;
-                    using BigType = typename WriteThreadFusion::type;
+                    using BigType = typename WriteThreadFusion::BiggerType;
                     if constexpr (elems_per_thread == 1) {
                         if constexpr (sizeof...(deviceFunctionInstances) > 1) {
                             const auto tempO = operate(thread, tempI, deviceFunctionInstances...);
