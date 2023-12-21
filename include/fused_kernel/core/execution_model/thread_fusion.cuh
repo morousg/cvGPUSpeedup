@@ -24,19 +24,19 @@ namespace fk {
 
     /* Possible combinations:
     Size, Channels, Types
-    1,    1         char, uchar                     8,  8  char8, uchar8
-    2,    1         short, ushort                   8,  4  short4, ushort4
+    1,    1         char, uchar                     8,  8  char4, uchar4
+    2,    1         short, ushort                   4,  2  short2, ushort2
     4,    1         int, uint, float                8,  2  int2, uint2, float2
     8,    1         longlong, ulonglong, double     8,  1
-    2,    2         char2, uchar2                   8,  8  char8, uchar8
-    4,    2         short2, ushort2                 8,  4  short4, ushort4
+    2,    2         char2, uchar2                   4,  4  char4, uchar4
+    4,    2         short2, ushort2                 4,  2
     8,    2         int2, uint2, float2             8,  2
     16,   2         longlong2, ulonglong2, double2  16, 2
-    3,    3         char3, uchar3                   12, 12 char12, uchar12
-    6,    3         short3, ushort3                 24, 12 short12, ushort12
+    3,    3         char3, uchar3                   3,  3
+    6,    3         short3, ushort3                 6,  3
     12,   3         int3, uint3, float3             12, 3
     24,   3         longlong3, ulonglong3, double3  24, 3
-    4,    4         char4, uchar4                   8,  8  char8, uchar8
+    4,    4         char4, uchar4                   4,  4
     8,    4         short4, ushort4                 8,  4
     16,   4         int4, uint4, float4             16, 4
     32,   4         longlong4, ulonglong4, double4  32, 4
@@ -45,10 +45,10 @@ namespace fk {
     */
 
     using TFSourceTypes = typename TypeList<StandardTypes, VTwo, VThree, VFour>::type;
-    using TFBiggerTypes = TypeList<uchar8,  char8,  ushort4,  short4,  uint2, int2, ulong,  long,  ulonglong,  longlong,  float2, double,
-                                   uchar8,  char8,  ushort4,  short4,  uint2, int2, ulong2, long2, ulonglong2, longlong2, float2, double2,
-                                   uchar12, char12, ushort12, short12, uint3, int3, ulong3, long3, ulonglong3, longlong3, float3, double3,
-                                   uchar8,  char8,  ushort4,  short4,  uint4, int4, ulong4, long4, ulonglong4, longlong4, float4, double4>;
+    using TFBiggerTypes = TypeList<uchar4,  char4,  ushort2,  short2,  uint2, int2, ulong,  long,  ulonglong,  longlong,  float2, double,
+                                   uchar4,  char4,  ushort2,  short2,  uint2, int2, ulong2, long2, ulonglong2, longlong2, float2, double2,
+                                   uchar3,  char3,  ushort3,  short3,  uint3, int3, ulong3, long3, ulonglong3, longlong3, float3, double3,
+                                   uchar4,  char4,  ushort4,  short4,  uint4, int4, ulong4, long4, ulonglong4, longlong4, float4, double4>;
     template <typename SourceType>
     using TFBiggerType_t = EquivalentType_t<SourceType, TFSourceTypes, TFBiggerTypes>;
 

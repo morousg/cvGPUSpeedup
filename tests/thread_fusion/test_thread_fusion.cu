@@ -131,14 +131,14 @@ bool testThreadFusionTimes(uint NUM_ELEMS_X, uint NUM_ELEMS_Y, cv::cuda::Stream&
             read{{cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1}};
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(I)>>
             write{cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_output_cvGS)};
-        cvGS::executeOperations(cv_stream, read, cvGS::add<I>(cv::Scalar(100)), write);
+        cvGS::executeOperations(cv_stream, read, write);
 
         // cvGPUSpeedup fusion version
         const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I), true>>
             readTF{{cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 }};
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(I), true>>
             writeTF{cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_output_cvGS_ThreadFusion)};
-        cvGS::executeOperations(cv_stream, readTF, cvGS::add<I>(cv::Scalar(100)), writeTF);
+        cvGS::executeOperations(cv_stream, readTF, writeTF);
 
         // Verify results
         d_output_cvGS_ThreadFusion.download(h_cvGSResults_ThreadFusion, cv_stream);
@@ -174,14 +174,14 @@ int launch() {
 
     passed &= testThreadFusion<uchar>();
     passed &= testThreadFusion<char>();
-    passed &= testThreadFusion<short>();
     passed &= testThreadFusion<ushort>();
-    passed &= testThreadFusion<int>();
+    passed &= testThreadFusion<short>();
     passed &= testThreadFusion<uint>();
-    passed &= testThreadFusion<long>();
+    passed &= testThreadFusion<int>();
     passed &= testThreadFusion<ulong>();
-    passed &= testThreadFusion<longlong>();
+    passed &= testThreadFusion<long>();
     passed &= testThreadFusion<ulonglong>();
+    passed &= testThreadFusion<longlong>();
     passed &= testThreadFusion<float>();
     passed &= testThreadFusion<double>();
 
@@ -207,8 +207,8 @@ int launch() {
 
     cv::Mat::setDefaultAllocator(cv::cuda::HostMem::getAllocator(cv::cuda::HostMem::AllocType::PAGE_LOCKED));
 
-    constexpr uint NUM_ELEMS_X = 3840;
-    constexpr uint NUM_ELEMS_Y = 2160;
+    constexpr uint NUM_ELEMS_X = 3840 * 2;
+    constexpr uint NUM_ELEMS_Y = 2160 * 2;
     cv::cuda::Stream cv_stream;
 
 #define LAUNCH_testThreadFusionTimes(BASE) \
@@ -223,6 +223,7 @@ int launch() {
     LAUNCH_testThreadFusionTimes(CV_16S)
     LAUNCH_testThreadFusionTimes(CV_32S)
     LAUNCH_testThreadFusionTimes(CV_32F)
+    LAUNCH_testThreadFusionTimes(CV_64F)
 #undef LAUNCH_testThreadFusionTimes
 
     if (passed) {
