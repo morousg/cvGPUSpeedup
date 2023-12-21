@@ -39,46 +39,24 @@ namespace fk { // namespace FusedKernel
                 }
             }
 
+            template <uint IDX, typename ReadThreadFusion, typename InputType, typename... DeviceFunctionTypes>
+            FK_DEVICE_FUSE auto operate_idx(const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
+                return operate(thread, ReadThreadFusion::get<IDX>(input), deviceFunctionInstances...);
+            }
+
+            template <typename ReadThreadFusion, typename InputType, uint... IDX, typename... DeviceFunctionTypes>
+            FK_DEVICE_FUSE auto operate_times_impl(std::integer_sequence<uint, IDX...> idx, const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
+                using WriteThreadFusion = typename LastType_t<DeviceFunctionTypes...>::Operation::ThreadFusion;
+                return WriteThreadFusion::make(operate_idx<IDX, ReadThreadFusion>(thread, input, deviceFunctionInstances...)...);
+            }
+
             template <typename ReadThreadFusion, typename InputType, typename... DeviceFunctionTypes>
             FK_DEVICE_FUSE auto operate_times(const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
-                using WriteThreadFusion = typename LastType_t<DeviceFunctionTypes...>::Operation::ThreadFusion;
                 if constexpr (ReadThreadFusion::times_bigger == 1) {
                     return operate(thread, input, deviceFunctionInstances...);
-                } else if constexpr (ReadThreadFusion::times_bigger == 2) {
-                    const auto tempI0 = ReadThreadFusion::get<0>(input);
-                    const auto tempI1 = ReadThreadFusion::get<1>(input);
-                    const auto tempO0 = operate(thread, tempI0, deviceFunctionInstances...);
-                    const auto tempO1 = operate(thread, tempI1, deviceFunctionInstances...);
-                    return WriteThreadFusion::make(tempO0, tempO1);
-                } else if constexpr (ReadThreadFusion::times_bigger == 4) {
-                    const auto tempI0 = ReadThreadFusion::get<0>(input);
-                    const auto tempI1 = ReadThreadFusion::get<1>(input);
-                    const auto tempI2 = ReadThreadFusion::get<2>(input);
-                    const auto tempI3 = ReadThreadFusion::get<3>(input);
-                    const auto tempO0 = operate(thread, tempI0, deviceFunctionInstances...);
-                    const auto tempO1 = operate(thread, tempI1, deviceFunctionInstances...);
-                    const auto tempO2 = operate(thread, tempI2, deviceFunctionInstances...);
-                    const auto tempO3 = operate(thread, tempI3, deviceFunctionInstances...);
-                    return WriteThreadFusion::make(tempO0, tempO1, tempO2, tempO3);
-                } else if constexpr (ReadThreadFusion::times_bigger == 8) {
-                    const auto tempI0 = ReadThreadFusion::get<0>(input);
-                    const auto tempI1 = ReadThreadFusion::get<1>(input);
-                    const auto tempI2 = ReadThreadFusion::get<2>(input);
-                    const auto tempI3 = ReadThreadFusion::get<3>(input);
-                    const auto tempI4 = ReadThreadFusion::get<4>(input);
-                    const auto tempI5 = ReadThreadFusion::get<5>(input);
-                    const auto tempI6 = ReadThreadFusion::get<6>(input);
-                    const auto tempI7 = ReadThreadFusion::get<7>(input);
-                    const auto tempO0 = operate(thread, tempI0, deviceFunctionInstances...);
-                    const auto tempO1 = operate(thread, tempI1, deviceFunctionInstances...);
-                    const auto tempO2 = operate(thread, tempI2, deviceFunctionInstances...);
-                    const auto tempO3 = operate(thread, tempI3, deviceFunctionInstances...);
-                    const auto tempO4 = operate(thread, tempI4, deviceFunctionInstances...);
-                    const auto tempO5 = operate(thread, tempI5, deviceFunctionInstances...);
-                    const auto tempO6 = operate(thread, tempI6, deviceFunctionInstances...);
-                    const auto tempO7 = operate(thread, tempI7, deviceFunctionInstances...);
-                    return WriteThreadFusion::make(tempO0, tempO1, tempO2, tempO3,
-                                                   tempO4, tempO5, tempO6, tempO7);
+                } else {
+                    return operate_times_impl<ReadThreadFusion>(std::make_integer_sequence<uint, ReadThreadFusion::times_bigger>(),
+                                                                thread, input, deviceFunctionInstances...);
                 }
             }
 
