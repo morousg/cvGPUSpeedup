@@ -14,10 +14,47 @@
 
 #pragma once
 
+#include <utility>
+
 namespace fk {
     template <bool... results>
     constexpr bool and_v = (results && ...);
 
     template <bool... results>
     constexpr bool or_v = (results || ...);
+
+    template <typename T, T Element>
+    struct Find {
+    private:
+        template <T Head>
+        static constexpr __device__ __host__ __forceinline__
+        int in(std::integer_sequence<T, Head>) {
+            if constexpr (Head == Element) {
+                return 0;
+            } else {
+                return -1;
+            }
+        }
+    public:
+        template <T Head, T... Tail>
+        static constexpr __device__ __host__ __forceinline__
+        int in(std::integer_sequence<T, Head, Tail...>) {
+            if constexpr (Head == Element) {
+                return 0;
+            } else {
+                constexpr T result = in(std::integer_sequence<T, Tail...>{});
+                return result == -1 ? -1 : 1 + result;
+            }
+        }
+
+        template <T... Sequence>
+        static constexpr __device__ __host__ __forceinline__
+        bool one_of(std::integer_sequence<T, Sequence...>) {
+            if constexpr (in(std::integer_sequence<T, Sequence...>{}) == -1) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+    };
 }

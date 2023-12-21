@@ -23,7 +23,7 @@ namespace fk {
     inline constexpr void executeOperations(const cudaStream_t& stream, const ReadDeviceFunction& readDF, const DeviceFunctionTypes&... deviceFunctions) {
         const dim3 dataDims = { readDF.activeThreads };
         const dim3 block{ fk::getBlockSize(dataDims.x, dataDims.y) };
-        constexpr uint threadFusion = ReadDeviceFunction::Operation::ThreadFusion::times_bigger;
+        constexpr uint threadFusion = ReadDeviceFunction::Operation::ThreadFusion::elems_per_thread;
         const dim3 grid{ (unsigned int)ceil((dataDims.x/threadFusion) / (float)block.x),
                          (unsigned int)ceil(dataDims.y / (float)block.y),
                          dataDims.z };

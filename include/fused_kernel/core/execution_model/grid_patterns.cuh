@@ -45,18 +45,18 @@ namespace fk { // namespace FusedKernel
             }
 
             template <typename ReadThreadFusion, typename InputType, uint... IDX, typename... DeviceFunctionTypes>
-            FK_DEVICE_FUSE auto operate_times_impl(std::integer_sequence<uint, IDX...> idx, const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
+            FK_DEVICE_FUSE auto operate_thread_fusion_impl(std::integer_sequence<uint, IDX...> idx, const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
                 using WriteThreadFusion = typename LastType_t<DeviceFunctionTypes...>::Operation::ThreadFusion;
                 return WriteThreadFusion::make(operate_idx<IDX, ReadThreadFusion>(thread, input, deviceFunctionInstances...)...);
             }
 
             template <typename ReadThreadFusion, typename InputType, typename... DeviceFunctionTypes>
-            FK_DEVICE_FUSE auto operate_times(const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
-                if constexpr (ReadThreadFusion::times_bigger == 1) {
+            FK_DEVICE_FUSE auto operate_thread_fusion(const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
+                if constexpr (ReadThreadFusion::elems_per_thread == 1) {
                     return operate(thread, input, deviceFunctionInstances...);
                 } else {
-                    return operate_times_impl<ReadThreadFusion>(std::make_integer_sequence<uint, ReadThreadFusion::times_bigger>(),
-                                                                thread, input, deviceFunctionInstances...);
+                    return operate_thread_fusion_impl<ReadThreadFusion>(std::make_integer_sequence<uint, ReadThreadFusion::elems_per_thread>(),
+                                                                        thread, input, deviceFunctionInstances...);
                 }
             }
 
@@ -74,15 +74,16 @@ namespace fk { // namespace FusedKernel
                 const Point thread{ x, y, z };
 
                 if (x < readDeviceFunction.activeThreads.x && y < readDeviceFunction.activeThreads.y) {
+
                     const auto tempI = ReadDeviceFunction::Operation::exec(thread, readDeviceFunction.head);
 
                     using ReadThreadFusion = typename ReadDeviceFunction::Operation::ThreadFusion;
                     using WriteThreadFusion = typename WriteOperation::ThreadFusion;
-                    static_assert(ReadThreadFusion::times_bigger == WriteThreadFusion::times_bigger,
+                    static_assert(ReadThreadFusion::elems_per_thread == WriteThreadFusion::elems_per_thread,
                         "Different Thread fusion configurations for Read and Write not supported");
 
                     if constexpr (sizeof...(deviceFunctionInstances) > 1) {
-                        const auto tempO = operate_times<ReadThreadFusion>(thread, tempI, deviceFunctionInstances...);
+                        const auto tempO = operate_thread_fusion<ReadThreadFusion>(thread, tempI, deviceFunctionInstances...);
                         WriteOperation::exec(thread, tempO, writeDeviceFunction.params);
                     } else {
                         WriteOperation::exec(thread, tempI, writeDeviceFunction.params);

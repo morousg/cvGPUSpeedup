@@ -39,22 +39,22 @@ bool testThreadFusion() {
 
     using BTInfo = fk::ThreadFusionInfo<OriginalType, true>;
 
-    const typename BTInfo::BiggerType biggerType = ((typename BTInfo::BiggerType*) eightNumbers)[0];
+    const typename BTInfo::BiggerReadType biggerType = ((typename BTInfo::BiggerReadType*) eightNumbers)[0];
 
-    if constexpr (BTInfo::times_bigger == 1) {
+    if constexpr (BTInfo::elems_per_thread == 1) {
         return eightNumbers[0] == biggerType;
-    } else if constexpr (BTInfo::times_bigger == 2) {
+    } else if constexpr (BTInfo::elems_per_thread == 2) {
         const OriginalType data0 = BTInfo::template get<0>(biggerType);
         const OriginalType data1 = BTInfo::template get<1>(biggerType);
         return (data0 == eightNumbers[0]) && (data1 == eightNumbers[1]);
-    } else if constexpr (BTInfo::times_bigger == 4) {
+    } else if constexpr (BTInfo::elems_per_thread == 4) {
         const OriginalType data0 = BTInfo::template get<0>(biggerType);
         const OriginalType data1 = BTInfo::template get<1>(biggerType);
         const OriginalType data2 = BTInfo::template get<2>(biggerType);
         const OriginalType data3 = BTInfo::template get<3>(biggerType);
         return data0 == eightNumbers[0] && data1 == eightNumbers[1] &&
                data2 == eightNumbers[2] && data3 == eightNumbers[3];
-    } else if constexpr (BTInfo::times_bigger == 8) {
+    } else if constexpr (BTInfo::elems_per_thread == 8) {
         const OriginalType data0 = BTInfo::template get<0>(biggerType);
         const OriginalType data1 = BTInfo::template get<1>(biggerType);
         const OriginalType data2 = BTInfo::template get<2>(biggerType);
@@ -80,18 +80,18 @@ namespace fk {
 
         using BTInfo = fk::ThreadFusionInfo<OriginalType, true>;
 
-        const typename BTInfo::BiggerType biggerType = ((typename BTInfo::BiggerType*) fourNumbers)[0];
+        const typename BTInfo::BiggerReadType biggerType = ((typename BTInfo::BiggerReadType*) fourNumbers)[0];
 
         using Reduction = VectorReduce<VectorType_t<uchar, (cn<OriginalType>)>, Sum<uchar>>;
 
-        if constexpr (BTInfo::times_bigger == 1) {
+        if constexpr (BTInfo::elems_per_thread == 1) {
             return Reduction::exec(biggerType == fourNumbers[0]);
-        } else if constexpr (BTInfo::times_bigger == 2) {
+        } else if constexpr (BTInfo::elems_per_thread == 2) {
             const OriginalType data0 = BTInfo::template get<0>(biggerType);
             const OriginalType data1 = BTInfo::template get<1>(biggerType);
             return Reduction::exec(data0 == fourNumbers[0]) &&
                    Reduction::exec(data1 == fourNumbers[1]);
-        } else if constexpr (BTInfo::times_bigger == 4) {
+        } else if constexpr (BTInfo::elems_per_thread == 4) {
             const OriginalType data0 = BTInfo::template get<0>(biggerType);
             const OriginalType data1 = BTInfo::template get<1>(biggerType);
             const OriginalType data2 = BTInfo::template get<2>(biggerType);
@@ -134,7 +134,7 @@ bool testThreadFusionTimes(uint NUM_ELEMS_X, uint NUM_ELEMS_Y, cv::cuda::Stream&
         cvGS::executeOperations(cv_stream, read, write);
 
         // cvGPUSpeedup fusion version
-        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I), true>>
+        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I), fk::ThreadFusionInfo<CUDA_T(I), true>>>
             readTF{{cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 }};
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(I), true>>
             writeTF{cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_output_cvGS_ThreadFusion)};
