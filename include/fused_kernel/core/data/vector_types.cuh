@@ -14,15 +14,23 @@
 
 #pragma once
 
-namespace fk {
+#include <cuda_runtime.h>
 
-    struct ReadType {};
-    struct WriteType {};
-    struct UnaryType {};
-    struct BinaryType {};
-    struct MidWriteType {};
+#define DEFINE_VECTOR_TYPES(TYPE) \
+struct TYPE ## 8 { TYPE x, y, z, w, i, j, k, l; }; \
+struct TYPE ## 12 { TYPE x, y, z, x1, y1, z1, x2, y2, z2, x3, y3, z3; };
 
-    template <typename Operation>
-    constexpr bool isReadOperation = std::is_same_v<typename Operation::InstanceType, ReadType>;
+DEFINE_VECTOR_TYPES(char)
+DEFINE_VECTOR_TYPES(uchar)
+DEFINE_VECTOR_TYPES(short)
+DEFINE_VECTOR_TYPES(ushort)
+DEFINE_VECTOR_TYPES(int)
+DEFINE_VECTOR_TYPES(uint)
+DEFINE_VECTOR_TYPES(long)
+DEFINE_VECTOR_TYPES(ulong)
+DEFINE_VECTOR_TYPES(longlong)
+DEFINE_VECTOR_TYPES(ulonglong)
+DEFINE_VECTOR_TYPES(float)
+DEFINE_VECTOR_TYPES(double)
 
-} // namespace fk
+#undef DEFINE_VECTOR_TYPES

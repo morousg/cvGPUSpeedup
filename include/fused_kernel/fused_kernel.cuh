@@ -19,16 +19,18 @@
 
 namespace fk {
 
-    template <typename... DeviceFunctionTypes>
-    inline constexpr void executeOperations(const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
-        const auto readDeviceFunction = first(deviceFunctions...);
-        const dim3 dataDims = { readDeviceFunction.activeThreads };
+    template <typename ReadDeviceFunction, typename... DeviceFunctionTypes>
+    inline constexpr void executeOperations(const cudaStream_t& stream, const ReadDeviceFunction& readDF, const DeviceFunctionTypes&... deviceFunctions) {
+        const dim3 dataDims = { readDF.activeThreads };
         const dim3 block{ fk::getBlockSize(dataDims.x, dataDims.y) };
-        const dim3 grid{ (unsigned int)ceil(dataDims.x / (float)block.x),
+        constexpr uint threadFusion = ReadDeviceFunction::Operation::ThreadFusion::elems_per_thread;
+        const dim3 grid{ (unsigned int)ceil((dataDims.x/threadFusion) / (float)block.x),
                          (unsigned int)ceil(dataDims.y / (float)block.y),
                          dataDims.z };
 
-        cuda_transform << <grid, block, 0, stream >> > (deviceFunctions...);
+        const dim3 activeThreads{ readDF.activeThreads.x / threadFusion, readDF.activeThreads.y, readDF.activeThreads.z };
+
+        cuda_transform<<<grid, block, 0, stream>>>(ReadDeviceFunction{readDF.head, activeThreads}, deviceFunctions...);
         gpuErrchk(cudaGetLastError());
     }
 

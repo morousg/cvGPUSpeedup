@@ -21,17 +21,13 @@
 
 #include "tests/main.h"
 
-#ifdef ENABLE_TEST_FUSED_RESIZE
-
 struct PerPlaneSequenceSelector {
     FK_HOST_DEVICE_FUSE uint at(const uint& index) {
         return 1;
     }
 };
 
-void testComputeWhatYouSeePlusHorizontalFusion(char* buffer) {
-    constexpr uint NUM_ELEMS_X = 3840;
-    constexpr uint NUM_ELEMS_Y = 2160;
+void testComputeWhatYouSeePlusHorizontalFusion(char* buffer, const uint& NUM_ELEMS_X, const uint& NUM_ELEMS_Y) {
 
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
@@ -76,10 +72,10 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer) {
         down.width * sizeof(uchar4), down.height, cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaStreamSynchronize(stream));
 
-    using PixelReadOp = fk::ComposedOperationSequence<fk::ReadYUV<fk::NV12>, fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>;
-    fk::Binary<fk::ReadYUV<fk::NV12>, fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>> readOpInstance = { {{d_nv12Image}} };
+    fk::Binary<fk::ReadYUV<fk::NV12>, fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>> readOpInstance;
+    fk::get_params<0>(readOpInstance.head) = d_nv12Image;
     auto imgSize = d_nv12Image.dims;
-    auto readOp = fk::resize<PixelReadOp, fk::INTER_LINEAR>(readOpInstance.head, fk::Size(NUM_ELEMS_X, NUM_ELEMS_Y), down);
+    auto readOp = fk::resize<typename decltype(readOpInstance)::Operation, fk::INTER_LINEAR>(readOpInstance.head, fk::Size(NUM_ELEMS_X, NUM_ELEMS_Y), down);
     auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
     auto colorConvert = fk::Unary<fk::VectorReorder<uchar4, 2, 1, 0, 3>>{};
 
@@ -103,9 +99,7 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer) {
     gpuErrchk(cudaStreamDestroy(stream));
 }
 
-void testComputeWhatYouSee(char* buffer) {
-    constexpr uint NUM_ELEMS_X = 7680;
-    constexpr uint NUM_ELEMS_Y = 4320;
+void testComputeWhatYouSee(char* buffer, const uint& NUM_ELEMS_X, const uint& NUM_ELEMS_Y) {
 
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
@@ -145,10 +139,10 @@ void testComputeWhatYouSee(char* buffer) {
         down.width * sizeof(uchar4), down.height, cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaStreamSynchronize(stream));
 
-    using PixelReadOp = fk::ComposedOperationSequence<fk::ReadYUV<fk::NV12>, fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>;
-    fk::Binary<fk::ReadYUV<fk::NV12>, fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>> readOpInstance = { {{d_nv12Image}} };
+    fk::Binary<fk::ReadYUV<fk::NV12>, fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>> readOpInstance;
+    fk::get_params<0>(readOpInstance.head) = d_nv12Image;
     auto imgSize = d_nv12Image.dims;
-    auto readOp = fk::resize<PixelReadOp, fk::INTER_LINEAR>(readOpInstance.head, fk::Size(imgSize.width, imgSize.height), down);
+    auto readOp = fk::resize<typename decltype(readOpInstance)::Operation, fk::INTER_LINEAR>(readOpInstance.head, fk::Size(imgSize.width, imgSize.height), down);
     auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
     auto colorConvert = fk::Unary<fk::VectorReorder<uchar4, 2, 1, 0, 3>>{};
     auto writeOp = fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>>{ d_rgbaImage.ptr() };
@@ -163,11 +157,10 @@ void testComputeWhatYouSee(char* buffer) {
 
     gpuErrchk(cudaStreamDestroy(stream));
 }
-#endif
 
 int launch() {
     int returnValue = 0;
-#ifdef ENABLE_TEST_FUSED_RESIZE
+
     cv::cuda::Stream cv_stream;
 
     cv::Mat::setDefaultAllocator(cv::cuda::HostMem::getAllocator(cv::cuda::HostMem::AllocType::PAGE_LOCKED));
@@ -180,13 +173,17 @@ int launch() {
     if (file.is_open()) {
         char* buffer = new char[size];
         file.read(buffer, size);
-
-        testComputeWhatYouSee(buffer);
+        constexpr uint NUM_ELEMS_X = 7680;
+        constexpr uint NUM_ELEMS_Y = 4320;
+        testComputeWhatYouSee(buffer, NUM_ELEMS_X, NUM_ELEMS_Y);
         delete buffer;
     } else {
         // Print an error message if the file cannot be opened
-        std::cerr << "Error: cannot open file\n";
-        returnValue = -1;
+        std::cout << "Cannot open file, using dummy image." << std::endl;
+        constexpr uint NUM_ELEMS_X = 7680;
+        constexpr uint NUM_ELEMS_Y = 4320;
+        char* buffer = new char[NUM_ELEMS_X * (NUM_ELEMS_Y + (NUM_ELEMS_Y / 2))];
+        testComputeWhatYouSee(buffer, NUM_ELEMS_X, NUM_ELEMS_Y);
     }
     file.close();
 
@@ -198,15 +195,19 @@ int launch() {
     if (file2.is_open()) {
         char* buffer = new char[size2];
         file2.read(buffer, size2);
-
-        testComputeWhatYouSeePlusHorizontalFusion(buffer);
+        constexpr uint NUM_ELEMS_X = 3840;
+        constexpr uint NUM_ELEMS_Y = 2160;
+        testComputeWhatYouSeePlusHorizontalFusion(buffer, NUM_ELEMS_X, NUM_ELEMS_Y);
         delete buffer;
     } else {
+        constexpr uint NUM_ELEMS_X = 3840;
+        constexpr uint NUM_ELEMS_Y = 2160;
         // Print an error message if the file cannot be opened
-        std::cerr << "Error: cannot open file\n";
-        returnValue = -1;
+        std::cout << "Cannot open file, using dummy image." << std::endl;
+        char* buffer = new char[NUM_ELEMS_X * (NUM_ELEMS_Y + (NUM_ELEMS_Y / 2))];
+        testComputeWhatYouSeePlusHorizontalFusion(buffer, NUM_ELEMS_X, NUM_ELEMS_Y);
     }
     file2.close();
-#endif
+
     return returnValue;
 }

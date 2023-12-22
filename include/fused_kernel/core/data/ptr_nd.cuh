@@ -234,53 +234,53 @@ struct PtrAccessor;
 
 template <>
 struct PtrAccessor<_1D> {
-    template <typename T>
-    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const Point& p, const RawPtr<_1D, T>& ptr) {
-        return (const T*)(ptr.data + p.x);
+    template <typename T, typename BiggerType = T>
+    FK_HOST_DEVICE_FUSE const BiggerType*__restrict__ cr_point(const Point& p, const RawPtr<_1D, T>& ptr) {
+        return ((const BiggerType*)ptr.data) + p.x;
     }
 
-    template <typename T>
-    static __device__ __forceinline__ __host__ T* point(const Point& p, const RawPtr<_1D, T>& ptr) {
-        return ptr.data + p.x;
+    template <typename T, typename BiggerType = T>
+    static __device__ __forceinline__ __host__ BiggerType* point(const Point& p, const RawPtr<_1D, T>& ptr) {
+        return (BiggerType*)ptr.data + p.x;
     }
 };
 
 template <>
 struct PtrAccessor<_2D> {
-    template <typename T>
-    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const Point& p, const RawPtr<_2D, T>& ptr) {
-        return (const T*)((const char*)ptr.data + (p.y * ptr.dims.pitch)) + p.x;
+    template <typename T, typename BiggerType=T>
+    FK_HOST_DEVICE_FUSE const BiggerType* __restrict__ cr_point(const Point& p, const RawPtr<_2D, T>& ptr) {
+        return (const BiggerType*)((const char*)ptr.data + (p.y * ptr.dims.pitch)) + p.x;
     }
 
-    template <typename T>
-    static __device__ __forceinline__ __host__ T* point(const Point& p, const RawPtr<_2D, T>& ptr) {
-        return (T*)((char*)ptr.data + (p.y * ptr.dims.pitch)) + p.x;
+    template <typename T, typename BiggerType = T>
+    static __device__ __forceinline__ __host__ BiggerType* point(const Point& p, const RawPtr<_2D, T>& ptr) {
+        return (BiggerType*)((char*)ptr.data + (p.y * ptr.dims.pitch)) + p.x;
     }
 };
 
 template <>
 struct PtrAccessor<_3D> {
-    template <typename T>
-    FK_HOST_DEVICE_FUSE const T*__restrict__ cr_point(const Point& p, const RawPtr<_3D, T>& ptr) {
-        return (const T*)((const char*)ptr.data + (ptr.dims.plane_pitch * ptr.dims.color_planes * p.z) + (p.y * ptr.dims.pitch)) + p.x;
+    template <typename T, typename BiggerType = T>
+    FK_HOST_DEVICE_FUSE const BiggerType*__restrict__ cr_point(const Point& p, const RawPtr<_3D, T>& ptr) {
+        return (const BiggerType*)((const char*)ptr.data + (ptr.dims.plane_pitch * ptr.dims.color_planes * p.z) + (p.y * ptr.dims.pitch)) + p.x;
     }
 
-    template <typename T>
-    static __device__ __forceinline__ __host__ T* point(const Point& p, const RawPtr<_3D, T>& ptr) {
-        return (T*)((char*)ptr.data + (ptr.dims.plane_pitch * ptr.dims.color_planes * p.z) + (p.y * ptr.dims.pitch)) + p.x;
+    template <typename T, typename BiggerType = T>
+    static __device__ __forceinline__ __host__ BiggerType* point(const Point& p, const RawPtr<_3D, T>& ptr) {
+        return (BiggerType*)((char*)ptr.data + (ptr.dims.plane_pitch * ptr.dims.color_planes * p.z) + (p.y * ptr.dims.pitch)) + p.x;
     }
 };
 
 template <>
 struct PtrAccessor<T3D> {
-    template <typename T>
-    FK_HOST_DEVICE_FUSE const T* __restrict__ cr_point(const Point& p, const RawPtr<T3D, T>& ptr, const uint& color_plane = 0) {
-        return (const T*)((const char*)ptr.data + (color_plane * ptr.dims.color_planes_pitch) + (ptr.dims.plane_pitch * p.z) + (ptr.dims.pitch * p.y)) + p.x;
+    template <typename T, typename BiggerType = T>
+    FK_HOST_DEVICE_FUSE const BiggerType* __restrict__ cr_point(const Point& p, const RawPtr<T3D, T>& ptr, const uint& color_plane = 0) {
+        return (const BiggerType*)((const char*)ptr.data + (color_plane * ptr.dims.color_planes_pitch) + (ptr.dims.plane_pitch * p.z) + (ptr.dims.pitch * p.y)) + p.x;
     }
 
-    template <typename T>
-    static __device__ __forceinline__ __host__ T* point(const Point& p, const RawPtr<T3D, T>& ptr, const uint& color_plane = 0) {
-        return (T*)((char*)ptr.data + (color_plane * ptr.dims.color_planes_pitch) + (ptr.dims.plane_pitch * p.z) + (ptr.dims.pitch * p.y)) + p.x;
+    template <typename T, typename BiggerType = T>
+    static __device__ __forceinline__ __host__ BiggerType* point(const Point& p, const RawPtr<T3D, T>& ptr, const uint& color_plane = 0) {
+        return (BiggerType*)((char*)ptr.data + (color_plane * ptr.dims.color_planes_pitch) + (ptr.dims.plane_pitch * p.z) + (ptr.dims.pitch * p.y)) + p.x;
     }
 };
 
@@ -584,7 +584,7 @@ public:
     __host__ inline constexpr Ptr3D<T> crop3D(const Point& p, const PtrDims<_3D>& newDims) { return Ptr<_3D, T>::crop(p, newDims); }
 };
 
-// A color plane transposed 3D pointer PtrT3D
+// A color-plane-transposed 3D pointer PtrT3D
 template <typename T>
 class PtrT3D : public Ptr<T3D, T> {
 public:
@@ -618,7 +618,7 @@ public:
     }
 };
 
-// A color-planes-transposed Tensor pointer
+// A color-plane-transposed Tensor pointer
 template <typename T>
 class TensorT : public Ptr<T3D, T> {
 public:

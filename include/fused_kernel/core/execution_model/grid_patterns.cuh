@@ -25,8 +25,8 @@ namespace cg = cooperative_groups;
 namespace fk { // namespace FusedKernel
     struct TransformGridPattern {
         private:
-            template <typename DeviceFunction, typename... DeviceFunctionTypes>
-            FK_DEVICE_FUSE auto operate(const Point& thread, const typename DeviceFunction::Operation::InputType& i_data, const DeviceFunction& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
+            template <typename T, typename DeviceFunction, typename... DeviceFunctionTypes>
+            FK_DEVICE_FUSE auto operate(const Point& thread, const T& i_data, const DeviceFunction& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
                 if constexpr (DeviceFunction::template is<BinaryType>) {
                     return operate(thread, DeviceFunction::Operation::exec(i_data, df.head), deviceFunctionInstances...);
                 } else if constexpr (DeviceFunction::template is<UnaryType>) {
@@ -39,11 +39,32 @@ namespace fk { // namespace FusedKernel
                 }
             }
 
+            template <uint IDX, typename ReadThreadFusion, typename InputType, typename... DeviceFunctionTypes>
+            FK_DEVICE_FUSE auto operate_idx(const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
+                return operate(thread, ReadThreadFusion::get<IDX>(input), deviceFunctionInstances...);
+            }
+
+            template <typename ReadThreadFusion, typename InputType, uint... IDX, typename... DeviceFunctionTypes>
+            FK_DEVICE_FUSE auto operate_thread_fusion_impl(std::integer_sequence<uint, IDX...> idx, const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
+                using WriteThreadFusion = typename LastType_t<DeviceFunctionTypes...>::Operation::ThreadFusion;
+                return WriteThreadFusion::make(operate_idx<IDX, ReadThreadFusion>(thread, input, deviceFunctionInstances...)...);
+            }
+
+            template <typename ReadThreadFusion, typename InputType, typename... DeviceFunctionTypes>
+            FK_DEVICE_FUSE auto operate_thread_fusion(const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
+                if constexpr (ReadThreadFusion::elems_per_thread == 1) {
+                    return operate(thread, input, deviceFunctionInstances...);
+                } else {
+                    return operate_thread_fusion_impl<ReadThreadFusion>(std::make_integer_sequence<uint, ReadThreadFusion::elems_per_thread>(),
+                                                                        thread, input, deviceFunctionInstances...);
+                }
+            }
+
         public:
             template <typename ReadDeviceFunction, typename... DeviceFunctionTypes>
             FK_DEVICE_FUSE void exec(const ReadDeviceFunction& readDeviceFunction, const DeviceFunctionTypes&... deviceFunctionInstances) {
                 const auto writeDeviceFunction = last(deviceFunctionInstances...);
-                using WriteOperation = typename decltype(writeDeviceFunction)::Operation;
+                using WriteOperation = typename LastType_t<DeviceFunctionTypes...>::Operation;
 
                 const cg::thread_block g = cg::this_thread_block();
 
@@ -53,9 +74,16 @@ namespace fk { // namespace FusedKernel
                 const Point thread{ x, y, z };
 
                 if (x < readDeviceFunction.activeThreads.x && y < readDeviceFunction.activeThreads.y) {
+
                     const auto tempI = ReadDeviceFunction::Operation::exec(thread, readDeviceFunction.head);
+
+                    using ReadThreadFusion = typename ReadDeviceFunction::Operation::ThreadFusion;
+                    using WriteThreadFusion = typename WriteOperation::ThreadFusion;
+                    static_assert(ReadThreadFusion::elems_per_thread == WriteThreadFusion::elems_per_thread,
+                        "Different Thread fusion configurations for Read and Write not supported");
+
                     if constexpr (sizeof...(deviceFunctionInstances) > 1) {
-                        const auto tempO = operate(thread, tempI, deviceFunctionInstances...);
+                        const auto tempO = operate_thread_fusion<ReadThreadFusion>(thread, tempI, deviceFunctionInstances...);
                         WriteOperation::exec(thread, tempO, writeDeviceFunction.params);
                     } else {
                         WriteOperation::exec(thread, tempI, writeDeviceFunction.params);
