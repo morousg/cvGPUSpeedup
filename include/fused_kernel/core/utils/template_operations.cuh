@@ -42,7 +42,7 @@ namespace fk {
             if constexpr (Head == Element) {
                 return 0;
             } else {
-                constexpr T result = in(std::integer_sequence<T, Tail...>{});
+                constexpr int result = in(std::integer_sequence<T, Tail...>{});
                 return result == -1 ? -1 : 1 + result;
             }
         }

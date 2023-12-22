@@ -12,8 +12,6 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
-
 #include "tests/main.h"
 
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>
