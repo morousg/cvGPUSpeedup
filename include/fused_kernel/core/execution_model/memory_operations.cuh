@@ -19,52 +19,57 @@
 #include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>
 
-#define READ_OPERATION_DETAILS_THREAD_FUSION(OriginalOutputType) \
+#define READ_OPERATION_DETAILS_THREAD_FUSION \
 using InputType = Point; \
 using InstanceType = ReadType; \
 static constexpr bool THREAD_FUSION{ ThreadFusion_t::ENABLED }; \
 using ThreadFusion = ThreadFusion_t; \
 using OutputType = typename ThreadFusion::BiggerReadType;
 
-#define WRITE_OPERATION_DETAILS_THREAD_FUSION(OriginalInputType, ENABLE_THREAD_FUSION) \
+#define WRITE_OPERATION_DETAILS_THREAD_FUSION \
 using InstanceType = WriteType; \
-static constexpr bool THREAD_FUSION{ ENABLE_THREAD_FUSION }; \
-using ThreadFusion = ThreadFusionInfo<OriginalInputType, THREAD_FUSION>; \
+static constexpr bool THREAD_FUSION{ ThreadFusion_t::ENABLED }; \
+using ThreadFusion = ThreadFusion_t; \
 using InputType = typename ThreadFusion::BiggerWriteType;
 
 namespace fk {
 
-    template <ND D, typename T, typename ThreadFusion_t=ThreadFusionInfo<T, false>>
+    template <ND D, typename T, typename ThreadFusion_t=ThreadFusionInfo<T, T, false>>
     struct PerThreadRead {
         using ParamsType = RawPtr<D, T>;
-        READ_OPERATION_DETAILS_THREAD_FUSION(T)
+        using InputType = Point;
+        using InstanceType = ReadType;
+        static constexpr bool THREAD_FUSION{ ThreadFusion_t::ENABLED };
+        using ThreadFusion = ThreadFusion_t;
+        using OutputType = typename ThreadFusion::BiggerReadType;
+
         FK_DEVICE_FUSE OutputType exec(const InputType& thread, const ParamsType& ptr) {
             return *PtrAccessor<D>::template cr_point<T, typename ThreadFusion::BiggerReadType>(thread, ptr);
         }
     };
 
-    template <ND D, typename T, bool USE_THREAD_FUSION = false>
+    template <ND D, typename T, typename ThreadFusion_t = ThreadFusionInfo<T, T, false>>
     struct PerThreadWrite {
         using ParamsType = RawPtr<D, T>;
-        WRITE_OPERATION_DETAILS_THREAD_FUSION(T, USE_THREAD_FUSION)
+        WRITE_OPERATION_DETAILS_THREAD_FUSION
         FK_DEVICE_FUSE void exec(const Point& thread, const InputType& input, const ParamsType& output) {
             *PtrAccessor<D>::template point<T, typename ThreadFusion::BiggerWriteType>(thread, output) = input;
         }
     };
 
-    template <typename T, typename ThreadFusion_t = ThreadFusionInfo<T, false>>
+    template <typename T, typename ThreadFusion_t = ThreadFusionInfo<T, T, false>>
     struct TensorRead {
         using ParamsType = RawPtr<_3D, T>;
-        READ_OPERATION_DETAILS_THREAD_FUSION(T)
+        READ_OPERATION_DETAILS_THREAD_FUSION
         FK_DEVICE_FUSE OutputType exec(const InputType& thread, const ParamsType& ptr) {
             return *PtrAccessor<_3D>::template cr_point<T, typename ThreadFusion::BiggerReadType>(thread, ptr);
         }
     };
 
-    template <typename T, bool USE_THREAD_FUSION = false>
+    template <typename T, typename ThreadFusion_t = ThreadFusionInfo<T, T, false>>
     struct TensorWrite {
         using ParamsType = RawPtr<_3D, T>;
-        WRITE_OPERATION_DETAILS_THREAD_FUSION(T, USE_THREAD_FUSION)
+        WRITE_OPERATION_DETAILS_THREAD_FUSION
         FK_DEVICE_FUSE void exec(const Point& thread, const InputType& input, const ParamsType& output) {
             *PtrAccessor<_3D>::template point<T, typename ThreadFusion::BiggerWriteType>(thread, output) = input;
         }
@@ -73,7 +78,8 @@ namespace fk {
     template <typename T>
     struct TensorSplit {
         using ParamsType = RawPtr<_3D, typename VectorTraits<T>::base>;
-        WRITE_OPERATION_DETAILS_THREAD_FUSION(T, false)
+        using ThreadFusion_t = ThreadFusionInfo<T, T, false>;
+        WRITE_OPERATION_DETAILS_THREAD_FUSION
         FK_DEVICE_FUSE void exec(const Point& thread, const InputType& input, const ParamsType& ptr) {
             static_assert(cn<InputType> >= 2, "Wrong type for split tensor write. It must be one of <type>2, <type>3 or <type>4.");
 
@@ -95,7 +101,8 @@ namespace fk {
     template <typename T>
     struct TensorTSplit {
         using ParamsType = RawPtr<T3D, typename VectorTraits<T>::base>;
-        WRITE_OPERATION_DETAILS_THREAD_FUSION(T, false)
+        using ThreadFusion_t = ThreadFusionInfo<T, T, false>;
+        WRITE_OPERATION_DETAILS_THREAD_FUSION
         FK_DEVICE_FUSE void exec(const Point& thread, const InputType& input, const ParamsType& ptr) {
             static_assert(cn<InputType> >= 2, "Wrong type for split tensor write. It must be one of <type>2, <type>3 or <type>4.");
 
@@ -114,8 +121,8 @@ namespace fk {
     template <typename T>
     struct TensorPack {
         using ParamsType = RawPtr<_3D, VBase<T>>;
-        using ThreadFusion_t = ThreadFusionInfo<T, false>;
-        READ_OPERATION_DETAILS_THREAD_FUSION(T)
+        using ThreadFusion_t = ThreadFusionInfo<T, T, false>;
+        READ_OPERATION_DETAILS_THREAD_FUSION
         FK_DEVICE_FUSE OutputType exec(const InputType& thread, const ParamsType& ptr) {
             static_assert(cn<OutputType> >= 2, "Wrong type for split tensor read. It must be one of <type>2, <type>3 or <type>4.");
 
@@ -139,8 +146,8 @@ namespace fk {
     template <typename T>
     struct TensorTPack {
         using ParamsType = RawPtr<T3D, VBase<T>>;
-        using ThreadFusion_t = ThreadFusionInfo<T, false>;
-        READ_OPERATION_DETAILS_THREAD_FUSION(T)
+        using ThreadFusion_t = ThreadFusionInfo<T, T, false>;
+        READ_OPERATION_DETAILS_THREAD_FUSION
         FK_DEVICE_FUSE OutputType exec(const Point& thread, const ParamsType& ptr) {
             static_assert(cn<OutputType> >= 2, "Wrong type for split tensor read. It must be one of <type>2, <type>3 or <type>4.");
 
@@ -188,7 +195,8 @@ namespace fk {
     template <ND D, typename T>
     struct SplitWrite {
         using ParamsType = SplitWriteParams<D, T>;
-        WRITE_OPERATION_DETAILS_THREAD_FUSION(T, false)
+        using ThreadFusion_t = ThreadFusionInfo<T, T, false>;
+        WRITE_OPERATION_DETAILS_THREAD_FUSION
         FK_DEVICE_FUSE void exec(const Point& thread, const InputType& input, const ParamsType& params) {
             static_assert(cn<InputType> >= 2, "Wrong type for split write. It must be one of <type>2, <type>3 or <type>4.");
             *PtrAccessor<D>::point(thread, params.x) = input.x;
@@ -328,8 +336,8 @@ namespace fk {
         static_assert(Operation::THREAD_FUSION == false, "AppyROI is not compatible with Read Operations that have THREAD_FUSION enabled.");
         using OriginalOutputType = typename Operation::OutputType;
         using ParamsType = ApplyROIParams<Operation>;
-        using ThreadFusion_t = ThreadFusionInfo<OriginalOutputType, false>;
-        READ_OPERATION_DETAILS_THREAD_FUSION(OriginalOutputType)
+        using ThreadFusion_t = ThreadFusionInfo<OriginalOutputType, OriginalOutputType, false>;
+        READ_OPERATION_DETAILS_THREAD_FUSION
         static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
             if (thread.x >= params.x1 && thread.x <= params.x2 && thread.y >= params.y1 && thread.y <= params.y2) {
                 if constexpr (USE == OFFSET_THREADS) {

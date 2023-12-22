@@ -52,25 +52,17 @@ namespace fk {
     template <typename SourceType>
     using TFBiggerType_t = EquivalentType_t<SourceType, TFSourceTypes, TFBiggerTypes>;
 
-    template <typename ReadType, typename WriteType, bool ENABLED>
-    struct TFI {
-        using BiggerReadType = std::conditional_t<ENABLED, TFBiggerType_t<ReadType>, ReadType>;
-        static constexpr uint elems_per_thread = cn<BiggerReadType> / cn<ReadType>;
-        using BiggerWriteType = VectorType_t<VBase<WriteType>, cn<WriteType> * elems_per_thread>;
-    };
-
     constexpr std::integer_sequence<uint, 1, 2, 3, 4, 8, 12> validChannelsSequence;
 
     template <uint channelNumber>
     constexpr bool isValidChannelNumber = Find<uint, channelNumber>::one_of(validChannelsSequence);
 
-    template <typename ReadType, bool ENABLED_>
+    template <typename ReadType, typename WriteType, bool ENABLED_>
     struct ThreadFusionInfo {
-        using WriteType = ReadType;
         static constexpr bool ENABLED = ENABLED_ && isValidChannelNumber<(cn<TFBiggerType_t<ReadType>> / cn<ReadType>) * cn<WriteType>>;
         using BiggerReadType = std::conditional_t<ENABLED, TFBiggerType_t<ReadType>, ReadType>;
-        using BiggerWriteType = BiggerReadType;
         static constexpr uint elems_per_thread{ cn<BiggerReadType> / cn<ReadType> };
+        using BiggerWriteType = VectorType_t<VBase<WriteType>, elems_per_thread * cn<WriteType>>;
 
         template <int IDX>
         FK_HOST_DEVICE_FUSE ReadType get(const BiggerReadType& data) {
