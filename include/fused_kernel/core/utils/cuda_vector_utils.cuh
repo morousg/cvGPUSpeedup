@@ -15,8 +15,9 @@
 
 #pragma once
 
-#include <fused_kernel/utils/cuda_utils.cuh>
-#include <fused_kernel/utils/type_lists.cuh>
+#include <fused_kernel/core/utils/cuda_utils.cuh>
+#include <fused_kernel/core/utils/type_lists.cuh>
+#include <fused_kernel/core/data/vector_types.cuh>
 
 namespace fk {
 
@@ -31,7 +32,11 @@ namespace fk {
     template <> \
     struct VectorType<BaseType, 3> { using type = BaseType ## 3; }; \
     template <> \
-    struct VectorType<BaseType, 4> { using type = BaseType ## 4; };
+    struct VectorType<BaseType, 4> { using type = BaseType ## 4; }; \
+    template <> \
+    struct VectorType<BaseType, 8> { using type = BaseType ## 8; }; \
+    template <> \
+    struct VectorType<BaseType, 12> { using type = BaseType ## 12; };
 
     VECTOR_TYPE(uchar)
     VECTOR_TYPE(char)
@@ -50,11 +55,25 @@ namespace fk {
     template <typename BaseType, int Channels>
     using VectorType_t = typename VectorType<BaseType, Channels>::type;
 
-    using VOne   = TypeList<uchar1, char1, ushort1, short1, uint1, int1, ulong1, long1, ulonglong1, longlong1, float1, double1>;
-    using VTwo   = TypeList<uchar2, char2, ushort2, short2, uint2, int2, ulong2, long2, ulonglong2, longlong2, float2, double2>;
-    using VThree = TypeList<uchar3, char3, ushort3, short3, uint3, int3, ulong3, long3, ulonglong3, longlong3, float3, double3>;
-    using VFour  = TypeList<uchar4, char4, ushort4, short4, uint4, int4, ulong4, long4, ulonglong4, longlong4, float4, double4>;
-    using VAll   = typename TypeList<VOne, VTwo, VThree, VFour>::type;
+    template <uint CHANNELS>
+    using VectorTypeList = TypeList<VectorType_t<uchar, CHANNELS>, VectorType_t<char, CHANNELS>,
+                                    VectorType_t<ushort, CHANNELS>, VectorType_t<short,CHANNELS>,
+                                    VectorType_t<uint, CHANNELS>, VectorType_t<int, CHANNELS>,
+                                    VectorType_t<ulong, CHANNELS>, VectorType_t<long, CHANNELS>,
+                                    VectorType_t<ulonglong, CHANNELS>, VectorType_t<longlong, CHANNELS>,
+                                    VectorType_t<float, CHANNELS>, VectorType_t<double, CHANNELS>>;
+
+    using StandardTypes =
+        TypeList<uchar, char, ushort, short, uint, int, ulong, long, ulonglong, longlong, float, double>;
+    using VOne = TypeList<uchar1, char1, ushort1, short1, uint1, int1, ulong1, long1, ulonglong1, longlong1, float1, double1>;
+    using VTwo = VectorTypeList<2>;
+    using VThree = VectorTypeList<3>;
+    using VFour = VectorTypeList<4>;
+    using VEight = VectorTypeList<8>;
+    using VTwelve = VectorTypeList<12>;
+    using VAll   = typename TypeList<VOne, VTwo, VThree, VFour, VEight, VTwelve>::type;
+
+#undef VECTOR_TYPES_TYPE_LIST
 
     template <typename T>
     constexpr bool validCUDAVec = one_of<T, VAll>::value;
@@ -67,8 +86,12 @@ namespace fk {
             return 2;
         } else if constexpr (one_of_v<T, VThree>) { 
             return 3;
-        } else {
+        } else if constexpr (one_of_v<T, VFour>) {
             return 4;
+        } else if constexpr (one_of_v<T, VEight>) {
+            return 8;
+        } else if constexpr (one_of_v<T, VTwelve>) {
+            return 12;
         }
     }
 
@@ -115,7 +138,11 @@ namespace fk {
     template <> \
     struct VectorTraits<BaseType ## 3> { using base = BaseType; enum {bytes=sizeof(base)*3}; }; \
     template <> \
-    struct VectorTraits<BaseType ## 4> { using base = BaseType; enum {bytes=sizeof(base)*4}; };
+    struct VectorTraits<BaseType ## 4> { using base = BaseType; enum {bytes=sizeof(base)*4}; }; \
+    template <> \
+    struct VectorTraits<BaseType ## 8> { using base = BaseType; enum {bytes=sizeof(base)*8}; }; \
+    template <> \
+    struct VectorTraits<BaseType ## 12> { using base = BaseType; enum {bytes=sizeof(base)*12}; };
 
     VECTOR_TRAITS(uchar)
     VECTOR_TRAITS(char)
@@ -161,24 +188,6 @@ namespace fk {
             return val;
         }
     };
-
-#define UNARY_EXECUTE_PER_CHANNEL(function_name) \
-if constexpr (cn<O> == 1) { \
-    if constexpr (std::is_aggregate_v<I>) { \
-        return { function_name(input.x) }; \
-    } else { \
-        return function_name(input.x); \
-    } \
-} else if constexpr (cn<O> == 2) { \
-    return { function_name(input.x), function_name(input.y) }; \
-} else if constexpr (cn<O> == 3) { \
-    return { function_name(input.x), function_name(input.y), function_name(input.z) }; \
-} else { \
-    return { function_name(input.x), \
-             function_name(input.y), \
-             function_name(input.z), \
-             function_name(input.w) }; \
-}
 
     template <typename T>
     struct UnaryVectorSet<T, typename std::enable_if_t<validCUDAVec<T>>> {
@@ -453,6 +462,10 @@ if constexpr (cn<O> == 1) { \
     VEC_BINARY_OP(== , short, uchar)
     VEC_BINARY_OP(== , int, uchar)
     VEC_BINARY_OP(== , uint, uchar)
+    VEC_BINARY_OP(== , long, uchar)
+    VEC_BINARY_OP(== , ulong, uchar)
+    VEC_BINARY_OP(== , longlong, uchar)
+    VEC_BINARY_OP(== , ulonglong, uchar)
     VEC_BINARY_OP(== , float, uchar)
     VEC_BINARY_OP(== , double, uchar)
 

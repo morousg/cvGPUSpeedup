@@ -14,5 +14,85 @@
 
 #pragma once
 
-#include <fused_kernel/fused_kernel_launchers.cuh>
-#include <fused_kernel/device_function_builders.cuh>
+#include <fused_kernel/core/execution_model/grid_patterns.cuh>
+#include <fused_kernel/core/execution_model/memory_operations.cuh>
+
+namespace fk {
+
+    template <typename ReadDeviceFunction, typename... DeviceFunctionTypes>
+    inline constexpr void executeOperations(const cudaStream_t& stream, const ReadDeviceFunction& readDF, const DeviceFunctionTypes&... deviceFunctions) {
+        const dim3 dataDims = { readDF.activeThreads };
+        const dim3 block{ fk::getBlockSize(dataDims.x, dataDims.y) };
+        constexpr uint threadFusion = ReadDeviceFunction::Operation::ThreadFusion::elems_per_thread;
+        const dim3 grid{ (unsigned int)ceil((dataDims.x/threadFusion) / (float)block.x),
+                         (unsigned int)ceil(dataDims.y / (float)block.y),
+                         dataDims.z };
+
+        const dim3 activeThreads{ readDF.activeThreads.x / threadFusion, readDF.activeThreads.y, readDF.activeThreads.z };
+
+        cuda_transform<<<grid, block, 0, stream>>>(ReadDeviceFunction{readDF.head, activeThreads}, deviceFunctions...);
+        gpuErrchk(cudaGetLastError());
+    }
+
+    template <typename I, typename... DeviceFunctionTypes>
+    inline constexpr void executeOperations(const Ptr2D<I>& input, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
+        const dim3 block = input.getBlockSize();
+        const dim3 grid{ (uint)ceil(input.dims().width / (float)block.x),
+                         (uint)ceil(input.dims().height / (float)block.y) };
+        const dim3 gridActiveThreads(input.dims().width, input.dims().height);
+
+        cuda_transform << <grid, block, 0, stream >> > (ReadDeviceFunction<PerThreadRead<_2D, I>>{input, gridActiveThreads}, deviceFunctions...);
+
+        gpuErrchk(cudaGetLastError());
+    }
+
+    template <typename I, typename O, typename... DeviceFunctionTypes>
+    inline constexpr void executeOperations(const Ptr2D<I>& input, const Ptr2D<O>& output, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
+        const dim3 block = input.getBlockSize();
+        const dim3 grid((uint)ceil(input.dims().width / (float)block.x), (uint)ceil(input.dims().height / (float)block.y));
+        const dim3 gridActiveThreads(input.dims().width, input.dims().height);
+
+        const ReadDeviceFunction<PerThreadRead<_2D, I>> firstOp{ input, gridActiveThreads };
+        const WriteDeviceFunction<PerThreadWrite<_2D, O>> opFinal{ output };
+
+        cuda_transform << <grid, block, 0, stream >> > (firstOp, deviceFunctions..., opFinal);
+        gpuErrchk(cudaGetLastError());
+    }
+
+    template <typename I, int Batch, typename... DeviceFunctionTypes>
+    inline constexpr void executeOperations(const std::array<fk::Ptr2D<I>, Batch>& input, const int& activeBatch, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
+        const Ptr2D<I>& firstInput = input[0];
+        const dim3 block = firstInput.getBlockSize();
+        const dim3 grid{ (uint)ceil(firstInput.dims().width / (float)block.x),
+                         (uint)ceil(firstInput.dims().height / (float)block.y),
+                         (uint)activeBatch };
+        const dim3 gridActiveThreads(firstInput.dims().width, firstInput.dims().height, activeBatch);
+
+        Read<BatchRead<PerThreadRead<_2D, I>, Batch>> firstOp;
+        for (int plane = 0; plane < activeBatch; plane++) {
+            firstOp.head.params[plane] = input[plane];
+        }
+        firstOp.activeThreads = gridActiveThreads;
+
+        cuda_transform << <grid, block, 0, stream >> > (firstOp, deviceFunctions...);
+        gpuErrchk(cudaGetLastError());
+    }
+
+    template <typename I, typename O, int Batch, typename... operations>
+    inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const Tensor<O>& output, const cudaStream_t& stream, const operations&... ops) {
+        const Ptr2D<I>& firstInput = input[0];
+        const dim3 block = output.getBlockSize();
+        const dim3 grid(ceil(firstInput.dims().width / (float)block.x), ceil(firstInput.dims().rows / (float)block.y), activeBatch);
+        const dim3 gridActiveThreads(firstInput.dims().width, firstInput.dims().height, activeBatch);
+
+        ReadDeviceFunction<BatchRead<PerThreadRead<_2D, I>, Batch>> firstOp;
+        for (int plane = 0; plane < activeBatch; plane++) {
+            firstOp.params[plane] = input[plane];
+        }
+        firstOp.activeThreads = gridActiveThreads;
+        const WriteDeviceFunction<PerThreadWrite<_3D, O>> opFinal{ output };
+
+        cuda_transform << <grid, block, 0, stream >> > (firstOp, ops..., opFinal);
+        gpuErrchk(cudaGetLastError());
+    }
+};

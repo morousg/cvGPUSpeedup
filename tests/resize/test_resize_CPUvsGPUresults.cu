@@ -26,8 +26,6 @@
 #include "tests/main.h"
 
 int launch() {
-
-#ifdef TEST_RESIZE_RESULTS
     cv::cuda::Stream cv_stream;
 
     // Load the PNG file
@@ -37,8 +35,8 @@ int launch() {
     // Check if the image was loaded successfully
     if (image.empty())
     {
-        std::cerr << "Failed to load image" << std::endl;
-        return 1;
+        std::cerr << "test_resize_CPUvsGPUresults SKIPPED. No valid image file path probided." << std::endl;
+        return 0;
     }
 
     const cv::Size resizeSize(1920, 1080);
@@ -99,7 +97,6 @@ int launch() {
     for (int i = 0; i < 4; i++) {
         cv::minMaxLoc(channelscvGS[i], &minValcvGS[i], &maxValcvGS[i]);
     }
-#endif
 
     return 0;
 }

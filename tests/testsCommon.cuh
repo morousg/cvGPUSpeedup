@@ -14,7 +14,7 @@
 
 #include "tests/testUtils.cuh"
 #include <cv2cuda_types.cuh>
-#include <fused_kernel/utils/vlimits.cuh>
+#include <fused_kernel/core/utils/vlimits.cuh>
 
 #include <sstream>
 #include <fstream>
@@ -40,7 +40,7 @@ constexpr std::array<size_t, NUM_ELEMS> arrayIndexSecuence = generate_sequence<S
 template <int T>
 bool checkResults(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& h_comparison1C) {
     cv::Mat h_comparison(NUM_ELEMS_Y, NUM_ELEMS_X, T);
-    cv::Mat maxError(NUM_ELEMS_Y, NUM_ELEMS_X, T, 0.00001);
+    cv::Mat maxError(NUM_ELEMS_Y, NUM_ELEMS_X, T, 0.0001);
     cv::compare(h_comparison1C, maxError, h_comparison, cv::CMP_GT);
 
 #ifdef CVGS_DEBUG

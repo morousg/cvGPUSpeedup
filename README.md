@@ -21,11 +21,11 @@ The first main focus is on the transform pattern, with an incomplete set of basi
 *  All systems with x86_64 cpu architecture
 
 ## Using the library
-In order to use it, you need to compile your code, along with cvGPUSpeedup library headers, with nvcc (provided by the CUDA toolkit) and at least C++17 support (this is already set by the cake project).
+In order to use it, you need to compile your code, along with cvGPUSpeedup library headers, with nvcc (provided by the CUDA toolkit) and at least C++17 support (this is already set by the cmake project).
 
 You can use the cmake install target to copy the headers to any desired path. You can also use the cmake exported target.
 
-Both on windows and linux you will need to build opencv with cuda support.
+If you want to use the cvGS interface, along with OpenCV, both on windows and linux you will need to build opencv with cuda support. If you want to only use the fk (Fused Kernel) namespace, then you won't need OpenCV at all.
 
 ### OpenCV example
 Let's see an example in OpenCV:
