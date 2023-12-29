@@ -21,8 +21,10 @@ namespace cg = cooperative_groups;
 
 #include <fused_kernel/core/utils/parameter_pack_utils.cuh>
 #include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/thread_fusion.cuh>
 
 namespace fk { // namespace FusedKernel
+    template <bool THREAD_DIVISIBLE, bool THREAD_FUSION=false>
     struct TransformGridPattern {
         private:
             template <typename T, typename DeviceFunction, typename... DeviceFunctionTypes>
@@ -39,24 +41,22 @@ namespace fk { // namespace FusedKernel
                 }
             }
 
-            template <uint IDX, typename ReadThreadFusion, typename InputType, typename... DeviceFunctionTypes>
+            template <uint IDX, typename TFI, typename InputType, typename... DeviceFunctionTypes>
             FK_DEVICE_FUSE auto operate_idx(const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
-                return operate(thread, ReadThreadFusion::get<IDX>(input), deviceFunctionInstances...);
+                return operate(thread, TFI::get<IDX>(input), deviceFunctionInstances...);
             }
 
-            template <typename ReadThreadFusion, typename InputType, uint... IDX, typename... DeviceFunctionTypes>
+            template <typename TFI, typename InputType, uint... IDX, typename... DeviceFunctionTypes>
             FK_DEVICE_FUSE auto operate_thread_fusion_impl(std::integer_sequence<uint, IDX...> idx, const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
-                using WriteThreadFusion = typename LastType_t<DeviceFunctionTypes...>::Operation::ThreadFusion;
-                return WriteThreadFusion::make(operate_idx<IDX, ReadThreadFusion>(thread, input, deviceFunctionInstances...)...);
+                return TFI::make(operate_idx<IDX, TFI>(thread, input, deviceFunctionInstances...)...);
             }
 
-            template <typename ReadThreadFusion, typename InputType, typename... DeviceFunctionTypes>
+            template <typename TFI, typename InputType, typename... DeviceFunctionTypes>
             FK_DEVICE_FUSE auto operate_thread_fusion(const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
-                if constexpr (ReadThreadFusion::elems_per_thread == 1) {
+                if constexpr (TFI::elems_per_thread == 1) {
                     return operate(thread, input, deviceFunctionInstances...);
                 } else {
-                    return operate_thread_fusion_impl<ReadThreadFusion>(std::make_integer_sequence<uint, ReadThreadFusion::elems_per_thread>(),
-                                                                        thread, input, deviceFunctionInstances...);
+                    return operate_thread_fusion_impl<TFI>(std::make_integer_sequence<uint, TFI::elems_per_thread>(), thread, input, deviceFunctionInstances...);
                 }
             }
 
@@ -73,20 +73,55 @@ namespace fk { // namespace FusedKernel
                 const uint z = g.group_index().z; // So far we only consider the option of using the z dimension to specify n (x*y) thread planes
                 const Point thread{ x, y, z };
 
+                using ReadIT = typename ReadDeviceFunction::Operation::ReadDataType;
+                using WriteOT = typename WriteOperation::WriteDataType;
+                constexpr bool TF_ENABLED = ReadDeviceFunction::Operation::THREAD_FUSION && WriteOperation::THREAD_FUSION && THREAD_FUSION;
+                using TFI = ThreadFusionInfo<ReadIT, WriteOT, TF_ENABLED>;
+
                 if (x < readDeviceFunction.activeThreads.x && y < readDeviceFunction.activeThreads.y) {
-
-                    const auto tempI = ReadDeviceFunction::Operation::exec(thread, readDeviceFunction.head);
-
-                    using ReadThreadFusion = typename ReadDeviceFunction::Operation::ThreadFusion;
-                    using WriteThreadFusion = typename WriteOperation::ThreadFusion;
-                    static_assert(ReadThreadFusion::elems_per_thread == WriteThreadFusion::elems_per_thread,
-                        "Different Thread fusion configurations for Read and Write not supported");
-
-                    if constexpr (sizeof...(deviceFunctionInstances) > 1) {
-                        const auto tempO = operate_thread_fusion<ReadThreadFusion>(thread, tempI, deviceFunctionInstances...);
-                        WriteOperation::exec(thread, tempO, writeDeviceFunction.params);
+                    if constexpr (TFI::ENABLED) {
+                        if constexpr (THREAD_DIVISIBLE) {
+                            const auto tempI = ReadDeviceFunction::Operation::exec<TFI::elems_per_thread>(thread, readDeviceFunction.params);
+                            if constexpr (sizeof...(deviceFunctionInstances) > 1) {
+                                const auto tempO = operate_thread_fusion<TFI>(thread, tempI, deviceFunctionInstances...);
+                                WriteOperation::exec<TFI::elems_per_thread>(thread, tempO, writeDeviceFunction.params);
+                            } else {
+                                WriteOperation::exec<TFI::elems_per_thread>(thread, tempI, writeDeviceFunction.params);
+                            }
+                        } else {
+                            if (x < readDeviceFunction.activeThreads.x - 1) {
+                                const auto tempI = ReadDeviceFunction::Operation::exec<TFI::elems_per_thread>(thread, readDeviceFunction.params);
+                                if constexpr (sizeof...(deviceFunctionInstances) > 1) {
+                                    const auto tempO = operate_thread_fusion<TFI>(thread, tempI, deviceFunctionInstances...);
+                                    WriteOperation::exec<TFI::elems_per_thread>(thread, tempO, writeDeviceFunction.params);
+                                } else {
+                                    WriteOperation::exec<TFI::elems_per_thread>(thread, tempI, writeDeviceFunction.params);
+                                }
+                            } else if (x == readDeviceFunction.activeThreads.x - 1) {
+                                const uint initialX = x * TFI::elems_per_thread;
+                                const uint finalX = ReadDeviceFunction::Operation::num_elems_x(thread, readDeviceFunction.params);
+                                uint currentX = initialX;
+                                while (currentX < finalX) {
+                                    const Point currentThread{ currentX , thread.y, thread.z };
+                                    const auto tempI = ReadDeviceFunction::Operation::exec(currentThread, readDeviceFunction.params);
+                                    if constexpr (sizeof...(deviceFunctionInstances) > 1) {
+                                        const auto tempO = operate(currentThread, tempI, deviceFunctionInstances...);
+                                        WriteOperation::exec(currentThread, tempO, writeDeviceFunction.params);
+                                    } else {
+                                        WriteOperation::exec(currentThread, tempI, writeDeviceFunction.params);
+                                    }
+                                    currentX++;
+                                }
+                            }
+                        }
                     } else {
-                        WriteOperation::exec(thread, tempI, writeDeviceFunction.params);
+                        const auto tempI = ReadDeviceFunction::Operation::exec(thread, readDeviceFunction.params);
+                        if constexpr (sizeof...(deviceFunctionInstances) > 1) {
+                            const auto tempO = operate(thread, tempI, deviceFunctionInstances...);
+                            WriteOperation::exec(thread, tempO, writeDeviceFunction.params);
+                        } else {
+                            WriteOperation::exec(thread, tempI, writeDeviceFunction.params);
+                        }
                     }
                 }
             }
@@ -99,7 +134,7 @@ namespace fk { // namespace FusedKernel
             FK_DEVICE_FUSE void divergent_operate(const uint& z, const DeviceFunctionSequence<DeviceFunctionTypes...>& dfSeq,
                                                   const DeviceFunctionSequenceTypes&... dfSequenceInstances) {
                 if (OpSequenceNumber == SequenceSelector::at(z)) {
-                    fk::apply(TransformGridPattern::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
+                    fk::apply(TransformGridPattern<true, false>::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
                 } else if constexpr (sizeof...(dfSequenceInstances) > 0) {
                     divergent_operate<OpSequenceNumber + 1>(z, dfSequenceInstances...);
                 }
@@ -113,10 +148,15 @@ namespace fk { // namespace FusedKernel
             }
     };
 
+    template <bool THREAD_DIVISIBLE, bool THREAD_FUSION, typename... DeviceFunctionTypes>
+    __global__ void cuda_transform(const DeviceFunctionTypes... deviceFunctionInstances) {
+        TransformGridPattern<THREAD_DIVISIBLE, THREAD_FUSION>::exec(deviceFunctionInstances...);
+    }
     template <typename... DeviceFunctionTypes>
     __global__ void cuda_transform(const DeviceFunctionTypes... deviceFunctionInstances) {
-        TransformGridPattern::exec(deviceFunctionInstances...);
+        TransformGridPattern<false, false>::exec(deviceFunctionInstances...);
     }
+
     template <typename SequenceSelector, typename... DeviceFunctionSequenceTypes>
     __global__ void cuda_transform_divergent_batch(const DeviceFunctionSequenceTypes... dfSequenceInstances) {
         DivergentBatchTransformGridPattern<SequenceSelector>::exec(dfSequenceInstances...);
@@ -144,7 +184,7 @@ namespace fk { // namespace FusedKernel
             FK_DEVICE_FUSE void divergent_operate(const uint& z, const Array<int, BATCH>& dfSeqSelector,
                                                   const DeviceFunctionSequence<DeviceFunctionTypes...>& dfSeq) {
                 // If the threads with this z, arrived here, we assume they have to execute this operation sequence
-                fk::apply(TransformGridPattern::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
+                fk::apply(TransformGridPattern<true>::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
             }
 
             template <int OpSequenceNumber, typename... DeviceFunctionTypes, typename... DeviceFunctionSequenceTypes>
@@ -152,7 +192,7 @@ namespace fk { // namespace FusedKernel
                                                   const DeviceFunctionSequence<DeviceFunctionTypes...>& dfSeq,
                                                   const DeviceFunctionSequenceTypes&... dfSequenceInstances) {
                 if (OpSequenceNumber == dfSeqSelector.at[z]) {
-                    fk::apply(TransformGridPattern::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
+                    fk::apply(TransformGridPattern<true>::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
                 } else {
                     DivergentBatchTransformGridPattern_vec<BATCH>::divergent_operate<OpSequenceNumber + 1>(z, dfSeqSelector, dfSequenceInstances...);
                 }

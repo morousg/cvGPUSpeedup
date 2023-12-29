@@ -126,8 +126,8 @@ namespace fk {
 
             // Build copy pipeline
             equivalentReadDFType nonUpdateRead;
-            nonUpdateRead.head.params.first = m_nextUpdateIdx;
-            nonUpdateRead.head.params.params = m_tempTensor.ptr();
+            nonUpdateRead.params.first = m_nextUpdateIdx;
+            nonUpdateRead.params.params = m_tempTensor.ptr();
             nonUpdateRead.activeThreads.x = this->ptr_a.dims.width;
             nonUpdateRead.activeThreads.y = this->ptr_a.dims.height;
             nonUpdateRead.activeThreads.z = BATCH;

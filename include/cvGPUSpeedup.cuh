@@ -182,10 +182,15 @@ inline constexpr auto write(const fk::Tensor<T>& output) {
     return fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, T>>{ output };
 }
 
-template <typename... DeviceFunctionTypes>
+template <bool ENABLE_THREAD_FUSION, typename... DeviceFunctionTypes>
 inline constexpr void executeOperations(const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-    fk::executeOperations(cu_stream, deviceFunctions...);
+    fk::executeOperations<ENABLE_THREAD_FUSION>(cu_stream, deviceFunctions...);
+}
+
+template <typename... DeviceFunctionTypes>
+inline constexpr void executeOperations(const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
+    executeOperations<false>(stream, deviceFunctions...);
 }
 
 template <typename... DeviceFunctionTypes>

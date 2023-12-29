@@ -18,6 +18,7 @@
 #include <fused_kernel/core/utils/cuda_utils.cuh>
 #include <fused_kernel/core/utils/type_lists.cuh>
 #include <fused_kernel/core/data/vector_types.cuh>
+#include <fused_kernel/core/utils/template_operations.cuh>
 
 namespace fk {
 
@@ -174,7 +175,12 @@ namespace fk {
 
     template <typename T, typename... Numbers>
     FK_HOST_DEVICE_CNST T make_(const Numbers&... pack) {
-        return make::type<T>(pack...);
+        if constexpr (std::is_aggregate_v<T>) {
+            return make::type<T>(pack...);
+        } else {
+            static_assert(sizeof...(pack) == 1, "Something wrong in make_");
+            return first(pack...);
+        }
     }
     
     template <typename T, typename Enabler=void>
@@ -773,4 +779,23 @@ namespace fk {
     SCALAR_BINARY_OP(^, uint, uint, uint)
 
 #undef SCALAR_BINARY_OP
+
+    template <uint ELEMS_PER_THREAD>
+    struct SubVector {
+        template <uint IDX, typename Vector>
+        static __device__ __forceinline__ __host__ constexpr 
+        auto get(const Vector& data) {
+            static_assert(IDX < ELEMS_PER_THREAD, "SubVector index out of range");
+            using OutputType = VectorType_t<VBase<Vector>, cn<Vector> / ELEMS_PER_THREAD>;
+            getImpl<Vector, OutputType>(data,
+                make_integer_sequence_from<uint, IDX * ELEMS_PER_THREAD, cn<OutputType>>());
+        }
+    private:
+        template <typename Vector, typename OutputType, uint... IDX>
+        static __device__ __forceinline__ __host__ constexpr
+        OutputType getImpl(const Vector& data, std::integer_sequence<uint, IDX...>) {
+            return make_<OutputType>(VectorAt<IDX, VBase<Vector>>(data)...);
+        }
+    };
+
 }

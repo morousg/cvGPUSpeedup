@@ -34,59 +34,92 @@ using InputType = typename ThreadFusion::BiggerWriteType;
 
 namespace fk {
 
-    template <ND D, typename T, typename ThreadFusion_t=ThreadFusionInfo<T, T, false>>
+    template <ND D, typename T>
     struct PerThreadRead {
         using ParamsType = RawPtr<D, T>;
         using InputType = Point;
+        using ReadDataType = T;
         using InstanceType = ReadType;
-        static constexpr bool THREAD_FUSION{ ThreadFusion_t::ENABLED };
-        using ThreadFusion = ThreadFusion_t;
-        using OutputType = typename ThreadFusion::BiggerReadType;
+        static constexpr bool THREAD_FUSION{ true };
+        using OutputType = T;
 
-        FK_DEVICE_FUSE OutputType exec(const InputType& thread, const ParamsType& ptr) {
-            return *PtrAccessor<D>::template cr_point<T, typename ThreadFusion::BiggerReadType>(thread, ptr);
+        template <uint ELEMS_PER_THREAD=1>
+        FK_DEVICE_FUSE ThreadFusionType<T, ELEMS_PER_THREAD> exec(const InputType& thread, const ParamsType& ptr) {
+            return *PtrAccessor<D>::template cr_point<T, ThreadFusionType<T, ELEMS_PER_THREAD>>(thread, ptr);
+        }
+
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return ptr.dims.width;
         }
     };
 
-    template <ND D, typename T, typename ThreadFusion_t = ThreadFusionInfo<T, T, false>>
+    template <ND D, typename T>
     struct PerThreadWrite {
         using ParamsType = RawPtr<D, T>;
-        WRITE_OPERATION_DETAILS_THREAD_FUSION
-        FK_DEVICE_FUSE void exec(const Point& thread, const InputType& input, const ParamsType& output) {
-            *PtrAccessor<D>::template point<T, typename ThreadFusion::BiggerWriteType>(thread, output) = input;
+        using InstanceType = WriteType;
+        static constexpr bool THREAD_FUSION{ true };
+        using InputType = T;
+        using WriteDataType = T;
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_DEVICE_FUSE void exec(const Point& thread, const ThreadFusionType<T, ELEMS_PER_THREAD>& input, const ParamsType& output) {
+            *PtrAccessor<D>::template point<T, ThreadFusionType<T, ELEMS_PER_THREAD>>(thread, output) = input;
+        }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return ptr.dims.width;
         }
     };
 
-    template <typename T, typename ThreadFusion_t = ThreadFusionInfo<T, T, false>>
+    template <typename T>
     struct TensorRead {
         using ParamsType = RawPtr<_3D, T>;
-        READ_OPERATION_DETAILS_THREAD_FUSION
-        FK_DEVICE_FUSE OutputType exec(const InputType& thread, const ParamsType& ptr) {
-            return *PtrAccessor<_3D>::template cr_point<T, typename ThreadFusion::BiggerReadType>(thread, ptr);
+        using InputType = Point;
+        using InstanceType = ReadType;
+        static constexpr bool THREAD_FUSION{ true };
+        using OutputType = T;
+        using ReadDataType = T;
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_DEVICE_FUSE ThreadFusionType<T, ELEMS_PER_THREAD> exec(const InputType& thread, const ParamsType& ptr) {
+            return *PtrAccessor<_3D>::template cr_point<T, ThreadFusionType<T, ELEMS_PER_THREAD>>(thread, ptr);
+        }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return ptr.dims.width;
         }
     };
 
-    template <typename T, typename ThreadFusion_t = ThreadFusionInfo<T, T, false>>
+    template <typename T>
     struct TensorWrite {
         using ParamsType = RawPtr<_3D, T>;
-        WRITE_OPERATION_DETAILS_THREAD_FUSION
-        FK_DEVICE_FUSE void exec(const Point& thread, const InputType& input, const ParamsType& output) {
-            *PtrAccessor<_3D>::template point<T, typename ThreadFusion::BiggerWriteType>(thread, output) = input;
+        using InstanceType = WriteType;
+        static constexpr bool THREAD_FUSION{ true };
+        using InputType = T;
+        using WriteDataType = T;
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_DEVICE_FUSE void exec(const Point& thread, const ThreadFusionType<T, ELEMS_PER_THREAD>& input, const ParamsType& output) {
+            *PtrAccessor<_3D>::template point<T, ThreadFusionType<T, ELEMS_PER_THREAD>>(thread, output) = input;
+        }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return ptr.dims.width;
         }
     };
 
     template <typename T>
     struct TensorSplit {
-        using ParamsType = RawPtr<_3D, typename VectorTraits<T>::base>;
-        using ThreadFusion_t = ThreadFusionInfo<T, T, false>;
-        WRITE_OPERATION_DETAILS_THREAD_FUSION
-        FK_DEVICE_FUSE void exec(const Point& thread, const InputType& input, const ParamsType& ptr) {
+        using WriteDataType = VBase<T>;
+        using ParamsType = RawPtr<_3D, WriteDataType>;
+        using InstanceType = WriteType;
+        static constexpr bool THREAD_FUSION{ false };
+        using InputType = T;
+
+        FK_DEVICE_FUSE void exec(const Point& thread, const T& input, const ParamsType& ptr) {
             static_assert(cn<InputType> >= 2, "Wrong type for split tensor write. It must be one of <type>2, <type>3 or <type>4.");
 
             const int planePixels = ptr.dims.width * ptr.dims.height;
 
-            using OutputType = typename VectorTraits<InputType>::base;
-            OutputType* const work_plane = PtrAccessor<_3D>::point(thread, ptr);
+            WriteDataType* const work_plane = PtrAccessor<_3D>::point(thread, ptr);
+
             *work_plane = input.x;
             *(work_plane + planePixels) = input.y;
             if constexpr (cn<InputType> >= 3) {
@@ -96,17 +129,22 @@ namespace fk {
                 *(work_plane + (planePixels * 3)) = input.w;
             }
         }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return ptr.dims.width;
+        }
     };
 
     template <typename T>
     struct TensorTSplit {
         using ParamsType = RawPtr<T3D, typename VectorTraits<T>::base>;
-        using ThreadFusion_t = ThreadFusionInfo<T, T, false>;
-        WRITE_OPERATION_DETAILS_THREAD_FUSION
+        using InstanceType = WriteType;
+        static constexpr bool THREAD_FUSION{ false };
+        using InputType = T;
+        using WriteDataType = VBase<InputType>;
+
         FK_DEVICE_FUSE void exec(const Point& thread, const InputType& input, const ParamsType& ptr) {
             static_assert(cn<InputType> >= 2, "Wrong type for split tensor write. It must be one of <type>2, <type>3 or <type>4.");
 
-            using OutputType = typename VectorTraits<InputType>::base;
             *PtrAccessor<T3D>::point(thread, ptr, 0) = input.x;
             *PtrAccessor<T3D>::point(thread, ptr, 1) = input.y;
             if constexpr (cn<InputType> >= 3) {
@@ -116,13 +154,19 @@ namespace fk {
                 *PtrAccessor<T3D>::point(thread, ptr, 3) = input.w;
             }
         }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return ptr.dims.width;
+        }
     };
 
     template <typename T>
     struct TensorPack {
         using ParamsType = RawPtr<_3D, VBase<T>>;
-        using ThreadFusion_t = ThreadFusionInfo<T, T, false>;
-        READ_OPERATION_DETAILS_THREAD_FUSION
+        using InputType = Point;
+        using InstanceType = ReadType;
+        static constexpr bool THREAD_FUSION{ false };
+        using OutputType = T;
+        using ReadDataType = T;
         FK_DEVICE_FUSE OutputType exec(const InputType& thread, const ParamsType& ptr) {
             static_assert(cn<OutputType> >= 2, "Wrong type for split tensor read. It must be one of <type>2, <type>3 or <type>4.");
 
@@ -141,13 +185,19 @@ namespace fk {
                     *(work_plane + (planePixels * 3)));
             }
         }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return ptr.dims.width;
+        }
     };
 
     template <typename T>
     struct TensorTPack {
         using ParamsType = RawPtr<T3D, VBase<T>>;
-        using ThreadFusion_t = ThreadFusionInfo<T, T, false>;
-        READ_OPERATION_DETAILS_THREAD_FUSION
+        using InputType = Point;
+        using InstanceType = ReadType;
+        static constexpr bool THREAD_FUSION{ false };
+        using OutputType = T;
+        using ReadDataType = T;
         FK_DEVICE_FUSE OutputType exec(const Point& thread, const ParamsType& ptr) {
             static_assert(cn<OutputType> >= 2, "Wrong type for split tensor read. It must be one of <type>2, <type>3 or <type>4.");
 
@@ -165,6 +215,9 @@ namespace fk {
                 const VBase<T> w = *PtrAccessor<T3D>::cr_point(thread, ptr, 3);
                 return make_<OutputType>(x, y, z, w);
             }
+        }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return ptr.dims.width;
         }
     };
 
@@ -195,14 +248,19 @@ namespace fk {
     template <ND D, typename T>
     struct SplitWrite {
         using ParamsType = SplitWriteParams<D, T>;
-        using ThreadFusion_t = ThreadFusionInfo<T, T, false>;
-        WRITE_OPERATION_DETAILS_THREAD_FUSION
+        using InstanceType = WriteType;
+        static constexpr bool THREAD_FUSION{ false };
+        using InputType = T;
+        using WriteDataType = VBase<T>;
         FK_DEVICE_FUSE void exec(const Point& thread, const InputType& input, const ParamsType& params) {
             static_assert(cn<InputType> >= 2, "Wrong type for split write. It must be one of <type>2, <type>3 or <type>4.");
             *PtrAccessor<D>::point(thread, params.x) = input.x;
             *PtrAccessor<D>::point(thread, params.y) = input.y;
             if constexpr (cn<InputType> >= 3) *PtrAccessor<D>::point(thread, params.z) = input.z;
             if constexpr (cn<InputType> == 4) *PtrAccessor<D>::point(thread, params.w) = input.w;
+        }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return ptr.x.dims.width;
         }
     };
 
@@ -211,11 +269,20 @@ namespace fk {
         using InputType = Point;
         using InstanceType = ReadType;
         using ParamsType = typename Operation::ParamsType[NPtr];
-        using ThreadFusion = typename Operation::ThreadFusion;
         using OutputType = typename Operation::OutputType;
         static constexpr bool THREAD_FUSION{ Operation::THREAD_FUSION };
-        FK_DEVICE_FUSE const OutputType exec(const InputType& thread, const typename Operation::ParamsType(&params)[NPtr]) {
-            return Operation::exec(thread, params[thread.z]);
+        using ReadDataType = typename Operation::ReadDataType;
+
+        template <uint ELEMS_PER_THREAD=1>
+        FK_DEVICE_FUSE const auto exec(const InputType& thread, const typename Operation::ParamsType(&params)[NPtr]) {
+            if constexpr (THREAD_FUSION) {
+                return Operation::exec<ELEMS_PER_THREAD>(thread, params[thread.z]);
+            } else {
+                return Operation::exec(thread, params[thread.z]);
+            }
+        }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return Operation::num_elems_x(ptr[thread.z]);
         }
     };
 
@@ -224,10 +291,19 @@ namespace fk {
         using InputType = typename Operation::InputType;
         using ParamsType = typename Operation::ParamsType[NPtr];
         using InstaceType = WriteType;
-        using ThreadFusion = typename Operation::ThreadFusion;
         static constexpr bool THREAD_FUSION{ Operation::THREAD_FUSION };
-        FK_DEVICE_FUSE void exec(const Point& thread, const InputType& input, const typename Operation::ParamsType(&params)[NPtr]) {
-            Operation::exec(thread, input, params[thread.z]);
+        using WriteDataType = typename Operation::WriteDataType;
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_DEVICE_FUSE void exec(const Point& thread, const ThreadFusionType<InputType, ELEMS_PER_THREAD>& input, const typename Operation::ParamsType(&params)[NPtr]) {
+            if constexpr (THREAD_FUSION) {
+                Operation::exec<ELEMS_PER_THREAD>(thread, input, params[thread.z]);
+            } else {
+                Operation::exec(thread, input, params[thread.z]);
+            }
+        }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return Operation::num_elems_x(ptr[thread.z]);
         }
     };
 
@@ -272,12 +348,21 @@ namespace fk {
         using ParamsType = CircularMemoryParams<typename Operation::ParamsType[BATCH]>;
         using InputType = Point;
         using InstanceType = ReadType;
-        using ThreadFusion = typename Operation::ThreadFusion;
         using OutputType = typename Operation::OutputType;
         static constexpr bool THREAD_FUSION{ Operation::THREAD_FUSION };
-        FK_DEVICE_FUSE const OutputType exec(const InputType& thread, const ParamsType& c_params) {
+        using ReadDataType = typename Operation::ReadDataType;
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_DEVICE_FUSE const ThreadFusionType<ReadDataType, ELEMS_PER_THREAD> exec(const InputType& thread, const ParamsType& c_params) {
             const Point newThreadIdx = computeCircularThreadIdx<direction, BATCH>(thread, c_params.first);
-            return Operation::exec(newThreadIdx, c_params.params[newThreadIdx.z]);
+            if constexpr (THREAD_FUSION) {
+                return Operation::exec<ELEMS_PER_THREAD>(newThreadIdx, c_params.params[newThreadIdx.z]);
+            } else {
+                return Operation::exec(newThreadIdx, c_params.params[newThreadIdx.z]);
+            }
+        }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return Operation::num_elems_x(ptr.params[thread.z]);
         }
     };
 
@@ -286,11 +371,20 @@ namespace fk {
         using InputType = typename Operation::InputType;
         using ParamsType = CircularMemoryParams<typename Operation::ParamsType[BATCH]>;
         using InstanceType = WriteType;
-        using ThreadFusion = typename Operation::ThreadFusion;
         static constexpr bool THREAD_FUSION{ Operation::THREAD_FUSION };
-        FK_DEVICE_FUSE void exec(const Point& thread, const InputType& input, const ParamsType& c_params) {
+        using WriteDataType = typename Operation::WriteDataType;
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_DEVICE_FUSE void exec(const Point& thread, const ThreadFusionType<InputType, ELEMS_PER_THREAD>& input, const ParamsType& c_params) {
             const Point newThreadIdx = computeCircularThreadIdx<direction, BATCH>(thread, c_params.first);
-            Operation::exec(newThreadIdx, input, c_params.params[newThreadIdx.z]);
+            if constexpr (THREAD_FUSION) {
+                Operation::exec<ELEMS_PER_THREAD>(newThreadIdx, input, c_params.params[newThreadIdx.z]);
+            } else {
+                Operation::exec(newThreadIdx, input, c_params.params[newThreadIdx.z]);
+            }
+        }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return Operation::num_elems_x(ptr.params[thread.z]);
         }
     };
 
@@ -299,12 +393,21 @@ namespace fk {
         using ParamsType = CircularMemoryParams<typename Operation::ParamsType>;
         using InputType = Point;
         using InstanceType = ReadType;
-        using ThreadFusion = typename Operation::ThreadFusion;
         using OutputType = typename Operation::OutputType;
         static constexpr bool THREAD_FUSION{ Operation::THREAD_FUSION };
-        FK_DEVICE_FUSE const OutputType exec(const InputType& thread, const ParamsType& c_params) {
+        using ReadDataType = typename Operation::ReadDataType;
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_DEVICE_FUSE const ThreadFusionType<ReadDataType, ELEMS_PER_THREAD> exec(const InputType& thread, const ParamsType& c_params) {
             const Point newThreadIdx = computeCircularThreadIdx<direction, BATCH>(thread, c_params.first);
-            return Operation::exec(newThreadIdx, c_params.params);
+            if constexpr (THREAD_FUSION) {
+                return Operation::exec<ELEMS_PER_THREAD>(newThreadIdx, c_params.params);
+            } else {
+                return Operation::exec(newThreadIdx, c_params.params);
+            }
+        }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return Operation::num_elems_x(ptr.params);
         }
     };
 
@@ -313,11 +416,20 @@ namespace fk {
         using InputType = typename Operation::InputType;
         using ParamsType = CircularMemoryParams<typename Operation::ParamsType>;
         using InstanceType = WriteType;
-        using ThreadFusion = typename Operation::ThreadFusion;
         static constexpr bool THREAD_FUSION{ Operation::THREAD_FUSION };
-        FK_DEVICE_FUSE void exec(const Point& thread, const InputType& input, const ParamsType& c_params) {
+        using WriteDataType = typename Operation::WriteDataType;
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_DEVICE_FUSE void exec(const Point& thread, const ThreadFusionType<InputType, ELEMS_PER_THREAD>& input, const ParamsType& c_params) {
             const Point newThreadIdx = computeCircularThreadIdx<direction, BATCH>(thread, c_params.first);
-            Operation::exec(newThreadIdx, input, c_params.params);
+            if constexpr (THREAD_FUSION) {
+                Operation::exec<ELEMS_PER_THREAD>(newThreadIdx, input, c_params.params);
+            } else {
+                Operation::exec(newThreadIdx, input, c_params.params);
+            }
+        }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return Operation::num_elems_x(ptr.params);
         }
     };
 
@@ -334,10 +446,13 @@ namespace fk {
     template <typename Operation, ROI USE>
     struct ApplyROI {
         static_assert(Operation::THREAD_FUSION == false, "AppyROI is not compatible with Read Operations that have THREAD_FUSION enabled.");
-        using OriginalOutputType = typename Operation::OutputType;
         using ParamsType = ApplyROIParams<Operation>;
-        using ThreadFusion_t = ThreadFusionInfo<OriginalOutputType, OriginalOutputType, false>;
-        READ_OPERATION_DETAILS_THREAD_FUSION
+        using InputType = Point;
+        using InstanceType = ReadType;
+        static constexpr bool THREAD_FUSION{ false };
+        using OutputType = typename Operation::OutputType;
+        using ReadDataType = typename Operation::ReadDataType;
+
         static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
             if (thread.x >= params.x1 && thread.x <= params.x2 && thread.y >= params.y1 && thread.y <= params.y2) {
                 if constexpr (USE == OFFSET_THREADS) {
@@ -349,6 +464,9 @@ namespace fk {
             } else {
                 return params.defaultValue;
             }
+        }
+        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+            return Operation::num_elems_x(ptr.params);
         }
     };
 } //namespace fk

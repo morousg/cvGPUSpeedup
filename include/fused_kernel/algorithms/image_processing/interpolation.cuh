@@ -42,6 +42,7 @@ namespace fk {
         using InputType = float2;
         using ParamsType = typename PixelReadOp::ParamsType;
         using InstanceType = BinaryType;
+        using ReadDataType = typename PixelReadOp::ReadDataType;
         static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             const float src_x = input.x;
             const float src_y = input.y;

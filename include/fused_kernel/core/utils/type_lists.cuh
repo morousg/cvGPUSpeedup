@@ -140,6 +140,11 @@ namespace fk { // namespace fused kernel
         using type = typename TypeAt<sizeof...(Tail)-1, TypeList<Tail...>>::type;
     };
 
+    template <typename Head>
+    struct TypeAt<-1, TypeList<Head>> {
+        using type = Head;
+    };
+
     template <int n, typename Head, typename... Tail>
     struct TypeAt<n, TypeList<Head, Tail...>> {
         using type = typename TypeAt<n - 1, TypeList<Tail...>>::type;

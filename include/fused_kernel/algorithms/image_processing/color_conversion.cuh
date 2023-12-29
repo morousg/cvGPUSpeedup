@@ -271,8 +271,8 @@ namespace fk {
         using ParamsType = RawPtr<_2D, PixelBaseType>;
         using InputType = Point;
         using InstanceType = ReadType;
+        using ReadDataType = PixelBaseType;
         static constexpr bool THREAD_FUSION{ false };
-        using ThreadFusion = ThreadFusionInfo<OutputType, OutputType, THREAD_FUSION>;
         static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
             if constexpr (PF == NV12 || PF == P010 || PF == P016 || PF == P210 || PF == P216) {
                 // Planar luma

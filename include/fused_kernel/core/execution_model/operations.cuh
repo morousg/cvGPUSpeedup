@@ -71,20 +71,12 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
         using type = typename Operation::ThreadFusion;
     };
 
-    template <typename... Operations>
-    struct OperationTupleOperation {
-        using InputType = typename FirstType_t<Operations...>::InputType;
-        using ParamsType = OperationTuple<Operations...>;
-        using OutputType = typename LastType_t<Operations...>::OutputType;
-        using InstanceType = typename FirstType_t<Operations...>::InstanceType;
-        static constexpr bool THREAD_FUSION{ getThreadFusion<FirstType_t<Operations...>> };
-        using ThreadFusion = typename GetThreadFusionInfo<FirstType_t<Operations...>>::type;
+    struct OperationTupleOperationImpl {
     private:
         template <typename Tuple_>
         FK_HOST_DEVICE_FUSE auto exec_operate(const typename Tuple_::Operation::InputType& i_data, const Tuple_& tuple) {
             using Operation = typename Tuple_::Operation;
-            if constexpr (std::is_same_v<typename Operation::InstanceType, BinaryType> ||
-                std::is_same_v<typename Operation::InstanceType, ReadType>) {
+            if constexpr (std::is_same_v<typename Operation::InstanceType, BinaryType> || std::is_same_v<typename Operation::InstanceType, ReadType>) {
                 return Operation::exec(i_data, tuple.params);
             } else if constexpr (std::is_same_v<typename Operation::InstanceType, UnaryType>) {
                 return Operation::exec(i_data);
@@ -93,9 +85,10 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
                 return i_data;
             }
         }
+    public:
         template <typename Tuple_>
         FK_HOST_DEVICE_FUSE auto tuple_operate(const typename Tuple_::Operation::InputType& i_data,
-                                                     const Tuple_& tuple) {
+            const Tuple_& tuple) {
             const auto result = exec_operate(i_data, tuple);
             if constexpr (Tuple_::size > 1) {
                 return tuple_operate(result, tuple.next);
@@ -103,11 +96,41 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
                 return result;
             }
         }
+    };
+    using OTOImpl = OperationTupleOperationImpl;
+
+    template <typename Enabler, typename... Operations>
+    struct OperationTupleOperation_ {};
+
+    template <typename... Operations>
+    struct OperationTupleOperation_<std::enable_if_t<!std::is_same_v<typename FirstType_t<Operations...>::InstanceType, ReadType>>, Operations...> {
+        using InputType = typename FirstType_t<Operations...>::InputType;
+        using ParamsType = OperationTuple<Operations...>;
+        using OutputType = typename LastType_t<Operations...>::OutputType;
+        using InstanceType = typename FirstType_t<Operations...>::InstanceType;
+    
     public:
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& tuple) {
-            return tuple_operate(input, tuple);
+            return OTOImpl::tuple_operate(input, tuple);
         }
     };
+
+    template <typename... Operations>
+    struct OperationTupleOperation_<std::enable_if_t<std::is_same_v<typename FirstType_t<Operations...>::InstanceType, ReadType>>, Operations...> {
+        using InputType = typename FirstType_t<Operations...>::InputType;
+        using ParamsType = OperationTuple<Operations...>;
+        using OutputType = typename LastType_t<Operations...>::OutputType;
+        using InstanceType = typename FirstType_t<Operations...>::InstanceType;
+        using ReadDataType = typename FirstType_t<Operations...>::ReadDataType;
+        static constexpr bool THREAD_FUSION{ FirstType_t<Operations...>::THREAD_FUSION };
+    public:
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& tuple) {
+            return OTOImpl::tuple_operate(input, tuple);
+        }
+    };
+
+    template <typename... Operations>
+    using OperationTupleOperation = OperationTupleOperation_<void, Operations...>;
 
     template <typename Operation, typename I, typename O = I>
     struct UnaryV {

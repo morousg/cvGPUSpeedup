@@ -23,8 +23,9 @@ namespace fk {
 
     struct ComputeResizePoint {
         using ParamsType = float2;
-        using ThreadFusion_t = ThreadFusionInfo<float2, float2, false>;
-        READ_OPERATION_DETAILS_THREAD_FUSION
+        using InputType = Point;
+        using InstanceType = BinaryType;
+        using OutputType = float2;
         static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
             // This is what makes the interpolation a resize operation
             const float fx = params.x;
@@ -37,10 +38,33 @@ namespace fk {
         }
     };
 
+    template <typename ReadOperation>
+    struct ResizeReadParams {
+        float2 original_point;
+        typename ReadOperation::ParamsType params;
+    };
+
+    template <typename ReadOperation>
+    struct ResizeRead_ {
+        using ParamsType = ResizeReadParams<ReadOperation>;
+        static constexpr bool THREAD_FUSION{ false };
+        using ThreadFusion = ThreadFusionInfo<int, int, false>;
+        using SingleElement = ThreadFusion;
+        using InputType = Point;
+        using InstanceType = ReadType;
+        using OutputType = typename ReadOperation::OutputType;
+        using ReadDataType = typename ReadOperation::ReadDataType;
+        static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
+            const float2 rezisePoint = ComputeResizePoint::exec(thread, params.original_point);
+            return ReadOperation::exec(rezisePoint, params.params);
+        }
+        static __device__ __forceinline__ uint num_elems_x(const InputType& thread, const ParamsType& params) {
+            return ReadOperation::num_elems_x(thread, params.params);
+        }
+    };
+
     template <typename PixelReadOp, InterpolationType IType>
-    using ResizeRead = OperationTupleOperation<ComputeResizePoint,
-                                               Interpolate<PixelReadOp, IType>
-                                              >;
+    using ResizeRead = ResizeRead_<Interpolate<PixelReadOp, IType>>;
 
     enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
 
@@ -50,32 +74,32 @@ namespace fk {
         const double cfx = static_cast<double>(dstSize.width) / srcSize.width;
         const double cfy = static_cast<double>(dstSize.height) / srcSize.height;
 
-        Read<ComputeResizePoint, Interpolate<PixelReadOp, InterpolationType::INTER_LINEAR>> resizeInstance{};
+        Read<ResizeRead<PixelReadOp, InterpolationType::INTER_LINEAR>> resizeInstance{};
         resizeInstance.activeThreads = dim3(dstSize.width, dstSize.height);
 
-        OpTupUtils<0>::get_params(resizeInstance.head) = { static_cast<float>(1.0/cfx), static_cast<float>(1.0/cfy) };
-        OpTupUtils<1>::get_params(resizeInstance.head) = input;
+        resizeInstance.params = { {static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
+                                                           input };
 
         return resizeInstance;
     }
 
     template <typename I, InterpolationType IType>
     inline const auto resize(const RawPtr<_2D, I>& input, const Size& dSize, const double& fx, const double& fy) {
-        using ResizeType = Read<ComputeResizePoint, Interpolate<PerThreadRead<_2D, I>, InterpolationType::INTER_LINEAR>>;
+        using ResizeType = Read<ResizeRead<PerThreadRead<_2D, I>, InterpolationType::INTER_LINEAR>>;
         ResizeType resizeInstance{};
         if (dSize.width != 0 && dSize.height != 0) {
             resizeInstance.activeThreads = dim3(dSize.width, dSize.height);
             const double cfx = static_cast<double>(dSize.width) / input.dims.width;
             const double cfy = static_cast<double>(dSize.height) / input.dims.height;
 
-            OpTupUtils<0>::get_params(resizeInstance.head) = { static_cast<float>(1.0/cfx), static_cast<float>(1.0/cfy) };
-            OpTupUtils<1>::get_params(resizeInstance.head) = input;
+            resizeInstance.params = { {static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy)},
+                                                               input };
         } else {
             const Size computedDSize{ CAROTENE_NS::internal::saturate_cast<int>(input.dims.width * fx),
                                       CAROTENE_NS::internal::saturate_cast<int>(input.dims.height * fy) };
             resizeInstance.activeThreads = dim3(computedDSize.width, computedDSize.height);
-            OpTupUtils<0>::get_params(resizeInstance.head) = { static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy) };
-            OpTupUtils<1>::get_params(resizeInstance.head) = input;
+            resizeInstance.params = { {static_cast<float>(1.0 / fx), static_cast<float>(1.0 / fy)},
+                                                               input };
         }
         return resizeInstance;
     }
@@ -100,8 +124,8 @@ namespace fk {
 
             // targetWidth and targetHeight are the dimensions for the resized image
             int targetWidth, targetHeight;
-            using ResizeReadParams = typename ResizeRead<PixelReadOp, IType>::ParamsType;
-            ResizeReadParams* interParams{};
+            using ResizeReadParams_ = typename ResizeRead<PixelReadOp, IType>::ParamsType;
+            ResizeReadParams_* interParams{};
             if constexpr (AR != IGNORE_AR) {
                 float scaleFactor = dsize.height / (float)dims.height;
                 targetHeight = dsize.height;
@@ -120,29 +144,29 @@ namespace fk {
                     }
                 }
                 resizeArray.activeThreads.z = NPtr;
-                resizeArray.head.params[i].x1 = (dsize.width - targetWidth) / 2;
-                resizeArray.head.params[i].x2 = resizeArray.head.params[i].x1 + targetWidth - 1;
-                resizeArray.head.params[i].y1 = (dsize.height - targetHeight) / 2;
-                resizeArray.head.params[i].y2 = resizeArray.head.params[i].y1 + targetHeight - 1;
-                resizeArray.head.params[i].defaultValue = backgroundValue;
-                interParams = &resizeArray.head.params[i].params;
+                resizeArray.params[i].x1 = (dsize.width - targetWidth) / 2;
+                resizeArray.params[i].x2 = resizeArray.params[i].x1 + targetWidth - 1;
+                resizeArray.params[i].y1 = (dsize.height - targetHeight) / 2;
+                resizeArray.params[i].y2 = resizeArray.params[i].y1 + targetHeight - 1;
+                resizeArray.params[i].defaultValue = backgroundValue;
+                interParams = &resizeArray.params[i].params;
             } else {
                 targetWidth = dsize.width;
                 targetHeight = dsize.height;
-                interParams = &resizeArray.head.params[i];
+                interParams = &resizeArray.params[i];
             }
-            OpTupUtils<0>::get_params(*interParams) = { static_cast<float>(1.0 / (static_cast<double>(targetWidth)  / (double)dims.width)),
-                                                        static_cast<float>(1.0 / (static_cast<double>(targetHeight) / (double)dims.height)) };
-            OpTupUtils<1>::get_params(*interParams) = input[i];
+            (*interParams).original_point = { static_cast<float>(1.0 / (static_cast<double>(targetWidth) / (double)dims.width)),
+                                               static_cast<float>(1.0 / (static_cast<double>(targetHeight) / (double)dims.height)) };
+            (*interParams).params = input[i];
         }
 
         if constexpr (AR != IGNORE_AR) {
             for (int i = usedPlanes; i < NPtr; i++) {
-                resizeArray.head.params[i].x1 = -1;
-                resizeArray.head.params[i].x2 = -1;
-                resizeArray.head.params[i].y1 = -1;
-                resizeArray.head.params[i].y2 = -1;
-                resizeArray.head.params[i].defaultValue = backgroundValue;
+                resizeArray.params[i].x1 = -1;
+                resizeArray.params[i].x2 = -1;
+                resizeArray.params[i].y1 = -1;
+                resizeArray.params[i].y2 = -1;
+                resizeArray.params[i].defaultValue = backgroundValue;
             }
         }
         return resizeArray;

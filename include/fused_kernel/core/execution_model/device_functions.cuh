@@ -26,15 +26,15 @@ namespace fk { // namespace FusedKernel
     static constexpr bool is{ std::is_same_v<IT, InstanceType> };
 
     // generic operation structs
-    template <typename... Operations>
+    template <typename Operation_t>
     struct ReadDeviceFunction {
-        using Operation = OperationTupleOperation<Operations...>;
+        using Operation = Operation_t;
         static_assert(std::is_same_v<typename Operation::InstanceType, ReadType>, "Operation is not Read.");
         using InstanceType = ReadType;
         template <typename IT>
         static constexpr bool is{ std::is_same_v<IT, InstanceType> };
 
-        OperationTuple<Operations... > head;
+        typename Operation::ParamsType params;
         dim3 activeThreads;
     };
 

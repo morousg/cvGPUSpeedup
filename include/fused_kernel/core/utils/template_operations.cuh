@@ -57,4 +57,9 @@ namespace fk {
             }
         }
     };
+
+    template <typename T, T Start, T... Ints>
+    constexpr auto make_integer_sequence_from(std::integer_sequence<T, Ints...>) {
+        return std::integer_sequence<T, (Start + Ints)...>{};
+    }
 }
