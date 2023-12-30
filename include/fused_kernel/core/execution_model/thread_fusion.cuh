@@ -52,7 +52,7 @@ namespace fk {
     template <typename SourceType>
     using TFBiggerType_t = EquivalentType_t<SourceType, TFSourceTypes, TFBiggerTypes>;
 
-    constexpr std::integer_sequence<uint, 1, 2, 3, 4, 8, 12> validChannelsSequence;
+    constexpr std::integer_sequence<uint, 1, 2, 3, 4> validChannelsSequence;
 
     template <uint channelNumber>
     constexpr bool isValidChannelNumber = Find<uint, channelNumber>::one_of(validChannelsSequence);
@@ -62,98 +62,62 @@ namespace fk {
 
     template <typename ReadType, typename WriteType, bool ENABLED_>
     struct ThreadFusionInfo {
-        static constexpr bool ENABLED = ENABLED_ && isValidChannelNumber<(cn<TFBiggerType_t<ReadType>> / cn<ReadType>) * cn<WriteType>>;
-        using BiggerReadType = std::conditional_t<ENABLED, TFBiggerType_t<ReadType>, ReadType>;
-        static constexpr uint elems_per_thread{ cn<BiggerReadType> / cn<ReadType> };
-        using BiggerWriteType = VectorType_t<VBase<WriteType>, elems_per_thread * cn<WriteType>>;
+        public:
+            static constexpr bool ENABLED = ENABLED_ && isValidChannelNumber<(cn<TFBiggerType_t<ReadType>> / cn<ReadType>) * cn<WriteType>>;
+            using BiggerReadType = std::conditional_t<ENABLED, TFBiggerType_t<ReadType>, ReadType>;
+            static constexpr uint elems_per_thread{ cn<BiggerReadType> / cn<ReadType> };
+            using BiggerWriteType = VectorType_t<VBase<WriteType>, elems_per_thread * cn<WriteType>>;
 
-        template <int IDX>
-        FK_HOST_DEVICE_FUSE ReadType get(const BiggerReadType& data) {
-            static_assert(IDX < elems_per_thread, "Index out of range for this ThreadFusionInfo");
-            if constexpr (validCUDAVec<ReadType>) {
-                if constexpr (cn<ReadType> == 2) {
+            template <int IDX>
+            FK_HOST_DEVICE_FUSE ReadType get(const BiggerReadType& data) {
+                static_assert(IDX < elems_per_thread, "Index out of range for this ThreadFusionInfo");
+                if constexpr (cn<ReadType> == 1) {
+                    if constexpr (IDX == 0) {
+                        return data.x;
+                    } else if constexpr (IDX == 1) {
+                        return data.y;
+                    } else if constexpr (IDX == 2) {
+                        return data.z;
+                    } else if constexpr (IDX == 3) {
+                        return data.w;
+                    }
+                } else if constexpr (cn<ReadType> == 2) {
                     if constexpr (IDX == 0) {
                         return make_<ReadType>(data.x, data.y);
                     } else if constexpr (IDX == 1) {
                         return make_<ReadType>(data.z, data.w);
-                    } else if constexpr (IDX == 2) {
-                        return make_<ReadType>(data.i, data.j);
-                    } else if constexpr (IDX == 3) {
-                        return make_<ReadType>(data.k, data.l);
                     }
                 } else if constexpr (cn<ReadType> == 3) {
                     if constexpr (IDX == 0) {
                         return make_<ReadType>(data.x, data.y, data.z);
-                    } else if constexpr (IDX == 1) {
-                        return make_<ReadType>(data.x1, data.y1, data.z1);
-                    } else if constexpr (IDX == 2) {
-                            return make_<ReadType>(data.x2, data.y2, data.z2);
-                    } else if constexpr (IDX == 3) {
-                        return make_<ReadType>(data.x3, data.y3, data.z3);
                     }
                 } else if constexpr (cn<ReadType> == 4) {
                     if constexpr (IDX == 0) {
                         return make_<ReadType>(data.x, data.y, data.z, data.w);
-                    } else if constexpr (IDX == 1) {
-                        return make_<ReadType>(data.i, data.j, data.k, data.l);
                     }
                 }
-            } else {
-                if constexpr (IDX == 0) {
-                    return data.x;
-                } else if constexpr (IDX == 1) {
-                    return data.y;
-                } else if constexpr (IDX == 2) {
-                    return data.z;
-                } else if constexpr (IDX == 3) {
-                    return data.w;
-                } else if constexpr (IDX == 4) {
-                    return data.i;
-                } else if constexpr (IDX == 5) {
-                    return data.j;
-                } else if constexpr (IDX == 6) {
-                    return data.k;
-                } else if constexpr (IDX == 7) {
-                    return data.l;
+            }
+            template <typename... OriginalTypes>
+            FK_HOST_DEVICE_FUSE BiggerWriteType make(const OriginalTypes&... data) {
+                static_assert(and_v<std::is_same_v<WriteType, OriginalTypes>...>, "Not all types are the same when making the ThreadFusion BiggerType value");
+                if constexpr (cn<WriteType> > 1) {
+                    return make_impl(data...);
+                } else {
+                    return make_<BiggerWriteType>(data...);
                 }
             }
-        }
-        template <typename... OriginalTypes>
-        FK_HOST_DEVICE_FUSE BiggerWriteType make(const OriginalTypes&... data) {
-            static_assert(and_v<std::is_same_v<WriteType, OriginalTypes>...>, "Not all types are the same when making the ThreadFusion BiggerType value");
-            if constexpr (cn<WriteType> > 1) {
-                return make_impl(data...);
-            } else {
-                return make_<BiggerWriteType>(data...);
-            }
-        }
 
         private:
-        FK_HOST_DEVICE_FUSE BiggerWriteType make_impl(const WriteType& data0,
-                                                      const WriteType& data1) {
-            if constexpr (cn<WriteType> == 2) {
-                return make_<BiggerWriteType>(data0.x, data0.y, data1.x, data1.y);
-            } else if constexpr (cn<WriteType> == 4) {
-                return make_<BiggerWriteType>(data0.x, data0.y, data0.z, data0.w,
-                                              data1.x, data1.y, data1.z, data1.w);
+            FK_HOST_DEVICE_FUSE BiggerWriteType make_impl(const WriteType& data0,
+                                                          const WriteType& data1) {
+                if constexpr (cn<WriteType> == 2) {
+                    return make_<BiggerWriteType>(data0.x, data0.y, data1.x, data1.y);
+                }
             }
-        }
-        FK_HOST_DEVICE_FUSE BiggerWriteType make_impl(const WriteType& data0,
-                                                      const WriteType& data1,
-                                                      const WriteType& data2,
-                                                      const WriteType& data3) {
-            if constexpr (cn<WriteType> == 2) {
-                return make_<BiggerWriteType>(data0.x, data0.y, data1.x, data1.y,
-                                              data2.x, data2.y, data3.x, data3.y);
-            } else if constexpr (cn<WriteType> == 3) {
-                return make_<BiggerWriteType>(data0.x, data0.y, data0.z,
-                                              data1.x, data1.y, data1.z,
-                                              data2.x, data2.y, data2.z,
-                                              data3.x, data3.y, data3.z);
-            }
-        }
-};
+    };
 
     template <typename... ThreadFusionInfos>
     constexpr bool allTFEnabled = (ThreadFusionInfos::ENABLED && ...);
+
+    using DisabledTFI = ThreadFusionInfo<int, int, false>;
 } // namespace fk

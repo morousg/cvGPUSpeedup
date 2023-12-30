@@ -33,11 +33,7 @@ namespace fk {
     template <> \
     struct VectorType<BaseType, 3> { using type = BaseType ## 3; }; \
     template <> \
-    struct VectorType<BaseType, 4> { using type = BaseType ## 4; }; \
-    template <> \
-    struct VectorType<BaseType, 8> { using type = BaseType ## 8; }; \
-    template <> \
-    struct VectorType<BaseType, 12> { using type = BaseType ## 12; };
+    struct VectorType<BaseType, 4> { using type = BaseType ## 4; };
 
     VECTOR_TYPE(uchar)
     VECTOR_TYPE(char)
@@ -70,11 +66,7 @@ namespace fk {
     using VTwo = VectorTypeList<2>;
     using VThree = VectorTypeList<3>;
     using VFour = VectorTypeList<4>;
-    using VEight = VectorTypeList<8>;
-    using VTwelve = VectorTypeList<12>;
-    using VAll   = typename TypeList<VOne, VTwo, VThree, VFour, VEight, VTwelve>::type;
-
-#undef VECTOR_TYPES_TYPE_LIST
+    using VAll   = typename TypeList<VOne, VTwo, VThree, VFour>::type;
 
     template <typename T>
     constexpr bool validCUDAVec = one_of<T, VAll>::value;
@@ -89,10 +81,6 @@ namespace fk {
             return 3;
         } else if constexpr (one_of_v<T, VFour>) {
             return 4;
-        } else if constexpr (one_of_v<T, VEight>) {
-            return 8;
-        } else if constexpr (one_of_v<T, VTwelve>) {
-            return 12;
         }
     }
 
@@ -139,11 +127,7 @@ namespace fk {
     template <> \
     struct VectorTraits<BaseType ## 3> { using base = BaseType; enum {bytes=sizeof(base)*3}; }; \
     template <> \
-    struct VectorTraits<BaseType ## 4> { using base = BaseType; enum {bytes=sizeof(base)*4}; }; \
-    template <> \
-    struct VectorTraits<BaseType ## 8> { using base = BaseType; enum {bytes=sizeof(base)*8}; }; \
-    template <> \
-    struct VectorTraits<BaseType ## 12> { using base = BaseType; enum {bytes=sizeof(base)*12}; };
+    struct VectorTraits<BaseType ## 4> { using base = BaseType; enum {bytes=sizeof(base)*4}; };
 
     VECTOR_TRAITS(uchar)
     VECTOR_TRAITS(char)

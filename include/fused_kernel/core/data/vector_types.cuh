@@ -15,22 +15,3 @@
 #pragma once
 
 #include <cuda_runtime.h>
-
-#define DEFINE_VECTOR_TYPES(TYPE) \
-struct TYPE ## 8 { TYPE x, y, z, w, i, j, k, l; }; \
-struct TYPE ## 12 { TYPE x, y, z, x1, y1, z1, x2, y2, z2, x3, y3, z3; };
-
-DEFINE_VECTOR_TYPES(char)
-DEFINE_VECTOR_TYPES(uchar)
-DEFINE_VECTOR_TYPES(short)
-DEFINE_VECTOR_TYPES(ushort)
-DEFINE_VECTOR_TYPES(int)
-DEFINE_VECTOR_TYPES(uint)
-DEFINE_VECTOR_TYPES(long)
-DEFINE_VECTOR_TYPES(ulong)
-DEFINE_VECTOR_TYPES(longlong)
-DEFINE_VECTOR_TYPES(ulonglong)
-DEFINE_VECTOR_TYPES(float)
-DEFINE_VECTOR_TYPES(double)
-
-#undef DEFINE_VECTOR_TYPES

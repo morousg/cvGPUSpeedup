@@ -24,7 +24,7 @@ namespace cg = cooperative_groups;
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>
 
 namespace fk { // namespace FusedKernel
-    template <bool THREAD_DIVISIBLE, bool THREAD_FUSION=false>
+    template <bool THREAD_DIVISIBLE=true, bool THREAD_FUSION=false>
     struct TransformGridPattern {
         private:
             template <typename T, typename DeviceFunction, typename... DeviceFunctionTypes>
@@ -47,7 +47,8 @@ namespace fk { // namespace FusedKernel
             }
 
             template <typename TFI, typename InputType, uint... IDX, typename... DeviceFunctionTypes>
-            FK_DEVICE_FUSE auto operate_thread_fusion_impl(std::integer_sequence<uint, IDX...> idx, const Point& thread, const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
+            FK_DEVICE_FUSE auto operate_thread_fusion_impl(std::integer_sequence<uint, IDX...> idx, const Point& thread,
+                                                           const InputType& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
                 return TFI::make(operate_idx<IDX, TFI>(thread, input, deviceFunctionInstances...)...);
             }
 
@@ -60,12 +61,36 @@ namespace fk { // namespace FusedKernel
                 }
             }
 
+            template <typename TFI, typename ReadDeviceFunction, typename... DeviceFunctions>
+            FK_DEVICE_FUSE void execute_device_functions(const Point& thread, const ReadDeviceFunction& readDF,
+                                                       const DeviceFunctions&... deviceFunctionInstances) {
+                using ReadOperation = typename ReadDeviceFunction::Operation;
+                using WriteOperation = typename LastType_t<DeviceFunctions...>::Operation;
+
+                const auto writeDF = last(deviceFunctionInstances...);
+
+                if constexpr (TFI::ENABLED) {
+                    const auto tempI = ReadOperation::exec<TFI::elems_per_thread>(thread, readDF.params);
+                    if constexpr (sizeof...(deviceFunctionInstances) > 1) {
+                        const auto tempO = operate_thread_fusion<TFI>(thread, tempI, deviceFunctionInstances...);
+                        WriteOperation::exec<TFI::elems_per_thread>(thread, tempO, writeDF.params);
+                    } else {
+                        WriteOperation::exec<TFI::elems_per_thread>(thread, tempI, writeDF.params);
+                    }
+                } else {
+                    const auto tempI = ReadOperation::exec(thread, readDF.params);
+                    if constexpr (sizeof...(deviceFunctionInstances) > 1) {
+                        const auto tempO = operate(thread, tempI, deviceFunctionInstances...);
+                        WriteOperation::exec(thread, tempO, writeDF.params);
+                    } else {
+                        WriteOperation::exec(thread, tempI, writeDF.params);
+                    }
+                }
+            }
+
         public:
             template <typename ReadDeviceFunction, typename... DeviceFunctionTypes>
             FK_DEVICE_FUSE void exec(const ReadDeviceFunction& readDeviceFunction, const DeviceFunctionTypes&... deviceFunctionInstances) {
-                const auto writeDeviceFunction = last(deviceFunctionInstances...);
-                using WriteOperation = typename LastType_t<DeviceFunctionTypes...>::Operation;
-
                 const cg::thread_block g = cg::this_thread_block();
 
                 const uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
@@ -73,54 +98,27 @@ namespace fk { // namespace FusedKernel
                 const uint z = g.group_index().z; // So far we only consider the option of using the z dimension to specify n (x*y) thread planes
                 const Point thread{ x, y, z };
 
-                using ReadIT = typename ReadDeviceFunction::Operation::ReadDataType;
+                using ReadOperation = typename ReadDeviceFunction::Operation;
+                using WriteOperation = typename LastType_t<DeviceFunctionTypes...>::Operation;
+                using ReadIT = typename ReadOperation::ReadDataType;
                 using WriteOT = typename WriteOperation::WriteDataType;
-                constexpr bool TF_ENABLED = ReadDeviceFunction::Operation::THREAD_FUSION && WriteOperation::THREAD_FUSION && THREAD_FUSION;
-                using TFI = ThreadFusionInfo<ReadIT, WriteOT, TF_ENABLED>;
+                using TFI = ThreadFusionInfo<ReadIT, WriteOT,
+                                             and_v<ReadOperation::THREAD_FUSION, WriteOperation::THREAD_FUSION, THREAD_FUSION>>;
 
                 if (x < readDeviceFunction.activeThreads.x && y < readDeviceFunction.activeThreads.y) {
-                    if constexpr (TFI::ENABLED) {
-                        if constexpr (THREAD_DIVISIBLE) {
-                            const auto tempI = ReadDeviceFunction::Operation::exec<TFI::elems_per_thread>(thread, readDeviceFunction.params);
-                            if constexpr (sizeof...(deviceFunctionInstances) > 1) {
-                                const auto tempO = operate_thread_fusion<TFI>(thread, tempI, deviceFunctionInstances...);
-                                WriteOperation::exec<TFI::elems_per_thread>(thread, tempO, writeDeviceFunction.params);
-                            } else {
-                                WriteOperation::exec<TFI::elems_per_thread>(thread, tempI, writeDeviceFunction.params);
-                            }
-                        } else {
-                            if (x < readDeviceFunction.activeThreads.x - 1) {
-                                const auto tempI = ReadDeviceFunction::Operation::exec<TFI::elems_per_thread>(thread, readDeviceFunction.params);
-                                if constexpr (sizeof...(deviceFunctionInstances) > 1) {
-                                    const auto tempO = operate_thread_fusion<TFI>(thread, tempI, deviceFunctionInstances...);
-                                    WriteOperation::exec<TFI::elems_per_thread>(thread, tempO, writeDeviceFunction.params);
-                                } else {
-                                    WriteOperation::exec<TFI::elems_per_thread>(thread, tempI, writeDeviceFunction.params);
-                                }
-                            } else if (x == readDeviceFunction.activeThreads.x - 1) {
-                                const uint initialX = x * TFI::elems_per_thread;
-                                const uint finalX = ReadDeviceFunction::Operation::num_elems_x(thread, readDeviceFunction.params);
-                                uint currentX = initialX;
-                                while (currentX < finalX) {
-                                    const Point currentThread{ currentX , thread.y, thread.z };
-                                    const auto tempI = ReadDeviceFunction::Operation::exec(currentThread, readDeviceFunction.params);
-                                    if constexpr (sizeof...(deviceFunctionInstances) > 1) {
-                                        const auto tempO = operate(currentThread, tempI, deviceFunctionInstances...);
-                                        WriteOperation::exec(currentThread, tempO, writeDeviceFunction.params);
-                                    } else {
-                                        WriteOperation::exec(currentThread, tempI, writeDeviceFunction.params);
-                                    }
-                                    currentX++;
-                                }
-                            }
-                        }
+                    if constexpr (THREAD_DIVISIBLE || !TFI::ENABLED) {
+                        execute_device_functions<TFI>(thread, readDeviceFunction, deviceFunctionInstances...);
                     } else {
-                        const auto tempI = ReadDeviceFunction::Operation::exec(thread, readDeviceFunction.params);
-                        if constexpr (sizeof...(deviceFunctionInstances) > 1) {
-                            const auto tempO = operate(thread, tempI, deviceFunctionInstances...);
-                            WriteOperation::exec(thread, tempO, writeDeviceFunction.params);
-                        } else {
-                            WriteOperation::exec(thread, tempI, writeDeviceFunction.params);
+                        if (x < readDeviceFunction.activeThreads.x - 1) {
+                            execute_device_functions<TFI>(thread, readDeviceFunction, deviceFunctionInstances...);
+                        } else if (x == readDeviceFunction.activeThreads.x - 1) {
+                            const uint initialX = x * TFI::elems_per_thread;
+                            const uint finalX = ReadOperation::num_elems_x(thread, readDeviceFunction.params);
+                            uint currentX = initialX;
+                            while (currentX < finalX) {
+                                const Point currentThread{ currentX++ , thread.y, thread.z };
+                                execute_device_functions<DisabledTFI>(currentThread, readDeviceFunction, deviceFunctionInstances...);
+                            }
                         }
                     }
                 }
@@ -154,7 +152,7 @@ namespace fk { // namespace FusedKernel
     }
     template <typename... DeviceFunctionTypes>
     __global__ void cuda_transform(const DeviceFunctionTypes... deviceFunctionInstances) {
-        TransformGridPattern<false, false>::exec(deviceFunctionInstances...);
+        TransformGridPattern<true, false>::exec(deviceFunctionInstances...);
     }
 
     template <typename SequenceSelector, typename... DeviceFunctionSequenceTypes>
@@ -184,7 +182,7 @@ namespace fk { // namespace FusedKernel
             FK_DEVICE_FUSE void divergent_operate(const uint& z, const Array<int, BATCH>& dfSeqSelector,
                                                   const DeviceFunctionSequence<DeviceFunctionTypes...>& dfSeq) {
                 // If the threads with this z, arrived here, we assume they have to execute this operation sequence
-                fk::apply(TransformGridPattern<true>::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
+                fk::apply(TransformGridPattern<true, false>::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
             }
 
             template <int OpSequenceNumber, typename... DeviceFunctionTypes, typename... DeviceFunctionSequenceTypes>
@@ -192,7 +190,7 @@ namespace fk { // namespace FusedKernel
                                                   const DeviceFunctionSequence<DeviceFunctionTypes...>& dfSeq,
                                                   const DeviceFunctionSequenceTypes&... dfSequenceInstances) {
                 if (OpSequenceNumber == dfSeqSelector.at[z]) {
-                    fk::apply(TransformGridPattern<true>::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
+                    fk::apply(TransformGridPattern<true, false>::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
                 } else {
                     DivergentBatchTransformGridPattern_vec<BATCH>::divergent_operate<OpSequenceNumber + 1>(z, dfSeqSelector, dfSequenceInstances...);
                 }
