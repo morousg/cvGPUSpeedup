@@ -190,40 +190,64 @@ inline constexpr void executeOperations(const cv::cuda::Stream& stream, const De
 
 template <typename... DeviceFunctionTypes>
 inline constexpr void executeOperations(const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
-    executeOperations<false>(stream, deviceFunctions...);
+    executeOperations<true>(stream, deviceFunctions...);
+}
+
+template <bool ENABLE_THREAD_FUSION, typename... DeviceFunctionTypes>
+inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
+    const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
+    using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
+    fk::executeOperations<ENABLE_THREAD_FUSION>(gpuMat2Ptr2D<InputType>(input), cu_stream, deviceFunctions...);
 }
 
 template <typename... DeviceFunctionTypes>
 inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
-    const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-    using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
-    fk::executeOperations(gpuMat2Ptr2D<InputType>(input), cu_stream, deviceFunctions...);
+    executeOperations<true>(input, stream, deviceFunctions...);
 }
 
-template <typename... DeviceFunctionTypes>
+template <bool ENABLE_THREAD_FUSION, typename... DeviceFunctionTypes>
 inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
     using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
     using OutputType = fk::LastDeviceFunctionOutputType_t<DeviceFunctionTypes...>;
-    fk::executeOperations(gpuMat2Ptr2D<InputType>(input), gpuMat2Ptr2D<OutputType>(output), cu_stream, deviceFunctions...);
+    fk::executeOperations<ENABLE_THREAD_FUSION>(gpuMat2Ptr2D<InputType>(input), gpuMat2Ptr2D<OutputType>(output), cu_stream, deviceFunctions...);
+}
+
+template <typename... DeviceFunctionTypes>
+inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
+    executeOperations<true>(input, output, stream, deviceFunctions...);
 }
 
 // Batch reads
-template <size_t Batch, typename... DeviceFunctionTypes>
+template <bool ENABLE_THREAD_FUSION, size_t Batch, typename... DeviceFunctionTypes>
 inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const size_t& activeBatch, const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
     using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
     // On Linux (gcc 11.4) it is necessary to pass the InputType and Batch as a template parameter
     // On Windows (VS2022 Community) it is not needed, it is deduced from the parameters being passed
-    fk::executeOperations<InputType, Batch>(gpuMat2Ptr2D_arr<InputType, Batch>(input), activeBatch, cu_stream, deviceFunctions...);
+    fk::executeOperations<ENABLE_THREAD_FUSION, InputType, Batch>(gpuMat2Ptr2D_arr<InputType, Batch>(input), activeBatch, cu_stream, deviceFunctions...);
 }
 
 template <size_t Batch, typename... DeviceFunctionTypes>
-inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const size_t& activeBatch, const cv::cuda::GpuMat& output, const cv::Size& outputPlane, const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
+inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const size_t& activeBatch, const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
+    executeOperations<true>(input, activeBatch, stream, deviceFunctions...);
+}
+
+template <bool ENABLE_THREAD_FUSION, size_t Batch, typename... DeviceFunctionTypes>
+inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const size_t& activeBatch,
+                                        const cv::cuda::GpuMat& output, const cv::Size& outputPlane,
+                                        const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
     using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
     using OutputType = fk::LastDeviceFunctionOutputType_t<DeviceFunctionTypes...>;
     fk::executeOperations(gpuMat2Ptr2D_arr<InputType>(input), activeBatch, gpuMat2Tensor<OutputType>(output, outputPlane, 1), cu_stream, deviceFunctions...);
+}
+
+template <size_t Batch, typename... DeviceFunctionTypes>
+inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const size_t& activeBatch,
+                                        const cv::cuda::GpuMat& output, const cv::Size& outputPlane,
+                                        const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
+    executeOperations<true>(input, activeBatch, output, outputPlane, stream, deviceFunctions...);
 }
 
 /* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)

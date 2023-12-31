@@ -47,7 +47,7 @@ namespace fk {
 
     template <typename ReadDeviceFunction, typename... DeviceFunctionTypes>
     inline constexpr void executeOperations(const cudaStream_t& stream, const ReadDeviceFunction& readDF, const DeviceFunctionTypes&... deviceFunctions) {
-        executeOperations<false>(stream, readDF, deviceFunctions...);
+        executeOperations<true>(stream, readDF, deviceFunctions...);
     }
 
     template <bool THREAD_FUSION, typename ReadDeviceFunction, typename... DeviceFunctionTypes>
@@ -93,7 +93,7 @@ namespace fk {
 
     template <typename I, typename... DeviceFunctionTypes>
     inline constexpr void executeOperations(const Ptr2D<I>& input, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
-        executeOperations<false>(input, stream, deviceFunctions...);
+        executeOperations<true>(input, stream, deviceFunctions...);
     }
 
     template <bool THREAD_FUSION, typename I, typename O, typename... DeviceFunctionTypes>
@@ -111,7 +111,7 @@ namespace fk {
 
     template <typename I, typename O, typename... DeviceFunctionTypes>
     inline constexpr void executeOperations(const Ptr2D<I>& input, const Ptr2D<O>& output, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
-        executeOperations<false>(input, output, stream, deviceFunctions...);
+        executeOperations<true>(input, output, stream, deviceFunctions...);
     }
 
     template <bool THREAD_FUSION, typename I, int Batch, typename... DeviceFunctionTypes>
@@ -136,7 +136,7 @@ namespace fk {
 
     template <typename I, int Batch, typename... DeviceFunctionTypes>
     inline constexpr void executeOperations(const std::array<fk::Ptr2D<I>, Batch>& input, const int& activeBatch, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
-        executeOperations<false>(input, activeBatch, stream, deviceFunctions...);
+        executeOperations<true>(input, activeBatch, stream, deviceFunctions...);
     }
 
     template <bool THREAD_FUSION, typename I, typename O, int Batch, typename... DeviceFunctionTypes>
@@ -162,6 +162,6 @@ namespace fk {
 
     template <typename I, typename O, int Batch, typename... operations>
     inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const Tensor<O>& output, const cudaStream_t& stream, const operations&... ops) {
-        executeOperations<false>(input, activeBatch, output, stream, ops...);
+        executeOperations<true>(input, activeBatch, output, stream, ops...);
     }
 };
