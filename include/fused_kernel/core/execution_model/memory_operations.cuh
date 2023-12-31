@@ -19,19 +19,6 @@
 #include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>
 
-#define READ_OPERATION_DETAILS_THREAD_FUSION \
-using InputType = Point; \
-using InstanceType = ReadType; \
-static constexpr bool THREAD_FUSION{ ThreadFusion_t::ENABLED }; \
-using ThreadFusion = ThreadFusion_t; \
-using OutputType = typename ThreadFusion::BiggerReadType;
-
-#define WRITE_OPERATION_DETAILS_THREAD_FUSION \
-using InstanceType = WriteType; \
-static constexpr bool THREAD_FUSION{ ThreadFusion_t::ENABLED }; \
-using ThreadFusion = ThreadFusion_t; \
-using InputType = typename ThreadFusion::BiggerWriteType;
-
 namespace fk {
 
     template <ND D, typename T>
@@ -282,7 +269,7 @@ namespace fk {
             }
         }
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
-            return Operation::num_elems_x(ptr[thread.z]);
+            return Operation::num_elems_x(thread, ptr[thread.z]);
         }
     };
 
@@ -303,7 +290,7 @@ namespace fk {
             }
         }
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
-            return Operation::num_elems_x(ptr[thread.z]);
+            return Operation::num_elems_x(thread, ptr[thread.z]);
         }
     };
 
@@ -362,7 +349,7 @@ namespace fk {
             }
         }
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
-            return Operation::num_elems_x(ptr.params[thread.z]);
+            return Operation::num_elems_x(thread, ptr.params[thread.z]);
         }
     };
 
@@ -384,7 +371,7 @@ namespace fk {
             }
         }
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
-            return Operation::num_elems_x(ptr.params[thread.z]);
+            return Operation::num_elems_x(thread, ptr.params[thread.z]);
         }
     };
 
@@ -407,7 +394,7 @@ namespace fk {
             }
         }
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
-            return Operation::num_elems_x(ptr.params);
+            return Operation::num_elems_x(thread, ptr.params);
         }
     };
 
@@ -429,7 +416,7 @@ namespace fk {
             }
         }
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
-            return Operation::num_elems_x(ptr.params);
+            return Operation::num_elems_x(thread, ptr.params);
         }
     };
 
@@ -466,7 +453,7 @@ namespace fk {
             }
         }
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
-            return Operation::num_elems_x(ptr.params);
+            return Operation::num_elems_x(thread, ptr.params);
         }
     };
 } //namespace fk
