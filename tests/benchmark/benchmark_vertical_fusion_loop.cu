@@ -21,7 +21,7 @@
 #include "tests/main.h"
 
 #ifdef ENABLE_BENCHMARK
-constexpr size_t NUM_EXPERIMENTS = 40;
+constexpr size_t NUM_EXPERIMENTS = 10;
 constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
 constexpr size_t FIRST_VALUE = 5;
 constexpr size_t INCREMENT = 5;
