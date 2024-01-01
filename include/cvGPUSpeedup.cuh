@@ -240,7 +240,7 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
     using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
     using OutputType = fk::LastDeviceFunctionOutputType_t<DeviceFunctionTypes...>;
-    fk::executeOperations(gpuMat2Ptr2D_arr<InputType>(input), activeBatch, gpuMat2Tensor<OutputType>(output, outputPlane, 1), cu_stream, deviceFunctions...);
+    fk::executeOperations<ENABLE_THREAD_FUSION>(gpuMat2Ptr2D_arr<InputType>(input), activeBatch, gpuMat2Tensor<OutputType>(output, outputPlane, 1), cu_stream, deviceFunctions...);
 }
 
 template <size_t Batch, typename... DeviceFunctionTypes>
