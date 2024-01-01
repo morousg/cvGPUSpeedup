@@ -21,7 +21,7 @@
 #include "tests/main.h"
 
 #ifdef ENABLE_BENCHMARK
-constexpr size_t NUM_EXPERIMENTS = 30;
+constexpr size_t NUM_EXPERIMENTS = 10;
 constexpr char VARIABLE_DIMENSION[]{ "Number of pixels per side" };
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 100;
