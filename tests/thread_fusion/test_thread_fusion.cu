@@ -25,6 +25,12 @@
 
 #include <type_traits>
 
+constexpr size_t NUM_EXPERIMENTS = 5;
+constexpr char VARIABLE_DIMENSION[]{ "Pixels per side" };
+constexpr size_t FIRST_VALUE = 1024;
+constexpr size_t INCREMENT = 1024;
+constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
+
 template <typename OriginalType>
 bool testThreadFusion() {
     constexpr OriginalType eightNumbers[8]{ static_cast<OriginalType>(10),
@@ -103,11 +109,16 @@ namespace fk {
     }
 }
 
-template <int I>
-bool testThreadFusionSameTypeIO(uint NUM_ELEMS_X, uint NUM_ELEMS_Y, cv::cuda::Stream& cv_stream) {
+template <int I, size_t RESOLUTION>
+bool testThreadFusionSameTypeIO(cv::cuda::Stream& cv_stream) {
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
+    constexpr int CV_TYPE_I = I;
+    constexpr int CV_TYPE_O = I;
+    constexpr size_t BATCH = RESOLUTION;
+    constexpr uint NUM_ELEMS_X = (uint)RESOLUTION;
+    constexpr uint NUM_ELEMS_Y = (uint)RESOLUTION;
 
     struct Parameters {
         cv::Scalar init;
@@ -125,19 +136,24 @@ bool testThreadFusionSameTypeIO(uint NUM_ELEMS_X, uint NUM_ELEMS_Y, cv::cuda::St
         cv::Mat h_cvGSResults(NUM_ELEMS_Y, NUM_ELEMS_X, I);
         cv::Mat h_cvGSResults_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, I);
 
+        // In this case it's not OpenCV, it's cvGPUSpeedup without thread fusion
+        START_OCV_BENCHMARK 
         // cvGPUSpeedup non fusion version
         const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>
             read{ {cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1} };
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(I)>>
             write{ cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_output_cvGS) };
-        cvGS::executeOperations(cv_stream, read, write);
+        cvGS::executeOperations<false>(cv_stream, read, write);
 
+        STOP_OCV_START_CVGS_BENCHMARK
         // cvGPUSpeedup fusion version
         const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>
             readTF{ {cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 } };
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(I)>>
             writeTF{ cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_output_cvGS_ThreadFusion) };
         cvGS::executeOperations<true>(cv_stream, readTF, writeTF);
+
+        STOP_CVGS_BENCHMARK
 
         // Verify results
         d_output_cvGS_ThreadFusion.download(h_cvGSResults_ThreadFusion, cv_stream);
@@ -168,11 +184,16 @@ bool testThreadFusionSameTypeIO(uint NUM_ELEMS_X, uint NUM_ELEMS_Y, cv::cuda::St
     return passed;
 }
 
-template <int I, int O>
-bool testThreadFusionDifferentTypeIO(uint NUM_ELEMS_X, uint NUM_ELEMS_Y, cv::cuda::Stream& cv_stream) {
+template <int I, int O, size_t RESOLUTION>
+bool testThreadFusionDifferentTypeIO(cv::cuda::Stream& cv_stream) {
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
+    constexpr int CV_TYPE_I = I;
+    constexpr int CV_TYPE_O = O;
+    constexpr size_t BATCH = RESOLUTION;
+    constexpr uint NUM_ELEMS_X = (uint)RESOLUTION;
+    constexpr uint NUM_ELEMS_Y = (uint)RESOLUTION;
 
     struct Parameters {
         cv::Scalar init;
@@ -190,19 +211,24 @@ bool testThreadFusionDifferentTypeIO(uint NUM_ELEMS_X, uint NUM_ELEMS_Y, cv::cud
         cv::Mat h_cvGSResults(NUM_ELEMS_Y, NUM_ELEMS_X, O);
         cv::Mat h_cvGSResults_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, O);
 
+        // In this case it's not OpenCV, it's cvGPUSpeedup without thread fusion
+        START_OCV_BENCHMARK
         // cvGPUSpeedup non fusion version
         const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>
             read{ {cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1} };
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>
             write{ cvGS::gpuMat2RawPtr2D<CUDA_T(O)>(d_output_cvGS) };
-        cvGS::executeOperations(cv_stream, read, cvGS::convertTo<I, O>(), write);
+        cvGS::executeOperations<false>(cv_stream, read, cvGS::convertTo<I, O>(), write);
 
+        STOP_OCV_START_CVGS_BENCHMARK
         // cvGPUSpeedup fusion version
         const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>
             readTF{ {cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 } };
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>
             writeTF{ cvGS::gpuMat2RawPtr2D<CUDA_T(O)>(d_output_cvGS_ThreadFusion) };
-        cvGS::executeOperations(cv_stream, readTF, cvGS::convertTo<I, O>(), writeTF);
+        cvGS::executeOperations<true>(cv_stream, readTF, cvGS::convertTo<I, O>(), writeTF);
+
+        STOP_CVGS_BENCHMARK
 
         // Verify results
         d_output_cvGS_ThreadFusion.download(h_cvGSResults_ThreadFusion, cv_stream);
@@ -231,11 +257,16 @@ bool testThreadFusionDifferentTypeIO(uint NUM_ELEMS_X, uint NUM_ELEMS_Y, cv::cud
     return passed;
 }
 
-template <int I, int T, int O, cv::ColorConversionCodes CODE>
-bool testThreadFusionDifferentTypeAndChannelIO(uint NUM_ELEMS_X, uint NUM_ELEMS_Y, cv::cuda::Stream& cv_stream) {
+template <int I, int T, int O, cv::ColorConversionCodes CODE, size_t RESOLUTION>
+bool testThreadFusionDifferentTypeAndChannelIO(cv::cuda::Stream& cv_stream) {
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
+    constexpr int CV_TYPE_I = I;
+    constexpr int CV_TYPE_O = O;
+    constexpr size_t BATCH = RESOLUTION;
+    constexpr uint NUM_ELEMS_X = (uint)RESOLUTION;
+    constexpr uint NUM_ELEMS_Y = (uint)RESOLUTION;
 
     struct Parameters {
         cv::Scalar init;
@@ -253,19 +284,24 @@ bool testThreadFusionDifferentTypeAndChannelIO(uint NUM_ELEMS_X, uint NUM_ELEMS_
         cv::Mat h_cvGSResults(NUM_ELEMS_Y, NUM_ELEMS_X, O);
         cv::Mat h_cvGSResults_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, O);
 
+        // In this case it's not OpenCV, it's cvGPUSpeedup without thread fusion
+        START_OCV_BENCHMARK
         // cvGPUSpeedup non fusion version
         const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>
             read{ {cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1} };
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>
             write{ cvGS::gpuMat2RawPtr2D<CUDA_T(O)>(d_output_cvGS) };
-        cvGS::executeOperations(cv_stream, read, cvGS::convertTo<I, T>(), cvGS::cvtColor<CODE, T, O>(), write);
+        cvGS::executeOperations<false>(cv_stream, read, cvGS::convertTo<I, T>(), cvGS::cvtColor<CODE, T, O>(), write);
 
+        STOP_OCV_START_CVGS_BENCHMARK
         // cvGPUSpeedup fusion version
         const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>
             readTF{ {cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 } };
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>
             writeTF{ cvGS::gpuMat2RawPtr2D<CUDA_T(O)>(d_output_cvGS_ThreadFusion) };
-        cvGS::executeOperations(cv_stream, readTF, cvGS::convertTo<I, T>(), cvGS::cvtColor<CODE, T, O>(), writeTF);
+        cvGS::executeOperations<true>(cv_stream, readTF, cvGS::convertTo<I, T>(), cvGS::cvtColor<CODE, T, O>(), writeTF);
+
+        STOP_CVGS_BENCHMARK
 
         // Verify results
         d_output_cvGS_ThreadFusion.download(h_cvGSResults_ThreadFusion, cv_stream);
@@ -292,6 +328,86 @@ bool testThreadFusionDifferentTypeAndChannelIO(uint NUM_ELEMS_X, uint NUM_ELEMS_
         }
     }
     return passed;
+}
+
+template <size_t... IDX>
+bool testThreadFusionSameTypeIO_launcher_impl(cv::cuda::Stream& cv_stream, std::integer_sequence<size_t, IDX...>) {
+    bool passed = true;
+
+#define LAUNCH_testThreadFusionSameTypeIO(BASE) \
+    passed &= (testThreadFusionSameTypeIO<BASE ## C1, batchValues[IDX]>(cv_stream) && ...); \
+    passed &= (testThreadFusionSameTypeIO<BASE ## C1, batchValues[IDX] + 1>(cv_stream) && ...); \
+    passed &= (testThreadFusionSameTypeIO<BASE ## C2, batchValues[IDX]>(cv_stream) && ...); \
+    passed &= (testThreadFusionSameTypeIO<BASE ## C2, batchValues[IDX] + 1>(cv_stream) && ...); \
+    passed &= (testThreadFusionSameTypeIO<BASE ## C3, batchValues[IDX]>(cv_stream) && ...); \
+    passed &= (testThreadFusionSameTypeIO<BASE ## C3, batchValues[IDX] + 1>(cv_stream) && ...); \
+    passed &= (testThreadFusionSameTypeIO<BASE ## C4, batchValues[IDX]>(cv_stream) && ...); \
+    passed &= (testThreadFusionSameTypeIO<BASE ## C4, batchValues[IDX] + 1>(cv_stream) && ...);
+
+    LAUNCH_testThreadFusionSameTypeIO(CV_8U)
+    LAUNCH_testThreadFusionSameTypeIO(CV_8S)
+    LAUNCH_testThreadFusionSameTypeIO(CV_16U)
+    LAUNCH_testThreadFusionSameTypeIO(CV_16S)
+    LAUNCH_testThreadFusionSameTypeIO(CV_32S)
+    LAUNCH_testThreadFusionSameTypeIO(CV_32F)
+    LAUNCH_testThreadFusionSameTypeIO(CV_64F)
+#undef LAUNCH_testThreadFusionTimes
+
+    return passed;
+}
+
+bool testThreadFusionSameTypeIO_launcher(cv::cuda::Stream& cv_stream) {
+    return testThreadFusionSameTypeIO_launcher_impl(cv_stream, std::make_integer_sequence<size_t, batchValues.size()>());
+}
+
+template <size_t... IDX>
+bool testThreadFusionDifferentTypeIO_launcher_impl(cv::cuda::Stream& cv_stream, std::integer_sequence<size_t, IDX...>) {
+    bool passed = true;
+
+    passed &= (testThreadFusionDifferentTypeIO<CV_8UC1, CV_32FC1, batchValues[IDX]>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_8UC1, CV_32FC1, batchValues[IDX] + 1>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_8UC2, CV_32FC2, batchValues[IDX]>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_8UC2, CV_32FC2, batchValues[IDX] + 1>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_8UC3, CV_32FC3, batchValues[IDX]>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_8UC3, CV_32FC3, batchValues[IDX] + 1>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_8UC4, CV_32FC4, batchValues[IDX]>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_8UC4, CV_32FC4, batchValues[IDX] + 1>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_16UC1, CV_32FC1, batchValues[IDX]>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_16UC1, CV_32FC1, batchValues[IDX] + 1>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_16UC2, CV_32FC2, batchValues[IDX]>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_16UC2, CV_32FC2, batchValues[IDX] + 1>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_16UC3, CV_32FC3, batchValues[IDX]>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_16UC3, CV_32FC3, batchValues[IDX] + 1>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_16UC4, CV_32FC4, batchValues[IDX]>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeIO<CV_16UC4, CV_32FC4, batchValues[IDX] + 1>(cv_stream) && ...);
+
+    return passed;
+}
+
+bool testThreadFusionDifferentTypeIO_launcher(cv::cuda::Stream& cv_stream) {
+    return testThreadFusionDifferentTypeIO_launcher_impl(cv_stream, std::make_integer_sequence<size_t, batchValues.size()>());
+}
+
+template <size_t... IDX>
+bool testThreadFusionDifferentTypeAndChannelIO_launcher_impl(cv::cuda::Stream& cv_stream, std::integer_sequence<size_t, IDX...>) {
+    bool passed = true;
+
+    passed &= (testThreadFusionDifferentTypeAndChannelIO<CV_8UC3, CV_32FC3, CV_32FC4, cv::ColorConversionCodes::COLOR_RGB2RGBA, batchValues[IDX]>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeAndChannelIO<CV_8UC3, CV_32FC3, CV_32FC4, cv::ColorConversionCodes::COLOR_RGB2RGBA, batchValues[IDX] + 1>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeAndChannelIO<CV_8UC4, CV_32FC4, CV_32FC3, cv::ColorConversionCodes::COLOR_RGBA2RGB, batchValues[IDX]>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeAndChannelIO<CV_8UC4, CV_32FC4, CV_32FC3, cv::ColorConversionCodes::COLOR_RGBA2RGB, batchValues[IDX] + 1>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeAndChannelIO<CV_32FC3, CV_8UC3, CV_8UC4, cv::ColorConversionCodes::COLOR_RGB2RGBA, batchValues[IDX]>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeAndChannelIO<CV_32FC3, CV_8UC3, CV_8UC4, cv::ColorConversionCodes::COLOR_RGB2RGBA, batchValues[IDX] + 1>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeAndChannelIO<CV_32FC4, CV_8UC4, CV_8UC3, cv::ColorConversionCodes::COLOR_RGBA2RGB, batchValues[IDX]>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeAndChannelIO<CV_32FC4, CV_8UC4, CV_8UC3, cv::ColorConversionCodes::COLOR_RGBA2RGB, batchValues[IDX] + 1>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeAndChannelIO<CV_32FC4, CV_8UC4, CV_8UC1, cv::ColorConversionCodes::COLOR_RGBA2GRAY, batchValues[IDX]>(cv_stream) && ...);
+    passed &= (testThreadFusionDifferentTypeAndChannelIO<CV_32FC4, CV_8UC4, CV_8UC1, cv::ColorConversionCodes::COLOR_RGBA2GRAY, batchValues[IDX] + 1>(cv_stream) && ...);
+
+    return passed;
+}
+
+bool testThreadFusionDifferentTypeAndChannelIO_launcher(cv::cuda::Stream& cv_stream) {
+    return testThreadFusionDifferentTypeAndChannelIO_launcher_impl(cv_stream, std::make_integer_sequence<size_t, batchValues.size()>());
 }
 
 int launch() {
@@ -334,68 +450,24 @@ int launch() {
 #undef LAUNCH_AGGREGATE
 
     cv::Mat::setDefaultAllocator(cv::cuda::HostMem::getAllocator(cv::cuda::HostMem::AllocType::PAGE_LOCKED));
-
-    constexpr uint NUM_ELEMS_X     = 1920;
-    constexpr uint NUM_ELEMS_X_ODD = 1913;
-    constexpr uint NUM_ELEMS_Y     = 1080;
     cv::cuda::Stream cv_stream;
 
-#define LAUNCH_testThreadFusionSameTypeIO(BASE) \
-    passed &= testThreadFusionSameTypeIO<BASE ## C1>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream); \
-    passed &= testThreadFusionSameTypeIO<BASE ## C2>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream); \
-    passed &= testThreadFusionSameTypeIO<BASE ## C3>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream); \
-    passed &= testThreadFusionSameTypeIO<BASE ## C4>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream); \
-    passed &= testThreadFusionSameTypeIO<BASE ## C1>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream); \
-    passed &= testThreadFusionSameTypeIO<BASE ## C2>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream); \
-    passed &= testThreadFusionSameTypeIO<BASE ## C3>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream); \
-    passed &= testThreadFusionSameTypeIO<BASE ## C4>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
     {
         PUSH_RANGE_RAII p("testThreadFusionSameTypeIO");
-        LAUNCH_testThreadFusionSameTypeIO(CV_8U)
-        LAUNCH_testThreadFusionSameTypeIO(CV_8S)
-        LAUNCH_testThreadFusionSameTypeIO(CV_16U)
-        LAUNCH_testThreadFusionSameTypeIO(CV_16S)
-        LAUNCH_testThreadFusionSameTypeIO(CV_32S)
-        LAUNCH_testThreadFusionSameTypeIO(CV_32F)
-        LAUNCH_testThreadFusionSameTypeIO(CV_64F)
+        passed &= testThreadFusionSameTypeIO_launcher(cv_stream);
     }
-#undef LAUNCH_testThreadFusionTimes
-
     {
         PUSH_RANGE_RAII p("testThreadFusionDifferentTypeIO");
-        passed &= testThreadFusionDifferentTypeIO<CV_8UC1, CV_32FC1>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_8UC2, CV_32FC2>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_8UC3, CV_32FC3>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_8UC4, CV_32FC4>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_16UC1, CV_32FC1>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_16UC2, CV_32FC2>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_16UC3, CV_32FC3>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_16UC4, CV_32FC4>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream);
-
-        passed &= testThreadFusionDifferentTypeIO<CV_8UC1, CV_32FC1>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_8UC2, CV_32FC2>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_8UC3, CV_32FC3>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_8UC4, CV_32FC4>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_16UC1, CV_32FC1>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_16UC2, CV_32FC2>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_16UC3, CV_32FC3>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeIO<CV_16UC4, CV_32FC4>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
+        passed &= testThreadFusionDifferentTypeIO_launcher(cv_stream);
     }
 
     {
         PUSH_RANGE_RAII p("testThreadFusionDifferentTypeAndChannelIO");
-        passed &= testThreadFusionDifferentTypeAndChannelIO<CV_8UC3, CV_32FC3, CV_32FC4, cv::ColorConversionCodes::COLOR_RGB2RGBA>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeAndChannelIO<CV_8UC4, CV_32FC4, CV_32FC3, cv::ColorConversionCodes::COLOR_RGBA2RGB>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeAndChannelIO<CV_32FC3, CV_8UC3, CV_8UC4, cv::ColorConversionCodes::COLOR_RGB2RGBA>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeAndChannelIO<CV_32FC4, CV_8UC4, CV_8UC3, cv::ColorConversionCodes::COLOR_RGBA2RGB>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeAndChannelIO<CV_32FC4, CV_8UC4, CV_8UC1, cv::ColorConversionCodes::COLOR_RGBA2GRAY>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream);
-
-        passed &= testThreadFusionDifferentTypeAndChannelIO<CV_8UC3, CV_32FC3, CV_32FC4, cv::ColorConversionCodes::COLOR_RGB2RGBA>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeAndChannelIO<CV_8UC4, CV_32FC4, CV_32FC3, cv::ColorConversionCodes::COLOR_RGBA2RGB>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeAndChannelIO<CV_32FC3, CV_8UC3, CV_8UC4, cv::ColorConversionCodes::COLOR_RGB2RGBA>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeAndChannelIO<CV_32FC4, CV_8UC4, CV_8UC3, cv::ColorConversionCodes::COLOR_RGBA2RGB>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
-        passed &= testThreadFusionDifferentTypeAndChannelIO<CV_32FC4, CV_8UC4, CV_8UC1, cv::ColorConversionCodes::COLOR_RGBA2GRAY>(NUM_ELEMS_X_ODD, NUM_ELEMS_Y, cv_stream);
+        passed &= testThreadFusionDifferentTypeAndChannelIO_launcher(cv_stream);
     }
+
+    CLOSE_BENCHMARK
+
     if (passed) {
         std::cout << "test_thread_fusion Passed!!!" << std::endl;
         return 0;
