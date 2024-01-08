@@ -14,7 +14,7 @@ The first main focus is on the transform pattern, with an incomplete set of basi
 
   
 ## Tested hw/sw
-*  Cuda SDK 11.8  
+*  Cuda SDK 11.8 and 12.1
 *  OS Windows 11 22H2 with drivers from 516.94 to 546.17.
 *  Ubuntu 22.04 (both native and under WSL2 enviroment)   
 *  Compute capabilities 7.5 (Turing), 8.6 (Ampere), 8.9 (ADA Lovelace)
