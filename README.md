@@ -87,10 +87,10 @@ void testcvGPUSpeedup()
     double alpha = 0.5;
 
     // Asume we got the maximum number of detections
-    int activeDectections = 50;
+    int activeDetections = 50;
     // single kernel, 38x faster than OpenCV in RTX A2000 12GB
     cvGS::executeOperations(stream,
-                            cvGS::resize<CV_8UC3, cv::INTER_LINEAR, MAX_DETECTIONS>(crops,resDims,activeDectections)),
+                            cvGS::resize<CV_8UC3, cv::INTER_LINEAR, MAX_DETECTIONS>(crops,resDims,activeDetections)),
                             cvGS::convertTo<CV_8UC3, CV_32FC3>(),
                             cvGS::multiply<CV_32FC3>(cv::Scalar(alpha,alpha,alpha)),
                             cvGS::substract<CV_32FC3>(substract_val),
