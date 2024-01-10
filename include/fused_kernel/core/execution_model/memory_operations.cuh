@@ -38,6 +38,10 @@ namespace fk {
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
             return ptr.dims.width;
         }
+
+        FK_HOST_DEVICE_FUSE uint pitch(const InputType& thread, const ParamsType& ptr) {
+            return ptr.dims.pitch;
+        }
     };
 
     template <ND D, typename T>
@@ -52,8 +56,11 @@ namespace fk {
         FK_DEVICE_FUSE void exec(const Point& thread, const ThreadFusionType<T, ELEMS_PER_THREAD>& input, const ParamsType& output) {
             *PtrAccessor<D>::template point<T, ThreadFusionType<T, ELEMS_PER_THREAD>>(thread, output) = input;
         }
-        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+        FK_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
             return ptr.dims.width;
+        }
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
+            return ptr.dims.pitch;
         }
     };
 
@@ -73,6 +80,9 @@ namespace fk {
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
             return ptr.dims.width;
         }
+        FK_HOST_DEVICE_FUSE uint pitch(const InputType& thread, const ParamsType& ptr) {
+            return ptr.dims.pitch;
+        }
     };
 
     template <typename T>
@@ -87,8 +97,11 @@ namespace fk {
         FK_DEVICE_FUSE void exec(const Point& thread, const ThreadFusionType<T, ELEMS_PER_THREAD>& input, const ParamsType& output) {
             *PtrAccessor<_3D>::template point<T, ThreadFusionType<T, ELEMS_PER_THREAD>>(thread, output) = input;
         }
-        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+        FK_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
             return ptr.dims.width;
+        }
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
+            return ptr.dims.pitch;
         }
     };
 
@@ -116,8 +129,11 @@ namespace fk {
                 *(work_plane + (planePixels * 3)) = input.w;
             }
         }
-        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+        FK_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
             return ptr.dims.width;
+        }
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
+            return ptr.dims.pitch;
         }
     };
 
@@ -141,8 +157,11 @@ namespace fk {
                 *PtrAccessor<T3D>::point(thread, ptr, 3) = input.w;
             }
         }
-        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+        FK_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
             return ptr.dims.width;
+        }
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
+            return ptr.dims.pitch;
         }
     };
 
@@ -175,6 +194,9 @@ namespace fk {
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
             return ptr.dims.width;
         }
+        FK_HOST_DEVICE_FUSE uint pitch(const InputType& thread, const ParamsType& ptr) {
+            return ptr.dims.pitch;
+        }
     };
 
     template <typename T>
@@ -205,6 +227,9 @@ namespace fk {
         }
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
             return ptr.dims.width;
+        }
+        FK_HOST_DEVICE_FUSE uint pitch(const InputType& thread, const ParamsType& ptr) {
+            return ptr.dims.pitch;
         }
     };
 
@@ -246,8 +271,11 @@ namespace fk {
             if constexpr (cn<InputType> >= 3) *PtrAccessor<D>::point(thread, params.z) = input.z;
             if constexpr (cn<InputType> == 4) *PtrAccessor<D>::point(thread, params.w) = input.w;
         }
-        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+        FK_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
             return ptr.x.dims.width;
+        }
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
+            return ptr.x.dims.pitch;
         }
     };
 
@@ -271,6 +299,9 @@ namespace fk {
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
             return Operation::num_elems_x(thread, ptr[thread.z]);
         }
+        FK_HOST_DEVICE_FUSE uint pitch(const InputType& thread, const ParamsType& ptr) {
+            return Operation::pitch(thread, ptr[thread.z]);
+        }
     };
 
     template <typename Operation, int NPtr>
@@ -289,8 +320,11 @@ namespace fk {
                 Operation::exec(thread, input, params[thread.z]);
             }
         }
-        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+        FK_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
             return Operation::num_elems_x(thread, ptr[thread.z]);
+        }
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
+            return Operation::pitch(thread, ptr[thread.z]);
         }
     };
 
@@ -351,6 +385,9 @@ namespace fk {
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
             return Operation::num_elems_x(thread, ptr.params[thread.z]);
         }
+        FK_HOST_DEVICE_FUSE uint pitch(const InputType& thread, const ParamsType& ptr) {
+            return Operation::pitch(thread, ptr.params[thread.z]);
+        }
     };
 
     template <CircularDirection direction, typename Operation, int BATCH>
@@ -370,8 +407,11 @@ namespace fk {
                 Operation::exec(newThreadIdx, input, c_params.params[newThreadIdx.z]);
             }
         }
-        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+        FK_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
             return Operation::num_elems_x(thread, ptr.params[thread.z]);
+        }
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
+            return Operation::pitch(thread, ptr.params[thread.z]);
         }
     };
 
@@ -396,6 +436,9 @@ namespace fk {
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
             return Operation::num_elems_x(thread, ptr.params);
         }
+        FK_HOST_DEVICE_FUSE uint pitch(const InputType& thread, const ParamsType& ptr) {
+            return Operation::pitch(thread, ptr.params);
+        }
     };
 
     template <CircularDirection direction, typename Operation, int BATCH>
@@ -415,8 +458,11 @@ namespace fk {
                 Operation::exec(newThreadIdx, input, c_params.params);
             }
         }
-        FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
+        FK_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
             return Operation::num_elems_x(thread, ptr.params);
+        }
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
+            return Operation::pitch(thread, ptr.params);
         }
     };
 
@@ -454,6 +500,9 @@ namespace fk {
         }
         FK_DEVICE_FUSE uint num_elems_x(const InputType& thread, const ParamsType& ptr) {
             return Operation::num_elems_x(thread, ptr.params);
+        }
+        FK_HOST_DEVICE_FUSE uint pitch(const InputType& thread, const ParamsType& ptr) {
+            return Operation::pitch(thread, ptr.params);
         }
     };
 } //namespace fk

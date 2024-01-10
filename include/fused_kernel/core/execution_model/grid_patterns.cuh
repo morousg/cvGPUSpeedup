@@ -24,7 +24,7 @@ namespace cg = cooperative_groups;
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>
 
 namespace fk { // namespace FusedKernel
-    template <bool THREAD_DIVISIBLE=true, bool THREAD_FUSION=false>
+    template <bool THREAD_DIVISIBLE, bool THREAD_FUSION>
     struct TransformGridPattern {
         private:
             template <typename T, typename DeviceFunction, typename... DeviceFunctionTypes>
@@ -116,8 +116,10 @@ namespace fk { // namespace FusedKernel
                             const uint finalX = ReadOperation::num_elems_x(thread, readDeviceFunction.params);
                             uint currentX = initialX;
                             while (currentX < finalX) {
-                                const Point currentThread{ currentX++ , thread.y, thread.z };
+                                const Point currentThread{ currentX , thread.y, thread.z };
+                                using DisabledTFI = ThreadFusionInfo<ReadIT, WriteOT, false>;
                                 execute_device_functions<DisabledTFI>(currentThread, readDeviceFunction, deviceFunctionInstances...);
+                                currentX++;
                             }
                         }
                     }

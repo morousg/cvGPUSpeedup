@@ -94,18 +94,18 @@ bool benchmark_image_resolution_MAD_loop(cv::cuda::Stream& cv_stream, bool enabl
             cv::Mat h_output_cvGS(REAL_BATCH, cropSize.width * cropSize.height, CV_TYPE_O);
 
             START_OCV_BENCHMARK
-                // OpenCV version
-                for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
-                    crops[crop_i].convertTo(d_output_cv[crop_i], CV_TYPE_O, alpha, cv_stream);
-                    for (int numOp = 0; numOp < 200; numOp+=2) {
-                        cv::cuda::multiply(d_output_cv[crop_i], val_mul, d_output_cv[crop_i], 1.0, -1, cv_stream);
-                        cv::cuda::add(d_output_cv[crop_i], val_add, d_output_cv[crop_i], cv::noArray(), -1, cv_stream);
-                    }
+            // OpenCV version
+            for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
+                crops[crop_i].convertTo(d_output_cv[crop_i], CV_TYPE_O, alpha, cv_stream);
+                for (int numOp = 0; numOp < 200; numOp+=2) {
+                    cv::cuda::multiply(d_output_cv[crop_i], val_mul, d_output_cv[crop_i], 1.0, -1, cv_stream);
+                    cv::cuda::add(d_output_cv[crop_i], val_add, d_output_cv[crop_i], cv::noArray(), -1, cv_stream);
                 }
+            }
 
             STOP_OCV_START_CVGS_BENCHMARK
-                // cvGPUSpeedup
-                VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O>::execute(crops, REAL_BATCH, cv_stream, alpha, val_mul, val_add, d_output_cvGS, cropSize);
+            // cvGPUSpeedup
+            VerticalFusionMAD<CV_TYPE_I, CV_TYPE_O>::execute(crops, REAL_BATCH, cv_stream, alpha, val_mul, val_add, d_output_cvGS, cropSize);
 
             STOP_CVGS_BENCHMARK
 
