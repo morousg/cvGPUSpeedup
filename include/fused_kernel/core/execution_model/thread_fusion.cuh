@@ -18,6 +18,7 @@
 #include <fused_kernel/core/utils/cuda_vector_utils.cuh>
 #include <fused_kernel/core/utils/template_operations.cuh>
 #include <fused_kernel/core/data/vector_types.cuh>
+#include <fused_kernel/core/data/ptr_nd.cuh>
 #include <cuda_runtime.h>
 
 namespace fk {
