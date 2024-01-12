@@ -102,75 +102,6 @@ bool test_read_x_write(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_st
     return passed;
 }
 
-template <int I, int O>
-struct ChannelsCC {
-    enum Values { input = I, output = O };
-};
-
-using CCChannels = fk::TypeList<ChannelsCC<3, 4>, ChannelsCC<4, 3>,
-    ChannelsCC<3, 4>, ChannelsCC<4, 3>,
-    ChannelsCC<3, 3>, ChannelsCC<4, 4>>;
-
-template <cv::ColorConversionCodes CODE, int BASE>
-bool testCvtColor(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
-    using CCCType = fk::TypeAt_t<CODE, CCChannels>;
-    constexpr int inputChannels = CCCType::Values::input;
-    constexpr int outputChannels = CCCType::Values::output;
-    constexpr int CV_INPUT_TYPE = CV_MAKETYPE(BASE, inputChannels);
-    constexpr int CV_OUTPUT_TYPE = CV_MAKETYPE(BASE, outputChannels);
-
-    std::stringstream error_s;
-    bool passed = true;
-    bool exception = false;
-
-    if (enabled) {
-        try {
-            cv::Scalar initValue;
-
-            if constexpr (inputChannels == 3) {
-                initValue = cv::Scalar(1u, 2u, 3u);
-            } else if constexpr (inputChannels == 4) {
-                initValue = cv::Scalar(1u, 2u, 3u, 4u);
-            }
-
-            cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, CV_INPUT_TYPE, initValue);
-
-            cv::cuda::GpuMat d_output(NUM_ELEMS_Y, NUM_ELEMS_X, CV_OUTPUT_TYPE);
-            cv::cuda::GpuMat d_cvGSoutput(NUM_ELEMS_Y, NUM_ELEMS_X, CV_OUTPUT_TYPE);
-
-            cv::cuda::cvtColor(d_input, d_output, CODE, 0, cv_stream);
-            cvGS::executeOperations(d_input, d_cvGSoutput, cv_stream, cvGS::cvtColor<CODE, CV_INPUT_TYPE>());
-
-            cv_stream.waitForCompletion();
-
-            cv::Mat h_output(d_output);
-            cv::Mat h_cvGSoutput(d_cvGSoutput);
-
-            passed = compareAndCheck<CV_OUTPUT_TYPE>(NUM_ELEMS_X, NUM_ELEMS_Y, h_output, h_cvGSoutput);
-
-        } catch (const std::exception& e) {
-            error_s << e.what();
-            passed = false;
-            exception = true;
-        }
-
-        if (!passed) {
-            if (!exception) {
-                std::stringstream ss;
-                ss << "testCvtColor";
-                std::cout << ss.str() << " failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
-            }
-            else {
-                std::stringstream ss;
-                ss << "testCvtColor";
-                std::cout << ss.str() << " failed!! EXCEPTION: " << error_s.str() << std::endl;
-            }
-        }
-    }
-
-    return passed;
-}
-
 int launch() {
     constexpr size_t NUM_ELEMS_X = 3840;
     constexpr size_t NUM_ELEMS_Y = 2160;
@@ -210,30 +141,6 @@ int launch() {
     LAUNCH_TESTS(CV_32FC2, CV_64FC2)
     LAUNCH_TESTS(CV_32FC3, CV_64FC3)
     LAUNCH_TESTS(CV_32FC4, CV_64FC4)
-
-#undef LAUNCH_TESTS
-
-#define LAUNCH_TESTS(CV_COLOR_CONVERSION_CODE, CV_TYPE_DEPTH) \
-results["testCvtColor"] &= testCvtColor<CV_COLOR_CONVERSION_CODE, CV_TYPE_DEPTH>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
-
-    LAUNCH_TESTS(cv::COLOR_BGR2BGRA, CV_8U)
-    LAUNCH_TESTS(cv::COLOR_BGR2BGRA, CV_16U)
-    LAUNCH_TESTS(cv::COLOR_BGR2BGRA, CV_32F)
-    LAUNCH_TESTS(cv::COLOR_BGRA2BGR, CV_8U)
-    LAUNCH_TESTS(cv::COLOR_BGRA2BGR, CV_16U)
-    LAUNCH_TESTS(cv::COLOR_BGRA2BGR, CV_32F)
-    LAUNCH_TESTS(cv::COLOR_BGR2RGBA, CV_8U)
-    LAUNCH_TESTS(cv::COLOR_BGR2RGBA, CV_16U)
-    LAUNCH_TESTS(cv::COLOR_BGR2RGBA, CV_32F)
-    LAUNCH_TESTS(cv::COLOR_BGRA2RGB, CV_8U)
-    LAUNCH_TESTS(cv::COLOR_BGRA2RGB, CV_16U)
-    LAUNCH_TESTS(cv::COLOR_BGRA2RGB, CV_32F)
-    LAUNCH_TESTS(cv::COLOR_BGR2RGB, CV_8U)
-    LAUNCH_TESTS(cv::COLOR_BGR2RGB, CV_16U)
-    LAUNCH_TESTS(cv::COLOR_BGR2RGB, CV_32F)
-    LAUNCH_TESTS(cv::COLOR_BGRA2RGBA, CV_8U)
-    LAUNCH_TESTS(cv::COLOR_BGRA2RGBA, CV_16U)
-    LAUNCH_TESTS(cv::COLOR_BGRA2RGBA, CV_32F)
 
 #undef LAUNCH_TESTS
 

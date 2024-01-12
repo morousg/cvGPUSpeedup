@@ -20,14 +20,6 @@
 
 #include "tests/main.h"
 
-#ifdef ENABLE_BENCHMARK
-constexpr char VARIABLE_DIMENSION[]{ "Batch size" };
-constexpr size_t NUM_EXPERIMENTS = 1;
-constexpr size_t FIRST_VALUE = 1;
-constexpr size_t INCREMENT = 1;
-constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
-#endif
-
 template <int CV_TYPE_I, int CV_TYPE_O, int BATCH>
 bool test_read_convert_split(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
@@ -60,15 +52,11 @@ bool test_read_convert_split(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream&
                 d_output_cvGS.at(i).create(NUM_ELEMS_Y, NUM_ELEMS_X, CV_MAT_DEPTH(CV_TYPE_O));
                 h_cvGSResults.at(i).create(NUM_ELEMS_Y, NUM_ELEMS_X, CV_MAT_DEPTH(CV_TYPE_O));
             }
-            START_OCV_BENCHMARK
             d_input.convertTo(d_cvTemp, CV_TYPE_O, cv_stream);
             cv::cuda::split(d_cvTemp, d_output_cv, cv_stream);
-            STOP_OCV_START_CVGS_BENCHMARK
             cvGS::executeOperations(d_input, cv_stream,
                                     cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(),
                                     cvGS::split<CV_TYPE_O>(d_output_cvGS));
-            STOP_CVGS_BENCHMARK
-
             // Verify results
             for (int i = 0; i < CV_MAT_CN(CV_TYPE_O); i++) {
                 d_output_cv.at(i).download(h_cvResults.at(i), cv_stream);
