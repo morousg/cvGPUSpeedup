@@ -4,7 +4,9 @@ Every memory read, is an opportunity for compute.
 
 With this idea in mind, this library wants to make OpenCV code run faster on the GPU. Especially for typical pre and post processing operations for DL networks.
 
-The current code, implements operations that can preserve the Grid structure across different "kernels" or how we call them "operations". We do not discard to explore more complex grid patterns in the future, as hardware support for thread block communication improves.
+The current code implements some OpenCV-CUDA functions and other functions that are not available in OpenCV, in a way that they can be fused in a single CUDA Kernel, making the resulting performance way better. For the final user, the way of using those functions it's very similar to the OpenCV ones. The main difference is that the functions do not execute the code in the GPU, but return an struct that will conaint the parameters and the code. When you have all the operations, the only remaining thing to do, is to call cvGS::executeOperations(stream, /*operations*/); passint the operations as parameters, in the orther you want them to be executed. The result of the first operation will be the input of the next operation and so on, until the nth operation whose input will be the result of the nth - 1 operation.
+
+In addition to the performance gains, this reduces the number of cv::cuda::GpuMat objects required, since you will only need an input GpuMat object for the first operation, and an output GpuMat object for the last operation. This is just the basic functionality, there are more complex options. Unfortunatly, there is no documentation at this time, so the best way to check what is possible is to look at the source code in the tests folder.
 
 This project is early stages and continuosly evolving to provide further performance enhancements. It is a header-based C++/CUDA library, with several goals:
 1. To provide a set of fusionable \_\_device\_\_ functions, built only with nvcc and the cuda runtime libraries, (namespace fk) 
