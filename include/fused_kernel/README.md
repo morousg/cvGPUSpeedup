@@ -17,13 +17,13 @@ This fusion technique is widely known and used. It is based on the idea of proce
 
 This is usually very beneficial when each plane is very small, and the resulting 2D Grid is not taking advantage of the GPU memory bandwidth.
 
-In the case of DivergentBatchGridPattern, we also allow to use different code seqüences that may use a different amount of threads, on each plane. That last case, can allow for hawing different warps using different SM hardware components in parallel, contributiong to the overall speedup.
+We also support what we call Divergent Horizontal Fusion. This variant allows to execute different kernels that can be executed in parallel. Each "kernel" can use one or more z planes of the grid, so each kernel can do Horizontal Fusion. This technique allows to exploit the possibility of using diferent components in the SM's in parallel, improving the overall performance.
 
-### Vertical Fusion
+### Generic Vertical Fusion
 
-This fusion, is usually limited to having a kernel, that is configurable up to a certain level. In our case, we are abstrating away the thread behavior from the actual functionality, and allowing to fuse almost every kernel possible, without having to rewrite neither the thread handling, nor the functionality. You only have to combine code, in the different ways that the code can be combined.
+Vertical Fusion is usually limited to having a kernel that is configurable up to a certain level. In our case, we are abstrating away the thread behavior from the actual functionality, and allowing to fuse almost every kernel possible, without having to rewrite neither the thread handling, nor the functionality. You only have to combine code in the different ways that the code can be combined. We call this Generic Vertical Fusion.
 
-For Memory Bound kernels, this fusion is bringing most of the performance improvements, since adding more functions to the kernel, will not increase the execution time, up to a limit where the kernel becomes compute bound.
+For Memory Bound kernels, this fusion is bringing most of the performance improvements, since adding more functions to the kernel will not increase the execution time, up to a limit where the kernel becomes Compute Bound.
 
 Not only that, but the way the code is written, the nvcc compiler will treat the consecutive functions as if you where writting the code in one line, adding all sorts of optimizations. This can be seen by compiling the code in Release mode, or in Debug mode. The performance difference is abismal.
 
