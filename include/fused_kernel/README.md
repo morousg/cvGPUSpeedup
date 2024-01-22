@@ -27,7 +27,7 @@ For Memory Bound kernels, this fusion is bringing most of the performance improv
 
 Not only that, but the way the code is written, the nvcc compiler will treat the consecutive functions as if you where writting the code in one line, adding all sorts of optimizations. This can be seen by compiling the code in Release mode, or in Debug mode. The performance difference is abismal.
 
-### Backwards Vertical Fusion (read and compute only what you need)
+### Backwards Generic Vertical Fusion (read and compute only what you need)
 
 This is an optimization that can already be used with the current code, but will further increase the use cases, when addind more Operations.
 
