@@ -2,18 +2,33 @@
 
 Every memory read, is an opportunity for compute.
 
-With this idea in mind, this library wants to make OpenCV code run faster on the GPU. Especially for typical pre and post processing operations for DL networks.
+With this idea in mind, this library wants to make OpenCV-CUDA code run faster on the GPU. Especially for typical pre and post processing operations for DL networks.
 
-The current code implements some OpenCV-CUDA functions and other functions that are not available in OpenCV, in a way that they can be fused in a single CUDA Kernel, making the resulting performance way better. For the final user, the way of using those functions it's very similar to the OpenCV ones. The main difference is that the functions do not execute the code in the GPU, but return an struct that will conaint the parameters and the code. When you have all the operations, the only remaining thing to do, is to call cvGS::executeOperations passing a cuda stream, and the operations as parameters in the order you want them to be executed. The result of the first operation will be the input of the next operation and so on, until the nth operation whose input will be the result of the nth - 1 operation.
+## What does it offer today?
+
+Crop, resize, basic point wise operations (for instance for normalization), color space conversions, color channel split and pack, and a flexible way to pack all those operations in a single fast kernel.
+
+We additionaly created a CircularTensor object that can add a new image (or data matrix), removing the oldest one, and moving the rest of the images one position. It can also do some processing on the new image, while movig the data of the other images, all in a single kernel. And of course, the user can define which processing will be performed on each new image.
+
+Some of those functionalities can be found in OpenCV-CUDA functions. With cvGPUSpeedup, the functions do not execute the code in the GPU, but return an struct that will contain the parameters and the code. When you have all the operations, the only remaining thing to do, is to call cvGS::executeOperations passing a cuda stream, and the operations as parameters in the order you want them to be executed. The result of the nth operation will be the input of the nth + 1 operation as in a Directed Graph.
 
 In addition to the performance gains, this reduces the number of cv::cuda::GpuMat objects required, since you will only need an input GpuMat object for the first operation, and an output GpuMat object for the last operation. This is just the basic functionality, there are more complex options. Unfortunatly, there is no documentation at this time, so the best way to check what is possible is to look at the source code in the tests folder.
 
-This project is early stages and continuosly evolving to provide further performance enhancements. It is a header-based C++/CUDA library, with several goals:
-1. To provide a set of fusionable \_\_device\_\_ functions, built only with nvcc and the cuda runtime libraries, (namespace fk) 
-2. Enabling OpenCV-like code in the GPU, with OpenCV objects, with far more performance in some cases. (namespace cvGS)
+## How does it compare to available CUDA optimization technologies and libraries?
 
-The first main focus is on the transform pattern, with an incomplete set of basic arithmetic operations to be performed on cv::cuda::GpuMat objects.
+One of the best ways to describe the idea behind cvGPUSpeedup, and specially the underliying Fused Kernel Library, would be:
 
+__It is like a compile-time "CUDA Graphs"__
+
+The main difference being that in our case, the graph is compiled by nvcc and generates an extremely optimized single CUDA Kernel. Not only will we have a single CUDA runtime call like with CUDA Graphs, but additionally we will read once from GPU memory and write once into GPU memory. This can make the code execution up to thousands of times faster.
+
+Some NVIDIA libraries do apply some level of kernel fusion, but do not define a way to fuse code components from their libraries with your own code, or other librarie's code.
+
+Our aim is to demonstrate that it is possible to have a CUDA library ecosystem where different functionalities, from different libraries and computing areas, can be combined in a single very fast CUDA Kernel.
+
+In terms of feature completeness, the Fused Kernel Library is less than 1% complete. It currently has mainly one principal contributor for the design and C++/CUDA implementation, one for the CMAKE side of things, and a pair of sporadic contributors.
+
+Our aim with this repository is to create a code demonstration platform, and an space where to keep adding new ideas, features, and share it with the community to make it as big and useful as possible.
   
 ## Tested hw/sw
 *  Cuda SDK 11.8 and 12.1
