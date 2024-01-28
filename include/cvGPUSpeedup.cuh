@@ -135,7 +135,7 @@ inline constexpr auto split(const cv::cuda::GpuMat& output, const cv::Size& plan
     "Each row of the GpuMap should contain as many planes as width / (planeDims.width * planeDims.height)");
 
     return fk::Write<fk::TensorSplit<CUDA_T(O)>> {
-        gpuMat2Tensor<BASE_CUDA_T(O)>(output, planeDims, CV_MAT_CN(O))};
+        gpuMat2Tensor<BASE_CUDA_T(O)>(output, planeDims, CV_MAT_CN(O)).ptr()};
 }
 
 template <int O>
@@ -169,12 +169,12 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const 
 
 template <int O>
 inline constexpr auto write(const cv::cuda::GpuMat& output) {
-    return fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>{ gpuMat2Ptr2D<CUDA_T(O)>(output) };
+    return fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>{ gpuMat2Ptr2D<CUDA_T(O)>(output).ptr() };
 }
 
 template <int O>
 inline constexpr auto write(const cv::cuda::GpuMat& output, const cv::Size& plane) {
-    return fk::Write<fk::PerThreadWrite<fk::_3D, CUDA_T(O)>>{ gpuMat2Tensor<CUDA_T(O)>(output, plane, 1) };
+    return fk::Write<fk::PerThreadWrite<fk::_3D, CUDA_T(O)>>{ gpuMat2Tensor<CUDA_T(O)>(output, plane, 1).ptr() };
 }
 
 template <typename T>

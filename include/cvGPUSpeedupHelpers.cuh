@@ -60,11 +60,11 @@ namespace internal {
         FK_HOST_FUSE auto build(const std::vector<PtrType>& output) {
             static_assert(CV_MAT_CN(I) >= 2, "Split operations can only be used with types of 2, 3 or 4 channels.");
             if constexpr (CV_MAT_CN(I) == 2) {
-                return Operator{ {output.at(0), output.at(1)} };
+                return Operator{ {output.at(0).ptr(), output.at(1).ptr()}};
             } else if constexpr (CV_MAT_CN(I) == 3) {
-                return Operator{ {output.at(0), output.at(1), output.at(2)} };
+                return Operator{ {output.at(0).ptr(), output.at(1).ptr(), output.at(2).ptr()}};
             } else {
-                return Operator{ {output.at(0), output.at(1), output.at(2), output.at(3)} };
+                return Operator{ {output.at(0).ptr(), output.at(1).ptr(), output.at(2).ptr(), output.at(3).ptr()}};
             }
         }
     };
