@@ -21,10 +21,19 @@
 #include "tests/main.h"
 
 #ifdef ENABLE_BENCHMARK
-constexpr size_t NUM_EXPERIMENTS = 10;
+
 constexpr char VARIABLE_DIMENSION[]{ "Number of pixels per side" };
+#ifndef CUDART_MAJOR_VERSION
+#error CUDART_MAJOR_VERSION Undefined!
+#elif (CUDART_MAJOR_VERSION == 11)
+constexpr size_t NUM_EXPERIMENTS = 10;
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 100;
+#elif (CUDART_MAJOR_VERSION == 12)
+constexpr size_t NUM_EXPERIMENTS = 30;
+constexpr size_t FIRST_VALUE = 10;
+constexpr size_t INCREMENT = 100;
+#endif // CUDART_MAJOR_VERSION
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 template <int CV_TYPE_I, int CV_TYPE_O>

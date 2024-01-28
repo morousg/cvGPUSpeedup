@@ -18,13 +18,23 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
+
 #include "tests/main.h"
 
 #ifdef ENABLE_BENCHMARK
-constexpr size_t NUM_EXPERIMENTS = 15;
 constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
+#ifndef CUDART_MAJOR_VERSION
+#error CUDART_MAJOR_VERSION Undefined!
+#elif (CUDART_MAJOR_VERSION == 11)
+constexpr size_t NUM_EXPERIMENTS = 15;
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 50;
+#elif (CUDART_MAJOR_VERSION == 12)
+constexpr size_t NUM_EXPERIMENTS = 30;
+constexpr size_t FIRST_VALUE = 2;
+constexpr size_t INCREMENT = 50;
+#endif // CUDART_MAJOR_VERSION
+
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t NumOps>

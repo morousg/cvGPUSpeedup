@@ -30,6 +30,8 @@
 #define FK_HOST_FUSE static inline __host__
 #define FK_HOST_CNST inline constexpr __host__
 
+#define CUDART_MAJOR_VERSION CUDART_VERSION/1000
+
 using uchar = unsigned char;
 using schar = signed char;
 using uint = unsigned int;

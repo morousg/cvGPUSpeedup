@@ -25,9 +25,17 @@
 // in CUDA 11.8. This limitations will be removed when migrating
 // to CUDA 12.
 constexpr char VARIABLE_DIMENSION[]{ "Batch size" };
+#ifndef CUDART_MAJOR_VERSION
+#error CUDART_MAJOR_VERSION Undefined!
+#elif (CUDART_MAJOR_VERSION == 11)
 constexpr size_t NUM_EXPERIMENTS = 5;
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 10;
+#elif (CUDART_MAJOR_VERSION == 12)
+constexpr size_t NUM_EXPERIMENTS = 30;
+constexpr size_t FIRST_VALUE = 10;
+constexpr size_t INCREMENT = 10;
+#endif // CUDART_MAJOR_VERSION
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 template <int CV_TYPE_I, int CV_TYPE_O, const int BATCH>
