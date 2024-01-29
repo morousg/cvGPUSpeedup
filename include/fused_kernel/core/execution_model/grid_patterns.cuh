@@ -207,7 +207,7 @@ namespace fk { // namespace FusedKernel
     };
 
     template <int BATCH, typename... DeviceFunctionSequenceTypes>
-    __global__ void cuda_transform_divergent_batch(const Array<int, BATCH> dfSeqSelector, const DeviceFunctionSequenceTypes... dfSequenceInstances) {
+    __global__ void cuda_transform_divergent_batch(__grid_constant__ const Array<int, BATCH> dfSeqSelector, const DeviceFunctionSequenceTypes... dfSequenceInstances) {
         DivergentBatchTransformGridPattern_vec<BATCH>::exec(dfSeqSelector, dfSequenceInstances...);
     }
 }
