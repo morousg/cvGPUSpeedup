@@ -121,11 +121,11 @@ namespace fk {
 
         static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
             if constexpr (CD == p8bit) {
-                return UnaryV<Saturate<float>, T>::exec(input, {0.f, 255.f});
+                return Saturate<float>::exec(input, {0.f, 255.f});
             } else if constexpr (CD == p10bit) {
-                return UnaryV<Saturate<float>, T>::exec(input, {0.f, 1023.f});
+                return Saturate<float>::exec(input, {0.f, 1023.f});
             } else if constexpr (CD == p12bit) {
-                return UnaryV<Saturate<float>, T>::exec(input, {0.f, 4095.f});
+                return Saturate<float>::exec(input, {0.f, 4095.f});
             }
         }
     };
@@ -136,21 +136,24 @@ namespace fk {
     constexpr M3x3Float ccMatrix{};
     // Source: https://en.wikipedia.org/wiki/YCbCr
     template <> constexpr M3x3Float ccMatrix<Full, bt601, YCbCr2RGB>{
-        {  1.164383562f, 0.f, 1.596026786f      },
-        { 1.164383562f, -0.39176229f,       -0.812967647f },
-        { 1.164383562f,  2.017232143f,       0.f }};
+        { 1.164383562f,           0.f,       1.596026786f  },
+        { 1.164383562f,  -0.39176229f,       -0.812967647f },
+        { 1.164383562f,  2.017232143f,       0.f           }};
 
     // Source: https://en.wikipedia.org/wiki/YCbCr
     template <> constexpr M3x3Float ccMatrix<Full, bt709, YCbCr2RGB>{
-        {  1.f, 0.f, 1.5748f           },
+        { 1.f,               0.f,            1.5748f },
         { 1.f,          -0.1873f,           -0.4681f },
-        { 1.f,           1.8556f,            0.f }};
+        { 1.f,           1.8556f,                0.f }};
 
     // To be verified
     template <> constexpr M3x3Float ccMatrix<Limited, bt709, YCbCr2RGB>{
-        {  1.f, 0.f, 1.4746f           },
+        { 1.f,               0.f,            1.402f },
+        { 1.f,         -0.34414f,         -0.71414f },
+        { 1.f,            1.772f,               0.f }};
+        /*{  1.f,              0.f,            1.4746f },
         { 1.f,          -0.1646f,           -0.5713f },
-        { 1.f,           1.8814f,            0.f }};
+        { 1.f,           1.8814f,            0.f     }};*/
 
     // Source: https://en.wikipedia.org/wiki/YCbCr
     template <> constexpr M3x3Float ccMatrix<Full, bt709, RGB2YCbCr>{
@@ -219,12 +222,12 @@ namespace fk {
         // Cr(V) -> input.z
         static constexpr __device__ __forceinline__ float3 computeRGB(const InputType& pixel) {
             const M3x3Float coefficients = ccMatrix<CR, CP, YCbCr2RGB>;
+            const float CSub = subCoefficients<CD>.chroma;
+            const float YSub = subCoefficients<CD>.luma;
             if constexpr (CP == bt601) {
-                const float YSub = subCoefficients<CD>.luma;
-                const float CSub = subCoefficients<CD>.chroma;
                 return MxVFloat3::exec(make_<float3>(pixel.x - YSub, pixel.y - CSub, pixel.z - CSub), coefficients);
             } else {
-                return MxVFloat3::exec(make_<float3>(pixel.x, pixel.y, pixel.z), coefficients);
+                return MxVFloat3::exec(make_<float3>(pixel.x, pixel.y - CSub, pixel.z - CSub), coefficients);
             }
         }
 
