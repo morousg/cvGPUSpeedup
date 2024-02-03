@@ -132,24 +132,25 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
     template <typename... Operations>
     using OperationTupleOperation = OperationTupleOperation_<void, Operations...>;
 
-    template <typename Operation, typename I, typename O = I>
+    template <typename Operation>
     struct UnaryV {
-        UNARY_DECL_EXEC(I, O) {
-            static_assert(cn<I> == cn<O>, "Unary struct requires same number of channels for input and output types.");
-            constexpr bool allCUDAOrNotCUDA = (validCUDAVec<I> && validCUDAVec<O>) || !(validCUDAVec<I> || validCUDAVec<O>);
+        UNARY_DECL_EXEC(typename Operation::InputType, typename Operation::OutputType) {
+            static_assert(cn<InputType> == cn<OutputType>, "Unary struct requires same number of channels for input and output types.");
+            constexpr bool allCUDAOrNotCUDA = (validCUDAVec<InputType> && validCUDAVec<OutputType>) ||
+                                             !(validCUDAVec<InputType> || validCUDAVec<OutputType>);
             static_assert(allCUDAOrNotCUDA, "Binary struct requires input and output types to be either both valild CUDA vectors or none.");
 
-            if constexpr (cn<I> == 1) {
-                if constexpr (validCUDAVec<I>) {
+            if constexpr (cn<InputType> == 1) {
+                if constexpr (validCUDAVec<InputType>) {
                     return { Operation::exec(input.x) };
                 } else {
                     return Operation::exec(input);
                 }
-            } else if constexpr (cn<I> == 2) {
+            } else if constexpr (cn<InputType> == 2) {
                 return { Operation::exec(input.x),
                          Operation::exec(input.y) };
 
-            } else if constexpr (cn<I> == 3) {
+            } else if constexpr (cn<InputType> == 3) {
                 return { Operation::exec(input.x),
                          Operation::exec(input.y),
                          Operation::exec(input.z) };
@@ -246,4 +247,19 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
             return helper_exec<0>(Operation::exec(input));
         }
     };
+
+    template <typename I, typename O>
+    struct CastBase {
+        UNARY_DECL_EXEC(I, O) {
+            return static_cast<O>(input);
+        }
+    };
+
+    template <typename I, typename O>
+    struct Cast {
+        UNARY_DECL_EXEC(I, O) {
+            return UnaryV<CastBase<I,O>>::exec(input);
+        }
+    };
+
 }//namespace fk
