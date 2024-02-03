@@ -75,8 +75,8 @@ namespace fk { // namespace FusedKernel
 
 #undef DEVICE_FUNCTION_DETAILS
 
-    template <typename... Operations>
-    using Read = ReadDeviceFunction<Operations...>;
+    template <typename Operation>
+    using Read = ReadDeviceFunction<Operation>;
     template <typename... Operations>
     using Unary = UnaryDeviceFunction<Operations...>;
     template <typename... Operations>
