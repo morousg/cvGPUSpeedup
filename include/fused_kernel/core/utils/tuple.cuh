@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include <fused_kernel/core/utils/type_lists.cuh>
-#include <fused_kernel/core/utils/cuda_utils.cuh>
+#include <fused_kernel/core/utils/type_lists.h>
+#include <fused_kernel/core/utils/utils.h>
 #include <fused_kernel/core/execution_model/operation_types.cuh>
 
 namespace fk {

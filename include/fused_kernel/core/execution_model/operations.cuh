@@ -14,7 +14,7 @@
 
 #pragma once
 #include <fused_kernel/core/data/ptr_nd.cuh>
-#include <fused_kernel/core/utils/vlimits.cuh>
+#include <fused_kernel/core/utils/vlimits.h>
 #include <fused_kernel/core/utils/tuple.cuh>
 #include <fused_kernel/core/execution_model/operation_types.cuh>
 
@@ -132,9 +132,9 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
     template <typename... Operations>
     using OperationTupleOperation = OperationTupleOperation_<void, Operations...>;
 
-    template <typename Operation>
+    template <typename I, typename O, typename Operation>
     struct UnaryV {
-        UNARY_DECL_EXEC(typename Operation::InputType, typename Operation::OutputType) {
+        UNARY_DECL_EXEC(I, O) {
             static_assert(cn<InputType> == cn<OutputType>, "Unary struct requires same number of channels for input and output types.");
             constexpr bool allCUDAOrNotCUDA = (validCUDAVec<InputType> && validCUDAVec<OutputType>) ||
                                              !(validCUDAVec<InputType> || validCUDAVec<OutputType>);
@@ -258,7 +258,7 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
     template <typename I, typename O>
     struct Cast {
         UNARY_DECL_EXEC(I, O) {
-            return UnaryV<CastBase<I,O>>::exec(input);
+            return UnaryV<I,O,CastBase<VBase<I>,VBase<O>>>::exec(input);
         }
     };
 

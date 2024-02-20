@@ -370,7 +370,7 @@ namespace fk {
     struct SaturateFloat {
         UNARY_DECL_EXEC(T, T) {
             static_assert(std::is_same_v<VBase<T>, float>, "Satureate float only works with float base types.");
-            return UnaryV<SaturateFloatBase>::exec(input);
+            return UnaryV<T,T,SaturateFloatBase>::exec(input);
         }
     };
 }

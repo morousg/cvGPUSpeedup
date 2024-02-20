@@ -30,7 +30,7 @@ namespace fk { // namespace FusedKernel
             template <typename T, typename DeviceFunction, typename... DeviceFunctionTypes>
             FK_DEVICE_FUSE auto operate(const Point& thread, const T& i_data, const DeviceFunction& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
                 if constexpr (DeviceFunction::template is<BinaryType>) {
-                    return operate(thread, DeviceFunction::Operation::exec(i_data, df.head), deviceFunctionInstances...);
+                    return operate(thread, DeviceFunction::Operation::exec(i_data, df.params), deviceFunctionInstances...);
                 } else if constexpr (DeviceFunction::template is<UnaryType>) {
                     return operate(thread, DeviceFunction::Operation::exec(i_data), deviceFunctionInstances...);
                 } else if constexpr (DeviceFunction::template is<MidWriteType>) {
@@ -154,6 +154,11 @@ namespace fk { // namespace FusedKernel
     }
     template <typename... DeviceFunctionTypes>
     __global__ void cuda_transform(const DeviceFunctionTypes... deviceFunctionInstances) {
+        TransformGridPattern<true, false>::exec(deviceFunctionInstances...);
+    }
+
+    template <typename... DeviceFunctionTypes>
+    __global__ void cuda_transform_grid_const(const __grid_constant__ DeviceFunctionTypes... deviceFunctionInstances) {
         TransformGridPattern<true, false>::exec(deviceFunctionInstances...);
     }
 

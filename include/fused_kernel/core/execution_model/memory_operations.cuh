@@ -14,7 +14,7 @@
    limitations under the License. */
 
 #pragma once
-#include <fused_kernel/core/utils/cuda_vector_utils.cuh>
+#include <fused_kernel/core/utils/cuda_vector_utils.h>
 #include <fused_kernel/core/execution_model/operations.cuh>
 #include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>
