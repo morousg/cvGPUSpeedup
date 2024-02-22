@@ -152,6 +152,14 @@ namespace fk { // namespace FusedKernel
     __global__ void cuda_transform(const DeviceFunctionTypes... deviceFunctionInstances) {
         TransformGridPattern<THREAD_DIVISIBLE, THREAD_FUSION>::exec(deviceFunctionInstances...);
     }
+
+    template <int MAX_THREADS_PER_BLOCK, int MIN_BLOCKS_PER_MP, typename... DeviceFunctionTypes>
+    __global__ void 
+    __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_MP)
+    cuda_transform_bounds(const DeviceFunctionTypes... deviceFunctionInstances) {
+        TransformGridPattern<true, false>::exec(deviceFunctionInstances...);
+    }
+
     template <typename... DeviceFunctionTypes>
     __global__ void cuda_transform(const DeviceFunctionTypes... deviceFunctionInstances) {
         TransformGridPattern<true, false>::exec(deviceFunctionInstances...);
@@ -164,6 +172,12 @@ namespace fk { // namespace FusedKernel
 
     template <typename SequenceSelector, typename... DeviceFunctionSequenceTypes>
     __global__ void cuda_transform_divergent_batch(const DeviceFunctionSequenceTypes... dfSequenceInstances) {
+        DivergentBatchTransformGridPattern<SequenceSelector>::exec(dfSequenceInstances...);
+    }
+
+    template <int MAX_THREADS_PER_BLOCK, int MIN_BLOCKS_PER_MP, typename SequenceSelector, typename... DeviceFunctionSequenceTypes>
+    __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_MP)
+    __global__ void cuda_transform_divergent_batch_bounds(const DeviceFunctionSequenceTypes... dfSequenceInstances) {
         DivergentBatchTransformGridPattern<SequenceSelector>::exec(dfSequenceInstances...);
     }
 
