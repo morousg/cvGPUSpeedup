@@ -37,13 +37,7 @@ Our aim with this repository is to create a code demonstration platform, and an 
 *  Compute capabilities 7.5 (Turing), 8.6 (Ampere), 8.9 (ADA Lovelace)
 *  All systems with x86_64 cpu architecture
 
-## Using the library
-In order to use it, you need to compile your code, along with cvGPUSpeedup library headers, with nvcc (provided by the CUDA toolkit) and at least C++17 support (this is already set by the cmake project).
-
-You can use the cmake install target to copy the headers to any desired path. You can also use the cmake exported target.
-
-If you want to use the cvGS interface, along with OpenCV, both on windows and linux you will need to build opencv with cuda support. If you want to only use the fk (Fused Kernel) namespace, then you won't need OpenCV at all.
-
+## Examples
 ### OpenCV example
 Let's see an example in OpenCV:
 ```cpp
@@ -139,6 +133,51 @@ With cvGPUSpeedup since the syntax is pretty similar to OpenCV, and all the para
 In this other case, we are updating a temporal Tensor of 15 images, with a new image that needs to be resized and normalized, and other 14 images that where normalized in previous iterations, that need to be split to planar mode and copied in diferent positions of the temporal Tensor. Some CUDA threads will be doing the normalization, and some others will be just copying the old images, all in parallel.
 
 As you can see, the resulting performance makes the pre-processing virtually free, when before it was more than 25% of the total time for the inference.
+
+## Quick start guide
+
+### Fused Kernel Library
+
+Assuming you installed the NVIDIA CUDA SDK versions 11.8 or 12.x
+
+In Linux you only need to create a CUDA program (.cu file) and include "fused_kernel.cuh".
+
+For instance, let's imagine we have a file "myApp.cu"
+```cpp
+// myApp.cu
+
+#include "fused_kernel/fused_kernel.cuh"
+
+int main() {
+  // Use anything you want from the Fused Kernel Library
+  return 0;
+}
+```
+Then compile:
+
+If the cvGPUSpeedup repo is in /home/user/cvGPUSpeedup
+```bash
+nvcc -std=c++17 -I/home/user/cvGPUSpeedup/include -o myApp myApp.cu
+```
+And that's it!!
+
+If you are using Windows, and you just want to give it a try, you can use WSL2 on Windows 11. You only need to install the CUDA SDK for WSL2, and make sure to not install any nvidia driver on the WSL, only on the Windows side. Then follow the instructions above.
+
+### cvGPUSpeedup
+If you want to use cvGPUSpeedup we assume that it's because you are already using OpenCV with the CUDA modules, and you already have it compiled.
+
+In this case, you have to add the link flags for nvcc to link to the corresponding cuda modules you are using, as you would do with any program that is only using OpenCV CUDA modules.
+
+More detailed instructions in the future
+
+### Development environment
+We use Visual Studio Code in Linux and Visual Studio Community 2022 on Windows. (Except when development happens in Mediapro, then it's VS2017 Professional, with the corresponding licenses)
+
+For working on the library development, we provide a CMakeLists.txt file that can generate VS projects for Windows and any other project suported on Linux like makefiles, ninja and so on.
+
+There is a set of tests and benchmarks, that can be executed with ctest or the VS project RUN_TESTS.
+
+More detailed information in the future.
 
 # Final words and contact
 [Grup Mediapro](https://www.mediapro.tv) uses cvGPUSpeedup in the [AutomaticTV](https://www.automatic.tv) multicam live sports production system.  This product depends on custom Deep Neural Networks. Compared to vanilla OpenCV-CUDA implementation,  we obtained speedups of up to 167x in some cases.
