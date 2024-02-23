@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <fused_kernel/core/utils/type_lists.cuh>
+#include <fused_kernel/core/utils/type_lists.h>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/core/execution_model/device_functions.cuh>
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>
@@ -184,15 +184,33 @@ namespace fk {
     template <> constexpr float floatShiftFactor<p10bit>{ 64.f };
     template <> constexpr float floatShiftFactor<p12bit>{ 16.f };
 
-    template <typename T, ColorDepth CD>
-    struct NormalizeDepth {
-        using InputType = T;
-        using OutputType = T;
+
+    template <typename O, ColorDepth CD>
+    struct DenormalizePixel {
+        using InputType = VectorType_t<float, cn<O>>;
+        using OutputType = O;
         using InstanceType = UnaryType;
-        using Base = typename VectorTraits<T>::base;
         static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-            static_assert(std::is_floating_point_v<VBase<T>>, "NormalizeDepth only works for floating point values");
+            return Cast<InputType, OutputType>::exec(input * static_cast<float>(maxDepthValue<CD>));
+        }
+    };
+
+    template <typename I, ColorDepth CD>
+    struct NormalizePixel {
+        using InputType = I;
+        using OutputType = VectorType_t<float, cn<I>>;
+        using InstanceType = UnaryType;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
             return input / static_cast<float>(maxDepthValue<CD>);
+        }
+    };
+
+    template <typename I, typename O, ColorDepth CD>
+    struct SaturateDenormalizePixel {
+        UNARY_DECL_EXEC(I, O) {
+            static_assert(std::is_same_v<VBase<I>, float>, "SaturateDenormalizePixel only works with float base types.");
+            const InputType saturatedFloat = SaturateFloat<InputType>::exec(input);
+            return DenormalizePixel<OutputType, CD>::exec(saturatedFloat);
         }
     };
 
@@ -223,8 +241,8 @@ namespace fk {
         static constexpr __device__ __forceinline__ float3 computeRGB(const InputType& pixel) {
             const M3x3Float coefficients = ccMatrix<CR, CP, YCbCr2RGB>;
             const float CSub = subCoefficients<CD>.chroma;
-            const float YSub = subCoefficients<CD>.luma;
             if constexpr (CP == bt601) {
+                const float YSub = subCoefficients<CD>.luma;
                 return MxVFloat3::exec(make_<float3>(pixel.x - YSub, pixel.y - CSub, pixel.z - CSub), coefficients);
             } else {
                 return MxVFloat3::exec(make_<float3>(pixel.x, pixel.y - CSub, pixel.z - CSub), coefficients);

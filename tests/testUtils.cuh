@@ -18,7 +18,7 @@
 #include <string>
 #include <iostream>
 
-#include <fused_kernel/core/utils/cuda_vector_utils.cuh>
+#include <fused_kernel/core/utils/cuda_vector_utils.h>
 #include <fused_kernel/core/data/ptr_nd.cuh>
 
 template <int Depth>

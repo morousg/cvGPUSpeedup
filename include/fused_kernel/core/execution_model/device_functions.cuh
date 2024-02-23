@@ -38,15 +38,31 @@ namespace fk { // namespace FusedKernel
         dim3 activeThreads;
     };
 
+    template <typename Enabler, typename... Operations>
+    struct BinaryDeviceFunction_ {};
+
     template <typename... Operations>
-    struct BinaryDeviceFunction {
+    struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) > 1)>, Operations...> {
         using Operation = OperationTupleOperation<Operations...>;
         using InstanceType = BinaryType;
         template <typename IT>
         static constexpr bool is{ std::is_same_v<IT, InstanceType> };
 
-        OperationTuple<Operations... > head;
+        typename Operation::ParamsType params;
     };
+
+    template <typename... Operations>
+    struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) == 1)>, Operations...> {
+        using Operation = FirstType_t<Operations...>;
+        using InstanceType = BinaryType;
+        template <typename IT>
+        static constexpr bool is{ std::is_same_v<IT, InstanceType> };
+
+        typename Operation::ParamsType params;
+    };
+
+    template <typename... Operations>
+    using BinaryDeviceFunction = BinaryDeviceFunction_<void, Operations...>;
 
     template <typename... Operations>
     struct UnaryDeviceFunction {

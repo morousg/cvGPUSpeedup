@@ -73,9 +73,8 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer, const uint& NUM_ELE
     gpuErrchk(cudaStreamSynchronize(stream));
 
     fk::Binary<fk::ReadYUV<fk::NV12>, fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>> readOpInstance;
-    fk::get_params<0>(readOpInstance.head) = d_nv12Image;
-    auto imgSize = d_nv12Image.dims;
-    auto readOp = fk::resize<typename decltype(readOpInstance)::Operation, fk::INTER_LINEAR>(readOpInstance.head, fk::Size(NUM_ELEMS_X, NUM_ELEMS_Y), down);
+    fk::get_params<0>(readOpInstance.params) = d_nv12Image;
+    auto readOp = fk::resize<typename decltype(readOpInstance)::Operation, fk::INTER_LINEAR>(readOpInstance.params, fk::Size(NUM_ELEMS_X, NUM_ELEMS_Y), down);
     auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
     auto colorConvert = fk::Unary<fk::VectorReorder<uchar4, 2, 1, 0, 3>>{};
 
@@ -140,9 +139,9 @@ void testComputeWhatYouSee(char* buffer, const uint& NUM_ELEMS_X, const uint& NU
     gpuErrchk(cudaStreamSynchronize(stream));
 
     fk::Binary<fk::ReadYUV<fk::NV12>, fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>> readOpInstance;
-    fk::get_params<0>(readOpInstance.head) = d_nv12Image;
+    fk::get_params<0>(readOpInstance.params) = d_nv12Image;
     auto imgSize = d_nv12Image.dims;
-    auto readOp = fk::resize<typename decltype(readOpInstance)::Operation, fk::INTER_LINEAR>(readOpInstance.head, fk::Size(imgSize.width, imgSize.height), down);
+    auto readOp = fk::resize<typename decltype(readOpInstance)::Operation, fk::INTER_LINEAR>(readOpInstance.params, fk::Size(imgSize.width, imgSize.height), down);
     auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
     auto colorConvert = fk::Unary<fk::VectorReorder<uchar4, 2, 1, 0, 3>>{};
     auto writeOp = fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>>{ d_rgbaImage.ptr() };

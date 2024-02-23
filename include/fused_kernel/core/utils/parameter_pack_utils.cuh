@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include <fused_kernel/core/utils/cuda_utils.cuh>
+#include <fused_kernel/core/utils/utils.h>
 #include <fused_kernel/core/utils/tuple.cuh>
 
 namespace fk { // namespace fused kernel
