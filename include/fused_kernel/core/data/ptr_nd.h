@@ -22,8 +22,8 @@ namespace fk {
         constexpr Size(int width_, int height_) : width(width_),
             height(height_) {};
         Size() {};
-        int width;
-        int height;
+        int width{0};
+        int height{0};
     };
 
     struct Point {

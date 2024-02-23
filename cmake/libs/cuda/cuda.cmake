@@ -14,12 +14,16 @@ set(CUDA_TOOLKIT_ROOT_DIR_ORIG ${CUDAToolkit_LIBRARY_ROOT})
 string(REPLACE "\\" "/" CUDA_TOOLKIT_ROOT_DIR_ORIG ${CUDA_TOOLKIT_ROOT_DIR_ORIG})
 set(CUDA_TOOLKIT_ROOT_DIR ${CUDA_TOOLKIT_ROOT_DIR_ORIG})
 
+option(ENABLE_LINE_INFO "Enable line info for kernels compilation" ON)
 
 function(add_cuda_to_target TARGET_NAME COMPONENTS)
     set_default_cuda_target_properties(${TARGET_NAME})
     # we need to deploy runtime because we se CUDA_RUNTIME_LIBRARY property to Shared
     list(APPEND COMPONENTS "cudart")
     add_cuda_debug_support_to_target(${TARGET_NAME})
+	if(${ENABLE_LINE_INFO})
+        target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+	endif()
     
     set(EXPORTED_CUDA_TARGETS ${COMPONENTS})
     set(COMPONENTS_TO_DEPLOY ${COMPONENTS})

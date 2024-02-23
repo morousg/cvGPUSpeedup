@@ -241,8 +241,8 @@ namespace fk {
         static constexpr __device__ __forceinline__ float3 computeRGB(const InputType& pixel) {
             const M3x3Float coefficients = ccMatrix<CR, CP, YCbCr2RGB>;
             const float CSub = subCoefficients<CD>.chroma;
-            const float YSub = subCoefficients<CD>.luma;
             if constexpr (CP == bt601) {
+                const float YSub = subCoefficients<CD>.luma;
                 return MxVFloat3::exec(make_<float3>(pixel.x - YSub, pixel.y - CSub, pixel.z - CSub), coefficients);
             } else {
                 return MxVFloat3::exec(make_<float3>(pixel.x, pixel.y - CSub, pixel.z - CSub), coefficients);
