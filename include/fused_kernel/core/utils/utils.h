@@ -22,7 +22,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-#ifdef __CUDACC__ || __CUDACC_RTC__
+#if defined(__CUDACC__) || defined(__CUDACC_RTC__)
 #define FK_DEVICE_FUSE static constexpr __device__ __forceinline__
 #define FK_DEVICE_CNST constexpr __device__ __forceinline__
 #define FK_HOST_DEVICE_FUSE FK_DEVICE_FUSE __host__
