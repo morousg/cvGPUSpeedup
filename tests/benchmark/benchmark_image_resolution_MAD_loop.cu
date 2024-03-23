@@ -49,9 +49,14 @@ struct VerticalFusionMAD {
         using InputType = CUDA_T(CV_TYPE_I);
         using OutputType = CUDA_T(CV_TYPE_O);
         using Loop = fk::Binary<fk::StaticLoop<fk::OperationTupleOperation<fk::Mul<OutputType>, fk::Sum<OutputType>>, 200/2>>;
+        
+        Loop loop;
+        fk::get_params<0>(loop.params) = cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul);
+        fk::get_params<1>(loop.params) = cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_add);
+
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
-            Loop{ {{{cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul)},{cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_add)}}} },
+            loop,
             cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
@@ -208,8 +213,6 @@ int launch() {
             std::cout << key << " failed!!" << std::endl;
         }
     }
-
-    typename fk::BatchRead<fk::PerThreadRead<fk::_2D, uchar4>, 50>::ParamsType params;
 
 #undef LAUNCH_TESTS
 #endif

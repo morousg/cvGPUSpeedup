@@ -16,7 +16,7 @@
 
 #include "tests/testsCommon.cuh"
 #include <fused_kernel/core/utils/tuple.cuh>
-#include <fused_kernel/core/utils/template_operations.cuh>
+#include <fused_kernel/core/utils/template_operations.h>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
 
 #include "tests/main.h"

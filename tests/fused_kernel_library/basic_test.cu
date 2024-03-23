@@ -16,7 +16,7 @@
 
 #include <fused_kernel/fused_kernel.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
-#include <fused_kernel/core/utils/template_operations.cuh>
+#include <fused_kernel/core/utils/template_operations.h>
 #include "tests/main.h"
 
 template <typename T>

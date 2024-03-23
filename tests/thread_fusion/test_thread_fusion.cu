@@ -26,7 +26,9 @@
 #include <type_traits>
 
 constexpr size_t NUM_EXPERIMENTS = 5;
+#ifdef ENABLE_BENCHMARK
 constexpr char VARIABLE_DIMENSION[]{ "Pixels per side" };
+#endif
 constexpr size_t FIRST_VALUE = 1024;
 constexpr size_t INCREMENT = 1024;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
@@ -115,8 +117,10 @@ bool testThreadFusionSameTypeIO(cv::cuda::Stream& cv_stream) {
     bool passed = true;
     bool exception = false;
     constexpr int CV_TYPE_I = I;
+#ifdef ENABLE_BENCHMARK
     constexpr int CV_TYPE_O = I;
     constexpr size_t BATCH = RESOLUTION;
+#endif
     constexpr uint NUM_ELEMS_X = (uint)RESOLUTION;
     constexpr uint NUM_ELEMS_Y = (uint)RESOLUTION;
 
@@ -126,31 +130,31 @@ bool testThreadFusionSameTypeIO(cv::cuda::Stream& cv_stream) {
 
     std::vector<Parameters> params = { {{2u}}, {{2u, 37u}}, {{2u, 37u, 128u}}, {{2u, 37u, 128u, 20u}} };
 
-    cv::Scalar val_init = params.at(CV_MAT_CN(I) - 1).init;
+    cv::Scalar val_init = params.at(CV_MAT_CN(CV_TYPE_I) - 1).init;
 
     try {
-        cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, I, val_init);
-        cv::cuda::GpuMat d_output_cvGS(NUM_ELEMS_Y, NUM_ELEMS_X, I);
-        cv::cuda::GpuMat d_output_cvGS_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, I);
+        cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_I, val_init);
+        cv::cuda::GpuMat d_output_cvGS(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_I);
+        cv::cuda::GpuMat d_output_cvGS_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_I);
 
-        cv::Mat h_cvGSResults(NUM_ELEMS_Y, NUM_ELEMS_X, I);
-        cv::Mat h_cvGSResults_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, I);
+        cv::Mat h_cvGSResults(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_I);
+        cv::Mat h_cvGSResults_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_I);
 
         // In this case it's not OpenCV, it's cvGPUSpeedup without thread fusion
         START_OCV_BENCHMARK 
         // cvGPUSpeedup non fusion version
-        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>
-            read{ {cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1} };
-        const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(I)>>
-            write{ cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_output_cvGS) };
+        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
+            read{ {cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1} };
+        const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(CV_TYPE_I)>>
+            write{ cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_output_cvGS) };
         cvGS::executeOperations<false>(cv_stream, read, write);
 
         STOP_OCV_START_CVGS_BENCHMARK
         // cvGPUSpeedup fusion version
-        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>
-            readTF{ {cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 } };
-        const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(I)>>
-            writeTF{ cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_output_cvGS_ThreadFusion) };
+        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
+            readTF{ {cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 } };
+        const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(CV_TYPE_I)>>
+            writeTF{ cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_output_cvGS_ThreadFusion) };
         cvGS::executeOperations<true>(cv_stream, readTF, writeTF);
 
         STOP_CVGS_BENCHMARK
@@ -191,7 +195,9 @@ bool testThreadFusionDifferentTypeIO(cv::cuda::Stream& cv_stream) {
     bool exception = false;
     constexpr int CV_TYPE_I = I;
     constexpr int CV_TYPE_O = O;
+#ifdef ENABLE_BENCHMARK
     constexpr size_t BATCH = RESOLUTION;
+#endif
     constexpr uint NUM_ELEMS_X = (uint)RESOLUTION;
     constexpr uint NUM_ELEMS_Y = (uint)RESOLUTION;
 
@@ -201,32 +207,32 @@ bool testThreadFusionDifferentTypeIO(cv::cuda::Stream& cv_stream) {
 
     std::vector<Parameters> params = { {{2u}}, {{2u, 37u}}, {{2u, 37u, 128u}}, {{2u, 37u, 128u, 20u}} };
 
-    cv::Scalar val_init = params.at(CV_MAT_CN(I) - 1).init;
+    cv::Scalar val_init = params.at(CV_MAT_CN(CV_TYPE_I) - 1).init;
 
     try {
-        cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, I, val_init);
-        cv::cuda::GpuMat d_output_cvGS(NUM_ELEMS_Y, NUM_ELEMS_X, O);
-        cv::cuda::GpuMat d_output_cvGS_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, O);
+        cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_I, val_init);
+        cv::cuda::GpuMat d_output_cvGS(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_O);
+        cv::cuda::GpuMat d_output_cvGS_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_O);
 
-        cv::Mat h_cvGSResults(NUM_ELEMS_Y, NUM_ELEMS_X, O);
-        cv::Mat h_cvGSResults_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, O);
+        cv::Mat h_cvGSResults(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_O);
+        cv::Mat h_cvGSResults_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_O);
 
         // In this case it's not OpenCV, it's cvGPUSpeedup without thread fusion
         START_OCV_BENCHMARK
         // cvGPUSpeedup non fusion version
-        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>
-            read{ {cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1} };
-        const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>
-            write{ cvGS::gpuMat2RawPtr2D<CUDA_T(O)>(d_output_cvGS) };
-        cvGS::executeOperations<false>(cv_stream, read, cvGS::convertTo<I, O>(), write);
+        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
+            read{ {cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1} };
+        const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(CV_TYPE_O)>>
+            write{ cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_O)>(d_output_cvGS) };
+        cvGS::executeOperations<false>(cv_stream, read, cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(), write);
 
         STOP_OCV_START_CVGS_BENCHMARK
         // cvGPUSpeedup fusion version
-        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>
-            readTF{ {cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 } };
-        const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>
-            writeTF{ cvGS::gpuMat2RawPtr2D<CUDA_T(O)>(d_output_cvGS_ThreadFusion) };
-        cvGS::executeOperations<true>(cv_stream, readTF, cvGS::convertTo<I, O>(), writeTF);
+        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
+            readTF{ {cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 } };
+        const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(CV_TYPE_O)>>
+            writeTF{ cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_O)>(d_output_cvGS_ThreadFusion) };
+        cvGS::executeOperations<true>(cv_stream, readTF, cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(), writeTF);
 
         STOP_CVGS_BENCHMARK
 
@@ -246,11 +252,11 @@ bool testThreadFusionDifferentTypeIO(cv::cuda::Stream& cv_stream) {
     if (!passed) {
         if (!exception) {
             std::stringstream ss;
-            ss << "testThreadFusionTimes<" << cvTypeToString<I>() << ", " << cvTypeToString<O>();
+            ss << "testThreadFusionTimes<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
             std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
         } else {
             std::stringstream ss;
-            ss << "testThreadFusionTimes<" << cvTypeToString<I>() << ", " << cvTypeToString<O>();
+            ss << "testThreadFusionTimes<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
             std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
         }
     }
@@ -264,7 +270,9 @@ bool testThreadFusionDifferentTypeAndChannelIO(cv::cuda::Stream& cv_stream) {
     bool exception = false;
     constexpr int CV_TYPE_I = I;
     constexpr int CV_TYPE_O = O;
+#ifdef ENABLE_BENCHMARK
     constexpr size_t BATCH = RESOLUTION;
+#endif
     constexpr uint NUM_ELEMS_X = (uint)RESOLUTION;
     constexpr uint NUM_ELEMS_Y = (uint)RESOLUTION;
 
@@ -274,32 +282,32 @@ bool testThreadFusionDifferentTypeAndChannelIO(cv::cuda::Stream& cv_stream) {
 
     std::vector<Parameters> params = { {{2u}}, {{2u, 37u}}, {{2u, 37u, 128u}}, {{2u, 37u, 128u, 20u}} };
 
-    cv::Scalar val_init = params.at(CV_MAT_CN(I) - 1).init;
+    cv::Scalar val_init = params.at(CV_MAT_CN(CV_TYPE_I) - 1).init;
 
     try {
-        cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, I, val_init);
-        cv::cuda::GpuMat d_output_cvGS(NUM_ELEMS_Y, NUM_ELEMS_X, O);
-        cv::cuda::GpuMat d_output_cvGS_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, O);
+        cv::cuda::GpuMat d_input(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_I, val_init);
+        cv::cuda::GpuMat d_output_cvGS(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_O);
+        cv::cuda::GpuMat d_output_cvGS_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_O);
 
-        cv::Mat h_cvGSResults(NUM_ELEMS_Y, NUM_ELEMS_X, O);
-        cv::Mat h_cvGSResults_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, O);
+        cv::Mat h_cvGSResults(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_O);
+        cv::Mat h_cvGSResults_ThreadFusion(NUM_ELEMS_Y, NUM_ELEMS_X, CV_TYPE_O);
 
         // In this case it's not OpenCV, it's cvGPUSpeedup without thread fusion
         START_OCV_BENCHMARK
         // cvGPUSpeedup non fusion version
-        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>
-            read{ {cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1} };
-        const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>
-            write{ cvGS::gpuMat2RawPtr2D<CUDA_T(O)>(d_output_cvGS) };
-        cvGS::executeOperations<false>(cv_stream, read, cvGS::convertTo<I, T>(), cvGS::cvtColor<CODE, T, O>(), write);
+        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
+            read{ {cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1} };
+        const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(CV_TYPE_O)>>
+            write{ cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_O)>(d_output_cvGS) };
+        cvGS::executeOperations<false>(cv_stream, read, cvGS::convertTo<CV_TYPE_I, T>(), cvGS::cvtColor<CODE, T, CV_TYPE_O>(), write);
 
         STOP_OCV_START_CVGS_BENCHMARK
         // cvGPUSpeedup fusion version
-        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(I)>>
-            readTF{ {cvGS::gpuMat2RawPtr2D<CUDA_T(I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 } };
-        const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(O)>>
-            writeTF{ cvGS::gpuMat2RawPtr2D<CUDA_T(O)>(d_output_cvGS_ThreadFusion) };
-        cvGS::executeOperations<true>(cv_stream, readTF, cvGS::convertTo<I, T>(), cvGS::cvtColor<CODE, T, O>(), writeTF);
+        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
+            readTF{ {cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 } };
+        const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(CV_TYPE_O)>>
+            writeTF{ cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_O)>(d_output_cvGS_ThreadFusion) };
+        cvGS::executeOperations<true>(cv_stream, readTF, cvGS::convertTo<CV_TYPE_I, T>(), cvGS::cvtColor<CODE, T, CV_TYPE_O>(), writeTF);
 
         STOP_CVGS_BENCHMARK
 
@@ -309,7 +317,7 @@ bool testThreadFusionDifferentTypeAndChannelIO(cv::cuda::Stream& cv_stream) {
 
         cv_stream.waitForCompletion();
 
-        passed = compareAndCheck<O>(NUM_ELEMS_X, NUM_ELEMS_Y, h_cvGSResults_ThreadFusion, h_cvGSResults);
+        passed = compareAndCheck<CV_TYPE_O>(NUM_ELEMS_X, NUM_ELEMS_Y, h_cvGSResults_ThreadFusion, h_cvGSResults);
     } catch (const std::exception& e) {
         error_s << e.what();
         passed = false;
@@ -319,11 +327,11 @@ bool testThreadFusionDifferentTypeAndChannelIO(cv::cuda::Stream& cv_stream) {
     if (!passed) {
         if (!exception) {
             std::stringstream ss;
-            ss << "testThreadFusionTimes<" << cvTypeToString<I>() << ", " << cvTypeToString<O>();
+            ss << "testThreadFusionTimes<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
             std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
         } else {
             std::stringstream ss;
-            ss << "testThreadFusionTimes<" << cvTypeToString<I>() << ", " << cvTypeToString<O>();
+            ss << "testThreadFusionTimes<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
             std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
         }
     }

@@ -20,7 +20,10 @@
 
 #include "tests/main.h"
 
+#ifdef ENABLE_BENCHMARK
 constexpr char VARIABLE_DIMENSION[] {"Batch size"};
+#endif
+
 #ifndef CUDART_MAJOR_VERSION
 #error CUDART_MAJOR_VERSION Undefined!
 #elif (CUDART_MAJOR_VERSION == 11)
