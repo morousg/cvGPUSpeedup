@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22 FATAL_ERROR)
 
 set (PROJECT_VERSION_MAJOR 0)
-set (PROJECT_VERSION_MINOR 10)
+set (PROJECT_VERSION_MINOR 11)
 set (PROJECT_VERSION_REV 0)
 set (PROJECT_VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_REV})
 include (cmake/cmake_init.cmake)
@@ -20,6 +20,7 @@ DESCRIPTION "Make OpenCV-CUDA code run faster on the GPU" HOMEPAGE_URL "https://
 include (cmake/libs/cuda/cuda.cmake)
 include (cmake/cuda_init.cmake)
 include (cmake/libs/opencv.cmake)
+
 add_subdirectory(lib)
 
 option (BUILD_UTEST "build standard unit tests" ON)
