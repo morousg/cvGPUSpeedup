@@ -31,10 +31,11 @@ In terms of feature completeness, the Fused Kernel Library is less than 1% compl
 Our aim with this repository is to create a code demonstration platform, and an space where to keep adding new ideas, features, and share it with the community to make it as big and useful as possible.
   
 ## Tested hw/sw
-*  Cuda SDK 11.8 and 12.1
-*  OS Windows 11 22H2 with drivers from 516.94 to 546.17.
+*  Cuda SDK 11.8, 12.1, 12.3
+*  OpenCV 4.8 and 4.9
+*  OS Windows 11 22H2 with drivers from 516.94 to 551.86
 *  Ubuntu 22.04 (both native and under WSL2 enviroment)   
-*  Compute capabilities 7.5 (Turing), 8.6 (Ampere), 8.9 (ADA Lovelace)
+*  Compute capabilities 7.5 (Turing), 8.6 (Ampere), 8.9 (Ada Lovelace)
 *  All systems with x86_64 cpu architecture
 
 ## Examples
