@@ -55,20 +55,27 @@ namespace fk { // namespace fused kernel
                          }, deviceFunctionInstances);
     }
 
+    // Util to get the parameters of a parameter pack
+    template <int Index, typename T, typename... Args>
+    FK_HOST_DEVICE_CNST auto ppGet(const T& current, const Args&... args) {
+        static_assert(sizeof...(args) + 1 > Index, "Index out of range when looking for a parameter in a parameter pack.");
+        if constexpr (Index == 0) {
+            return current;
+        } else {
+            return ppGet<Index - 1>(args...);
+        }
+    }
+
     // Util to get the last parameter of a parameter pack
-    template <typename T>
-    FK_HOST_DEVICE_CNST T last(const T& t) {
-        return t;
+    template <typename... Args>
+    FK_HOST_DEVICE_CNST auto ppLast(const Args&... args) {
+        return ppGet<sizeof...(args) - 1>(args...);
     }
 
-    template <typename T, typename... Args>
-    FK_HOST_DEVICE_CNST auto last(const T& t, const Args&... args) {
-        return last(args...);
-    }
-
-    template <typename T, typename... Args>
-    FK_HOST_DEVICE_CNST T first(const T& t, const Args&... args) {
-        return t;
+    // Util to get the first parameter of a parameter pack
+    template <typename... Args>
+    FK_HOST_DEVICE_CNST auto ppFirst(const Args&... args) {
+        return ppGet<0>(args...);
     }
 
     // Util to insert an element before the last element of a tuple

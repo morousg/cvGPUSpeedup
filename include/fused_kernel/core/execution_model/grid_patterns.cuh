@@ -67,7 +67,7 @@ namespace fk { // namespace FusedKernel
                 using ReadOperation = typename ReadDeviceFunction::Operation;
                 using WriteOperation = typename LastType_t<DeviceFunctions...>::Operation;
 
-                const auto writeDF = last(deviceFunctionInstances...);
+                const auto writeDF = ppLast(deviceFunctionInstances...);
 
                 if constexpr (TFI::ENABLED) {
                     const auto tempI = ReadOperation::exec<TFI::elems_per_thread>(thread, readDF.params);

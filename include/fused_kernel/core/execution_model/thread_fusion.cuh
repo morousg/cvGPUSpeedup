@@ -135,8 +135,8 @@ namespace fk {
         if constexpr (THREAD_FUSION_ENABLED) {
             using TFI = ThreadFusionInfo<RDT, WDT, THREAD_FUSION_ENABLED>;
             const bool pitch_divisible =
-                (ReadOperation::pitch(Point(0, 0, 0), first(deviceFunctions...).params) % (sizeof(RDT) * TFI::elems_per_thread) == 0) &&
-                (WriteOperation::pitch(Point(0, 0, 0), last(deviceFunctions...).params) % (sizeof(WDT) * TFI::elems_per_thread) == 0);
+                (ReadOperation::pitch(Point(0, 0, 0), ppFirst(deviceFunctions...).params) % (sizeof(RDT) * TFI::elems_per_thread) == 0) &&
+                (WriteOperation::pitch(Point(0, 0, 0), ppLast(deviceFunctions...).params) % (sizeof(WDT) * TFI::elems_per_thread) == 0);
             return pitch_divisible ? TFI::elems_per_thread : 1u;
         } else {
             return 1u;
@@ -146,8 +146,8 @@ namespace fk {
     template <bool THREAD_FUSION_ENABLED, typename... DeviceFunctionTypes>
     inline bool isThreadDivisible(const uint& elems_per_thread, const DeviceFunctionTypes&... deviceFunctions) {
         if constexpr (THREAD_FUSION_ENABLED) {
-            const auto& readOp = first(deviceFunctions...);
-            const auto& writeOp = last(deviceFunctions...);
+            const auto& readOp = ppFirst(deviceFunctions...);
+            const auto& writeOp = ppLast(deviceFunctions...);
             using ReadOperation = typename FirstType_t<DeviceFunctionTypes...>::Operation;
             using WriteOperation = typename LastType_t<DeviceFunctionTypes...>::Operation;
             const uint readRow = ReadOperation::num_elems_x(Point(0, 0, 0), readOp.params);

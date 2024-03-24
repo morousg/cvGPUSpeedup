@@ -109,7 +109,7 @@ namespace fk {
         template <typename... DeviceFunctionTypes>
         __host__ inline constexpr void update(const cudaStream_t& stream,
             const DeviceFunctionTypes&... deviceFunctionInstances) {
-            const auto writeDeviceFunction = last(deviceFunctionInstances...);
+            const auto writeDeviceFunction = ppLast(deviceFunctionInstances...);
             using writeDFType = std::decay_t<decltype(writeDeviceFunction)>;
             using writeOpType = typename writeDFType::Operation;
             if constexpr (CP_MODE == ColorPlanes::Transposed) {
