@@ -48,7 +48,34 @@ namespace fk { // namespace FusedKernel
         template <typename IT>
         static constexpr bool is{ std::is_same_v<IT, InstanceType> };
 
+        constexpr BinaryDeviceFunction_() {}
+
+        template <typename... ParamTypes>
+        constexpr BinaryDeviceFunction_(const ParamTypes&... provided_params) {
+            setParams<0>(provided_params...);
+        }
+
         typename Operation::ParamsType params;
+
+    private:
+        template <int OpIDX, typename ParamType, typename... ParamTypes>
+        void setParams(const ParamType& param, const ParamTypes&... remaining_params) {
+            using OperationTypes = TypeList<Operations...>;
+
+            using CurrentOperationType = TypeAt_t<OpIDX, OperationTypes>;
+            using CurrentInstanceType = typename CurrentOperationType::InstanceType;
+
+            if constexpr (std::is_same_v<CurrentInstanceType, BinaryType>) {
+                using CurrentParamType = typename CurrentOperationType::ParamsType;
+                static_assert(std::is_same_v<ParamType, CurrentParamType>, "Wrong parameter type for BinaryDeviceFunction constructor.");
+                get_params<OpIDX>(params) = param;
+                if constexpr (sizeof...(remaining_params) >= 1) {
+                    setParams<OpIDX + 1>(remaining_params...);
+                }
+            } else {
+                setParams<OpIDX + 1>(param, remaining_params...);
+            }
+        }
     };
 
     template <typename... Operations>

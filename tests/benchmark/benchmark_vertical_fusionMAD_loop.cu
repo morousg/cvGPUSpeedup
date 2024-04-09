@@ -18,8 +18,9 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
-
 #include "tests/main.h"
+
+#undef ENABLE_BENCHMARK
 
 #ifdef ENABLE_BENCHMARK
 constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
@@ -30,12 +31,14 @@ constexpr size_t NUM_EXPERIMENTS = 15;
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 50;
 #elif (CUDART_MAJOR_VERSION == 12)
-constexpr size_t NUM_EXPERIMENTS = 30;
+constexpr size_t NUM_EXPERIMENTS = 60;
 constexpr size_t FIRST_VALUE = 2;
-constexpr size_t INCREMENT = 50;
+constexpr size_t INCREMENT = 100;
 #endif // CUDART_MAJOR_VERSION
 
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
+
+using namespace fk;
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t NumOps>
 struct VerticalFusionMAD {
@@ -49,7 +52,8 @@ struct VerticalFusionMAD {
                                const cv::Size& cropSize) {
         using InputType = CUDA_T(CV_TYPE_I);
         using OutputType = CUDA_T(CV_TYPE_O);
-        using Loop = fk::Binary<fk::StaticLoop<fk::StaticLoop<fk::OperationTupleOperation<fk::Mul<OutputType>, fk::Sum<OutputType>>, INCREMENT / 2>, NumOps / INCREMENT>>;
+        using Loop = Binary<StaticLoop<StaticLoop<
+            OperationTupleOperation<Mul<OutputType>, Sum<OutputType>>, INCREMENT / 2>, NumOps / INCREMENT>>;
 
         Loop loop;
         fk::get_params<0>(loop.params) = cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul);

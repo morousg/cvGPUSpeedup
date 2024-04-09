@@ -74,7 +74,7 @@ inline constexpr auto convertTo(float alpha) {
 
     using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
     using SecondOp = fk::Mul<CUDA_T(O)>;
-    return fk::Binary<FirstOp, SecondOp>{{{ fk::make_set<CUDA_T(O)>(alpha) }}};
+    return fk::Binary<FirstOp, SecondOp>(fk::make_set<CUDA_T(O)>(alpha));
 }
 
 template <int I, int O>
