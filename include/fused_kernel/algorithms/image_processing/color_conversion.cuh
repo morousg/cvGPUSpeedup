@@ -24,17 +24,15 @@
 
 namespace fk {
     template <typename I>
-    struct AddAlpha {
+    using VOneMore = VectorType_t<VBase<I>, (cn<I> +1)>;
+
+    template <typename I, VBase<I> alpha>
+    struct StaticAddAlpha {
         using InputType = I;
-        using OutputType = VectorType_t<VBase<I>, (cn<I> +1)>;
+        using OutputType = VOneMore<I>;
         using InstanceType = UnaryType;
         FK_DEVICE_FUSE OutputType exec(const InputType& input) {
-            if constexpr (std::is_same_v<VBase<InputType>, float>) {
-                return AddLast<InputType, OutputType>::exec(input, 1.f);
-            } else {
-                constexpr VBase<I> alpha = maxValue<VBase<I>>;
-                return AddLast<InputType, OutputType>::exec(input, alpha);
-            }
+            return AddLast<InputType, OutputType>::exec(input, alpha);
         }
     };
 
@@ -69,12 +67,12 @@ namespace fk {
     enum ColorRange { Limited, Full };
     enum ColorPrimitives { bt601, bt709, bt2020 };
 
-    enum ColorDepth { p8bit, p10bit, p12bit };
+    enum ColorDepth { p8bit, p10bit, p12bit, f24bit };
     template <ColorDepth CD>
     struct CD_t { ColorDepth value{ CD }; };
-    using ColorDepthTypes = TypeList<CD_t<p8bit>, CD_t<p10bit>, CD_t<p12bit>>;
-    using ColorDepthPixelBaseTypes = TypeList<uchar, ushort, ushort>;
-    using ColorDepthPixelTypes = TypeList<uchar3, ushort3, ushort3>;
+    using ColorDepthTypes = TypeList<CD_t<p8bit>, CD_t<p10bit>, CD_t<p12bit>, CD_t<f24bit>>;
+    using ColorDepthPixelBaseTypes = TypeList<uchar, ushort, ushort, float>;
+    using ColorDepthPixelTypes = TypeList<uchar3, ushort3, ushort3, float3>;
     template <ColorDepth CD>
     using ColorDepthPixelBaseType = EquivalentType_t<CD_t<CD>, ColorDepthTypes, ColorDepthPixelBaseTypes>;
     template <ColorDepth CD>
@@ -111,6 +109,18 @@ namespace fk {
     template <> constexpr ColorDepthPixelBaseType<p8bit>  maxDepthValue<p8bit> { 255u };
     template <> constexpr ColorDepthPixelBaseType<p10bit> maxDepthValue<p10bit> { 1023u };
     template <> constexpr ColorDepthPixelBaseType<p12bit> maxDepthValue<p12bit> { 4095u };
+    template <> constexpr ColorDepthPixelBaseType<f24bit> maxDepthValue<f24bit> { 1.f };
+
+    template <typename I, ColorDepth CD>
+    struct AddOpaqueAlpha {
+        using InputType = I;
+        using OutputType = VOneMore<I>;
+        using InstanceType = UnaryType;
+        FK_DEVICE_FUSE OutputType exec(const InputType& input) {
+            constexpr auto alpha = maxDepthValue<CD>;
+            return AddLast<InputType, OutputType>::exec(input, alpha);
+        }
+    };
 
     template <typename T, ColorDepth CD>
     struct SaturateDepth {
@@ -374,68 +384,69 @@ namespace fk {
     template <ColorConversionCodes CODE>
     static constexpr bool isSuportedCCC = one_of_v<CCC_t<CODE>, SupportedCCC>;
 
-    template <ColorConversionCodes CODE, typename I, typename O>
+    template <ColorConversionCodes CODE, typename I, typename O, ColorDepth CD = ColorDepth::p8bit>
     struct ColorConversionType{
         static_assert(isSuportedCCC<CODE>, "Color conversion code not supported");
     };
 
     // Will work for COLOR_RGB2RGBA too
-    template <typename I, typename O>
-    struct ColorConversionType<COLOR_BGR2BGRA, I, O> {
-        using type = Unary<AddAlpha<I>>;
+    template <typename I, typename O, ColorDepth CD>
+    struct ColorConversionType<COLOR_BGR2BGRA, I, O, CD> {
+        using type = Unary<AddOpaqueAlpha<I, CD>>;
     };
 
     // Will work for COLOR_RGBA2RGB too
-    template <typename I, typename O>
-    struct ColorConversionType<COLOR_BGRA2BGR, I, O> {
+    template <typename I, typename O, ColorDepth CD>
+    struct ColorConversionType<COLOR_BGRA2BGR, I, O, CD> {
         using type = Unary<Discard<I, VectorType_t<VBase<I>, 3>>>;
     };
 
     // Will work for COLOR_RGB2BGRA too
-    template <typename I, typename O>
-    struct ColorConversionType<COLOR_BGR2RGBA, I, O> {
-        using type = Unary<VectorReorder<I, 2, 1, 0>, AddAlpha<I>>;
+    template <typename I, typename O, ColorDepth CD>
+    struct ColorConversionType<COLOR_BGR2RGBA, I, O, CD> {
+        using type = Unary<VectorReorder<I, 2, 1, 0>, AddOpaqueAlpha<I, CD>>;
     };
 
     // Will work for COLOR_RGBA2BGR too
-    template <typename I, typename O>
-    struct ColorConversionType<COLOR_BGRA2RGB, I, O> {
+    template <typename I, typename O, ColorDepth CD>
+    struct ColorConversionType<COLOR_BGRA2RGB, I, O, CD> {
         using type = Unary<VectorReorder<I, 2, 1, 0, 3>,
                            Discard<I, VectorType_t<VBase<I>, 3>>>;
     };
 
     // Will work for COLOR_RGB2BGR too
-    template <typename I, typename O>
-    struct ColorConversionType<COLOR_BGR2RGB, I, O> {
+    template <typename I, typename O, ColorDepth CD>
+    struct ColorConversionType<COLOR_BGR2RGB, I, O, CD> {
         using type = Unary<VectorReorder<I, 2, 1, 0>>;
     };
 
     // Will work for COLOR_RGBA2BGRA too
-    template <typename I, typename O>
-    struct ColorConversionType<COLOR_BGRA2RGBA, I, O> {
+    template <typename I, typename O, ColorDepth CD>
+    struct ColorConversionType<COLOR_BGRA2RGBA, I, O, CD> {
         using type = Unary<VectorReorder<I, 2, 1, 0, 3>>;
     };
 
-    template <typename I, typename O>
-    struct ColorConversionType<COLOR_RGB2GRAY, I, O> {
+    template <typename I, typename O, ColorDepth CD>
+    struct ColorConversionType<COLOR_RGB2GRAY, I, O, CD> {
         using type = Unary<RGB2Gray<I, O>>;
     };
 
-    template <typename I, typename O>
-    struct ColorConversionType<COLOR_BGR2GRAY, I, O> {
+    template <typename I, typename O, ColorDepth CD>
+    struct ColorConversionType<COLOR_BGR2GRAY, I, O, CD> {
         using type = Unary<VectorReorder<I, 2, 1, 0>, RGB2Gray<I, O>>;
     };
 
-    template <typename I, typename O>
-    struct ColorConversionType<COLOR_RGBA2GRAY, I, O> {
+    template <typename I, typename O, ColorDepth CD>
+    struct ColorConversionType<COLOR_RGBA2GRAY, I, O, CD> {
         using type = Unary<RGB2Gray<I, O>>;
     };
 
-    template <typename I, typename O>
-    struct ColorConversionType<COLOR_BGRA2GRAY, I, O> {
+    template <typename I, typename O, ColorDepth CD>
+    struct ColorConversionType<COLOR_BGRA2GRAY, I, O, CD> {
         using type = Unary<VectorReorder<I, 2, 1, 0, 3>, RGB2Gray<I, O>>;
     };
 
-    template <ColorConversionCodes code, typename I, typename O = I>
-    using ColorConversion = typename ColorConversionType<code, I, O>::type;
+    template <ColorConversionCodes code, typename I, typename O, ColorDepth CD = ColorDepth::p8bit>
+    using ColorConversion = typename ColorConversionType<code, I, O, CD>::type;
+
 }; // namespace fk (Fused Kernel)

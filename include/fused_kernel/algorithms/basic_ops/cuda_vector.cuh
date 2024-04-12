@@ -91,4 +91,12 @@ namespace fk {
             }
         }
     };
+
+    template <typename I>
+    using VOneLess = VectorType_t<VBase<I>, (cn<I> -1)>;
+
+    template <typename I>
+    constexpr __device__ __host__ __forceinline__ VOneLess<I> discard_last(const I& input) {
+        return Discard<I, VOneLess<I>>::exec(input);
+    }
 }
