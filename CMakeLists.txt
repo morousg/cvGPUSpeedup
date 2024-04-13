@@ -7,7 +7,7 @@ set (PROJECT_VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT
 include (cmake/cmake_init.cmake)
 include (cmake/doxygen.cmake)
 include (cmake/targets/virtualfolders.cmake)
-if (${CMAKE_VERSION} GREATER_EQUAL "3.27.0")
+if (${CMAKE_VERSION} GREATER_EQUAL "3.22.0")
     cmake_policy(SET CMP0146 OLD) 
     cmake_policy(SET CMP0147 OLD) 
 endif()
