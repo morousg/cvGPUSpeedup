@@ -84,7 +84,7 @@ inline constexpr auto convertTo(float alpha, float beta) {
 
     using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
     using SecondOp = fk::Mul<CUDA_T(O)>;
-    using ThirdOp = fk::Sum<CUDA_T(O)>;
+    using ThirdOp = fk::Add<CUDA_T(O)>;
     return fk::Binary<FirstOp, SecondOp, ThirdOp>{{{fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }}}};
 }
 
@@ -105,7 +105,7 @@ inline constexpr auto divide(const cv::Scalar& src2) {
 
 template <int I>
 inline constexpr auto add(const cv::Scalar& src2) {
-    return fk::Binary<fk::Sum<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
+    return fk::Binary<fk::Add<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
 }
 
 template <cv::ColorConversionCodes CODE, int I, int O = I>

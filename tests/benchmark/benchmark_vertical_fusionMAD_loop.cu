@@ -20,8 +20,6 @@
 
 #include "tests/main.h"
 
-#undef ENABLE_BENCHMARK
-
 #ifdef ENABLE_BENCHMARK
 constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
 #ifndef CUDART_MAJOR_VERSION
@@ -53,7 +51,7 @@ struct VerticalFusionMAD {
         using InputType = CUDA_T(CV_TYPE_I);
         using OutputType = CUDA_T(CV_TYPE_O);
         using Loop = Binary<StaticLoop<StaticLoop<
-            OperationTupleOperation<Mul<OutputType>, Sum<OutputType>>, INCREMENT / 2>, NumOps / INCREMENT>>;
+            OperationTupleOperation<Mul<OutputType>, Add<OutputType>>, INCREMENT / 2>, NumOps / INCREMENT>>;
 
         Loop loop;
         fk::get_params<0>(loop.params) = cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul);

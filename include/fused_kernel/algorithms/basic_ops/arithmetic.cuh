@@ -18,7 +18,7 @@
 
 namespace fk {
     template <typename I, typename P = I, typename O = I>
-    struct Sum_ {
+    struct Add_ {
         BINARY_DECL_EXEC(O, I, P) {
             static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum_ can't work with cuda vector types.");
             return input + params;
@@ -50,7 +50,7 @@ namespace fk {
     };
 
     template <typename I, typename P = I, typename O = I>
-    using Sum = BinaryV<Sum_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
+    using Add = BinaryV<Add_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
     template <typename I, typename P = I, typename O = I>
     using Sub = BinaryV<Sub_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
     template <typename I, typename P = I, typename O = I>

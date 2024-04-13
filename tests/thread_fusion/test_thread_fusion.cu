@@ -89,7 +89,7 @@ namespace fk {
 
         const typename BTInfo::BiggerReadType biggerType = ((typename BTInfo::BiggerReadType*) fourNumbers)[0];
 
-        using Reduction = VectorReduce<VectorType_t<uchar, (cn<OriginalType>)>, Sum<uchar>>;
+        using Reduction = VectorReduce<VectorType_t<uchar, (cn<OriginalType>)>, Add<uchar>>;
 
         if constexpr (BTInfo::elems_per_thread == 1) {
             return Reduction::exec(biggerType == fourNumbers[0]);

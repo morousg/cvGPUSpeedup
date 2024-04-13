@@ -115,7 +115,7 @@ bool benchmark_vertical_fusion_loopSum(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, c
             const OutputType val{ cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul) };
 
             // cvGPUSpeedup
-            using DeviceFunction = Binary<Sum<OutputType>, Sum<OutputType>>;
+            using DeviceFunction = Binary<Add<OutputType>, Add<OutputType>>;
             const DeviceFunction dFunc(val, val);
             VerticalFusion<CV_TYPE_I, CV_TYPE_O, OPS_PER_ITERATION, BATCH, DeviceFunction>::execute(crops, REAL_BATCH, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
 
