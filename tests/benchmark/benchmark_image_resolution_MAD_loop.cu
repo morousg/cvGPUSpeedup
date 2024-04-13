@@ -20,8 +20,6 @@
 
 #include "tests/main.h"
 
-#undef ENABLE_BENCHMARK
-
 #ifdef ENABLE_BENCHMARK
 
 constexpr char VARIABLE_DIMENSION[]{ "Number of pixels per side" };
@@ -50,7 +48,7 @@ struct VerticalFusionMAD {
         const cv::Size& cropSize) {
         using InputType = CUDA_T(CV_TYPE_I);
         using OutputType = CUDA_T(CV_TYPE_O);
-        using Loop = fk::Binary<fk::StaticLoop<fk::OperationTupleOperation<fk::Mul<OutputType>, fk::Sum<OutputType>>, 200/2>>;
+        using Loop = fk::Binary<fk::StaticLoop<fk::OperationTupleOperation<fk::Mul<OutputType>, fk::Add<OutputType>>, 200/2>>;
         
         Loop loop;
         fk::get_params<0>(loop.params) = cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul);
