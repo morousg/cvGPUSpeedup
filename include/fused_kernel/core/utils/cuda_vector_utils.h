@@ -67,6 +67,69 @@ namespace fk {
     using VAll = typename TypeList<VOne, VTwo, VThree, VFour>::type;
 
     template <typename T>
+    concept BasicType = (one_of_v<T, StandardTypes>);
+
+    template <typename... Types>
+    concept AllBasicTypes = (one_of_v<Types, StandardTypes> && ...);
+
+    template <typename TypesToFind>
+    concept AllBasicTypesInList = (one_of_and_v<TypesToFind, StandardTypes>);
+
+    template <typename T>
+    concept CUDAType = (one_of_v<T, VAll>);
+
+    template <typename... Types>
+    concept AllCUDATypes = ((CUDAType<Types>) && ...);
+
+    template <typename TypesToFind>
+    concept AllCUDATypesInList = (one_of_and_v<TypesToFind, VAll>);
+
+    template <typename T>
+    concept CUDAType1 = (one_of_v<T, VOne>);
+
+    template <typename... Types>
+    concept AllCUDAType1 = (one_of_v<Types, VOne> && ...);
+
+    template <typename TypesToFind>
+    concept AllCUDAType1InList = (one_of_and_v<TypesToFind, VOne>);
+
+    template <typename T>
+    concept CUDAType2 = (one_of_v<T, VTwo>);
+
+    template <typename... Types>
+    concept AllCUDAType2 = (one_of_v<Types, VTwo> && ...);
+
+    template <typename TypesToFind>
+    concept AllCUDAType2InList = (one_of_and_v<TypesToFind, VTwo>);
+
+    template <typename T>
+    concept CUDAType3 = (one_of_v<T, VThree>);
+
+    template <typename... Types>
+    concept AllCUDAType3 = (one_of_v<Types, VThree> && ...);
+
+    template <typename TypesToFind>
+    concept AllCUDAType3InList = (one_of_and_v<TypesToFind, VThree>);
+
+    template <typename T>
+    concept CUDAType4 = (one_of_v<T, VFour>);
+
+    template <typename... Types>
+    concept AllCUDAType4 = (one_of_v<Types, VFour> && ...);
+
+    template <typename TypesToFind>
+    concept AllCUDAType4InList = (one_of_and_v<TypesToFind, VFour>);
+
+    template <typename T>
+    concept BasicOrCUDAType = (BasicType<T> || CUDAType<T>);
+
+    template <typename... Types>
+    concept AllBasicOrCUDAType = ((BasicOrCUDAType<Types>) && ...);
+
+    template <typename TypesToFind>
+    concept AllBasicOrCUDATypeInList = (one_of_and_v<TypesToFind, VAll> || one_of_and_v<TypesToFind, StandardTypes>);
+
+    template <typename T>
     constexpr bool validCUDAVec = one_of<T, VAll>::value;
 
     template <typename T>
