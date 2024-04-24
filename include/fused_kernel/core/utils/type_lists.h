@@ -70,6 +70,28 @@ namespace fk { // namespace fused kernel
     template <typename T, typename TypeList_t>
     constexpr bool one_of_v = one_of<T, TypeList_t>::value;
 
+    template <typename TypeListA, typename TypeListB>
+    struct one_of_or {};
+
+    template <typename... TypesA, typename... TypesB>
+    struct one_of_or<TypeList<TypesA...>, TypeList<TypesB...>> {
+        static constexpr bool value = (one_of_v<TypesA, TypeList<TypesB...>> || ...);
+    };
+
+    template <typename TypeListA, typename TypeListB>
+    constexpr bool one_of_or_v = one_of_or<TypeListA, TypeListB>::value;
+
+    template <typename TypeListA, typename TypeListB>
+    struct one_of_and {};
+
+    template <typename... TypesA, typename... TypesB>
+    struct one_of_and<TypeList<TypesA...>, TypeList<TypesB...>> {
+        static constexpr bool value = (one_of_v<TypesA, TypeList<TypesB...>> && ...);
+    };
+
+    template <typename TypeListA, typename TypeListB>
+    constexpr bool one_of_and_v = one_of_and<TypeListA, TypeListB>::value;
+
     /**
      * @struct EnumType
      * @brief Struct to convert an enum value into a type
