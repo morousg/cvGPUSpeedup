@@ -34,7 +34,7 @@ function (discover_tests DIR)
 				add_nvtx_support_to_target(${cuda_target})
 			endif()
 
-			set_target_properties(${cuda_target} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+			set_target_properties(${cuda_target} PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 			if (is_fkl EQUAL -1)
 				add_opencv_to_target(${cuda_target} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs"  )
 			endif ()
