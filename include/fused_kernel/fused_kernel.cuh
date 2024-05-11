@@ -26,7 +26,7 @@ namespace fk {
     template <bool THREAD_FUSION, typename ReadDeviceFunction, typename... DeviceFunctionTypes>
     inline constexpr void executeOperations(const cudaStream_t& stream, const ReadDeviceFunction& readDF, const DeviceFunctionTypes&... deviceFunctions) {
         const dim3 dataDims = { readDF.activeThreads };
-        const dim3 block{ fk::getBlockSize(dataDims.x, dataDims.y) };
+        const dim3 block{ getBlockSize(dataDims.x, dataDims.y) };
         constexpr bool THREAD_FUSION_ENABLED = isThreadFusionEnabled<THREAD_FUSION, ReadDeviceFunction, DeviceFunctionTypes...>();
         const uint elems_per_thread = computeElementsPerThread<THREAD_FUSION_ENABLED>(readDF, deviceFunctions...);
         const dim3 grid{ (unsigned int)ceil((dataDims.x/ (float)elems_per_thread) / (float)block.x),
@@ -122,7 +122,7 @@ namespace fk {
     }
 
     template <bool THREAD_FUSION, typename I, int Batch, typename... DeviceFunctionTypes>
-    inline constexpr void executeOperations(const std::array<fk::Ptr2D<I>, Batch>& input, const int& activeBatch, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
+    inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
         const Ptr2D<I>& firstInput = input[0];
         using ReadDeviceFunction = Read<BatchRead<PerThreadRead<_2D, I>, Batch>>;
         ReadDeviceFunction firstOp;
@@ -154,7 +154,7 @@ namespace fk {
     }
 
     template <typename I, int Batch, typename... DeviceFunctionTypes>
-    inline constexpr void executeOperations(const std::array<fk::Ptr2D<I>, Batch>& input, const int& activeBatch, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
+    inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
         executeOperations<true>(input, activeBatch, stream, deviceFunctions...);
     }
 
