@@ -213,8 +213,6 @@ namespace fk {
     }
 } // namespace fk
 
-using namespace fk;
-
 template <typename T>
 struct to_printable {
     FK_HOST_FUSE int exec(T val) {
@@ -230,20 +228,20 @@ struct to_printable {
 template <typename T>
 struct print_vector {
     FK_HOST_FUSE std::ostream& exec(std::ostream& outs, T val) {
-        if constexpr (!validCUDAVec<T>) {
+        if constexpr (!fk::validCUDAVec<T>) {
             outs << val;
             return outs;
         }
-        else if constexpr (cn<T> == 1) {
+        else if constexpr (fk::cn<T> == 1) {
             outs << "{" << to_printable<decltype(T::x)>::exec(val.x) << "}";
             return outs;
         }
-        else if constexpr (cn<T> == 2) {
+        else if constexpr (fk::cn<T> == 2) {
             outs << "{" << to_printable<decltype(T::x)>::exec(val.x) <<
                 ", " << to_printable<decltype(T::y)>::exec(val.y) << "}";
             return outs;
         }
-        else if constexpr (cn<T> == 3) {
+        else if constexpr (fk::cn<T> == 3) {
             outs << "{" << to_printable<decltype(T::x)>::exec(val.x) <<
                 ", " << to_printable<decltype(T::y)>::exec(val.y) <<
                 ", " << to_printable<decltype(T::z)>::exec(val.z) << "}";
@@ -260,26 +258,26 @@ struct print_vector {
 };
 
 template <typename T>
-inline constexpr typename std::enable_if_t<validCUDAVec<T>, std::ostream&> operator<<(std::ostream& outs, const T& val) {
+inline constexpr typename std::enable_if_t<fk::validCUDAVec<T>, std::ostream&> operator<<(std::ostream& outs, const T& val) {
     return print_vector<T>::exec(outs, val);
 }
 
 #define VEC_UNARY_OP(op, input_type, output_type) \
 FK_HOST_DEVICE_CNST output_type ## 1 operator op(const input_type ## 1 & a) \
 { \
-    return make::type<output_type ## 1>(op (a.x)); \
+    return fk::make::type<output_type ## 1>(op (a.x)); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 2 operator op(const input_type ## 2 & a) \
 { \
-    return make::type<output_type ## 2>(op (a.x), op (a.y)); \
+    return fk::make::type<output_type ## 2>(op (a.x), op (a.y)); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 3 operator op(const input_type ## 3 & a) \
 { \
-    return make::type<output_type ## 3>(op (a.x), op (a.y), op (a.z)); \
+    return fk::make::type<output_type ## 3>(op (a.x), op (a.y), op (a.z)); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 4 operator op(const input_type ## 4 & a) \
 { \
-    return make::type<output_type ## 4>(op (a.x), op (a.y), op (a.z), op (a.w)); \
+    return fk::make::type<output_type ## 4>(op (a.x), op (a.y), op (a.z), op (a.w)); \
 }
 
 VEC_UNARY_OP(-, char, char)
@@ -419,19 +417,19 @@ VEC_COMPOUND_OP(/=, uint, uint)
 #define VEC_BINARY_OP_DIFF_TYPES(op, input_type1, input_type2, output_type) \
 FK_HOST_DEVICE_CNST output_type ## 1 operator op(const input_type1 ## 1 & a, const input_type2 ## 1 & b) \
 { \
-    return make::type<output_type ## 1>(a.x op b.x); \
+    return fk::make::type<output_type ## 1>(a.x op b.x); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 2 operator op(const input_type1 ## 2 & a, const input_type2 ## 2 & b) \
 { \
-    return make::type<output_type ## 2>(a.x op b.x, a.y op b.y); \
+    return fk::make::type<output_type ## 2>(a.x op b.x, a.y op b.y); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 3 operator op(const input_type1 ## 3 & a, const input_type2 ## 3 & b) \
 { \
-    return make::type<output_type ## 3>(a.x op b.x, a.y op b.y, a.z op b.z); \
+    return fk::make::type<output_type ## 3>(a.x op b.x, a.y op b.y, a.z op b.z); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 4 operator op(const input_type1 ## 4 & a, const input_type2 ## 4 & b) \
 { \
-    return make::type<output_type ## 4>(a.x op b.x, a.y op b.y, a.z op b.z, a.w op b.w); \
+    return fk::make::type<output_type ## 4>(a.x op b.x, a.y op b.y, a.z op b.z, a.w op b.w); \
 }
 
 VEC_BINARY_OP_DIFF_TYPES(+, uchar, float, float)
@@ -441,19 +439,19 @@ VEC_BINARY_OP_DIFF_TYPES(+, uchar, float, float)
 #define VEC_BINARY_OP(op, input_type, output_type) \
 FK_HOST_DEVICE_CNST output_type ## 1 operator op(const input_type ## 1 & a, const input_type ## 1 & b) \
 { \
-    return make::type<output_type ## 1>(a.x op b.x); \
+    return fk::make::type<output_type ## 1>(a.x op b.x); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 2 operator op(const input_type ## 2 & a, const input_type ## 2 & b) \
 { \
-    return make::type<output_type ## 2>(a.x op b.x, a.y op b.y); \
+    return fk::make::type<output_type ## 2>(a.x op b.x, a.y op b.y); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 3 operator op(const input_type ## 3 & a, const input_type ## 3 & b) \
 { \
-    return make::type<output_type ## 3>(a.x op b.x, a.y op b.y, a.z op b.z); \
+    return fk::make::type<output_type ## 3>(a.x op b.x, a.y op b.y, a.z op b.z); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 4 operator op(const input_type ## 4 & a, const input_type ## 4 & b) \
 { \
-    return make::type<output_type ## 4>(a.x op b.x, a.y op b.y, a.z op b.z, a.w op b.w); \
+    return fk::make::type<output_type ## 4>(a.x op b.x, a.y op b.y, a.z op b.z, a.w op b.w); \
 }
 
 VEC_BINARY_OP(+, uchar, int)
@@ -596,35 +594,35 @@ VEC_BINARY_OP(^, uint, uint)
 #define SCALAR_BINARY_OP(op, input_type, scalar_type, output_type) \
 FK_HOST_DEVICE_CNST output_type ## 1 operator op(const input_type ## 1 & a, scalar_type s) \
 { \
-    return make::type<output_type ## 1>(a.x op s); \
+    return fk::make::type<output_type ## 1>(a.x op s); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 1 operator op(scalar_type s, const input_type ## 1 & b) \
 { \
-    return make::type<output_type ## 1>(s op b.x); \
+    return fk::make::type<output_type ## 1>(s op b.x); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 2 operator op(const input_type ## 2 & a, scalar_type s) \
 { \
-    return make::type<output_type ## 2>(a.x op s, a.y op s); \
+    return fk::make::type<output_type ## 2>(a.x op s, a.y op s); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 2 operator op(scalar_type s, const input_type ## 2 & b) \
 { \
-    return make::type<output_type ## 2>(s op b.x, s op b.y); \
+    return fk::make::type<output_type ## 2>(s op b.x, s op b.y); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 3 operator op(const input_type ## 3 & a, scalar_type s) \
 { \
-    return make::type<output_type ## 3>(a.x op s, a.y op s, a.z op s); \
+    return fk::make::type<output_type ## 3>(a.x op s, a.y op s, a.z op s); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 3 operator op(scalar_type s, const input_type ## 3 & b) \
 { \
-    return make::type<output_type ## 3>(s op b.x, s op b.y, s op b.z); \
+    return fk::make::type<output_type ## 3>(s op b.x, s op b.y, s op b.z); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 4 operator op(const input_type ## 4 & a, scalar_type s) \
 { \
-    return make::type<output_type ## 4>(a.x op s, a.y op s, a.z op s, a.w op s); \
+    return fk::make::type<output_type ## 4>(a.x op s, a.y op s, a.z op s, a.w op s); \
 } \
 FK_HOST_DEVICE_CNST output_type ## 4 operator op(scalar_type s, const input_type ## 4 & b) \
 { \
-    return make::type<output_type ## 4>(s op b.x, s op b.y, s op b.z, s op b.w); \
+    return fk::make::type<output_type ## 4>(s op b.x, s op b.y, s op b.z, s op b.w); \
 }
 
 SCALAR_BINARY_OP(+, uchar, int, int)
