@@ -39,7 +39,7 @@ namespace fk { // namespace fused kernel
     // Struct to hold a parameter pack, and be able to pass it arround
     template <typename... DeviceFunctionTypes>
     struct DeviceFunctionSequence {
-        Tuple<const DeviceFunctionTypes...> deviceFunctions;
+        Tuple<DeviceFunctionTypes...> deviceFunctions;
     };
 
     // Function that fills the OperationSequence struct, from a parameter pack

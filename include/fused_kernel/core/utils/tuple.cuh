@@ -37,14 +37,12 @@ namespace fk {
     };
 
     struct TupleUtil {
-    public:
         template <typename Tuple1, typename Tuple2, int... I1, int... I2>
         FK_HOST_DEVICE_FUSE auto cat_impl(const Tuple1& t1, std::integer_sequence<int, I1...>,
                                           const Tuple2& t2, std::integer_sequence<int, I2...>) {
             return make_tuple(get<I1>(t1)..., get<I2>(t2)...);
         }
 
-    public:
         template <int INDEX, typename... InstanceTypes>
         FK_HOST_DEVICE_FUSE auto& get(Tuple<InstanceTypes...>& instances) {
             constexpr int numberOfInstances = Tuple<InstanceTypes...>::size;
@@ -126,6 +124,11 @@ namespace fk {
     template <int INDEX, typename T, typename TupleLike>
     FK_HOST_DEVICE_CNST auto tuple_insert(const T& element, const TupleLike& tuple) {
         return fk::TupleUtil::tuple_insert<INDEX,T>(element, tuple);
+    }
+
+    template <typename T, typename TupleLike>
+    FK_HOST_DEVICE_CNST auto tuple_insert_back(const TupleLike& tuple, const T& element) {
+        return fk::TupleUtil::tuple_insert<TupleLike::size, T>(element, tuple);
     }
 
     template <typename Tuple1, typename Tuple2>
