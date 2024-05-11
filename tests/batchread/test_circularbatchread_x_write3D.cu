@@ -85,6 +85,12 @@ bool testCircularBatchRead() {
     return correct;
 }
 
+struct OneToOne {
+    constexpr static __device__ __forceinline__ uint at(const uint& zIdx) {
+        return zIdx + 1;
+    }
+};
+
 bool testDivergentBatch() {
     constexpr uint WIDTH = 32;
     constexpr uint HEIGHT = 32;
@@ -145,8 +151,7 @@ bool testDivergentBatch() {
 
     dim3 block = inputAllocations[0].getBlockSize();
     dim3 grid{ (uint)ceil((float)WIDTH / (float)block.x), (uint)ceil((float)HEIGHT / (float)block.y), BATCH };
-    const fk::Array<int, BATCH> opSeqSelection{ {1, 2} };
-    fk::cuda_transform_divergent_batch<BATCH><<<grid, block, 0, stream>>>(opSeqSelection, opSeq1, opSeq2);
+    fk::cuda_transform_divergent_batch<OneToOne><<<grid, block, 0, stream>>>(opSeq1, opSeq2);
 
     gpuErrchk(cudaMemcpyAsync(h_output.ptr().data, output.ptr().data, output.sizeInBytes(), cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaStreamSynchronize(stream));
