@@ -38,6 +38,19 @@ namespace fk { // namespace FusedKernel
         dim3 activeThreads;
     };
 
+    template <typename BackDeviceFunction, typename Operation_t>
+    struct ReadBackDeviceFunction {
+        using Operation = Operation_t;
+        static_assert(std::is_same_v<typename Operation::InstanceType, ReadBackType>, "Operation is not ReadBack.");
+        using InstanceType = ReadBackType;
+        template <typename IT>
+        static constexpr bool is{ std::is_same_v<IT, InstanceType> };
+
+        typename Operation::ParamsType params;
+        BackDeviceFunction back_function;
+        dim3 activeThreads;
+    };
+
     template <typename Enabler, typename... Operations>
     struct BinaryDeviceFunction_ {};
 
@@ -120,6 +133,8 @@ namespace fk { // namespace FusedKernel
 
     template <typename Operation>
     using Read = ReadDeviceFunction<Operation>;
+    template <typename ReadDFToReadBack, typename Operation_t>
+    using ReadBack = ReadBackDeviceFunction<ReadDFToReadBack, Operation_t>;
     template <typename... Operations>
     using Unary = UnaryDeviceFunction<Operations...>;
     template <typename... Operations>

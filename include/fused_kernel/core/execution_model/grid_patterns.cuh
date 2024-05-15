@@ -19,6 +19,7 @@
 namespace cooperative_groups {};
 namespace cg = cooperative_groups;
 
+#include <fused_kernel/core/utils/utils.h>
 #include <fused_kernel/core/utils/parameter_pack_utils.cuh>
 #include <fused_kernel/core/execution_model/device_functions.cuh>
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>
@@ -61,6 +62,23 @@ namespace fk { // namespace FusedKernel
                 }
             }
 
+            template <typename ReadDeviceFunction, typename TFI>
+            FK_DEVICE_FUSE auto read(const Point& thread, const ReadDeviceFunction& readDF) {
+                if constexpr (ReadDeviceFunction::template is<ReadBackType>) {
+                    if constexpr (TFI::ENABLED) {
+                        return ReadDeviceFunction::Operation::exec<TFI::elems_per_thread>(thread, readDF.params, readDF.back_function);
+                    } else {
+                        return ReadDeviceFunction::Operation::exec(thread, readDF.params, readDF.back_function);
+                    }
+                } else if constexpr (ReadDeviceFunction::template is<ReadType>) {
+                    if constexpr (TFI::ENABLED) {
+                        return ReadDeviceFunction::Operation::exec<TFI::elems_per_thread>(thread, readDF.params);
+                    } else {
+                        return ReadDeviceFunction::Operation::exec(thread, readDF.params);
+                    }
+                }
+            }
+
             template <typename TFI, typename ReadDeviceFunction, typename... DeviceFunctions>
             FK_DEVICE_FUSE void execute_device_functions(const Point& thread, const ReadDeviceFunction& readDF,
                                                        const DeviceFunctions&... deviceFunctionInstances) {
@@ -70,7 +88,7 @@ namespace fk { // namespace FusedKernel
                 const auto writeDF = ppLast(deviceFunctionInstances...);
 
                 if constexpr (TFI::ENABLED) {
-                    const auto tempI = ReadOperation::exec<TFI::elems_per_thread>(thread, readDF.params);
+                    const auto tempI = read<ReadDeviceFunction, TFI>(thread, readDF);
                     if constexpr (sizeof...(deviceFunctionInstances) > 1) {
                         const auto tempO = operate_thread_fusion<TFI>(thread, tempI, deviceFunctionInstances...);
                         WriteOperation::exec<TFI::elems_per_thread>(thread, tempO, writeDF.params);
@@ -78,7 +96,7 @@ namespace fk { // namespace FusedKernel
                         WriteOperation::exec<TFI::elems_per_thread>(thread, tempI, writeDF.params);
                     }
                 } else {
-                    const auto tempI = ReadOperation::exec(thread, readDF.params);
+                    const auto tempI = read<ReadDeviceFunction, TFI>(thread, readDF);
                     if constexpr (sizeof...(deviceFunctionInstances) > 1) {
                         const auto tempO = operate(thread, tempI, deviceFunctionInstances...);
                         WriteOperation::exec(thread, tempO, writeDF.params);

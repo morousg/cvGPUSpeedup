@@ -17,6 +17,7 @@
 namespace fk {
 
     struct ReadType {};
+    struct ReadBackType {};
     struct WriteType {};
     struct UnaryType {};
     struct BinaryType {};
