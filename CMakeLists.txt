@@ -21,6 +21,7 @@ include (cmake/libs/cuda/cuda.cmake)
 include (cmake/cuda_init.cmake)
 include (cmake/libs/opencv.cmake)
 
+add_subdirectory(include)
 add_subdirectory(lib)
 
 option (BUILD_UTEST "build standard unit tests" ON)
