@@ -81,8 +81,14 @@ namespace fk {
     template <typename... Types>
     concept AllCUDATypes = ((CUDAType<Types>) && ...);
 
+    template <typename... Types>
+    concept NoneCUDATypes = ((!CUDAType<Types>) && ...);
+
     template <typename TypesToFind>
     concept AllCUDATypesInList = (one_of_and_v<TypesToFind, VAll>);
+
+    template <typename TypesToFind>
+    concept NoneCUDATypesInList = (!one_of_or_v<TypesToFind, VAll>);
 
     template <typename T>
     concept CUDAType1 = (one_of_v<T, VOne>);

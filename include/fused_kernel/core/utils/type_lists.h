@@ -212,7 +212,7 @@ namespace fk { // namespace fused kernel
     }
 
     template<typename T, typename... Ts>
-    constexpr bool all_types_are_same = std::conjunction_v<std::is_same<T, Ts>...>;
+    constexpr bool all_types_are_ = std::conjunction_v<std::is_same<T, Ts>...>;
 
     template <std::size_t Index, typename T, typename... Types>
     struct InsertType {};

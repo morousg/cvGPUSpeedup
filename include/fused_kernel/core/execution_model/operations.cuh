@@ -24,10 +24,12 @@ namespace fk {
 
 #define UNARY_DECL_EXEC(I, O) \
 using InputType = I; using OutputType = O; using InstanceType = UnaryType; \
+using IOTypes = TypeList<InputType, OutputType>; \
 static constexpr __device__ __forceinline__ OutputType exec(const InputType& input)
 
 #define BINARY_DECL_EXEC(O, I, P) \
 using OutputType = O; using InputType = I; using ParamsType = P; using InstanceType = BinaryType; \
+using IOTypes = TypeList<InputType, ParamsType, OutputType>; \
 static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params)
 
     template <typename... OperationTypes>
@@ -140,21 +142,18 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
                                              !(validCUDAVec<InputType> || validCUDAVec<OutputType>);
             static_assert(allCUDAOrNotCUDA, "Binary struct requires input and output types to be either both valild CUDA vectors or none.");
 
-            if constexpr (cn<InputType> == 1) {
-                if constexpr (validCUDAVec<InputType>) {
-                    return { Operation::exec(input.x) };
-                } else {
-                    return Operation::exec(input);
-                }
-            } else if constexpr (cn<InputType> == 2) {
+            if constexpr (requires { BasicType<InputType>; }) {
+                return Operation::exec(input);
+            } else if constexpr (requires { CUDAType1<InputType>; }) {
+                return { Operation::exec(input.x) };
+            } else if constexpr (requires { CUDAType2<InputType>; }) {
                 return { Operation::exec(input.x),
                          Operation::exec(input.y) };
-
-            } else if constexpr (cn<InputType> == 3) {
+            } else if constexpr (requires { CUDAType3<InputType>; }) {
                 return { Operation::exec(input.x),
                          Operation::exec(input.y),
                          Operation::exec(input.z) };
-            } else {
+            } else if constexpr (requires { CUDAType4<InputType>; }) {
                 return { Operation::exec(input.x),
                          Operation::exec(input.y),
                          Operation::exec(input.z),
@@ -170,46 +169,36 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
             constexpr bool allCUDAOrNotCUDA = (validCUDAVec<I> && validCUDAVec<O>) || !(validCUDAVec<I> || validCUDAVec<O>);
             static_assert(allCUDAOrNotCUDA, "Binary struct requires input and output types to be either both valild CUDA vectors or none.");
 
-            if constexpr (cn<I> == 1) {
-                if constexpr (validCUDAVec<I> && validCUDAVec<P>) {
-                    return { Operation::exec(input.x, params.x) };
-                } else if constexpr (validCUDAVec<I>) {
-                    return { Operation::exec(input.x, params) };
-                } else {
-                    return Operation::exec(input, params);
-                }
-            } else if constexpr (cn<I> == 2) {
-                if constexpr (validCUDAVec<P>) {
-                    return { Operation::exec(input.x, params.x),
-                             Operation::exec(input.y, params.y) };
-                } else {
-                    return { Operation::exec(input.x, params),
-                             Operation::exec(input.y, params) };
-                }
-
-            } else if constexpr (cn<I> == 3) {
-                if constexpr (validCUDAVec<P>) {
-                    return { Operation::exec(input.x, params.x),
-                             Operation::exec(input.y, params.y),
-                             Operation::exec(input.z, params.z) };
-                } else {
-                    return { Operation::exec(input.x, params),
-                             Operation::exec(input.y, params),
-                             Operation::exec(input.z, params) };
-                }
-
-            } else {
-                if constexpr (validCUDAVec<P>) {
-                    return { Operation::exec(input.x, params.x),
-                             Operation::exec(input.y, params.y),
-                             Operation::exec(input.z, params.z),
-                             Operation::exec(input.w, params.w) };
-                } else {
-                    return { Operation::exec(input.x, params),
-                             Operation::exec(input.y, params),
-                             Operation::exec(input.z, params),
-                             Operation::exec(input.w, params) };
-                }
+            if constexpr (requires { BasicType<InputType>; }) {
+                return Operation::exec(input, params);
+            } else if constexpr (requires { AllCUDAType1<InputType, ParamsType>; }) {
+                return { Operation::exec(input.x, params.x) };
+            } else if constexpr (requires { CUDAType1<InputType> && (!CUDAType<ParamsType> || !CUDAType1<ParamsType>); }) {
+                return { Operation::exec(input.x, params) };
+            } else if constexpr (requires { AllCUDAType2<InputType, ParamsType>; }) {
+                return { Operation::exec(input.x, params.x),
+                         Operation::exec(input.y, params.y) };
+            } else if constexpr (requires { CUDAType2<InputType> && (!CUDAType<ParamsType> || !CUDAType2<ParamsType>); }) {
+                return { Operation::exec(input.x, params),
+                         Operation::exec(input.y, params) };
+            } else if constexpr (requires { AllCUDAType3<InputType, ParamsType>; }) {
+                return { Operation::exec(input.x, params.x),
+                            Operation::exec(input.y, params.y),
+                            Operation::exec(input.z, params.z) };
+            } else if constexpr (requires { CUDAType3<InputType> && (!CUDAType<ParamsType> || !CUDAType3<ParamsType>); }) {
+                return { Operation::exec(input.x, params),
+                            Operation::exec(input.y, params),
+                            Operation::exec(input.z, params) };
+            } else if constexpr (requires { AllCUDAType4<InputType, ParamsType>; }) {
+                return { Operation::exec(input.x, params.x),
+                            Operation::exec(input.y, params.y),
+                            Operation::exec(input.z, params.z),
+                            Operation::exec(input.w, params.w) };
+            } else if constexpr (requires { CUDAType4<InputType> && (!CUDAType<ParamsType> || !CUDAType4<ParamsType>); }) {
+                return { Operation::exec(input.x, params),
+                            Operation::exec(input.y, params),
+                            Operation::exec(input.z, params),
+                            Operation::exec(input.w, params) };
             }
         }
     };
