@@ -219,18 +219,18 @@ namespace fk {
         }
     };
 
+    template <int INDEX>
+    using OpTupUtils = OperationTupleUtils<INDEX>;
+
     template <int INDEX, typename... InstanceTypes>
     FK_HOST_DEVICE_CNST auto& get_params(OperationTuple<InstanceTypes...>& instances) {
-        return OperationTupleUtils<INDEX>::get_params(instances);
+        return OpTupUtils<INDEX>::get_params(instances);
     }
 
     template <int INDEX, typename... InstanceTypes>
     FK_HOST_DEVICE_CNST auto get_params(const OperationTuple<InstanceTypes...>& instances) {
-        return OperationTupleUtils<INDEX>::get_params(instances);
+        return OpTupUtils<INDEX>::get_params(instances);
     }
-
-    template <int INDEX>
-    using OpTupUtils = OperationTupleUtils<INDEX>;
 
     template <int INDEX, typename TupleLike>
     struct tuple_element {};

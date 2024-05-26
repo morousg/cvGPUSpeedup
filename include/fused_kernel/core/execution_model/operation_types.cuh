@@ -18,10 +18,11 @@ namespace fk {
 
     struct ReadType {};
     struct ReadBackType {};
-    struct WriteType {};
     struct UnaryType {};
     struct BinaryType {};
+    struct TernaryType {};
     struct MidWriteType {};
+    struct WriteType {};
 
     template <typename Operation>
     constexpr bool isReadOperation = std::is_same_v<typename Operation::InstanceType, ReadType>;

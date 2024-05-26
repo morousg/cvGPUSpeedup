@@ -300,11 +300,10 @@ namespace fk {
         using OutputType = ColorDepthPixelType<(ColorDepth)PixelFormatTraits<PF>::depth>;
         using PixelBaseType = ColorDepthPixelBaseType<(ColorDepth)PixelFormatTraits<PF>::depth>;
         using ParamsType = RawPtr<_2D, PixelBaseType>;
-        using InputType = Point;
         using InstanceType = ReadType;
         using ReadDataType = PixelBaseType;
         static constexpr bool THREAD_FUSION{ false };
-        static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
+        static __device__ __forceinline__ const OutputType exec(const Point& thread, const ParamsType& params) {
             if constexpr (PF == NV12 || PF == P010 || PF == P016 || PF == P210 || PF == P216) {
                 // Planar luma
                 const PixelBaseType Y = *PtrAccessor<_2D>::cr_point(thread, params);

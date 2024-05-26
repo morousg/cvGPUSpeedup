@@ -38,7 +38,7 @@ namespace fk { // namespace FusedKernel
         dim3 activeThreads;
     };
 
-    template <typename BackDeviceFunction, typename Operation_t>
+    template <typename Operation_t, typename BackDeviceFunction>
     struct ReadBackDeviceFunction {
         using Operation = Operation_t;
         static_assert(std::is_same_v<typename Operation::InstanceType, ReadBackType>, "Operation is not ReadBack.");

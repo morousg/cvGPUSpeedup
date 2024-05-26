@@ -50,15 +50,14 @@ namespace fk {
         static constexpr bool THREAD_FUSION{ false };
         using ThreadFusion = ThreadFusionInfo<int, int, false>;
         using SingleElement = ThreadFusion;
-        using InputType = Point;
         using InstanceType = ReadType;
         using OutputType = typename ReadOperation::OutputType;
         using ReadDataType = typename ReadOperation::ReadDataType;
-        static __device__ __forceinline__ const OutputType exec(const InputType& thread, const ParamsType& params) {
+        static __device__ __forceinline__ const OutputType exec(const Point& thread, const ParamsType& params) {
             const float2 rezisePoint = ComputeResizePoint::exec(thread, params.original_point);
             return ReadOperation::exec(rezisePoint, params.params);
         }
-        static __device__ __forceinline__ uint num_elems_x(const InputType& thread, const ParamsType& params) {
+        static __device__ __forceinline__ uint num_elems_x(const Point& thread, const ParamsType& params) {
             return ReadOperation::num_elems_x(thread, params.params);
         }
     };
