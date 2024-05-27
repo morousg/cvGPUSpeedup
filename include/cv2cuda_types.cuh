@@ -90,7 +90,7 @@ namespace cvGS {
     template <int code>
     constexpr bool isSupportedInterpolation = one_of_c<code, SupportedInterpolations>::value;
 
-}
+} // namespace cvGS
 
 #define CUDA_T(CV_TYPE) typename cvGS::cv2cuda_t<CV_TYPE>::type
 #define BASE_CUDA_T(CV_TYPE) typename cvGS::cv2cuda_t<CV_MAT_DEPTH(CV_TYPE)>::type

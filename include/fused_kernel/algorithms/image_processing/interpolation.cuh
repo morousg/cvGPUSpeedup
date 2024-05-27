@@ -82,4 +82,4 @@ namespace fk {
             return params.dims;
         }
     };
-}
+} // namespace fk

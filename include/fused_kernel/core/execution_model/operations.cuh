@@ -275,4 +275,4 @@ static constexpr __device__ __forceinline__ OutputType exec(const InputType& inp
         }
     };
 
-}//namespace fk
+} //namespace fk

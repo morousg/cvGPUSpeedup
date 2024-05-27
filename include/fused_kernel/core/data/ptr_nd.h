@@ -226,6 +226,6 @@ namespace fk {
         enum { ND = T3D };
     };
 
-}
+} // namespace fk
 
 #undef FK_DEVICE_HOST

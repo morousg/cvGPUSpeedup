@@ -50,6 +50,6 @@ namespace fk {
             if (abort) throw std::exception();
         }
     }
-}
+} // namespace fk
 
 #define gpuErrchk(ans) { fk::gpuAssert((ans), __FILE__, __LINE__, true); }

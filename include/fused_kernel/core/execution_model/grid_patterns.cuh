@@ -235,5 +235,4 @@ namespace fk { // namespace FusedKernel
     cuda_transform_divergent_batch_bounds(const DeviceFunctionSequenceTypes... dfSequenceInstances) {
         DivergentBatchTransformGridPattern<SequenceSelector>::exec(dfSequenceInstances...);
     }
-};
-
+} // namespace fk

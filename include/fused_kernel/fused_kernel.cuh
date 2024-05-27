@@ -195,4 +195,4 @@ namespace fk {
     inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const Tensor<O>& output, const cudaStream_t& stream, const operations&... ops) {
         executeOperations<true>(input, activeBatch, output, stream, ops...);
     }
-};
+} // namespace fk

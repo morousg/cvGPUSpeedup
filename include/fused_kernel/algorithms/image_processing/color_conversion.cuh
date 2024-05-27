@@ -448,4 +448,4 @@ namespace fk {
     template <ColorConversionCodes code, typename I, typename O, ColorDepth CD = ColorDepth::p8bit>
     using ColorConversion = typename ColorConversionType<code, I, O, CD>::type;
 
-}; // namespace fk (Fused Kernel)
+} // namespace fk

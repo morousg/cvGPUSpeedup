@@ -88,4 +88,4 @@ namespace fk { // namespace fused kernel
     FK_HOST_DEVICE_CNST auto insert_before_last(const T& t, const Args&... args) {
         return tuple_insert<sizeof...(Args) - 1>(t, Tuple<Args...>{args...});
     }
-} // namespace fused kernel
+} // namespace fk

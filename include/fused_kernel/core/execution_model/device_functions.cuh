@@ -143,4 +143,5 @@ namespace fk { // namespace FusedKernel
     using MidWrite = MidWriteDeviceFunction<Operation>;
     template <typename Operation>
     using Write = WriteDeviceFunction<Operation>;
-} // namespace FusedKernel
+
+} // namespace fk

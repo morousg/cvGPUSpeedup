@@ -218,4 +218,4 @@ namespace fk { // namespace fused kernel
 
     template <std::size_t Index, typename T, typename... Types>
     using InsertType_t = typename InsertType<Index, T, Types...>::type;
-}; // namespace fused kernel
+} // namespace fk
