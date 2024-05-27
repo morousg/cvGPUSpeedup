@@ -17,6 +17,8 @@
 #include <fused_kernel/fused_kernel.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/core/utils/template_operations.h>
+#include <fused_kernel/core/data/ptr_nd.cuh>
+#include <fused_kernel/algorithms/image_processing/saturate.cuh>
 #include "tests/main.h"
 
 template <typename T>
@@ -89,10 +91,10 @@ int launch() {
 
     fk::OperationTuple<fk::PerThreadRead<fk::_2D, uchar>, fk::SaturateCast<uchar, uint>, fk::PerThreadWrite<fk::_2D, uint>> myTup{};
 
-    fk::OpTupUtils<2>::get_params(myTup);
-    constexpr bool test1 = std::is_same_v<fk::tuple_element_t<0, decltype(myTup)>, fk::PerThreadRead<fk::_2D, uchar>>;
-    constexpr bool test2 = std::is_same_v<fk::tuple_element_t<1, decltype(myTup)>, fk::SaturateCast<uchar, uint>>;
-    constexpr bool test3 = std::is_same_v<fk::tuple_element_t<2, decltype(myTup)>, fk::PerThreadWrite<fk::_2D, uint>>;
+    fk::get_params<2>(myTup);
+    constexpr bool test1 = std::is_same_v<fk::get_type_t<0, decltype(myTup)>, fk::PerThreadRead<fk::_2D, uchar>>;
+    constexpr bool test2 = std::is_same_v<fk::get_type_t<1, decltype(myTup)>, fk::SaturateCast<uchar, uint>>;
+    constexpr bool test3 = std::is_same_v<fk::get_type_t<2, decltype(myTup)>, fk::PerThreadWrite<fk::_2D, uint>>;
 
     gpuErrchk(cudaStreamSynchronize(stream));
 

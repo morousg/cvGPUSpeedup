@@ -173,80 +173,61 @@ namespace fk {
     template <typename... Operations>
     using OperationTuple = OperationTuple_<void, Operations...>;
 
-    template <int INDEX>
-    struct OperationTupleUtils {
-        template <typename... InstanceTypes>
-        FK_HOST_DEVICE_FUSE auto& get_params(OperationTuple<InstanceTypes...>& instances) {
-            using Operation = typename OperationTuple<InstanceTypes...>::Operation;
-            constexpr int numberOfInstances = OperationTuple<InstanceTypes...>::size;
-            static_assert(INDEX < numberOfInstances, "Index out of range. There are not so many instances in the tuple.");
-            if constexpr (INDEX > 0) {
-                return OperationTupleUtils<INDEX - 1>::get_params(instances.next);
-            }
-            else if constexpr (INDEX == -1) {
-                if constexpr (numberOfInstances > 0) {
-                    return OperationTupleUtils<numberOfInstances - 1>::get_params(instances.next);
-                }
-                else {
-                    static_assert(hasParams<Operation>, "This is an Unary operation, and it does not have params.");
-                    return instances.params;
-                }
-            }
-            else {
-                static_assert(hasParams<Operation>, "This is an Unary operation, and it does not have params.");
-                return instances.params;
-            }
-        }
-
-        template <typename... InstanceTypes>
-        FK_HOST_DEVICE_FUSE auto get_params(const OperationTuple<InstanceTypes...>& instances) {
-            using Operation = typename OperationTuple<InstanceTypes...>::Operation;
-            constexpr int numberOfInstances = OperationTuple<InstanceTypes...>::size;
-            static_assert(INDEX < numberOfInstances, "Index out of range. There are not so many instances in the tuple.");
-            if constexpr (INDEX > 0) {
-                return OperationTupleUtils<INDEX - 1>::get_params(instances.next);
-            } else if constexpr (INDEX == -1) {
-                if constexpr (numberOfInstances > 0) {
-                    return OperationTupleUtils<numberOfInstances - 1>::get_params(instances.next);
-                } else {
-                    static_assert(hasParams<Operation>, "This is an Unary operation, and it does not have params.");
-                    return instances.params;
-                }
+    template <int INDEX, typename... InstanceTypes>
+    FK_HOST_DEVICE_CNST auto& get_params(OperationTuple<InstanceTypes...>& instances) {
+        using Operation = typename OperationTuple<InstanceTypes...>::Operation;
+        constexpr int numberOfInstances = OperationTuple<InstanceTypes...>::size;
+        static_assert(INDEX < numberOfInstances, "Index out of range. There are not so many instances in the tuple.");
+        if constexpr (INDEX > 0) {
+            return get_params<INDEX - 1>(instances.next);
+        } else if constexpr (INDEX == -1) {
+            if constexpr (numberOfInstances > 0) {
+                return get_params<numberOfInstances - 1>(instances.next);
             } else {
                 static_assert(hasParams<Operation>, "This is an Unary operation, and it does not have params.");
                 return instances.params;
             }
+        } else {
+            static_assert(hasParams<Operation>, "This is an Unary operation, and it does not have params.");
+            return instances.params;
         }
-    };
-
-    template <int INDEX>
-    using OpTupUtils = OperationTupleUtils<INDEX>;
-
-    template <int INDEX, typename... InstanceTypes>
-    FK_HOST_DEVICE_CNST auto& get_params(OperationTuple<InstanceTypes...>& instances) {
-        return OpTupUtils<INDEX>::get_params(instances);
     }
 
     template <int INDEX, typename... InstanceTypes>
     FK_HOST_DEVICE_CNST auto get_params(const OperationTuple<InstanceTypes...>& instances) {
-        return OpTupUtils<INDEX>::get_params(instances);
+        using Operation = typename OperationTuple<InstanceTypes...>::Operation;
+        constexpr int numberOfInstances = OperationTuple<InstanceTypes...>::size;
+        static_assert(INDEX < numberOfInstances, "Index out of range. There are not so many instances in the tuple.");
+        if constexpr (INDEX > 0) {
+            return get_params<INDEX - 1>(instances.next);
+        } else if constexpr (INDEX == -1) {
+            if constexpr (numberOfInstances > 0) {
+                return get_params<numberOfInstances - 1>(instances.next);
+            } else {
+                static_assert(hasParams<Operation>, "This is an Unary operation, and it does not have params.");
+                return instances.params;
+            }
+        } else {
+            static_assert(hasParams<Operation>, "This is an Unary operation, and it does not have params.");
+            return instances.params;
+        }
     }
 
     template <int INDEX, typename TupleLike>
-    struct tuple_element {};
+    struct GetType {};
 
     template <int INDEX, template <typename...> class TupleLike, typename... Instances>
-    struct tuple_element<INDEX, TupleLike<Instances...>> {
+    struct GetType<INDEX, TupleLike<Instances...>> {
         using type = TypeAt_t<INDEX, TypeList<Instances...>>;
     };
 
     template <int INDEX, typename... Instances>
-    struct tuple_element<INDEX, OperationTuple_<void, Instances...>> {
+    struct GetType<INDEX, OperationTuple_<void, Instances...>> {
         using type = TypeAt_t<INDEX, TypeList<Instances...>>;
     };
 
     template <int INDEX, typename TupleLike>
-    using tuple_element_t = typename tuple_element<INDEX, TupleLike>::type;
+    using get_type_t = typename GetType<INDEX, TupleLike>::type;
 
 } // namespace fk
 
