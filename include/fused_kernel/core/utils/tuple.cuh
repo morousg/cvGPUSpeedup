@@ -229,5 +229,33 @@ namespace fk {
     template <int INDEX, typename TupleLike>
     using get_type_t = typename GetType<INDEX, TupleLike>::type;
 
+    template <typename Operation, typename Param>
+    FK_HOST_DEVICE_CNST OperationTuple<Operation> make_operation_tuple(const Param& param) {
+        static_assert(hasParams<Operation>, "Operation expected to have parameters");
+        static_assert(std::is_same_v<typename Operation::ParamsType, Param>, "Operation ParamsType does not coincide with the parameter type, in make_operation_tuple");
+        return { param };
+    }
+
+    template <typename FirstOperation, typename... Operations>
+    FK_HOST_DEVICE_CNST OperationTuple<FirstOperation, Operations...> make_operation_tuple() {
+        static_assert(!hasParams<FirstOperation>, "FirstOperation has parameters and it should not have.");
+        if constexpr (sizeof...(Operations) > 0) {
+            return { make_operation_tuple<Operations...>() };
+        } else {
+            return {};
+        }
+    }
+
+    template <typename FirstOperation, typename... Operations, typename Param, typename... Params>
+    FK_HOST_DEVICE_CNST OperationTuple<FirstOperation, Operations...> make_operation_tuple(const Param& param, const Params&... params) {
+        if constexpr (hasParams<FirstOperation>) {
+            using OpParamsType = typename FirstOperation::ParamsType;
+            static_assert(std::is_same_v<OpParamsType, Param>, "FirstOperation ParamsType does not coincide with the first parameter type, in make_operation_tuple");
+            return { param, make_operation_tuple<Operations...>(params...) };
+        } else {
+            static_assert(!hasParams<FirstOperation>, "FirstOperation has parameters and it should not have.");
+            return { make_operation_tuple<Operations...>(param, params...) };
+        }
+    }
 } // namespace fk
 

@@ -16,6 +16,7 @@
 
 #include <vector_types.h>
 #include <fused_kernel/core/execution_model/operations.cuh>
+#include <utility>
 
 namespace fk { // namespace FusedKernel
 
@@ -81,31 +82,9 @@ namespace fk { // namespace FusedKernel
         constexpr BinaryDeviceFunction_() {}
 
         template <typename... ParamTypes>
-        constexpr BinaryDeviceFunction_(const ParamTypes&... provided_params) {
-            setParams<0>(provided_params...);
-        }
+        constexpr BinaryDeviceFunction_(const ParamTypes&... provided_params) : params(make_operation_tuple<Operations...>(provided_params...)) {}
 
         typename Operation::ParamsType params;
-
-    private:
-        template <int OpIDX, typename ParamType, typename... ParamTypes>
-        void setParams(const ParamType& param, const ParamTypes&... remaining_params) {
-            using OperationTypes = TypeList<Operations...>;
-
-            using CurrentOperationType = TypeAt_t<OpIDX, OperationTypes>;
-            using CurrentInstanceType = typename CurrentOperationType::InstanceType;
-
-            if constexpr (std::is_same_v<CurrentInstanceType, BinaryType>) {
-                using CurrentParamType = typename CurrentOperationType::ParamsType;
-                static_assert(std::is_same_v<ParamType, CurrentParamType>, "Wrong parameter type for BinaryDeviceFunction constructor.");
-                get_params<OpIDX>(params) = param;
-                if constexpr (sizeof...(remaining_params) >= 1) {
-                    setParams<OpIDX + 1>(remaining_params...);
-                }
-            } else {
-                setParams<OpIDX + 1>(param, remaining_params...);
-            }
-        }
     };
 
     template <typename... Operations>
@@ -214,5 +193,35 @@ namespace fk { // namespace FusedKernel
     using MidWrite = MidWriteDeviceFunction<Operation>;
     template <typename Operation>
     using Write = WriteDeviceFunction<Operation>;
+
+    struct HasParams {
+        template <typename Type>
+        FK_HOST_DEVICE_FUSE bool complies() {
+            return hasParams<Type>;
+        }
+    };
+
+    template <size_t... Idx, typename... DeviceFunctions>
+    FK_HOST_DEVICE_CNST auto fuseDF_helper(const std::index_sequence<Idx...>& idxSeq, const DeviceFunctions&... deviceFunctions) {
+        if constexpr (FirstType_t<DeviceFunctions...>::template is<ReadType> ||
+            FirstType_t<DeviceFunctions...>::template is<ReadBackType>) {
+            const auto firstDF{ ppFirst(deviceFunctions...) };
+            const dim3 activeThreads{ firstDF.activeThreads };
+            return Read<OperationTupleOperation<typename DeviceFunctions::Operation...>> {
+                make_operation_tuple<typename DeviceFunctions::Operation...>((ppGet<Idx>(deviceFunctions...).params)...),
+                    activeThreads
+            };
+        } else {
+            return Binary<OperationTupleOperation<typename DeviceFunctions::Operation...>> {
+                make_operation_tuple<typename DeviceFunctions::Operation...>((ppGet<Idx>(deviceFunctions...).params)...)
+            };
+        }
+    }
+
+    template <typename... DeviceFunctions>
+    FK_HOST_DEVICE_CNST auto fuseDF(const DeviceFunctions&... deviceFunctions) {
+        using FilteredIdx = filtered_index_sequence_t<HasParams, TypeList<typename DeviceFunctions::Operation...>>;
+        return fuseDF_helper(FilteredIdx{}, deviceFunctions...);
+    }
 
 } // namespace fk

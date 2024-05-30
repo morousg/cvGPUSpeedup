@@ -87,7 +87,12 @@ int launch() {
     fk::Unary<fk::SaturateCast<uchar, uint>> cast = {};
     fk::Write<fk::PerThreadWrite<fk::_2D, uint>> write { output };
 
-    fk::cuda_transform<<<dim3(1,8),dim3(64,8),0,stream>>>(read, cast, write);
+    auto fusedDF = fk::fuseDF(read, cast, fk::Binary<fk::Mul<uint>>{4});
+    fusedDF.params.params;
+    //fusedDF.params.next.params; // Should not compile
+    fusedDF.params.next.next.params;
+
+    fk::cuda_transform<<<dim3(1,8),dim3(64,8),0,stream>>>(fusedDF, write);
 
     fk::OperationTuple<fk::PerThreadRead<fk::_2D, uchar>, fk::SaturateCast<uchar, uint>, fk::PerThreadWrite<fk::_2D, uint>> myTup{};
 
