@@ -139,6 +139,9 @@ namespace fk {
     template <typename Operation>
     constexpr bool hasParams = one_of_v<typename Operation::InstanceType, TypeList<ReadType, BinaryType, WriteType, MidWriteType>>;
 
+    template <typename Operation>
+    constexpr bool hasParamsAndBackFunction = one_of_v<typename Operation::InstanceType, TypeList<ReadBackType, TernaryType>>;
+
     template <typename Enabler, typename... Operations>
     struct OperationTuple_;
 
@@ -150,10 +153,27 @@ namespace fk {
         enum { size = sizeof...(Operations) + 1 };
     };
 
+    template <typename Operation_t, typename... Operations>
+    struct OperationTuple_<std::enable_if_t<hasParamsAndBackFunction<Operation_t>, void>, Operation_t, Operations...> {
+        using Operation = Operation_t;
+        typename Operation::ParamsType params;
+        typename Operation::BackFunction back_function;
+        OperationTuple_<void, Operations...> next;
+        enum { size = sizeof...(Operations) + 1 };
+    };
+
     template <typename Operation_t>
     struct OperationTuple_<std::enable_if_t<hasParams<Operation_t>, void>, Operation_t> {
         using Operation = Operation_t;
         typename Operation::ParamsType params;
+        enum { size = 1 };
+    };
+
+    template <typename Operation_t>
+    struct OperationTuple_<std::enable_if_t<hasParamsAndBackFunction<Operation_t>, void>, Operation_t> {
+        using Operation = Operation_t;
+        typename Operation::ParamsType params;
+        typename Operation::BackFunction back_function;
         enum { size = 1 };
     };
 
@@ -247,15 +267,43 @@ namespace fk {
     }
 
     template <typename FirstOperation, typename... Operations, typename Param, typename... Params>
-    FK_HOST_DEVICE_CNST OperationTuple<FirstOperation, Operations...> make_operation_tuple(const Param& param, const Params&... params) {
-        if constexpr (hasParams<FirstOperation>) {
-            using OpParamsType = typename FirstOperation::ParamsType;
-            static_assert(std::is_same_v<OpParamsType, Param>, "FirstOperation ParamsType does not coincide with the first parameter type, in make_operation_tuple");
-            return { param, make_operation_tuple<Operations...>(params...) };
-        } else {
-            static_assert(!hasParams<FirstOperation>, "FirstOperation has parameters and it should not have.");
-            return { make_operation_tuple<Operations...>(param, params...) };
+    FK_HOST_DEVICE_CNST std::enable_if_t<hasParams<FirstOperation>, OperationTuple<FirstOperation, Operations...>>
+        make_operation_tuple(const Param& param, const Params&... params) {
+        using OpParamsType = typename FirstOperation::ParamsType;
+        static_assert(std::is_same_v<OpParamsType, Param>, "FirstOperation ParamsType does not coincide with the first parameter type, in make_operation_tuple");
+        return { param, make_operation_tuple<Operations...>(params...) };
+    }
+
+    template <typename FirstOperation, typename... Operations, typename Param, typename... Params>
+    FK_HOST_DEVICE_CNST std::enable_if_t<!hasParams<FirstOperation>, OperationTuple<FirstOperation, Operations...>>
+        make_operation_tuple(const Param& param, const Params&... params) {
+        return { make_operation_tuple<Operations...>(param, params...) };
+    }
+
+    template <typename Type, typename = void>
+    struct HasOperation : std::false_type {};
+
+    template <typename Type>
+    struct HasOperation<Type, std::void_t<typename Type::Operation>> : std::true_type {};
+
+    struct IsDeviceFunction {
+        template <typename Type>
+        FK_HOST_DEVICE_FUSE bool complies() {
+            return HasOperation<Type>::value;
         }
+    };
+
+    template <typename FirstOperation, typename... Operations, typename Param, typename BackFunction, typename... Params>
+    FK_HOST_DEVICE_CNST std::enable_if_t<hasParamsAndBackFunction<FirstOperation>,OperationTuple<FirstOperation, Operations...>> 
+        make_operation_tuple(const Param& param, const BackFunction& back_function, const Params&... params) {
+        static_assert(IsDeviceFunction::complies<BackFunction>(), "Expected a Device Funtion");
+        return { param, back_function, make_operation_tuple<Operations...>(params...) };
+    }
+
+    template <typename Operation, typename Param, typename BackFunction>
+    FK_HOST_DEVICE_CNST std::enable_if_t<hasParamsAndBackFunction<Operation>, OperationTuple<Operation>>
+        make_operation_tuple(const Param& param, const BackFunction& back_function) {
+        static_assert(IsDeviceFunction::complies<BackFunction>(), "Expected a Device Funtion");
+        return { param, back_function };
     }
 } // namespace fk
-

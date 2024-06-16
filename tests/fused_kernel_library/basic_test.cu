@@ -46,8 +46,8 @@ bool testPtr_2D() {
 
     dim3 gridActiveThreadsCrop(cropedInput.dims().width, cropedInput.dims().height);
     dim3 gridActiveThreads(input.dims().width, input.dims().height);
-    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readCrop{cropedInput, gridActiveThreadsCrop};
-    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readFull{input, gridActiveThreads};
+    fk::SourceReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readCrop{cropedInput, gridActiveThreadsCrop};
+    fk::SourceReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readFull{input, gridActiveThreads};
 
     fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2D = { output };
     fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2DBig = { outputBig };
@@ -83,7 +83,7 @@ int launch() {
     fk::Ptr2D<uint> output(64,64);
     
     dim3 gridActiveThreads(64, 64);
-    fk::Read<fk::PerThreadRead<fk::_2D, uchar>> read{ input, gridActiveThreads };
+    fk::SourceRead<fk::PerThreadRead<fk::_2D, uchar>> read{ input, gridActiveThreads };
     fk::Unary<fk::SaturateCast<uchar, uint>> cast = {};
     fk::Write<fk::PerThreadWrite<fk::_2D, uint>> write { output };
 

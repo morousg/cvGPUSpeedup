@@ -278,7 +278,7 @@ public:
 
     template <typename... DeviceFunctionTypes>
     inline constexpr void update(const cv::cuda::Stream& stream, const cv::cuda::GpuMat& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
-        const fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, CUDA_T(I)>> readDeviceFunction{
+        const fk::SourceRead<fk::PerThreadRead<fk::_2D, CUDA_T(I)>> readDeviceFunction{
             { (CUDA_T(I)*)input.data, { static_cast<uint>(input.cols), static_cast<uint>(input.rows), static_cast<uint>(input.step) } },
             { static_cast<uint>(input.cols), static_cast<uint>(input.rows), 1 }
         };

@@ -275,8 +275,27 @@ namespace fk {
         }
     };
 
+    template <typename Operation, int NPtr, typename Enabler=void>
+    struct BatchRead {};
+
     template <typename Operation, int NPtr>
-    struct BatchRead {
+    struct BatchRead<Operation, NPtr, std::enable_if_t<isReadBackType<Operation>>> {
+        using InstanceType = ReadBackType;
+        using ParamsType = typename Operation::ParamsType[NPtr];
+        using BackFunction = typename Operation::BackFunction[NPtr];
+        using OutputType = typename Operation::OutputType;
+        static constexpr bool THREAD_FUSION{ false };
+        using ReadDataType = typename Operation::ReadDataType;
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_DEVICE_FUSE const auto exec(const Point& thread, const typename Operation::ParamsType(&params)[NPtr],
+            const typename Operation::BackFunction(&back_function)[NPtr]) {
+            return Operation::exec(thread, params[thread.z], back_function[thread.z]);
+        }
+    };
+
+    template <typename Operation, int NPtr>
+    struct BatchRead<Operation, NPtr, std::enable_if_t<isReadType<Operation>>> {
         using InstanceType = ReadType;
         using ParamsType = typename Operation::ParamsType[NPtr];
         using OutputType = typename Operation::OutputType;
@@ -322,6 +341,47 @@ namespace fk {
             return Operation::pitch(thread, ptr[thread.z]);
         }
     };
+
+    // BatchRead DeviceFunction builders
+    template <typename Operation, int BATCH, int... Idx>
+    constexpr inline std::enable_if_t<isReadBackType<Operation>, SourceReadBack<BatchRead<Operation, BATCH>>> buildBatchReadDF_helper(
+        const std::array<typename Operation::ParamsType, BATCH>& params,
+        const std::array<typename Operation::BackFunction, BATCH>& back_functions,
+        const Size& output_planes,
+        const std::integer_sequence<int, Idx...>&) {
+
+        return { {params[Idx]...}, {back_functions[Idx]...},
+            {static_cast<uint>(output_planes.width), static_cast<uint>(output_planes.height), static_cast<uint>(BATCH)} };
+    }
+
+    template <typename Operation, int BATCH, int... Idx>
+    constexpr inline std::enable_if_t<isReadType<Operation>, SourceRead<BatchRead<Operation, BATCH>>> buildBatchReadDF_helper(
+        const std::array<typename Operation::ParamsType, BATCH>& params,
+        const Size& output_planes,
+        const std::integer_sequence<int, Idx...>&) {
+
+        return { {params[Idx]...},
+            {static_cast<uint>(output_planes.width), static_cast<uint>(output_planes.height), static_cast<uint>(BATCH)} };
+    }
+
+    template <typename Operation, int BATCH>
+    constexpr inline std::enable_if_t<isReadBackType<Operation>, SourceReadBack<BatchRead<Operation, BATCH>>>
+        buildBatchReadDF(const std::array<typename Operation::ParamsType, BATCH>& params,
+            const std::array<typename Operation::BackFunction, BATCH>& back_functions,
+            const Size& output_planes) {
+
+        return buildBatchReadDF_helper<Operation, BATCH>(params, back_functions, output_planes,
+            std::make_integer_sequence<int, BATCH>{});
+    }
+
+    template <typename Operation, int BATCH>
+    constexpr inline std::enable_if_t<isReadType<Operation>, SourceRead<BatchRead<Operation, BATCH>>>
+        buildBatchReadDF(const std::array<typename Operation::ParamsType, BATCH>& params,
+            const Size& output_planes) {
+
+        return buildBatchReadDF_helper<Operation, BATCH>(params, output_planes,
+            std::make_integer_sequence<int, BATCH>{});
+    }
 
     /* The following code has the following copy right
 
@@ -461,40 +521,34 @@ namespace fk {
 
     enum ROI { OFFSET_THREADS, KEEP_THREAD_IDX };
 
-    template <typename Operation>
+    template <typename T>
     struct ApplyROIParams {
         int x1, y1; // Top left
         int x2, y2; // Bottom right
-        typename Operation::OutputType defaultValue{};
-        typename Operation::ParamsType params;
+        T defaultValue;
     };
 
-    template <typename Operation, ROI USE>
+    template <typename BackFunction_, ROI USE>
     struct ApplyROI {
-        static_assert(Operation::THREAD_FUSION == false, "AppyROI is not compatible with Read Operations that have THREAD_FUSION enabled.");
-        using ParamsType = ApplyROIParams<Operation>;
-        using InstanceType = ReadType;
+        using BackFunction = BackFunction_;
+        using OutputType = GetOutputType_t<BackFunction>;
+        using ParamsType = ApplyROIParams<OutputType>;
+        using ReadDataType = OutputType;
+        using InstanceType = ReadBackType;
         static constexpr bool THREAD_FUSION{ false };
-        using OutputType = typename Operation::OutputType;
-        using ReadDataType = typename Operation::ReadDataType;
 
-        static __device__ __forceinline__ const OutputType exec(const Point& thread, const ParamsType& params) {
+        static const __device__ __forceinline__ OutputType exec(const Point& thread, const ParamsType& params, const BackFunction& back_function) {
             if (thread.x >= params.x1 && thread.x <= params.x2 && thread.y >= params.y1 && thread.y <= params.y2) {
                 if constexpr (USE == OFFSET_THREADS) {
                     const Point roiThread(thread.x - params.x1, thread.y - params.y1, thread.z);
-                    return Operation::exec(roiThread, params.params);
+                    return read(roiThread, back_function);
                 } else {
-                    return Operation::exec(thread, params.params);
+                    return read(thread, back_function);
                 }
             } else {
                 return params.defaultValue;
             }
         }
-        FK_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
-            return Operation::num_elems_x(thread, ptr.params);
-        }
-        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
-            return Operation::pitch(thread, ptr.params);
-        }
     };
+
 } //namespace fk

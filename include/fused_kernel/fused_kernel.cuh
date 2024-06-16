@@ -35,13 +35,7 @@ namespace fk {
 
         const dim3 activeThreads{ (uint)ceil(readDF.activeThreads.x / (float)elems_per_thread), readDF.activeThreads.y, readDF.activeThreads.z };
 
-        ReadDeviceFunction readDeviceFunction;
-        using ParsType = typename ReadDeviceFunction::Operation::ParamsType;
-        if constexpr (std::is_array_v<ParsType>) {
-            std::copy(std::begin(readDF.params), std::end(readDF.params), std::begin(readDeviceFunction.params));
-        } else {
-            readDeviceFunction.params = readDF.params;
-        }
+        ReadDeviceFunction readDeviceFunction = readDF;
         readDeviceFunction.activeThreads = activeThreads;
 
         if (elems_per_thread > 1) {
@@ -60,7 +54,7 @@ namespace fk {
 
     template <bool THREAD_FUSION, typename I, typename... DeviceFunctionTypes>
     inline constexpr void executeOperations(const Ptr2D<I>& input, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
-        using ReadDeviceFunction = Read<PerThreadRead<_2D, I>>;
+        using ReadDeviceFunction = SourceRead<PerThreadRead<_2D, I>>;
         ReadDeviceFunction readDeviceFunction{ input };
         constexpr bool THREAD_FUSION_ENABLED = isThreadFusionEnabled<THREAD_FUSION, ReadDeviceFunction, DeviceFunctionTypes...>();
         const uint elems_per_thread = computeElementsPerThread<THREAD_FUSION_ENABLED>(readDeviceFunction, deviceFunctions...);
@@ -92,7 +86,7 @@ namespace fk {
 
     template <bool THREAD_FUSION, typename I, typename O, typename... DeviceFunctionTypes>
     inline constexpr void executeOperations(const Ptr2D<I>& input, const Ptr2D<O>& output, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
-        using ReadDeviceFunction = ReadDeviceFunction<PerThreadRead<_2D, I>>;
+        using ReadDeviceFunction = SourceReadDeviceFunction<PerThreadRead<_2D, I>>;
         ReadDeviceFunction firstOp{ input };
         using WriteDeviceFunction = WriteDeviceFunction<PerThreadWrite<_2D, O>>;
         const WriteDeviceFunction opFinal{ output };
@@ -124,7 +118,7 @@ namespace fk {
     template <bool THREAD_FUSION, typename I, int Batch, typename... DeviceFunctionTypes>
     inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
         const Ptr2D<I>& firstInput = input[0];
-        using ReadDeviceFunction = Read<BatchRead<PerThreadRead<_2D, I>, Batch>>;
+        using ReadDeviceFunction = SourceRead<BatchRead<PerThreadRead<_2D, I>, Batch>>;
         ReadDeviceFunction firstOp;
         for (int plane = 0; plane < activeBatch; plane++) {
             firstOp.params[plane] = input[plane];
@@ -162,8 +156,8 @@ namespace fk {
     inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const Tensor<O>& output, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
         const Ptr2D<I>& firstInput = input[0];
         
-        using ReadDeviceFunction = ReadDeviceFunction<BatchRead<PerThreadRead<_2D, I>, Batch>>;
-        ReadDeviceFunction firstOp;
+        using ReadDF = SourceRead<BatchRead<PerThreadRead<_2D, I>, Batch>>;
+        ReadDF firstOp;
         for (int plane = 0; plane < activeBatch; plane++) {
             firstOp.params[plane] = input[plane];
         }

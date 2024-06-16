@@ -20,50 +20,126 @@
 
 namespace fk { // namespace FusedKernel
 
-#define DEVICE_FUNCTION_DETAILS(instance_type) \
-    using Operation = Operation_t; \
-    using InstanceType = instance_type; \
+#define IS \
     template <typename IT> \
     static constexpr bool is{ std::is_same_v<IT, InstanceType> };
 
+#define ASSERT(instance_type) \
+    static_assert(std::is_same_v<typename Operation::InstanceType, instance_type>, "Operation is not " #instance_type );
+
+#define DEVICE_FUNCTION_DETAILS(instance_type) \
+    using Operation = Operation_t; \
+    using InstanceType = instance_type;
+
+#define DEVICE_FUNCTION_DETAILS_IS(instance_type) \
+    using Operation = Operation_t; \
+    using InstanceType = instance_type; \
+    IS
+
+#define IS_ASSERT(instance_type) \
+    IS \
+    ASSERT(instance_type)
+
+#define DEVICE_FUNCTION_DETAILS_IS_ASSERT(instance_type) \
+    DEVICE_FUNCTION_DETAILS(instance_type) \
+    IS_ASSERT(instance_type)
+
+    template <typename Operation_t>
+    struct ReadDeviceFunction {
+        DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadType)
+
+        typename Operation::ParamsType params;
+
+        ReadDeviceFunction<Operation_t>& operator=(const ReadDeviceFunction<Operation_t>& other) {
+            if (this != &other) {
+                if constexpr (std::is_array_v<typename Operation::ParamsType>) {
+                    std::copy(std::begin(other.params), std::end(other.params), std::begin(params));
+                } else {
+                    params = other.params;
+                }
+                params = other.params;
+            }
+            return *this;
+        }
+    };
+
     /**
-    * @brief ReadDeviceFunction: represents a DeviceFunction that reads data from global memory and returns it in registers.
+    * @brief SourceReadDeviceFunction: represents a DeviceFunction that reads data from global memory and returns it in registers.
     * It uses the thread indexes, and an additional parameter which should contain the pointer or pointers from where to read.
     * Expects Operation_t to have an static __device__ function member with the following parameters:
     * OutputType exec(const Point& thread, const ParamsType& params).
     * It can only be the first DeviceFunction in a sequence of DeviceFunctions.
     */
     template <typename Operation_t>
-    struct ReadDeviceFunction {
-        using Operation = Operation_t;
-        static_assert(std::is_same_v<typename Operation::InstanceType, ReadType>, "Operation is not Read.");
-        using InstanceType = ReadType;
-        template <typename IT>
-        static constexpr bool is{ std::is_same_v<IT, InstanceType> };
+    struct SourceReadDeviceFunction {
+        DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadType)
 
         typename Operation::ParamsType params;
         dim3 activeThreads;
+
+        SourceReadDeviceFunction<Operation_t>& operator=(const SourceReadDeviceFunction<Operation_t>& other) {
+            if (this != &other) {
+                if constexpr (std::is_array_v<typename Operation::ParamsType>) {
+                    std::copy(std::begin(other.params), std::end(other.params), std::begin(params));
+                } else {
+                    params = other.params;
+                }
+                activeThreads = other.activeThreads;
+            }
+            return *this;
+        }
+    };
+
+    template <typename Operation_t>
+    struct ReadBackDeviceFunction {
+        DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadBackType)
+
+        typename Operation::ParamsType params;
+        typename Operation::BackFunction back_function;
+
+        ReadBackDeviceFunction<Operation_t>& operator=(const ReadBackDeviceFunction<Operation_t>& other) {
+            if (this != &other) {
+                if constexpr (std::is_array_v<typename Operation::ParamsType>) {
+                    std::copy(std::begin(other.params), std::end(other.params), std::begin(params));
+                    std::copy(std::begin(other.back_function), std::end(other.back_function), std::begin(back_function));
+                } else {
+                    params = other.params;
+                    back_function = other.back_function;
+                }
+            }
+            return *this;
+        }
     };
 
     /**
-    * @brief ReadBackDeviceFunction: represents a DeviceFunction that reads data from global memory and returns it in registers.
+    * @brief SourceReadBackDeviceFunction: represents a DeviceFunction that reads data from global memory and returns it in registers.
     * Additionally, it gets a DeviceFunction that it will use at some point of it's Operation implementation.
     * Usually, it will be another Read or ReadBack DeviceFunction.
     * Expects Operation_t to have an static __device__ function member with the following parameters:
     * OutputType exec(const Point& thread, const ParamsType& params, const BackFunction& back_function)
     * It can only be the first DeviceFunction in a sequence of DeviceFunctions.
     */
-    template <typename Operation_t, typename BackFunction>
-    struct ReadBackDeviceFunction {
-        using Operation = Operation_t;
-        static_assert(std::is_same_v<typename Operation::InstanceType, ReadBackType>, "Operation is not ReadBack.");
-        using InstanceType = ReadBackType;
-        template <typename IT>
-        static constexpr bool is{ std::is_same_v<IT, InstanceType> };
+    template <typename Operation_t>
+    struct SourceReadBackDeviceFunction {
+        DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadBackType)
 
         typename Operation::ParamsType params;
-        BackFunction back_function;
+        typename Operation::BackFunction back_function;
         dim3 activeThreads;
+
+        SourceReadBackDeviceFunction<Operation_t>& operator=(const SourceReadBackDeviceFunction<Operation_t>& other) {
+            if (this != &other) {
+                if constexpr (std::is_array_v<typename Operation::ParamsType>) {
+                    std::copy(std::begin(other.params), std::end(other.params), std::begin(params));
+                    std::copy(std::begin(other.back_function), std::end(other.back_function), std::begin(back_function));
+                } else {
+                    params = other.params;
+                    back_function = other.back_function;
+                }
+                activeThreads = other.activeThreads;
+            }
+            return *this;
+        }
     };
 
     /**
@@ -76,8 +152,7 @@ namespace fk { // namespace FusedKernel
     struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) > 1)>, Operations...> {
         using Operation = OperationTupleOperation<Operations...>;
         using InstanceType = BinaryType;
-        template <typename IT>
-        static constexpr bool is{ std::is_same_v<IT, InstanceType> };
+        IS
 
         constexpr BinaryDeviceFunction_() {}
 
@@ -91,8 +166,7 @@ namespace fk { // namespace FusedKernel
     struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) == 1)>, Operations...> {
         using Operation = FirstType_t<Operations...>;
         using InstanceType = BinaryType;
-        template <typename IT>
-        static constexpr bool is{ std::is_same_v<IT, InstanceType> };
+        IS
 
         typename Operation::ParamsType params;
     };
@@ -120,16 +194,12 @@ namespace fk { // namespace FusedKernel
     * Expects Operation_t to have an static __device__ function member with the following parameters:
     * OutputType exec(const InputType& input, const ParamsType& params, const BackFunction& back_function)
     */
-    template <typename Operation_t, typename BackFunction>
+    template <typename Operation_t>
     struct TernaryDeviceFunction {
-        using Operation = Operation_t;
-        static_assert(std::is_same_v<typename Operation::InstanceType, TernaryType>, "Operation is not Ternary.");
-        using InstanceType = TernaryType;
-        template <typename IT>
-        static constexpr bool is{ std::is_same_v<IT, InstanceType> };
+        DEVICE_FUNCTION_DETAILS_IS_ASSERT(TernaryType)
 
         typename Operation::ParamsType params;
-        BackFunction back_function;
+        typename Operation::BackFunction back_function;
     };
 
     /**
@@ -143,10 +213,8 @@ namespace fk { // namespace FusedKernel
     template <typename... Operations>
     struct UnaryDeviceFunction {
         using Operation = UnaryOperationSequence<Operations...>;
-        static_assert(std::is_same_v<typename Operation::InstanceType, UnaryType>, "Operation is not Unary.");
         using InstanceType = UnaryType;
-        template <typename IT>
-        static constexpr bool is{ std::is_same_v<IT, InstanceType> };
+        IS_ASSERT(UnaryType)
     };
 
     /**
@@ -157,10 +225,10 @@ namespace fk { // namespace FusedKernel
     */
     template <typename Operation_t>
     struct MidWriteDeviceFunction {
-        static_assert(std::is_same_v<typename Operation_t::InstanceType, WriteType>, "Operation is not Write.");
-        DEVICE_FUNCTION_DETAILS(MidWriteType)
+        DEVICE_FUNCTION_DETAILS_IS(MidWriteType)
+        ASSERT(WriteType)
 
-        typename Operation_t::ParamsType params;
+        typename Operation::ParamsType params;
     };
 
     /**
@@ -171,28 +239,40 @@ namespace fk { // namespace FusedKernel
     */
     template <typename Operation_t>
     struct WriteDeviceFunction {
-        static_assert(std::is_same_v<typename Operation_t::InstanceType, WriteType>, "Operation is not Write.");
-        DEVICE_FUNCTION_DETAILS(WriteType)
-
-        typename Operation_t::ParamsType params;
+        DEVICE_FUNCTION_DETAILS_IS_ASSERT(WriteType)
+        typename Operation::ParamsType params;
     };
 
 #undef DEVICE_FUNCTION_DETAILS
 
     template <typename Operation>
+    using SourceRead = SourceReadDeviceFunction<Operation>;
+    template <typename Operation>
+    using SourceReadBack = SourceReadBackDeviceFunction<Operation>;
+    template <typename... Operations>
+    template <typename Operation>
     using Read = ReadDeviceFunction<Operation>;
-    template <typename ReadDFToReadBack, typename Operation_t>
-    using ReadBack = ReadBackDeviceFunction<ReadDFToReadBack, Operation_t>;
+    template <typename Operation>
+    using ReadBack = ReadBackDeviceFunction<Operation>;
     template <typename... Operations>
     using Unary = UnaryDeviceFunction<Operations...>;
     template <typename... Operations>
     using Binary = BinaryDeviceFunction<Operations...>;
-    template <typename Operation, typename BackFunction>
-    using Ternary = TernaryDeviceFunction<Operation, BackFunction>;
+    template <typename Operation>
+    using Ternary = TernaryDeviceFunction<Operation>;
     template <typename Operation>
     using MidWrite = MidWriteDeviceFunction<Operation>;
     template <typename Operation>
     using Write = WriteDeviceFunction<Operation>;
+
+    template <template <typename> class Read_t, typename Operation_t>
+    auto make_source(const Read_t<Operation_t>& readDF, const dim3& activeThreads) {
+        if constexpr (Read_t<Operation_t>::template is<ReadBackType>) {
+            return SourceReadBack<Operation_t>{readDF.params, readDF.back_function, activeThreads};
+        } else {
+            return SourceRead<Operation_t>{readDF.params, activeThreads};
+        }
+    }
 
     struct HasParams {
         template <typename Type>
@@ -201,13 +281,44 @@ namespace fk { // namespace FusedKernel
         }
     };
 
+    template <typename Operation_t, size_t... Idx, typename... DeviceFunctions>
+    FK_HOST_DEVICE_CNST auto fuseDF_helper(const std::index_sequence<Idx...>& idxSeq, const SourceRead<Operation_t>& readDF, const DeviceFunctions&... deviceFunctions) {
+        const dim3 activeThreads{ readDF.activeThreads };
+        return SourceRead<OperationTupleOperation<Operation_t, typename DeviceFunctions::Operation...>> {
+            make_operation_tuple<Operation_t, typename DeviceFunctions::Operation...>((ppGet<Idx>(readDF, deviceFunctions...).params)...),
+                activeThreads
+        };
+    }
+
+    // TODO: implement fusion including back_functions
+    /*template <typename Operation_t, size_t... Idx, typename... DeviceFunctions>
+    FK_HOST_DEVICE_CNST auto fuseDF_helper(const std::index_sequence<Idx...>& idxSeq, const ReadBack<Operation_t>& readDF, const DeviceFunctions&... deviceFunctions) {
+        return Read<OperationTupleOperation<Operation_t, typename DeviceFunctions::Operation...>> {
+            make_operation_tuple<Operation_t, typename DeviceFunctions::Operation...>((ppGet<Idx>(readDF, deviceFunctions...).params)...)};
+    }
+
+    template <typename Operation_t, size_t... Idx, typename... DeviceFunctions>
+    FK_HOST_DEVICE_CNST auto fuseDF_helper(const std::index_sequence<Idx...>& idxSeq, const SourceReadBack<Operation_t>& readDF, const DeviceFunctions&... deviceFunctions) {
+        const dim3 activeThreads{ readDF.activeThreads };
+        return SourceRead<OperationTupleOperation<Operation_t, typename DeviceFunctions::Operation...>> {
+            make_operation_tuple<Operation_t, typename DeviceFunctions::Operation...>((ppGet<Idx>(readDF, deviceFunctions...).params)...),
+                activeThreads
+        };
+    }*/
+
+    template <typename Operation_t, size_t... Idx, typename... DeviceFunctions>
+    FK_HOST_DEVICE_CNST auto fuseDF_helper(const std::index_sequence<Idx...>& idxSeq, const Read<Operation_t>& readDF, const DeviceFunctions&... deviceFunctions) {
+        return Read<OperationTupleOperation<Operation_t, typename DeviceFunctions::Operation...>> {
+            make_operation_tuple<Operation_t, typename DeviceFunctions::Operation...>((ppGet<Idx>(readDF, deviceFunctions...).params)...)};
+    }
+
     template <size_t... Idx, typename... DeviceFunctions>
     FK_HOST_DEVICE_CNST auto fuseDF_helper(const std::index_sequence<Idx...>& idxSeq, const DeviceFunctions&... deviceFunctions) {
         if constexpr (FirstType_t<DeviceFunctions...>::template is<ReadType> ||
             FirstType_t<DeviceFunctions...>::template is<ReadBackType>) {
             const auto firstDF{ ppFirst(deviceFunctions...) };
             const dim3 activeThreads{ firstDF.activeThreads };
-            return Read<OperationTupleOperation<typename DeviceFunctions::Operation...>> {
+            return SourceRead<OperationTupleOperation<typename DeviceFunctions::Operation...>> {
                 make_operation_tuple<typename DeviceFunctions::Operation...>((ppGet<Idx>(deviceFunctions...).params)...),
                     activeThreads
             };
@@ -217,11 +328,91 @@ namespace fk { // namespace FusedKernel
             };
         }
     }
-
+    /** @brief fuseDF: function that creates either a Read or a Binary DeviceFunction, composed of an
+    * OpertationTupleOperation (OTO), where the operations are the ones found in the DeviceFunctions in the
+    * deviceFunctions parameter pack.
+    * This is a convenience function to simplify the implementation of ReadBack and Ternary DeviceFunctions
+    * and Operations.
+    */
     template <typename... DeviceFunctions>
     FK_HOST_DEVICE_CNST auto fuseDF(const DeviceFunctions&... deviceFunctions) {
         using FilteredIdx = filtered_index_sequence_t<HasParams, TypeList<typename DeviceFunctions::Operation...>>;
         return fuseDF_helper(FilteredIdx{}, deviceFunctions...);
     }
 
+    using InstanceTypes = TypeList<ReadType, ReadBackType, UnaryType, BinaryType, TernaryType, MidWriteType, WriteType>;
+
+    template <typename Enabler, typename... Operations>
+    struct DeviceFunctionType {};
+
+    template <typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 1 && isReadType<FirstType_t<Operations...>>>, Operations...> {
+        using type = Read<FirstType_t<Operations...>>;
+    };
+
+    template <typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 1 &&
+        isReadBackType<FirstType_t<Operations...>>>, Operations...> {
+        using type = ReadBack<FirstType_t<Operations...>>;
+    };
+
+    template <typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<allUnaryTypes<Operations...>>, Operations...> {
+        using type = Unary<Operations...>;
+    };
+
+    template <typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<!allUnaryTypes<Operations...> &&
+                              isComputeType<FirstType_t<Operations...>>>, Operations...> {
+        using type = Binary<Operations...>;
+    };
+
+    template <typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 1 &&
+        std::is_same_v<typename FirstType_t<Operations...>::InstanceType, TernaryType>>, Operations...> {
+        using type = Ternary<FirstType_t<Operations...>>;
+    };
+
+    template <typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 1 &&
+        std::is_same_v<typename FirstType_t<Operations...>::InstanceType, MidWriteType>>, Operations...> {
+        using type = MidWrite<FirstType_t<Operations...>>;
+    };
+
+    template <typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 1 &&
+        std::is_same_v<typename FirstType_t<Operations...>::InstanceType, WriteType>>, Operations...> {
+        using type = Write<FirstType_t<Operations...>>;
+    };
+
+    template <typename... Operations>
+    using DF_t = typename DeviceFunctionType<void, Operations...>::type;
+
+    template <typename Operation, int NPtr, size_t... Index>
+    constexpr inline std::array<DF_t<Operation>, NPtr> paramsArrayToDFArray_helper(
+        const std::array<typename Operation::ParamsType, NPtr>& paramsArr,
+        const std::index_sequence<Index...>&) {
+        return { (DF_t<Operation>{paramsArr[Index]})... };
+    }
+
+    template <typename Operation, int NPtr>
+    constexpr inline std::array<DF_t<Operation>, NPtr> paramsArrayToDFArray(
+        const std::array<typename Operation::ParamsType, NPtr>& paramsArr) {
+        return paramsArrayToDFArray_helper<Operation, NPtr>(paramsArr, std::make_index_sequence<NPtr>{});
+    }
+
+    template <typename Operation, int NPtr, size_t... Index>
+    constexpr inline std::array<DF_t<Operation>, NPtr> paramsArrayToDFArray_helper(
+        const std::array<typename Operation::ParamsType, NPtr>& paramsArr,
+        const std::array<typename Operation::BackFunction, NPtr>& backFunctions,
+        const std::index_sequence<Index...>&) {
+        return { (DF_t<Operation>{paramsArr[Index], backFunctions[Index]})...};
+    }
+
+    template <typename Operation, int NPtr>
+    constexpr inline std::array<DF_t<Operation>, NPtr> paramsArrayToDFArray(
+        const std::array<typename Operation::ParamsType, NPtr>& paramsArr,
+        const std::array<typename Operation::BackFunction, NPtr>& backFunctions) {
+        return paramsArrayToDFArray_helper<Operation, NPtr>(paramsArr, backFunctions, std::make_index_sequence<NPtr>{});
+    }
 } // namespace fk
