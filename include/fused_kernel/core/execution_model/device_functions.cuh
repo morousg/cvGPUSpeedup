@@ -48,6 +48,8 @@ namespace fk { // namespace FusedKernel
     struct ReadDeviceFunction {
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadType)
 
+        static constexpr bool isSource{false};
+
         typename Operation::ParamsType params;
 
         ReadDeviceFunction<Operation_t>& operator=(const ReadDeviceFunction<Operation_t>& other) {
@@ -74,6 +76,8 @@ namespace fk { // namespace FusedKernel
     struct SourceReadDeviceFunction {
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadType)
 
+        static constexpr bool isSource{ true };
+
         typename Operation::ParamsType params;
         dim3 activeThreads;
 
@@ -93,6 +97,8 @@ namespace fk { // namespace FusedKernel
     template <typename Operation_t>
     struct ReadBackDeviceFunction {
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadBackType)
+
+        static constexpr bool isSource{ false };
 
         typename Operation::ParamsType params;
         typename Operation::BackFunction back_function;
@@ -122,6 +128,8 @@ namespace fk { // namespace FusedKernel
     template <typename Operation_t>
     struct SourceReadBackDeviceFunction {
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadBackType)
+
+        static constexpr bool isSource{ true };
 
         typename Operation::ParamsType params;
         typename Operation::BackFunction back_function;
@@ -274,74 +282,6 @@ namespace fk { // namespace FusedKernel
         }
     }
 
-    struct HasParams {
-        template <typename Type>
-        FK_HOST_DEVICE_FUSE bool complies() {
-            return hasParams<Type>;
-        }
-    };
-
-    template <typename Operation_t, size_t... Idx, typename... DeviceFunctions>
-    FK_HOST_DEVICE_CNST auto fuseDF_helper(const std::index_sequence<Idx...>& idxSeq, const SourceRead<Operation_t>& readDF, const DeviceFunctions&... deviceFunctions) {
-        const dim3 activeThreads{ readDF.activeThreads };
-        return SourceRead<OperationTupleOperation<Operation_t, typename DeviceFunctions::Operation...>> {
-            make_operation_tuple<Operation_t, typename DeviceFunctions::Operation...>((ppGet<Idx>(readDF, deviceFunctions...).params)...),
-                activeThreads
-        };
-    }
-
-    // TODO: implement fusion including back_functions
-    /*template <typename Operation_t, size_t... Idx, typename... DeviceFunctions>
-    FK_HOST_DEVICE_CNST auto fuseDF_helper(const std::index_sequence<Idx...>& idxSeq, const ReadBack<Operation_t>& readDF, const DeviceFunctions&... deviceFunctions) {
-        return Read<OperationTupleOperation<Operation_t, typename DeviceFunctions::Operation...>> {
-            make_operation_tuple<Operation_t, typename DeviceFunctions::Operation...>((ppGet<Idx>(readDF, deviceFunctions...).params)...)};
-    }
-
-    template <typename Operation_t, size_t... Idx, typename... DeviceFunctions>
-    FK_HOST_DEVICE_CNST auto fuseDF_helper(const std::index_sequence<Idx...>& idxSeq, const SourceReadBack<Operation_t>& readDF, const DeviceFunctions&... deviceFunctions) {
-        const dim3 activeThreads{ readDF.activeThreads };
-        return SourceRead<OperationTupleOperation<Operation_t, typename DeviceFunctions::Operation...>> {
-            make_operation_tuple<Operation_t, typename DeviceFunctions::Operation...>((ppGet<Idx>(readDF, deviceFunctions...).params)...),
-                activeThreads
-        };
-    }*/
-
-    template <typename Operation_t, size_t... Idx, typename... DeviceFunctions>
-    FK_HOST_DEVICE_CNST auto fuseDF_helper(const std::index_sequence<Idx...>& idxSeq, const Read<Operation_t>& readDF, const DeviceFunctions&... deviceFunctions) {
-        return Read<OperationTupleOperation<Operation_t, typename DeviceFunctions::Operation...>> {
-            make_operation_tuple<Operation_t, typename DeviceFunctions::Operation...>((ppGet<Idx>(readDF, deviceFunctions...).params)...)};
-    }
-
-    template <size_t... Idx, typename... DeviceFunctions>
-    FK_HOST_DEVICE_CNST auto fuseDF_helper(const std::index_sequence<Idx...>& idxSeq, const DeviceFunctions&... deviceFunctions) {
-        if constexpr (FirstType_t<DeviceFunctions...>::template is<ReadType> ||
-            FirstType_t<DeviceFunctions...>::template is<ReadBackType>) {
-            const auto firstDF{ ppFirst(deviceFunctions...) };
-            const dim3 activeThreads{ firstDF.activeThreads };
-            return SourceRead<OperationTupleOperation<typename DeviceFunctions::Operation...>> {
-                make_operation_tuple<typename DeviceFunctions::Operation...>((ppGet<Idx>(deviceFunctions...).params)...),
-                    activeThreads
-            };
-        } else {
-            return Binary<OperationTupleOperation<typename DeviceFunctions::Operation...>> {
-                make_operation_tuple<typename DeviceFunctions::Operation...>((ppGet<Idx>(deviceFunctions...).params)...)
-            };
-        }
-    }
-    /** @brief fuseDF: function that creates either a Read or a Binary DeviceFunction, composed of an
-    * OpertationTupleOperation (OTO), where the operations are the ones found in the DeviceFunctions in the
-    * deviceFunctions parameter pack.
-    * This is a convenience function to simplify the implementation of ReadBack and Ternary DeviceFunctions
-    * and Operations.
-    */
-    template <typename... DeviceFunctions>
-    FK_HOST_DEVICE_CNST auto fuseDF(const DeviceFunctions&... deviceFunctions) {
-        using FilteredIdx = filtered_index_sequence_t<HasParams, TypeList<typename DeviceFunctions::Operation...>>;
-        return fuseDF_helper(FilteredIdx{}, deviceFunctions...);
-    }
-
-    using InstanceTypes = TypeList<ReadType, ReadBackType, UnaryType, BinaryType, TernaryType, MidWriteType, WriteType>;
-
     template <typename Enabler, typename... Operations>
     struct DeviceFunctionType {};
 
@@ -362,8 +302,8 @@ namespace fk { // namespace FusedKernel
     };
 
     template <typename... Operations>
-    struct DeviceFunctionType<std::enable_if_t<!allUnaryTypes<Operations...> &&
-                              isComputeType<FirstType_t<Operations...>>>, Operations...> {
+    struct DeviceFunctionType<std::enable_if_t<!allUnaryTypes<Operations...>&&
+        isComputeType<FirstType_t<Operations...>>>, Operations...> {
         using type = Binary<Operations...>;
     };
 
@@ -387,6 +327,25 @@ namespace fk { // namespace FusedKernel
 
     template <typename... Operations>
     using DF_t = typename DeviceFunctionType<void, Operations...>::type;
+
+    /** @brief fuseDF: function that creates either a Read or a Binary DeviceFunction, composed of an
+    * OpertationTupleOperation (OTO), where the operations are the ones found in the DeviceFunctions in the
+    * deviceFunctions parameter pack.
+    * This is a convenience function to simplify the implementation of ReadBack and Ternary DeviceFunctions
+    * and Operations.
+    */
+    template <typename... DeviceFunctions>
+    FK_HOST_DEVICE_CNST auto fuseDF(const DeviceFunctions&... deviceFunctions) {
+        using FirstDF = FirstType_t<DeviceFunctions...>;
+        if constexpr (isAnyReadType<FirstDF> && FirstDF::isSource) {
+            return make_source(DF_t<OperationTupleOperation<typename DeviceFunctions::Operation...>>
+                               { devicefunctions_to_operationtuple(deviceFunctions...) },
+                               ppFirst(deviceFunctions...).activeThreads);
+        } else {
+            return DF_t<OperationTupleOperation<typename DeviceFunctions::Operation...>>
+                    { devicefunctions_to_operationtuple(deviceFunctions...) };
+        }
+    }
 
     template <typename Operation, int NPtr, size_t... Index>
     constexpr inline std::array<DF_t<Operation>, NPtr> paramsArrayToDFArray_helper(

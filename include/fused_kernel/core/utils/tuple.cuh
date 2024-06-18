@@ -249,6 +249,31 @@ namespace fk {
     template <int INDEX, typename TupleLike>
     using get_type_t = typename GetType<INDEX, TupleLike>::type;
 
+    template <typename DeviceFunction>
+    FK_HOST_DEVICE_CNST auto devicefunctions_to_operationtuple(const DeviceFunction& df) {
+        using Op = typename DeviceFunction::Operation;
+        if constexpr (hasParamsAndBackFunction<Op>) {
+            return OperationTuple<Op>{ df.params, df.back_function };
+        } else if constexpr (hasParams<Op>) {
+            return OperationTuple<Op>{ df.params };
+        } else { // UnaryType case
+            return OperationTuple<Op>{};
+        }
+    }
+
+    template <typename DeviceFunction, typename... DeviceFunctions>
+    FK_HOST_DEVICE_CNST auto devicefunctions_to_operationtuple(const DeviceFunction& df, const DeviceFunctions&... dfs) {
+        using Op = typename DeviceFunction::Operation;
+        const OperationTuple<typename DeviceFunctions::Operation...> opTuple = devicefunctions_to_operationtuple(dfs...);
+        if constexpr (hasParamsAndBackFunction<Op>) {
+            return OperationTuple<Op, typename DeviceFunctions::Operation...>{ df.params, df.back_function, opTuple };
+        } else if constexpr (hasParams<Op>) {
+            return OperationTuple<Op, typename DeviceFunctions::Operation...>{ df.params, opTuple };
+        } else { // UnaryType case
+            return OperationTuple<Op, typename DeviceFunctions::Operation...>{ opTuple };
+        }
+    }
+
     template <typename Operation, typename Param>
     FK_HOST_DEVICE_CNST OperationTuple<Operation> make_operation_tuple(const Param& param) {
         static_assert(hasParams<Operation>, "Operation expected to have parameters");
