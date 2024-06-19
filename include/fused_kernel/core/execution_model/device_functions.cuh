@@ -274,7 +274,7 @@ namespace fk { // namespace FusedKernel
     using Write = WriteDeviceFunction<Operation>;
 
     template <template <typename> class Read_t, typename Operation_t>
-    auto make_source(const Read_t<Operation_t>& readDF, const dim3& activeThreads) {
+    constexpr auto make_source(const Read_t<Operation_t>& readDF, const dim3& activeThreads) {
         if constexpr (Read_t<Operation_t>::template is<ReadBackType>) {
             return SourceReadBack<Operation_t>{readDF.params, readDF.back_function, activeThreads};
         } else {
@@ -335,7 +335,7 @@ namespace fk { // namespace FusedKernel
     * and Operations.
     */
     template <typename... DeviceFunctions>
-    FK_HOST_DEVICE_CNST auto fuseDF(const DeviceFunctions&... deviceFunctions) {
+    FK_HOST_CNST auto fuseDF(const DeviceFunctions&... deviceFunctions) {
         using FirstDF = FirstType_t<DeviceFunctions...>;
         if constexpr (isAnyReadType<FirstDF> && FirstDF::isSource) {
             return make_source(DF_t<OperationTupleOperation<typename DeviceFunctions::Operation...>>
