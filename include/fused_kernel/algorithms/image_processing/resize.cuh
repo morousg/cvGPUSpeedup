@@ -70,8 +70,8 @@ namespace fk {
 
     enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
 
-    template <typename BackFunction, InterpolationType IType>
-    inline const auto resize(const typename BackFunction& input,
+    template <typename BackFunction, enum InterpolationType IType>
+    inline const auto resize(const BackFunction& input,
                              const Size& srcSize, const Size& dstSize) {
         if constexpr (IType == InterpolationType::INTER_LINEAR) {
             using ResizeDF = SourceReadBack<ResizeRead<BackFunction, IType>>;
@@ -185,7 +185,7 @@ namespace fk {
         }
     };
 
-    template <typename PixelReadOp, typename O, enum InterpolationType IType, int NPtr, enum AspectRatio AR>
+    template <typename PixelReadOp, typename O, enum InterpolationType IType, size_t NPtr, enum AspectRatio AR>
     inline const auto resize(const std::array<typename PixelReadOp::ParamsType, NPtr>& input,
                              const fk::Size& dsize, const int& usedPlanes,
                              const O& backgroundValue = fk::make_set<O>(0)) {
@@ -204,11 +204,11 @@ namespace fk {
             const auto roiParams = static_transform_get_first(roiAndResizeParams);
             const auto resizeParams = static_transform_get_second(roiAndResizeParams);
             const std::array<ResizeDF, NPtr> resizeDFs = paramsArrayToDFArray<ResizeReadOp>(resizeParams, pixelReadDFs);
-            return buildBatchReadDF<ApplyROYOp, NPtr>(roiParams, resizeDFs, dsize);
+            return buildBatchReadDF<ApplyROYOp>(roiParams, resizeDFs, dsize);
         } else {
             const std::array<ResizeReadParams<IType>, NPtr> resizeParams =
                 static_transform<GetResizeReadParams<typename PixelReadOp::ParamsType, IType>>(usedPlanes, input, dsize.width, dsize.height);
-            return buildBatchReadDF<ResizeReadOp, NPtr>(resizeParams, pixelReadDFs, dsize);
+            return buildBatchReadDF<ResizeReadOp>(resizeParams, pixelReadDFs, dsize);
         }
     }
 

@@ -343,7 +343,7 @@ namespace fk {
     };
 
     // BatchRead DeviceFunction builders
-    template <typename Operation, int BATCH, int... Idx>
+    template <typename Operation, size_t BATCH, int... Idx>
     constexpr inline std::enable_if_t<isReadBackType<Operation>, SourceReadBack<BatchRead<Operation, BATCH>>> buildBatchReadDF_helper(
         const std::array<typename Operation::ParamsType, BATCH>& params,
         const std::array<typename Operation::BackFunction, BATCH>& back_functions,
@@ -354,7 +354,7 @@ namespace fk {
             {static_cast<uint>(output_planes.width), static_cast<uint>(output_planes.height), static_cast<uint>(BATCH)} };
     }
 
-    template <typename Operation, int BATCH, int... Idx>
+    template <typename Operation, size_t BATCH, int... Idx>
     constexpr inline std::enable_if_t<isReadType<Operation>, SourceRead<BatchRead<Operation, BATCH>>> buildBatchReadDF_helper(
         const std::array<typename Operation::ParamsType, BATCH>& params,
         const Size& output_planes,
@@ -364,7 +364,7 @@ namespace fk {
             {static_cast<uint>(output_planes.width), static_cast<uint>(output_planes.height), static_cast<uint>(BATCH)} };
     }
 
-    template <typename Operation, int BATCH>
+    template <typename Operation, size_t BATCH>
     constexpr inline std::enable_if_t<isReadBackType<Operation>, SourceReadBack<BatchRead<Operation, BATCH>>>
         buildBatchReadDF(const std::array<typename Operation::ParamsType, BATCH>& params,
             const std::array<typename Operation::BackFunction, BATCH>& back_functions,
@@ -374,7 +374,7 @@ namespace fk {
             std::make_integer_sequence<int, BATCH>{});
     }
 
-    template <typename Operation, int BATCH>
+    template <typename Operation, size_t BATCH>
     constexpr inline std::enable_if_t<isReadType<Operation>, SourceRead<BatchRead<Operation, BATCH>>>
         buildBatchReadDF(const std::array<typename Operation::ParamsType, BATCH>& params,
             const Size& output_planes) {

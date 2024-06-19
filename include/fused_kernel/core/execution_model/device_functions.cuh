@@ -257,7 +257,6 @@ namespace fk { // namespace FusedKernel
     using SourceRead = SourceReadDeviceFunction<Operation>;
     template <typename Operation>
     using SourceReadBack = SourceReadBackDeviceFunction<Operation>;
-    template <typename... Operations>
     template <typename Operation>
     using Read = ReadDeviceFunction<Operation>;
     template <typename Operation>
@@ -348,20 +347,22 @@ namespace fk { // namespace FusedKernel
         }
     }
 
-    template <typename Operation, int NPtr, size_t... Index>
+    template <typename Operation, size_t NPtr, size_t... Index>
     constexpr inline std::array<DF_t<Operation>, NPtr> paramsArrayToDFArray_helper(
         const std::array<typename Operation::ParamsType, NPtr>& paramsArr,
-        const std::index_sequence<Index...>&) {
+        const std::index_sequence<Index...>&) 
+    {
         return { (DF_t<Operation>{paramsArr[Index]})... };
     }
 
-    template <typename Operation, int NPtr>
+    template <typename Operation, size_t NPtr>
     constexpr inline std::array<DF_t<Operation>, NPtr> paramsArrayToDFArray(
-        const std::array<typename Operation::ParamsType, NPtr>& paramsArr) {
-        return paramsArrayToDFArray_helper<Operation, NPtr>(paramsArr, std::make_index_sequence<NPtr>{});
+        const std::array<typename Operation::ParamsType, NPtr>& paramsArr) 
+    {
+        return paramsArrayToDFArray_helper<Operation>(paramsArr, std::make_index_sequence<NPtr>{});
     }
 
-    template <typename Operation, int NPtr, size_t... Index>
+    template <typename Operation, size_t NPtr, size_t... Index>
     constexpr inline std::array<DF_t<Operation>, NPtr> paramsArrayToDFArray_helper(
         const std::array<typename Operation::ParamsType, NPtr>& paramsArr,
         const std::array<typename Operation::BackFunction, NPtr>& backFunctions,
@@ -369,10 +370,10 @@ namespace fk { // namespace FusedKernel
         return { (DF_t<Operation>{paramsArr[Index], backFunctions[Index]})...};
     }
 
-    template <typename Operation, int NPtr>
+    template <typename Operation, size_t NPtr>
     constexpr inline std::array<DF_t<Operation>, NPtr> paramsArrayToDFArray(
         const std::array<typename Operation::ParamsType, NPtr>& paramsArr,
         const std::array<typename Operation::BackFunction, NPtr>& backFunctions) {
-        return paramsArrayToDFArray_helper<Operation, NPtr>(paramsArr, backFunctions, std::make_index_sequence<NPtr>{});
+        return paramsArrayToDFArray_helper<Operation>(paramsArr, backFunctions, std::make_index_sequence<NPtr>{});
     }
 } // namespace fk

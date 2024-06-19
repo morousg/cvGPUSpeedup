@@ -170,7 +170,7 @@ namespace fk { // namespace FusedKernel
     }
 
     template <bool THREAD_DIVISIBLE, bool THREAD_FUSION, typename... DeviceFunctionTypes>
-    __global__ void cuda_transform(const DeviceFunctionSequence<DeviceFunctionTypes...>& deviceFunctionInstances) {
+    __global__ void cuda_transform_sequence(const DeviceFunctionSequence<DeviceFunctionTypes...> deviceFunctionInstances) {
         fk::apply(TransformGridPattern<THREAD_DIVISIBLE, THREAD_FUSION>::template exec<DeviceFunctionTypes...>,
             deviceFunctionInstances.deviceFunctions);
     }
@@ -181,7 +181,7 @@ namespace fk { // namespace FusedKernel
     }
 
     template <typename... DeviceFunctionTypes>
-    __global__ void cuda_transform(const DeviceFunctionSequence<DeviceFunctionTypes...>& deviceFunctionInstances) {
+    __global__ void cuda_transform_sequence(const DeviceFunctionSequence<DeviceFunctionTypes...> deviceFunctionInstances) {
         fk::apply(TransformGridPattern<true, false>::template exec<DeviceFunctionTypes...>,
             deviceFunctionInstances.deviceFunctions);
     }
