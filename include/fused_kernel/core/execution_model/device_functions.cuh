@@ -273,12 +273,13 @@ namespace fk { // namespace FusedKernel
     template <typename Operation>
     using Write = WriteDeviceFunction<Operation>;
 
-    template <template <typename> class Read_t, typename Operation_t>
-    constexpr auto make_source(const Read_t<Operation_t>& readDF, const dim3& activeThreads) {
-        if constexpr (Read_t<Operation_t>::template is<ReadBackType>) {
-            return SourceReadBack<Operation_t>{readDF.params, readDF.back_function, activeThreads};
+    template <typename DeviceFunction>
+    FK_HOST_CNST auto make_source(const DeviceFunction& readDF, const dim3& activeThreads) {
+        using Op = typename DeviceFunction::Operation;
+        if constexpr (DeviceFunction::template is<ReadBackType>) {
+            return SourceReadBack<Op>{readDF.params, readDF.back_function, activeThreads};
         } else {
-            return SourceRead<Operation_t>{readDF.params, activeThreads};
+            return SourceRead<Op>{readDF.params, activeThreads};
         }
     }
 
