@@ -52,7 +52,7 @@ bool testCircularBatchRead() {
     output.allocTensor(WIDTH, HEIGHT, BATCH);
     h_output.allocTensor(WIDTH, HEIGHT, BATCH, 1, fk::MemType::HostPinned);
 
-    fk::ReadDeviceFunction<fk::CircularBatchRead<fk::CircularDirection::Ascendent, fk::PerThreadRead<fk::_2D, uchar3>, BATCH>> circularBatchRead;
+    fk::SourceReadDeviceFunction<fk::CircularBatchRead<fk::CircularDirection::Ascendent, fk::PerThreadRead<fk::_2D, uchar3>, BATCH>> circularBatchRead;
     circularBatchRead.activeThreads = {WIDTH, HEIGHT, BATCH};
     circularBatchRead.params.first = FIRST;
     for (int i = 0; i < BATCH; i++) {
@@ -84,6 +84,12 @@ bool testCircularBatchRead() {
 
     return correct;
 }
+
+struct OneToOne {
+    constexpr static __device__ __forceinline__ uint at(const uint& zIdx) {
+        return zIdx + 1;
+    }
+};
 
 bool testDivergentBatch() {
     constexpr uint WIDTH = 32;
@@ -137,16 +143,15 @@ bool testDivergentBatch() {
         }
     }
 
-    auto opSeq1 = fk::buildOperationSequence(fk::Read<fk::PerThreadRead<fk::_2D, uint>> { input[0], { WIDTH, HEIGHT, BATCH } },
+    auto opSeq1 = fk::buildOperationSequence(fk::SourceRead<fk::PerThreadRead<fk::_2D, uint>> { input[0], { WIDTH, HEIGHT, BATCH } },
                                              fk::Binary<fk::Add<uint>> {VAL_SUM},
                                              fk::Write<fk::PerThreadWrite<fk::_3D, uint>> { output.ptr() });
-    auto opSeq2 = fk::buildOperationSequence(fk::Read<fk::PerThreadRead<fk::_2D, uint>> { input[1], { WIDTH, HEIGHT, BATCH } },
+    auto opSeq2 = fk::buildOperationSequence(fk::SourceRead<fk::PerThreadRead<fk::_2D, uint>> { input[1], { WIDTH, HEIGHT, BATCH } },
                                              fk::Write<fk::PerThreadWrite<fk::_3D, uint>> { output.ptr() });
 
     dim3 block = inputAllocations[0].getBlockSize();
     dim3 grid{ (uint)ceil((float)WIDTH / (float)block.x), (uint)ceil((float)HEIGHT / (float)block.y), BATCH };
-    const fk::Array<int, BATCH> opSeqSelection{ {1, 2} };
-    fk::cuda_transform_divergent_batch<BATCH><<<grid, block, 0, stream>>>(opSeqSelection, opSeq1, opSeq2);
+    fk::cuda_transform_divergent_batch<OneToOne><<<grid, block, 0, stream>>>(opSeq1, opSeq2);
 
     gpuErrchk(cudaMemcpyAsync(h_output.ptr().data, output.ptr().data, output.sizeInBytes(), cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaStreamSynchronize(stream));
@@ -194,7 +199,7 @@ bool testCircularTensor() {
             h_input.ptr().dims.width * sizeof(IT),
             h_input.ptr().dims.height,
             cudaMemcpyHostToDevice, stream));
-        myTensor.update(stream, fk::Read<fk::PerThreadRead<fk::_2D, IT>> {input.ptr(), {WIDTH, HEIGHT, 1}},
+        myTensor.update(stream, fk::SourceRead<fk::PerThreadRead<fk::_2D, IT>> {input.ptr(), {WIDTH, HEIGHT, 1}},
             fk::Unary<fk::SaturateCast<IT, OT>> {},
             fk::Write<fk::TensorSplit<OT>> {myTensor.ptr()});
         gpuErrchk(cudaStreamSynchronize(stream));

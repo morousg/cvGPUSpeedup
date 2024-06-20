@@ -99,4 +99,4 @@ namespace fk {
     constexpr __device__ __host__ __forceinline__ VOneLess<I> discard_last(const I& input) {
         return Discard<I, VOneLess<I>>::exec(input);
     }
-}
+} // namespace fk

@@ -429,4 +429,5 @@ public:
         this->allocPtr(PtrDims<T3D>(width_, height_, planes_, color_planes_), type_, deviceID_);
     }
 };
-}
+
+} // namespace fk

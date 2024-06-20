@@ -28,7 +28,9 @@ namespace fk { // namespace fused kernel
      * This the base defintion of the struct. Contains no implementation
      */
     template <typename... Types>
-    struct TypeList {};
+    struct TypeList {
+        enum { size=sizeof...(Types) };
+    };
 
     /**
      * @struct TypeList<TypeList<Args1...>, TypeList<Args2...>, TypeList<Args3...>, TypeList<Args4...>>
@@ -147,6 +149,7 @@ namespace fk { // namespace fused kernel
 
     template <int n, typename Head, typename... Tail>
     struct TypeAt<n, TypeList<Head, Tail...>> {
+        static_assert(n < TypeList<Head, Tail...>::size, "Index out of range");
         using type = typename TypeAt<n - 1, TypeList<Tail...>>::type;
     };
 
@@ -218,4 +221,35 @@ namespace fk { // namespace fused kernel
 
     template <std::size_t Index, typename T, typename... Types>
     using InsertType_t = typename InsertType<Index, T, Types...>::type;
-}; // namespace fused kernel
+
+    template <typename Restriction, typename TypeList, bool last, size_t currentIdx, size_t... indexes>
+    struct RestrictedIndexSequenceBuilder {
+        using type = std::conditional_t <TypeList::size == currentIdx + 1,
+                                         std::conditional_t<Restriction::template complies<TypeAt_t<currentIdx, TypeList>>(),
+                                            std::index_sequence<indexes..., currentIdx>,
+                                            std::index_sequence<indexes...>>,
+                                         std::conditional_t<Restriction::template complies<TypeAt_t<currentIdx, TypeList>>(),
+                                            typename RestrictedIndexSequenceBuilder<Restriction, TypeList, currentIdx + 1 == TypeList::size, currentIdx + 1, indexes..., currentIdx>::type,
+                                            typename RestrictedIndexSequenceBuilder<Restriction, TypeList, currentIdx + 1 == TypeList::size, currentIdx + 1, indexes...>::type>>;
+    };
+
+    template <typename Restriction, typename TypeList, size_t currentIdx, size_t... indexes>
+    struct RestrictedIndexSequenceBuilder<Restriction, TypeList, true, currentIdx, indexes...> {
+        using type = void;
+    };
+
+    template <typename Restriction, typename TypeList>
+    struct RestrictedIndexSequenceBuilder<Restriction, TypeList, false, 0> {
+        using type = std::conditional_t<TypeList::size == 1,
+                                        std::conditional_t<Restriction::template complies<TypeAt_t<0, TypeList>>(),
+                                            std::index_sequence<0>,
+                                            std::index_sequence<>>,
+                                        std::conditional_t<Restriction::template complies<TypeAt_t<0, TypeList>>(),
+                                            typename RestrictedIndexSequenceBuilder<Restriction, TypeList, 1 == TypeList::size, 1, 0>::type,
+                                            typename RestrictedIndexSequenceBuilder<Restriction, TypeList, 1 == TypeList::size, 1>::type>>;
+    };
+
+    template <typename TypeRestriction, typename TypeList>
+    using filtered_index_sequence_t = typename RestrictedIndexSequenceBuilder<TypeRestriction, TypeList, false, 0>::type;
+
+} // namespace fk

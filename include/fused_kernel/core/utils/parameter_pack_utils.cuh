@@ -18,6 +18,8 @@
 #include <fused_kernel/core/utils/utils.h>
 #include <fused_kernel/core/utils/tuple.cuh>
 
+#include <array>
+
 namespace fk { // namespace fused kernel
 
     template <typename F, typename Tuple, size_t... I>
@@ -39,7 +41,7 @@ namespace fk { // namespace fused kernel
     // Struct to hold a parameter pack, and be able to pass it arround
     template <typename... DeviceFunctionTypes>
     struct DeviceFunctionSequence {
-        Tuple<const DeviceFunctionTypes...> deviceFunctions;
+        Tuple<DeviceFunctionTypes...> deviceFunctions;
     };
 
     // Function that fills the OperationSequence struct, from a parameter pack
@@ -88,4 +90,49 @@ namespace fk { // namespace fused kernel
     FK_HOST_DEVICE_CNST auto insert_before_last(const T& t, const Args&... args) {
         return tuple_insert<sizeof...(Args) - 1>(t, Tuple<Args...>{args...});
     }
-} // namespace fused kernel
+
+    template <typename TransformType, typename SourceType, size_t NElems, int... Idx, typename... ExtraParams>
+    constexpr inline std::array<typename TransformType::OutputType, NElems>
+        static_transform_helper( const int& usedPlanes,
+                                 const std::array<SourceType, NElems>& srcArray,
+                                 const std::integer_sequence<int, Idx...>&,
+                                 const ExtraParams&... extParams) {
+        return { (TransformType::template transform<Idx>(usedPlanes, srcArray[Idx], extParams...))... };
+    }
+
+    template <typename TransformType, typename SourceType, size_t NElems, typename... ExtraParams>
+    constexpr inline std::array<typename TransformType::OutputType, NElems>
+        static_transform(const int& usedPlanes, const std::array<SourceType, NElems>& srcArray, const ExtraParams&... extParams) {
+        return static_transform_helper<TransformType>(usedPlanes, srcArray, std::make_integer_sequence<int, NElems>{}, extParams...);
+    }
+
+    template <typename FirstType, typename SecondType>
+    struct GetFirst {
+        using OutputType = FirstType;
+        template <int Idx>
+        static constexpr inline FirstType transform(const int& usedPlanes, const std::pair<FirstType, SecondType>& a_pair) {
+            return a_pair.first;
+        }
+    };
+
+    template <typename FirstType, typename SecondType>
+    struct GetSecond {
+        using OutputType = SecondType;
+        template <int Idx>
+        static constexpr inline SecondType transform(const int& usedPlanes, const std::pair<FirstType, SecondType>& a_pair) {
+            return a_pair.second;
+        }
+    };
+
+    template <typename FT, typename ST, size_t NElems>
+    constexpr inline std::array<FT, NElems>
+        static_transform_get_first(const std::array<std::pair<FT, ST>, NElems>& srcArray) {
+        return static_transform_helper<GetFirst<FT,ST>>(NElems, srcArray, std::make_integer_sequence<int, NElems>{});
+    }
+
+    template <typename FT, typename ST, size_t NElems>
+    constexpr inline std::array<ST, NElems>
+        static_transform_get_second(const std::array<std::pair<FT, ST>, NElems>& srcArray) {
+        return static_transform_helper<GetSecond<FT, ST>>(NElems, srcArray, std::make_integer_sequence<int, NElems>{});
+    }
+} // namespace fk

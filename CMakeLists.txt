@@ -7,10 +7,6 @@ set (PROJECT_VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT
 include (cmake/cmake_init.cmake)
 include (cmake/doxygen.cmake)
 include (cmake/targets/virtualfolders.cmake)
-if (${CMAKE_VERSION} GREATER_EQUAL "3.22.0")
-    cmake_policy(SET CMP0146 OLD) 
-    cmake_policy(SET CMP0147 OLD) 
-endif()
 include (cmake/deploy/deploy_dependencies.cmake)
 include (cmake/libs/cuda/archs.cmake)
 include (cmake/generators/version_header.cmake)
@@ -21,6 +17,7 @@ include (cmake/libs/cuda/cuda.cmake)
 include (cmake/cuda_init.cmake)
 include (cmake/libs/opencv.cmake)
 
+add_subdirectory(include)
 add_subdirectory(lib)
 
 option (BUILD_UTEST "build standard unit tests" ON)

@@ -42,9 +42,9 @@ constexpr bool buildOperationTupleType() {
 
     using TupleType = fk::OperationTuple<Op1, Op2, Op3>;
 
-    constexpr bool result1 = std::is_same_v<fk::tuple_element_t<0, TupleType>, Op1>;
-    constexpr bool result2 = std::is_same_v<fk::tuple_element_t<1, TupleType>, Op2>;
-    constexpr bool result3 = std::is_same_v<fk::tuple_element_t<2, TupleType>, Op3>;
+    constexpr bool result1 = std::is_same_v<fk::get_type_t<0, TupleType>, Op1>;
+    constexpr bool result2 = std::is_same_v<fk::get_type_t<1, TupleType>, Op2>;
+    constexpr bool result3 = std::is_same_v<fk::get_type_t<2, TupleType>, Op3>;
 
     return fk::and_v<result1, result2, result3>;
 }

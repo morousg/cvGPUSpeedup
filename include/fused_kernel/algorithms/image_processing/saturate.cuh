@@ -373,4 +373,4 @@ namespace fk {
             return UnaryV<T,T,SaturateFloatBase>::exec(input);
         }
     };
-}
+} // namespace fk

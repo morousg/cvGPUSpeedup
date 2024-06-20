@@ -19,6 +19,7 @@
 namespace cooperative_groups {};
 namespace cg = cooperative_groups;
 
+#include <fused_kernel/core/utils/utils.h>
 #include <fused_kernel/core/utils/parameter_pack_utils.cuh>
 #include <fused_kernel/core/execution_model/device_functions.cuh>
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>
@@ -29,15 +30,13 @@ namespace fk { // namespace FusedKernel
         private:
             template <typename T, typename DeviceFunction, typename... DeviceFunctionTypes>
             FK_DEVICE_FUSE auto operate(const Point& thread, const T& i_data, const DeviceFunction& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
-                if constexpr (DeviceFunction::template is<BinaryType>) {
-                    return operate(thread, DeviceFunction::Operation::exec(i_data, df.params), deviceFunctionInstances...);
-                } else if constexpr (DeviceFunction::template is<UnaryType>) {
-                    return operate(thread, DeviceFunction::Operation::exec(i_data), deviceFunctionInstances...);
+                if constexpr (DeviceFunction::template is<WriteType>) {
+                    return i_data;
                 } else if constexpr (DeviceFunction::template is<MidWriteType>) {
                     DeviceFunction::Operation::exec(thread, i_data, df.params);
-                    return operate(thread, i_data, deviceFunctionInstances...);
-                } else if constexpr (DeviceFunction::template is<WriteType>) {
                     return i_data;
+                } else {
+                    return operate(thread, compute(thread, i_data, df), deviceFunctionInstances...);
                 }
             }
 
@@ -61,6 +60,23 @@ namespace fk { // namespace FusedKernel
                 }
             }
 
+            template <typename ReadDeviceFunction, typename TFI>
+            FK_DEVICE_FUSE auto read(const Point& thread, const ReadDeviceFunction& readDF) {
+                if constexpr (ReadDeviceFunction::template is<ReadBackType>) {
+                    if constexpr (TFI::ENABLED) {
+                        return ReadDeviceFunction::Operation::exec<TFI::elems_per_thread>(thread, readDF.params, readDF.back_function);
+                    } else {
+                        return ReadDeviceFunction::Operation::exec(thread, readDF.params, readDF.back_function);
+                    }
+                } else if constexpr (ReadDeviceFunction::template is<ReadType>) {
+                    if constexpr (TFI::ENABLED) {
+                        return ReadDeviceFunction::Operation::exec<TFI::elems_per_thread>(thread, readDF.params);
+                    } else {
+                        return ReadDeviceFunction::Operation::exec(thread, readDF.params);
+                    }
+                }
+            }
+
             template <typename TFI, typename ReadDeviceFunction, typename... DeviceFunctions>
             FK_DEVICE_FUSE void execute_device_functions(const Point& thread, const ReadDeviceFunction& readDF,
                                                        const DeviceFunctions&... deviceFunctionInstances) {
@@ -70,7 +86,7 @@ namespace fk { // namespace FusedKernel
                 const auto writeDF = ppLast(deviceFunctionInstances...);
 
                 if constexpr (TFI::ENABLED) {
-                    const auto tempI = ReadOperation::exec<TFI::elems_per_thread>(thread, readDF.params);
+                    const auto tempI = read<ReadDeviceFunction, TFI>(thread, readDF);
                     if constexpr (sizeof...(deviceFunctionInstances) > 1) {
                         const auto tempO = operate_thread_fusion<TFI>(thread, tempI, deviceFunctionInstances...);
                         WriteOperation::exec<TFI::elems_per_thread>(thread, tempO, writeDF.params);
@@ -78,7 +94,7 @@ namespace fk { // namespace FusedKernel
                         WriteOperation::exec<TFI::elems_per_thread>(thread, tempI, writeDF.params);
                     }
                 } else {
-                    const auto tempI = ReadOperation::exec(thread, readDF.params);
+                    const auto tempI = read<ReadDeviceFunction, TFI>(thread, readDF);
                     if constexpr (sizeof...(deviceFunctionInstances) > 1) {
                         const auto tempO = operate(thread, tempI, deviceFunctionInstances...);
                         WriteOperation::exec(thread, tempO, writeDF.params);
@@ -153,11 +169,10 @@ namespace fk { // namespace FusedKernel
         TransformGridPattern<THREAD_DIVISIBLE, THREAD_FUSION>::exec(deviceFunctionInstances...);
     }
 
-    template <int MAX_THREADS_PER_BLOCK, int MIN_BLOCKS_PER_MP, typename... DeviceFunctionTypes>
-    __global__ void 
-    __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_MP)
-    cuda_transform_bounds(const DeviceFunctionTypes... deviceFunctionInstances) {
-        TransformGridPattern<true, false>::exec(deviceFunctionInstances...);
+    template <bool THREAD_DIVISIBLE, bool THREAD_FUSION, typename... DeviceFunctionTypes>
+    __global__ void cuda_transform_sequence(const DeviceFunctionSequence<DeviceFunctionTypes...> deviceFunctionInstances) {
+        fk::apply(TransformGridPattern<THREAD_DIVISIBLE, THREAD_FUSION>::template exec<DeviceFunctionTypes...>,
+            deviceFunctionInstances.deviceFunctions);
     }
 
     template <typename... DeviceFunctionTypes>
@@ -166,8 +181,20 @@ namespace fk { // namespace FusedKernel
     }
 
     template <typename... DeviceFunctionTypes>
+    __global__ void cuda_transform_sequence(const DeviceFunctionSequence<DeviceFunctionTypes...> deviceFunctionInstances) {
+        fk::apply(TransformGridPattern<true, false>::template exec<DeviceFunctionTypes...>,
+            deviceFunctionInstances.deviceFunctions);
+    }
+
+    template <typename... DeviceFunctionTypes>
     __global__ void cuda_transform_grid_const(const __grid_constant__ DeviceFunctionTypes... deviceFunctionInstances) {
         TransformGridPattern<true, false>::exec(deviceFunctionInstances...);
+    }
+
+    template <typename... DeviceFunctionTypes>
+    __global__ void cuda_transform_grid_const(const __grid_constant__ DeviceFunctionSequence<DeviceFunctionTypes...> deviceFunctionInstances) {
+        fk::apply(TransformGridPattern<true, false>::template exec<DeviceFunctionTypes...>,
+            deviceFunctionInstances.deviceFunctions);
     }
 
     template <typename SequenceSelector, typename... DeviceFunctionSequenceTypes>
@@ -175,58 +202,35 @@ namespace fk { // namespace FusedKernel
         DivergentBatchTransformGridPattern<SequenceSelector>::exec(dfSequenceInstances...);
     }
 
+    template <int MAX_THREADS_PER_BLOCK, int MIN_BLOCKS_PER_MP, typename... DeviceFunctionTypes>
+    __global__ void  __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_MP)
+    cuda_transform_bounds(const DeviceFunctionTypes... deviceFunctionInstances) {
+        TransformGridPattern<true, false>::exec(deviceFunctionInstances...);
+    }
+
+    template <int MAX_THREADS_PER_BLOCK, int MIN_BLOCKS_PER_MP, typename... DeviceFunctionTypes>
+    __global__ void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_MP)
+    cuda_transform_bounds(const DeviceFunctionSequence<DeviceFunctionTypes...> deviceFunctionInstances) {
+        fk::apply(TransformGridPattern<true, false>::template exec<DeviceFunctionTypes...>,
+            deviceFunctionInstances.deviceFunctions);
+    }
+
+    template <int MAX_THREADS_PER_BLOCK, int MIN_BLOCKS_PER_MP, typename... DeviceFunctionTypes>
+    __global__ void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_MP)
+    cuda_transform_grid_const_bounds(const __grid_constant__ DeviceFunctionTypes... deviceFunctionInstances) {
+        TransformGridPattern<true, false>::exec(deviceFunctionInstances...);
+    }
+
+    template <int MAX_THREADS_PER_BLOCK, int MIN_BLOCKS_PER_MP, typename... DeviceFunctionTypes>
+    __global__ void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_MP)
+    cuda_transform_grid_const_bounds(const __grid_constant__ DeviceFunctionSequence<DeviceFunctionTypes...> deviceFunctionInstances) {
+        fk::apply(TransformGridPattern<true, false>::template exec<DeviceFunctionTypes...>,
+            deviceFunctionInstances.deviceFunctions);
+    }
+
     template <int MAX_THREADS_PER_BLOCK, int MIN_BLOCKS_PER_MP, typename SequenceSelector, typename... DeviceFunctionSequenceTypes>
-    __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_MP)
-    __global__ void cuda_transform_divergent_batch_bounds(const DeviceFunctionSequenceTypes... dfSequenceInstances) {
+    __global__ void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_MP)
+    cuda_transform_divergent_batch_bounds(const DeviceFunctionSequenceTypes... dfSequenceInstances) {
         DivergentBatchTransformGridPattern<SequenceSelector>::exec(dfSequenceInstances...);
     }
-
-/*  Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
-    Copyright 2023 Mediaproduccion S.L.U. (David del Rio Astorga)
-
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-        http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License. */
-
-    template <int BATCH>
-    struct DivergentBatchTransformGridPattern_vec {
-        private:
-            template <int OpSequenceNumber, typename... DeviceFunctionTypes>
-            FK_DEVICE_FUSE void divergent_operate(const uint& z, const Array<int, BATCH>& dfSeqSelector,
-                                                  const DeviceFunctionSequence<DeviceFunctionTypes...>& dfSeq) {
-                // If the threads with this z, arrived here, we assume they have to execute this operation sequence
-                fk::apply(TransformGridPattern<true, false>::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
-            }
-
-            template <int OpSequenceNumber, typename... DeviceFunctionTypes, typename... DeviceFunctionSequenceTypes>
-            FK_DEVICE_FUSE void divergent_operate(const uint& z, const Array<int, BATCH>& dfSeqSelector,
-                                                  const DeviceFunctionSequence<DeviceFunctionTypes...>& dfSeq,
-                                                  const DeviceFunctionSequenceTypes&... dfSequenceInstances) {
-                if (OpSequenceNumber == dfSeqSelector.at[z]) {
-                    fk::apply(TransformGridPattern<true, false>::exec<DeviceFunctionTypes...>, dfSeq.deviceFunctions);
-                } else {
-                    DivergentBatchTransformGridPattern_vec<BATCH>::divergent_operate<OpSequenceNumber + 1>(z, dfSeqSelector, dfSequenceInstances...);
-                }
-            }
-        public:
-            template <typename... DeviceFunctionSequenceTypes>
-            FK_DEVICE_FUSE void exec(const Array<int, BATCH>& dfSeqSelector, const DeviceFunctionSequenceTypes&... dfSequenceInstances) {
-                const cg::thread_block g = cg::this_thread_block();
-                const uint z = g.group_index().z;
-                DivergentBatchTransformGridPattern_vec<BATCH>::divergent_operate<1>(z, dfSeqSelector, dfSequenceInstances...);
-            }
-    };
-
-    template <int BATCH, typename... DeviceFunctionSequenceTypes>
-    __global__ void cuda_transform_divergent_batch(__grid_constant__ const Array<int, BATCH> dfSeqSelector, const DeviceFunctionSequenceTypes... dfSequenceInstances) {
-        DivergentBatchTransformGridPattern_vec<BATCH>::exec(dfSeqSelector, dfSequenceInstances...);
-    }
-}
+} // namespace fk

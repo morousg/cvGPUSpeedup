@@ -17,6 +17,8 @@
 #include <fused_kernel/fused_kernel.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/core/utils/template_operations.h>
+#include <fused_kernel/core/data/ptr_nd.cuh>
+#include <fused_kernel/algorithms/image_processing/saturate.cuh>
 #include "tests/main.h"
 
 template <typename T>
@@ -44,8 +46,8 @@ bool testPtr_2D() {
 
     dim3 gridActiveThreadsCrop(cropedInput.dims().width, cropedInput.dims().height);
     dim3 gridActiveThreads(input.dims().width, input.dims().height);
-    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readCrop{cropedInput, gridActiveThreadsCrop};
-    fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readFull{input, gridActiveThreads};
+    fk::SourceReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readCrop{cropedInput, gridActiveThreadsCrop};
+    fk::SourceReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readFull{input, gridActiveThreads};
 
     fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2D = { output };
     fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2DBig = { outputBig };
@@ -81,18 +83,23 @@ int launch() {
     fk::Ptr2D<uint> output(64,64);
     
     dim3 gridActiveThreads(64, 64);
-    fk::Read<fk::PerThreadRead<fk::_2D, uchar>> read{ input, gridActiveThreads };
+    fk::SourceRead<fk::PerThreadRead<fk::_2D, uchar>> read{ input, gridActiveThreads };
     fk::Unary<fk::SaturateCast<uchar, uint>> cast = {};
     fk::Write<fk::PerThreadWrite<fk::_2D, uint>> write { output };
 
-    fk::cuda_transform<<<dim3(1,8),dim3(64,8),0,stream>>>(read, cast, write);
+    auto fusedDF = fk::fuseDF(read, cast, fk::Binary<fk::Mul<uint>>{4});
+    fusedDF.params.params;
+    //fusedDF.params.next.params; // Should not compile
+    fusedDF.params.next.next.params;
+
+    fk::cuda_transform<<<dim3(1,8),dim3(64,8),0,stream>>>(fusedDF, write);
 
     fk::OperationTuple<fk::PerThreadRead<fk::_2D, uchar>, fk::SaturateCast<uchar, uint>, fk::PerThreadWrite<fk::_2D, uint>> myTup{};
 
-    fk::OpTupUtils<2>::get_params(myTup);
-    constexpr bool test1 = std::is_same_v<fk::tuple_element_t<0, decltype(myTup)>, fk::PerThreadRead<fk::_2D, uchar>>;
-    constexpr bool test2 = std::is_same_v<fk::tuple_element_t<1, decltype(myTup)>, fk::SaturateCast<uchar, uint>>;
-    constexpr bool test3 = std::is_same_v<fk::tuple_element_t<2, decltype(myTup)>, fk::PerThreadWrite<fk::_2D, uint>>;
+    fk::get_params<2>(myTup);
+    constexpr bool test1 = std::is_same_v<fk::get_type_t<0, decltype(myTup)>, fk::PerThreadRead<fk::_2D, uchar>>;
+    constexpr bool test2 = std::is_same_v<fk::get_type_t<1, decltype(myTup)>, fk::SaturateCast<uchar, uint>>;
+    constexpr bool test3 = std::is_same_v<fk::get_type_t<2, decltype(myTup)>, fk::PerThreadWrite<fk::_2D, uint>>;
 
     gpuErrchk(cudaStreamSynchronize(stream));
 

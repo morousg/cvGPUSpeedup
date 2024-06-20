@@ -90,22 +90,22 @@ inline constexpr auto convertTo(float alpha, float beta) {
 
 template <int I>
 inline constexpr auto multiply(const cv::Scalar& src2) {
-    return fk::Binary<fk::Mul<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
+    return fk::Binary<fk::Mul<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
 template <int I>
 inline constexpr auto subtract(const cv::Scalar& src2) {
-    return fk::Binary<fk::Sub<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
+    return fk::Binary<fk::Sub<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
 template <int I>
 inline constexpr auto divide(const cv::Scalar& src2) {
-    return fk::Binary<fk::Div<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
+    return fk::Binary<fk::Div<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
 template <int I>
 inline constexpr auto add(const cv::Scalar& src2) {
-    return fk::Binary<fk::Add<CUDA_T(I)>> { {cvScalar2CUDAV<I>::get(src2)} };
+    return fk::Binary<fk::Add<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
 }
 
 template <cv::ColorConversionCodes CODE, int I, int O = I>
@@ -278,7 +278,7 @@ public:
 
     template <typename... DeviceFunctionTypes>
     inline constexpr void update(const cv::cuda::Stream& stream, const cv::cuda::GpuMat& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
-        const fk::ReadDeviceFunction<fk::PerThreadRead<fk::_2D, CUDA_T(I)>> readDeviceFunction{
+        const fk::SourceRead<fk::PerThreadRead<fk::_2D, CUDA_T(I)>> readDeviceFunction{
             { (CUDA_T(I)*)input.data, { static_cast<uint>(input.cols), static_cast<uint>(input.rows), static_cast<uint>(input.step) } },
             { static_cast<uint>(input.cols), static_cast<uint>(input.rows), 1 }
         };

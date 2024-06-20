@@ -18,7 +18,7 @@
 #include <fused_kernel/core/utils/cuda_vector_utils.h>
 #include <limits>
 
-namespace fk{
+namespace fk {
     // Limits
     template <typename T, typename Enabler = void>
     constexpr T maxValue{};
@@ -33,4 +33,5 @@ namespace fk{
     constexpr T minValue <T, std::enable_if_t<!validCUDAVec<T> && !std::is_aggregate_v<T>>> = std::numeric_limits<T>::min();
     template <typename T>
     constexpr T minValue <T, std::enable_if_t<validCUDAVec<T>>> = make_set<T>(minValue<VBase<T>>);
-}
+
+} // namespace fk

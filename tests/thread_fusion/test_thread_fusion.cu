@@ -143,7 +143,7 @@ bool testThreadFusionSameTypeIO(cv::cuda::Stream& cv_stream) {
         // In this case it's not OpenCV, it's cvGPUSpeedup without thread fusion
         START_OCV_BENCHMARK 
         // cvGPUSpeedup non fusion version
-        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
+        const fk::SourceRead<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
             read{ {cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1} };
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(CV_TYPE_I)>>
             write{ cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_output_cvGS) };
@@ -151,7 +151,7 @@ bool testThreadFusionSameTypeIO(cv::cuda::Stream& cv_stream) {
 
         STOP_OCV_START_CVGS_BENCHMARK
         // cvGPUSpeedup fusion version
-        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
+        const fk::SourceRead<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
             readTF{ {cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 } };
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(CV_TYPE_I)>>
             writeTF{ cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_output_cvGS_ThreadFusion) };
@@ -220,7 +220,7 @@ bool testThreadFusionDifferentTypeIO(cv::cuda::Stream& cv_stream) {
         // In this case it's not OpenCV, it's cvGPUSpeedup without thread fusion
         START_OCV_BENCHMARK
         // cvGPUSpeedup non fusion version
-        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
+        const fk::SourceRead<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
             read{ {cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1} };
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(CV_TYPE_O)>>
             write{ cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_O)>(d_output_cvGS) };
@@ -228,7 +228,7 @@ bool testThreadFusionDifferentTypeIO(cv::cuda::Stream& cv_stream) {
 
         STOP_OCV_START_CVGS_BENCHMARK
         // cvGPUSpeedup fusion version
-        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
+        const fk::SourceRead<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
             readTF{ {cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 } };
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(CV_TYPE_O)>>
             writeTF{ cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_O)>(d_output_cvGS_ThreadFusion) };
@@ -295,7 +295,7 @@ bool testThreadFusionDifferentTypeAndChannelIO(cv::cuda::Stream& cv_stream) {
         // In this case it's not OpenCV, it's cvGPUSpeedup without thread fusion
         START_OCV_BENCHMARK
         // cvGPUSpeedup non fusion version
-        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
+        const fk::SourceRead<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
             read{ {cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1} };
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(CV_TYPE_O)>>
             write{ cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_O)>(d_output_cvGS) };
@@ -303,7 +303,7 @@ bool testThreadFusionDifferentTypeAndChannelIO(cv::cuda::Stream& cv_stream) {
 
         STOP_OCV_START_CVGS_BENCHMARK
         // cvGPUSpeedup fusion version
-        const fk::Read<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
+        const fk::SourceRead<fk::PerThreadRead<fk::_2D, CUDA_T(CV_TYPE_I)>>
             readTF{ {cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_I)>(d_input)}, { NUM_ELEMS_X, NUM_ELEMS_Y, 1 } };
         const fk::Write<fk::PerThreadWrite<fk::_2D, CUDA_T(CV_TYPE_O)>>
             writeTF{ cvGS::gpuMat2RawPtr2D<CUDA_T(CV_TYPE_O)>(d_output_cvGS_ThreadFusion) };

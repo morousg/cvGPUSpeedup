@@ -27,23 +27,30 @@ namespace fk {
     };
 
     enum InterpolationType {
-        // bilinear interpolation
         INTER_LINEAR = 1,
         NONE = 17
     };
 
-    template <typename PixelReadOp, InterpolationType INTER_T>
+    template <InterpolationType INTER_T>
+    struct InterpolationParameters {};
+
+    template <>
+    struct InterpolationParameters<InterpolationType::INTER_LINEAR> {
+        Size src_size;
+    };
+
+    template <typename BackFunction, InterpolationType INTER_T>
     struct Interpolate {};
 
-    template <typename PixelReadOp>
-    struct Interpolate<PixelReadOp, InterpolationType::INTER_LINEAR> {
-        using ReadOutputType = typename PixelReadOp::OutputType;
-        using OutputType = VectorType_t<float, cn<ReadOutputType>>;
+    template <typename BackFunction_>
+    struct Interpolate<BackFunction_, InterpolationType::INTER_LINEAR> {
+        using BackFunction = BackFunction_;
+        using ReadOutputType = typename BackFunction::Operation::OutputType;
+        using OutputType = fk::VectorType_t<float, cn<ReadOutputType>>;
         using InputType = float2;
-        using ParamsType = typename PixelReadOp::ParamsType;
-        using InstanceType = BinaryType;
-        using ReadDataType = typename PixelReadOp::ReadDataType;
-        static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        using ParamsType = InterpolationParameters<InterpolationType::INTER_LINEAR>;
+        using InstanceType = TernaryType;
+        static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params, const BackFunction& back_function) {
             const float src_x = input.x;
             const float src_y = input.y;
 
@@ -52,7 +59,7 @@ namespace fk {
             const int x2 = x1 + 1;
             const int y2 = y1 + 1;
 
-            const PtrDims<_2D> srcSize = getSourceSize(params);
+            const fk::Size srcSize = params.src_size;
             const int x2_read = Min<int>::exec(x2, srcSize.width - 1);
             const int y2_read = Min<int>::exec(y2, srcSize.height - 1);
 
@@ -61,25 +68,15 @@ namespace fk {
                                               Point(x1, y2_read),
                                               Point(x2_read, y2_read) };
 
-            const ReadOutputType src_reg0x0 = PixelReadOp::exec(readPoints._0x0, params);
-            const ReadOutputType src_reg1x0 = PixelReadOp::exec(readPoints._1x0, params);
-            const ReadOutputType src_reg0x1 = PixelReadOp::exec(readPoints._0x1, params);
-            const ReadOutputType src_reg1x1 = PixelReadOp::exec(readPoints._1x1, params);
+            const ReadOutputType src_reg0x0 = read(readPoints._0x0, back_function); //PixelReadOp::exec(readPoints._0x0, params);
+            const ReadOutputType src_reg1x0 = read(readPoints._1x0, back_function); //PixelReadOp::exec(readPoints._1x0, params);
+            const ReadOutputType src_reg0x1 = read(readPoints._0x1, back_function); //PixelReadOp::exec(readPoints._0x1, params);
+            const ReadOutputType src_reg1x1 = read(readPoints._1x1, back_function); //PixelReadOp::exec(readPoints._1x1, params);
 
             return (src_reg0x0 * ((x2 - src_x) * (y2 - src_y))) +
                    (src_reg1x0 * ((src_x - x1) * (y2 - src_y))) +
                    (src_reg0x1 * ((x2 - src_x) * (src_y - y1))) +
                    (src_reg1x1 * ((src_x - x1) * (src_y - y1)));
         }
-    private:
-        template <typename... Operations>
-        static __device__ __forceinline__ PtrDims<_2D> getSourceSize(const OperationTuple<Operations...>& params) {
-            return get_params<0>(params).dims;
-        }
-
-        template <typename T>
-        static __device__ __forceinline__ PtrDims<_2D> getSourceSize(const RawPtr<_2D, T>& params) {
-            return params.dims;
-        }
     };
-}
+} // namespace fk

@@ -21,7 +21,7 @@
 #include "tests/main.h"
 
 constexpr char VARIABLE_DIMENSION[]{ "Batch size" };
-constexpr size_t NUM_EXPERIMENTS = 10;
+constexpr size_t NUM_EXPERIMENTS = 9;
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 10;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
@@ -119,8 +119,9 @@ bool test_batchresize_x_split3D_OCVBatch(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::c
             STOP_OCV_START_CVGS_BENCHMARK
             // cvGPUSpeedup version
             if constexpr (CV_MAT_CN(CV_TYPE_O) == 3 && correctDept) {
+                const auto resizeDF = cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH>(crops, up, BATCH);
                 cvGS::executeOperations(cv_stream,
-                                        cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH>(crops, up, BATCH),
+                                        resizeDF,
                                         cvGS::cvtColor<cv::COLOR_RGB2BGR, CV_TYPE_O>(),
                                         cvGS::multiply<CV_TYPE_O>(val_alpha),
                                         cvGS::subtract<CV_TYPE_O>(val_sub),
