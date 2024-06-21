@@ -35,8 +35,8 @@ Our aim with this repository is to create a code demonstration platform, and an 
 *  OpenCV 4.8 and 4.9
 *  OS Windows 11 22H2 with drivers from 516.94 to 551.86
 *  Ubuntu 22.04 (both native and under WSL2 enviroment)   
-*  Compute capabilities 7.5 (Turing), 8.6 (Ampere), 8.9 (Ada Lovelace)
-*  All systems with x86_64 cpu architecture
+*  Compute capabilities 7.5 Turing, 8.6 Ampere, 8.9 Ada Lovelace. Should work with any Compute capability. 
+*  Systems with x86_64 cpu architecture, and ARM Jetson Orin platform
 
 ## Examples
 ### OpenCV example
