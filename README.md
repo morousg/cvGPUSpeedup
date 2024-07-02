@@ -31,12 +31,13 @@ In terms of feature completeness, the Fused Kernel Library is less than 1% compl
 Our aim with this repository is to create a code demonstration platform, and an space where to keep adding new ideas, features, and share it with the community to make it as big and useful as possible.
   
 ## Tested hw/sw
-*  Cuda SDK 11.8, 12.1, 12.3
+*  Cuda SDK 11.8, 12.1, 12.3 (versions 12.4 and 12.5 have a [bug](https://forums.developer.nvidia.com/t/starting-with-cuda-12-4-nvcc-cant-deduce-a-template-type-in-template-function-under-weird-conditions/297637) that is being resolved by NVIDIA)
+*  Visual Studio Community 2022 compiler version v14.39-17.9 (version v14.40-17.10 is not compatible with NVCC until version 12.5)
 *  OpenCV 4.8 and 4.9
-*  OS Windows 11 22H2 with drivers from 516.94 to 551.86
+*  OS Windows 11 22H2 and 23H2 with drivers from 516.94 to 555.99
 *  Ubuntu 22.04 (both native and under WSL2 enviroment)   
 *  Compute capabilities 7.5 Turing, 8.6 Ampere, 8.9 Ada Lovelace. Should work with any Compute capability. 
-*  Systems with x86_64 cpu architecture, and ARM Jetson Orin platform
+*  Systems with x86_64 cpu architecture, and ARM Jetson Orin platform.
 
 ## Examples
 ### OpenCV example
@@ -139,7 +140,7 @@ As you can see, the resulting performance makes the pre-processing virtually fre
 
 ### Fused Kernel Library
 
-Assuming you installed the NVIDIA CUDA SDK versions 11.8 or 12.x
+Assuming you installed the NVIDIA CUDA SDK versions 11.8 or 12 up to 12.3.
 
 In Linux you only need to create a CUDA program (.cu file) and include "fused_kernel.cuh".
 
