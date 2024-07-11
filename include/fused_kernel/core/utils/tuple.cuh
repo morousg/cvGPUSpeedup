@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -134,6 +134,11 @@ namespace fk {
     template <typename Tuple1, typename Tuple2>
     FK_HOST_DEVICE_CNST auto cat(const Tuple1& t1, const Tuple2& t2) {
         return fk::TupleUtil::cat(t1, t2);
+    }
+
+    template <typename... Types>
+    FK_HOST_DEVICE_CNST auto make_tuple(const Types&... instances) {
+        return fk::TupleUtil::make_tuple(instances...);
     }
 
     template <typename Operation>
