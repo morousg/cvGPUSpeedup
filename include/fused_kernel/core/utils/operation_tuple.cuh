@@ -14,8 +14,7 @@
 
 #pragma once
 
-#include <fused_kernel/core/utils/type_lists.h>
-#include <fused_kernel/core/utils/utils.h>
+#include <fused_kernel/core/utils/tuple.cuh>
 #include <fused_kernel/core/execution_model/operation_types.cuh>
 
 namespace fk {
@@ -76,6 +75,11 @@ namespace fk {
     template <typename... Operations>
     using OperationTuple = OperationTuple_<void, Operations...>;
 
+    template <int INDEX, typename... Instances>
+    struct GetType<INDEX, OperationTuple_<void, Instances...>> {
+        using type = TypeAt_t<INDEX, TypeList<Instances...>>;
+    };
+
     template <int INDEX, typename... InstanceTypes>
     FK_HOST_DEVICE_CNST auto& get_params(OperationTuple<InstanceTypes...>& instances) {
         using Operation = typename OperationTuple<InstanceTypes...>::Operation;
@@ -115,22 +119,6 @@ namespace fk {
             return instances.params;
         }
     }
-
-    template <int INDEX, typename TupleLike>
-    struct GetType {};
-
-    template <int INDEX, template <typename...> class TupleLike, typename... Instances>
-    struct GetType<INDEX, TupleLike<Instances...>> {
-        using type = TypeAt_t<INDEX, TypeList<Instances...>>;
-    };
-
-    template <int INDEX, typename... Instances>
-    struct GetType<INDEX, OperationTuple_<void, Instances...>> {
-        using type = TypeAt_t<INDEX, TypeList<Instances...>>;
-    };
-
-    template <int INDEX, typename TupleLike>
-    using get_type_t = typename GetType<INDEX, TupleLike>::type;
 
     template <typename DeviceFunction>
     FK_HOST_DEVICE_CNST auto devicefunctions_to_operationtuple(const DeviceFunction& df) {
@@ -214,4 +202,6 @@ namespace fk {
         static_assert(IsDeviceFunction::complies<BackFunction>(), "Expected a Device Funtion");
         return { param, back_function };
     }
+
+
 } // namespace fk
