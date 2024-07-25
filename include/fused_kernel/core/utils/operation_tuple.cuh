@@ -60,14 +60,14 @@ namespace fk {
     };
 
     template <typename Operation_t, typename... Operations>
-    struct OperationTuple_<std::enable_if_t<!hasParams<Operation_t>, void>, Operation_t, Operations...> {
+    struct OperationTuple_<std::enable_if_t<isUnaryType<Operation_t>, void>, Operation_t, Operations...> {
         using Operation = Operation_t;
         OperationTuple_<void, Operations...> next;
         enum { size = sizeof...(Operations) + 1 };
     };
 
     template <typename Operation_t>
-    struct OperationTuple_<std::enable_if_t<!hasParams<Operation_t>, void>, Operation_t> {
+    struct OperationTuple_<std::enable_if_t<isUnaryType<Operation_t>, void>, Operation_t> {
         using Operation = Operation_t;
         enum { size = 1 };
     };
