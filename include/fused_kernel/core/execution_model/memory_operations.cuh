@@ -18,6 +18,7 @@
 #include <fused_kernel/core/execution_model/operations.cuh>
 #include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>
+#include <fused_kernel/core/execution_model/device_functions.cuh>
 
 namespace fk {
 
