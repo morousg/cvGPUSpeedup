@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <fused_kernel/core/execution_model/grid_patterns.cuh>
+#include <fused_kernel/core/execution_model/data_parallel_patterns.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
 
 namespace fk {

@@ -182,7 +182,14 @@ namespace fk { // namespace fused kernel
 
     template <typename T, std::size_t SIZE>
     struct Array {
+        using Base = T;
+        enum { size = SIZE };
         T at[SIZE];
+        FK_HOST_DEVICE_CNST Array(const T& value) {
+            for (T i = 0; i < SIZE; i++) {
+                at[i] = value;
+            }
+        }
     };
 
     template <typename T, size_t BATCH, typename... Types>
