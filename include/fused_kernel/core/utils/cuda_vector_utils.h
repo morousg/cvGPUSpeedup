@@ -15,6 +15,8 @@
 
 #pragma once
 
+#include <cassert>
+
 #include <fused_kernel/core/utils/utils.h>
 #include <fused_kernel/core/utils/type_lists.h>
 #include <fused_kernel/core/utils/template_operations.h>
