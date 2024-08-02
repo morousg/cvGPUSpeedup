@@ -15,8 +15,9 @@
 #pragma once
 
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
-#include <cv2cuda_types.cuh>
 
+#ifdef ENABLE_OPENCV
+#include <cv2cuda_types.cuh>
 #include <opencv2/core/cuda.hpp>
 
 namespace cvGS {
@@ -52,6 +53,7 @@ namespace cvGS {
             }
         }
     };
+
 namespace internal {
 
     template <int I, typename PtrType, typename Operator>
@@ -70,3 +72,4 @@ namespace internal {
 
 } // namespace internal
 } // namespace cvGS
+#endif
