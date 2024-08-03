@@ -1,4 +1,4 @@
-/* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
+/* Copyright 2023-2024 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -64,14 +64,10 @@ constexpr bool tupleCat() {
 
 constexpr bool tupleInsert() {
     constexpr auto myTuple = fk::TupleUtil::cat(fk::Tuple<int>{1}, fk::Tuple<char>{1u});
- 
-    constexpr auto newTuple0 = fk::tuple_insert<0, float>(2.f, myTuple);
-    constexpr auto newTuple1 = fk::tuple_insert<1, uchar>(240u, myTuple);
-    constexpr auto newTuple2 = fk::tuple_insert<2, double>(23.0, myTuple);
 
-    return fk::and_v<fk::get_v<0>(newTuple0) == 2.f,
-                     fk::get_v<1>(newTuple1) == 240u,
-                     fk::get_v<2>(newTuple2) == 23.0>;
+    return fk::and_v<fk::get_v<0>(fk::tuple_insert<0, float>(2.f, myTuple)) == 2.f,
+                     fk::get_v<1>(fk::tuple_insert<1, uchar>(240u, myTuple)) == 240u,
+                     fk::get_v<2>(fk::tuple_insert<2, double>(23.0, myTuple)) == 23.0>;
 }
 
 bool modifyTupleElement() {

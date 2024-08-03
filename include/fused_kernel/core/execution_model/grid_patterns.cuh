@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ namespace fk { // namespace FusedKernel
                     DeviceFunction::Operation::exec(thread, i_data, df.params);
                     return i_data;
                 } else {
-                    return operate(thread, compute(thread, i_data, df), deviceFunctionInstances...);
+                    return operate(thread, compute(i_data, df), deviceFunctionInstances...);
                 }
             }
 

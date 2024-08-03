@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -67,8 +67,7 @@ namespace fk {
     }
 
     template <typename DeviceFunction>
-    FK_HOST_DEVICE_CNST GetOutputType_t<DeviceFunction> compute(const Point& thread,
-        const GetInputType_t<DeviceFunction>& input,
+    FK_HOST_DEVICE_CNST GetOutputType_t<DeviceFunction> compute(const GetInputType_t<DeviceFunction>& input,
         const DeviceFunction& deviceFunction) {
         static_assert(isComputeType<DeviceFunction>, "Function compute only works with DeviceFunction InstanceTypes of the group ComputeTypeList");
         if constexpr (isUnaryType<DeviceFunction>) {

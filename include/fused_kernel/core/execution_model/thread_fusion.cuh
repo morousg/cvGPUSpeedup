@@ -46,10 +46,10 @@ namespace fk {
     */
 
     using TFSourceTypes = typename TypeList<StandardTypes, VTwo, VThree, VFour>::type;
-    using TFBiggerTypes = TypeList<uchar4,  char4,  ushort2,  short2,  uint2, int2, ulong,  long,  ulonglong,  longlong,  float2, double,
-                                   uchar4,  char4,  ushort2,  short2,  uint2, int2, ulong2, long2, ulonglong2, longlong2, float2, double2,
-                                   uchar3,  char3,  ushort3,  short3,  uint3, int3, ulong3, long3, ulonglong3, longlong3, float3, double3,
-                                   uchar4,  char4,  ushort4,  short4,  uint4, int4, ulong4, long4, ulonglong4, longlong4, float4, double4>;
+    using TFBiggerTypes = TypeList<bool4, uchar4,  char4,  ushort2,  short2,  uint2, int2, ulong,  long,  ulonglong,  longlong,  float2, double,
+                                   bool4, uchar4,  char4,  ushort2,  short2,  uint2, int2, ulong2, long2, ulonglong2, longlong2, float2, double2,
+                                   bool3, uchar3,  char3,  ushort3,  short3,  uint3, int3, ulong3, long3, ulonglong3, longlong3, float3, double3,
+                                   bool4, uchar4,  char4,  ushort4,  short4,  uint4, int4, ulong4, long4, ulonglong4, longlong4, float4, double4>;
     template <typename SourceType>
     using TFBiggerType_t = EquivalentType_t<SourceType, TFSourceTypes, TFBiggerTypes>;
 
