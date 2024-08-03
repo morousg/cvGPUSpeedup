@@ -180,18 +180,6 @@ namespace fk { // namespace fused kernel
     template <typename T, typename TypeList1, typename TypeList2>
     using EquivalentType_t = typename EquivalentType<T, TypeList1, TypeList2>::type;
 
-    template <typename T, std::size_t SIZE>
-    struct Array {
-        T at[SIZE];
-    };
-
-    template <typename T, size_t BATCH, typename... Types>
-    FK_HOST_DEVICE_CNST Array<T, BATCH> make_array(Types... pars) {
-        static_assert(sizeof...(Types) == BATCH, "Too many or too few elements for the array size.");
-        static_assert(std::disjunction_v<std::is_same<T, Types>...>, "All the types should be the same");
-        return { {pars...} };
-    }
-
     template<typename T, typename... Ts>
     constexpr bool all_types_are_same = std::conjunction_v<std::is_same<T, Ts>...>;
 

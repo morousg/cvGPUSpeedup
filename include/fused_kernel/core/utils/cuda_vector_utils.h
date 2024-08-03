@@ -15,9 +15,33 @@
 
 #pragma once
 
+#include <cassert>
+
 #include <fused_kernel/core/utils/utils.h>
 #include <fused_kernel/core/utils/type_lists.h>
 #include <fused_kernel/core/utils/template_operations.h>
+
+struct bool1 {
+    bool x;
+};
+
+struct bool2 {
+    bool x;
+    bool y;
+};
+
+struct bool3 {
+    bool x;
+    bool y;
+    bool z;
+};
+
+struct bool4 {
+    bool x;
+    bool y;
+    bool z;
+    bool w;
+};
 
 namespace fk {
     template <typename BaseType, int Channels>
@@ -45,13 +69,14 @@ namespace fk {
     VECTOR_TYPE(ulonglong)
     VECTOR_TYPE(float)
     VECTOR_TYPE(double)
+    VECTOR_TYPE(bool)
 #undef VECTOR_TYPE
 
         template <typename BaseType, int Channels>
     using VectorType_t = typename VectorType<BaseType, Channels>::type;
 
     template <uint CHANNELS>
-    using VectorTypeList = TypeList<VectorType_t<uchar, CHANNELS>, VectorType_t<char, CHANNELS>,
+    using VectorTypeList = TypeList<VectorType_t<bool, CHANNELS>, VectorType_t<uchar, CHANNELS>, VectorType_t<char, CHANNELS>,
         VectorType_t<ushort, CHANNELS>, VectorType_t<short, CHANNELS>,
         VectorType_t<uint, CHANNELS>, VectorType_t<int, CHANNELS>,
         VectorType_t<ulong, CHANNELS>, VectorType_t<long, CHANNELS>,
@@ -59,8 +84,8 @@ namespace fk {
         VectorType_t<float, CHANNELS>, VectorType_t<double, CHANNELS>>;
 
     using StandardTypes =
-        TypeList<uchar, char, ushort, short, uint, int, ulong, long, ulonglong, longlong, float, double>;
-    using VOne = TypeList<uchar1, char1, ushort1, short1, uint1, int1, ulong1, long1, ulonglong1, longlong1, float1, double1>;
+        TypeList<bool, uchar, char, ushort, short, uint, int, ulong, long, ulonglong, longlong, float, double>;
+    using VOne = TypeList<bool1, uchar1, char1, ushort1, short1, uint1, int1, ulong1, long1, ulonglong1, longlong1, float1, double1>;
     using VTwo = VectorTypeList<2>;
     using VThree = VectorTypeList<3>;
     using VFour = VectorTypeList<4>;
@@ -88,36 +113,6 @@ namespace fk {
     template <typename T>
     constexpr int cn = Channels<T>();
 
-    template <int idx, typename T>
-    FK_HOST_DEVICE_CNST auto VectorAt(const T& vector) {
-        static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: VectorAt<invalid_type>()");
-        if constexpr (idx == 0) {
-            return vector.x;
-        }
-        else if constexpr (idx == 1) {
-            static_assert(cn<T> >= 2, "Vector type smaller than 2 elements has no member y");
-            return vector.y;
-        }
-        else if constexpr (idx == 2) {
-            static_assert(cn<T> >= 3, "Vector type smaller than 3 elements has no member z");
-            return vector.z;
-        }
-        else if constexpr (idx == 3) {
-            static_assert(cn<T> == 4, "Vector type smaller than 4 elements has no member w");
-            return vector.w;
-        }
-    }
-
-    template <int... idx>
-    struct VReorder {
-        template <typename T>
-        FK_HOST_DEVICE_FUSE T exec(const T& vector) {
-            static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: VReorder<...>::exec<invalid_type>(invalid_type vector)");
-            static_assert(sizeof...(idx) == cn<T>, "Wrong number of indexes for the cuda vetor type in VReorder.");
-            return { VectorAt<idx>(vector)... };
-        }
-    };
-
     template <typename V>
     struct VectorTraits {};
 
@@ -133,6 +128,7 @@ namespace fk {
     template <> \
     struct VectorTraits<BaseType ## 4> { using base = BaseType; enum {bytes=sizeof(base)*4}; };
 
+    VECTOR_TRAITS(bool)
     VECTOR_TRAITS(uchar)
         VECTOR_TRAITS(char)
         VECTOR_TRAITS(short)
@@ -149,6 +145,89 @@ namespace fk {
 
         template <typename T>
     using VBase = typename VectorTraits<T>::base;
+
+    template <int idx, typename T>
+    FK_HOST_DEVICE_CNST auto VectorAt(const T& vector) {
+        if constexpr (idx == 0) {
+            if constexpr (validCUDAVec<T>) {
+                return vector.x;
+            } else {
+                return vector;
+            }
+        } else if constexpr (idx == 1) {
+            static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: VectorAt<invalid_type>()");
+            static_assert(cn<T> >= 2, "Vector type smaller than 2 elements has no member y");
+            return vector.y;
+        } else if constexpr (idx == 2) {
+            static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: VectorAt<invalid_type>()");
+            static_assert(cn<T> >= 3, "Vector type smaller than 3 elements has no member z");
+            return vector.z;
+        } else if constexpr (idx == 3) {
+            static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: VectorAt<invalid_type>()");
+            static_assert(cn<T> == 4, "Vector type smaller than 4 elements has no member w");
+            return vector.w;
+        }
+    }
+
+    template <typename T>
+    FK_HOST_DEVICE_CNST std::enable_if_t<(cn<T> == 1), VBase<T>> VectorAt(const int& idx, const T& vector) {
+        assert((idx == 0 && idx >= 0) && "Index out of range. Either the Vector type has 1 channel or the type is not a CUDA Vector type");
+        if constexpr (validCUDAVec<T>) {
+            return vector.x;
+        } else {
+            return vector;
+        }
+    }
+
+    template <typename T>
+    FK_HOST_DEVICE_CNST std::enable_if_t<(cn<T> == 2), VBase<T>> VectorAt(const int& idx, const T& vector) {
+        assert((idx < 2 && idx >= 0) && "Index out of range. Vector type has only 2 channels.");
+        assert(validCUDAVec<T> && "Non valid CUDA vetor type: VectorAt<invalid_type>()");
+        if (idx == 0) {
+            return vector.x;
+        } else {
+            return vector.y;
+        }
+    }
+
+    template <typename T>
+    FK_HOST_DEVICE_CNST std::enable_if_t<(cn<T> == 3), VBase<T>> VectorAt(const int& idx, const T& vector) {
+        assert((idx < 3 && idx >= 0) && "Index out of range. Vector type has only 2 channels.");
+        assert(validCUDAVec<T> && "Non valid CUDA vetor type: VectorAt<invalid_type>()");
+        if (idx == 0) {
+            return vector.x;
+        } else if (idx == 1) {
+            return vector.y;
+        } else {
+            return vector.z;
+        }
+    }
+
+    template <typename T>
+    FK_HOST_DEVICE_CNST std::enable_if_t<(cn<T> == 4), VBase<T>> VectorAt(const int& idx, const T& vector) {
+        assert((idx < 4 && idx >= 0) && "Index out of range. Vector type has only 2 channels.");
+        assert(validCUDAVec<T> && "Non valid CUDA vetor type: VectorAt<invalid_type>()");
+        if (idx == 0) {
+            return vector.x;
+        } else if (idx == 1) {
+            return vector.y;
+        } else if (idx == 2) {
+            return vector.z;
+        } else {
+            return vector.w;
+        }
+    }
+
+    template <int... idx>
+    struct VReorder {
+        template <typename T>
+        FK_HOST_DEVICE_FUSE T exec(const T& vector) {
+            static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: VReorder<...>::exec<invalid_type>(invalid_type vector)");
+            static_assert(sizeof...(idx) == cn<T>, "Wrong number of indexes for the cuda vetor type in VReorder.");
+            return { VectorAt<idx>(vector)... };
+        }
+    };
+
 
     // Automagically making any CUDA vector type from a template type
     // It will not compile if you try to do bad things. The number of elements
@@ -413,7 +492,7 @@ VEC_COMPOUND_OP(/=, uint, uint)
 #undef VEC_COMPOUND_OP
 
 
-    // binary operators (vec & vec)
+// binary operators (vec & vec)
 #define VEC_BINARY_OP_DIFF_TYPES(op, input_type1, input_type2, output_type) \
 FK_HOST_DEVICE_CNST output_type ## 1 operator op(const input_type1 ## 1 & a, const input_type2 ## 1 & b) \
 { \
@@ -502,6 +581,7 @@ VEC_BINARY_OP(== , longlong, uchar)
 VEC_BINARY_OP(== , ulonglong, uchar)
 VEC_BINARY_OP(== , float, uchar)
 VEC_BINARY_OP(== , double, uchar)
+VEC_BINARY_OP(== , bool, bool)
 
 VEC_BINARY_OP(!= , uchar, uchar)
 VEC_BINARY_OP(!= , char, uchar)
@@ -511,6 +591,8 @@ VEC_BINARY_OP(!= , int, uchar)
 VEC_BINARY_OP(!= , uint, uchar)
 VEC_BINARY_OP(!= , float, uchar)
 VEC_BINARY_OP(!= , double, uchar)
+VEC_BINARY_OP(!= , bool, bool)
+
 
 VEC_BINARY_OP(> , uchar, uchar)
 VEC_BINARY_OP(> , char, uchar)
@@ -556,6 +638,8 @@ VEC_BINARY_OP(&&, int, uchar)
 VEC_BINARY_OP(&&, uint, uchar)
 VEC_BINARY_OP(&&, float, uchar)
 VEC_BINARY_OP(&&, double, uchar)
+VEC_BINARY_OP(&&, bool, bool)
+
 
 VEC_BINARY_OP(|| , uchar, uchar)
 VEC_BINARY_OP(|| , char, uchar)
@@ -565,6 +649,8 @@ VEC_BINARY_OP(|| , int, uchar)
 VEC_BINARY_OP(|| , uint, uchar)
 VEC_BINARY_OP(|| , float, uchar)
 VEC_BINARY_OP(|| , double, uchar)
+VEC_BINARY_OP(|| , bool, bool)
+
 
 VEC_BINARY_OP(&, uchar, uchar)
 VEC_BINARY_OP(&, char, char)
@@ -721,6 +807,7 @@ SCALAR_BINARY_OP(== , int, int, uchar)
 SCALAR_BINARY_OP(== , uint, uint, uchar)
 SCALAR_BINARY_OP(== , float, float, uchar)
 SCALAR_BINARY_OP(== , double, double, uchar)
+SCALAR_BINARY_OP(== , bool, bool, bool)
 
 SCALAR_BINARY_OP(!= , uchar, uchar, uchar)
 SCALAR_BINARY_OP(!= , char, char, uchar)
@@ -730,6 +817,7 @@ SCALAR_BINARY_OP(!= , int, int, uchar)
 SCALAR_BINARY_OP(!= , uint, uint, uchar)
 SCALAR_BINARY_OP(!= , float, float, uchar)
 SCALAR_BINARY_OP(!= , double, double, uchar)
+SCALAR_BINARY_OP(!= , bool, bool, bool)
 
 SCALAR_BINARY_OP(> , uchar, uchar, uchar)
 SCALAR_BINARY_OP(> , char, char, uchar)
@@ -775,6 +863,7 @@ SCALAR_BINARY_OP(&&, int, int, uchar)
 SCALAR_BINARY_OP(&&, uint, uint, uchar)
 SCALAR_BINARY_OP(&&, float, float, uchar)
 SCALAR_BINARY_OP(&&, double, double, uchar)
+SCALAR_BINARY_OP(&&, bool, bool, bool)
 
 SCALAR_BINARY_OP(|| , uchar, uchar, uchar)
 SCALAR_BINARY_OP(|| , char, char, uchar)
@@ -784,6 +873,7 @@ SCALAR_BINARY_OP(|| , int, int, uchar)
 SCALAR_BINARY_OP(|| , uint, uint, uchar)
 SCALAR_BINARY_OP(|| , float, float, uchar)
 SCALAR_BINARY_OP(|| , double, double, uchar)
+SCALAR_BINARY_OP(|| , bool, bool, bool)
 
 SCALAR_BINARY_OP(&, uchar, uchar, uchar)
 SCALAR_BINARY_OP(&, char, char, char)
