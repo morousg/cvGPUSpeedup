@@ -23,14 +23,15 @@ constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<F
 
 constexpr int NUM_ELEMENTS = 1920 * 1080;
 
-template <typename T, typename... DFs>
+template <int BATCH, typename... DFs>
 int testLatencyHiding(const DFs&... deviceFunctions) {
     START_CVGS_BENCHMARK
-
+    STOP_CVGS_BENCHMARK
 }
 
 int launch() {
 
+    CLOSE_BENCHMARK
 
     return 0;
 }

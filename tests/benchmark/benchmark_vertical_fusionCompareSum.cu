@@ -96,35 +96,68 @@ bool benchmark_vertical_fusion_loopSum(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, c
             d_output_cvGS.step = cropSize.width * cropSize.height * sizeof(CUDA_T(CV_TYPE_O));
             cv::Mat h_output_cvGS(REAL_BATCH, cropSize.width * cropSize.height, CV_TYPE_O);
 
-            START_OCV_BENCHMARK
+            // START_OCV_BENCHMARK
+            std::cout << "Executing " << __func__ << " fusing " << BATCH << " operations. " << (BATCH - FIRST_VALUE) / INCREMENT << "/" << NUM_EXPERIMENTS << std::endl;
+            cudaEvent_t start, stop;
+            BenchmarkResultsNumbers resF;
+            resF.OCVelapsedTimeMax = fk::minValue<float>;
+            resF.OCVelapsedTimeMin = fk::maxValue<float>;
+            resF.OCVelapsedTimeAcum = 0.f;
+            resF.cvGSelapsedTimeMax = fk::minValue<float>;
+            resF.cvGSelapsedTimeMin = fk::maxValue<float>;
+            resF.cvGSelapsedTimeAcum = 0.f;
+            cudaStream_t stream = cv::cuda::StreamAccessor::getStream(cv_stream);
+            gpuErrchk(cudaEventCreate(&start));
+            gpuErrchk(cudaEventCreate(&stop));
+            std::array<float, ITERS> OCVelapsedTime;
+            std::array<float, ITERS> cvGSelapsedTime;
+            for (int i = 0; i < ITERS; i++) {
+                gpuErrchk(cudaEventRecord(start, stream));
+                // END MACRO
+
                 // OpenCV version
                 constexpr int OPS_PER_ITERATION = 2;
 
-            for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
-                crops[crop_i].convertTo(d_output_cv[crop_i], CV_TYPE_O, alpha, cv_stream);
-                for (int numOp = 0; numOp < BATCH; numOp += OPS_PER_ITERATION) {
-                    cv::cuda::add(d_output_cv[crop_i], val_mul, d_output_cv[crop_i], cv::noArray(), -1, cv_stream);
-                    cv::cuda::add(d_output_cv[crop_i], val_mul, d_output_cv[crop_i], cv::noArray(), -1, cv_stream);
-                }
-            }
-
-            STOP_OCV_START_CVGS_BENCHMARK
-                using InputType = CUDA_T(CV_TYPE_I);
-            using OutputType = CUDA_T(CV_TYPE_O);
-
-            const OutputType val{ cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul) };
-
-            // cvGPUSpeedup
-            using DeviceFunction = Binary<Add<OutputType>, Add<OutputType>>;
-            const DeviceFunction dFunc(val, val);
-            VerticalFusion<CV_TYPE_I, CV_TYPE_O, OPS_PER_ITERATION, BATCH, DeviceFunction>::execute(crops, REAL_BATCH, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
-
-            STOP_CVGS_BENCHMARK
-
-                // Download results
                 for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
-                    d_output_cv[crop_i].download(h_output_cv[crop_i], cv_stream);
+                    crops[crop_i].convertTo(d_output_cv[crop_i], CV_TYPE_O, alpha, cv_stream);
+                    for (int numOp = 0; numOp < BATCH; numOp += OPS_PER_ITERATION) {
+                        cv::cuda::add(d_output_cv[crop_i], val_mul, d_output_cv[crop_i], cv::noArray(), -1, cv_stream);
+                        cv::cuda::add(d_output_cv[crop_i], val_mul, d_output_cv[crop_i], cv::noArray(), -1, cv_stream);
+                    }
                 }
+                // STOP_OCV_START_CVGS_BENCHMARK
+                gpuErrchk(cudaEventRecord(stop, stream));
+                gpuErrchk(cudaEventSynchronize(stop));
+                gpuErrchk(cudaEventElapsedTime(&OCVelapsedTime[i], start, stop));
+                resF.OCVelapsedTimeMax = resF.OCVelapsedTimeMax < OCVelapsedTime[i] ? OCVelapsedTime[i] : resF.OCVelapsedTimeMax;
+                resF.OCVelapsedTimeMin = resF.OCVelapsedTimeMin > OCVelapsedTime[i] ? OCVelapsedTime[i] : resF.OCVelapsedTimeMin;
+                resF.OCVelapsedTimeAcum += OCVelapsedTime[i];
+                gpuErrchk(cudaEventRecord(start, stream));
+                // END MACRO
+                using InputType = CUDA_T(CV_TYPE_I);
+                using OutputType = CUDA_T(CV_TYPE_O);
+
+                const OutputType val{ cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul) };
+
+                // cvGPUSpeedup
+                using DeviceFunction = Binary<Add<OutputType>, Add<OutputType>>;
+                const DeviceFunction dFunc(val, val);
+                VerticalFusion<CV_TYPE_I, CV_TYPE_O, OPS_PER_ITERATION, BATCH, DeviceFunction>::execute(crops, REAL_BATCH, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
+
+                // STOP_CVGS_BENCHMARK
+                gpuErrchk(cudaEventRecord(stop, stream));
+                gpuErrchk(cudaEventSynchronize(stop)); 
+                gpuErrchk(cudaEventElapsedTime(&cvGSelapsedTime[i], start, stop));
+                resF.cvGSelapsedTimeMax = resF.cvGSelapsedTimeMax < cvGSelapsedTime[i] ? cvGSelapsedTime[i] : resF.cvGSelapsedTimeMax;
+                resF.cvGSelapsedTimeMin = resF.cvGSelapsedTimeMin > cvGSelapsedTime[i] ? cvGSelapsedTime[i] : resF.cvGSelapsedTimeMin;
+                resF.cvGSelapsedTimeAcum += cvGSelapsedTime[i];
+            }
+            processExecution<CV_TYPE_I, CV_TYPE_O, BATCH, ITERS, batchValues.size(), batchValues>(resF, __func__, OCVelapsedTime, cvGSelapsedTime, VARIABLE_DIMENSION);
+            // END MACRO
+                    // Download results
+            for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
+                d_output_cv[crop_i].download(h_output_cv[crop_i], cv_stream);
+            }
             d_output_cvGS.download(h_output_cvGS, cv_stream);
 
             cv_stream.waitForCompletion();
@@ -143,13 +176,15 @@ bool benchmark_vertical_fusion_loopSum(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, c
             if (!passed) {
                 std::cout << "Failed for num fused operations = " << BATCH << std::endl;
             }
-        } catch (const cv::Exception& e) {
+        }
+        catch (const cv::Exception& e) {
             if (e.code != -210) {
                 error_s << e.what();
                 passed = false;
                 exception = true;
             }
-        } catch (const std::exception& e) {
+        }
+        catch (const std::exception& e) {
             error_s << e.what();
             passed = false;
             exception = true;
@@ -198,15 +233,15 @@ int launch() {
 
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
 
-    CLOSE_BENCHMARK
+        CLOSE_BENCHMARK
 
-    for (const auto& [key, passed] : results) {
-        if (passed) {
-            std::cout << key << " passed!!" << std::endl;
-        } else {
-            std::cout << key << " failed!!" << std::endl;
+        for (const auto& [key, passed] : results) {
+            if (passed) {
+                std::cout << key << " passed!!" << std::endl;
+            } else {
+                std::cout << key << " failed!!" << std::endl;
+            }
         }
-    }
 
 #undef LAUNCH_TESTS
 #endif

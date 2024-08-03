@@ -18,6 +18,8 @@
 #include <unordered_map>
 #include <array>
 
+#include <fused_kernel/core/utils/vlimits.h>
+
 template <size_t START_VALUE, size_t INCREMENT, std::size_t... Is>
 constexpr std::array<size_t, sizeof...(Is)> generate_sequence(std::index_sequence<Is...>) {
     return std::array<size_t, sizeof...(Is)>{(START_VALUE + (INCREMENT * Is))...};
@@ -86,7 +88,17 @@ inline void processExecution(const BenchmarkResultsNumbers& resF,
 #endif
 
 #ifdef ENABLE_BENCHMARK
-#define STOP_OCV_START_CVGS_BENCHMARK \
+#define START_CVGS_BENCHMARK \
+std::cout << "Executing " << __func__ << " fusing " << BATCH << " operations. " << std::endl; \
+cudaEvent_t start, stop; \
+BenchmarkResultsNumbers resF; \
+resF.cvGSelapsedTimeMax = fk::minValue<float>; \
+resF.cvGSelapsedTimeMin = fk::maxValue<float>; \
+resF.cvGSelapsedTimeAcum = 0.f; \
+gpuErrchk(cudaEventCreate(&start)); \
+gpuErrchk(cudaEventCreate(&stop)); \
+std::array<float, ITERS> cvGSelapsedTime; \
+for (int i = 0; i < ITERS; i++) { \
 gpuErrchk(cudaEventRecord(start, stream));
 #else
 #define START_CVGS_BENCHMARK
