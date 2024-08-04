@@ -32,7 +32,7 @@ constexpr std::array<size_t, NUM_ELEMS> arrayIndexSecuence = generate_sequence<S
 std::unordered_map<std::string, std::stringstream> benchmarkResultsText;
 std::unordered_map<std::string, std::ofstream> currentFile;
 // Select the path where to write the benchmark files
-const std::string path{ "C:/Users/oscar/Dropbox\\ (Personal)/cvGPUSpeedup/Benchmarks/Windows/LatencyHiding/04-08-24-RTX3050/" };
+const std::string path{ "" };
 
 constexpr int ITERS = 100;
 
