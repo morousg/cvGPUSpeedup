@@ -11,9 +11,8 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License. */
-
-#include <type_traits>
 #include "tests/main.h"
+#include <type_traits>
 
 // Why does this code not compile?
 // There are 4 ways of making it compile

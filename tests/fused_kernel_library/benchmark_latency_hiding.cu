@@ -82,7 +82,7 @@ inline int testLatencyHiding(cudaStream_t stream) {
 }
 
 template <int... Idx>
-inline int testLatencyHidingHelper(cudaStream_t stream, std::integer_sequence<int, Idx...>&) {
+inline int testLatencyHidingHelper(cudaStream_t stream, const std::integer_sequence<int, Idx...>& seq) {
     const bool result = ((testLatencyHiding<variableDimanesionValues[Idx]>(stream) == 0) && ...);
     if (result) {
         return 0;
@@ -92,11 +92,10 @@ inline int testLatencyHidingHelper(cudaStream_t stream, std::integer_sequence<in
 }
 
 int launch() {
-
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
 
-    const int result =  testLatencyHidingHelper(stream, std::make_integer_sequence<int, variableDimanesionValues.size()>{});
+    const int result = testLatencyHidingHelper(stream, std::make_integer_sequence<int, variableDimanesionValues.size()>{});
 
     CLOSE_BENCHMARK
 
