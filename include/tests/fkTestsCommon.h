@@ -32,7 +32,7 @@ constexpr std::array<size_t, NUM_ELEMS> arrayIndexSecuence = generate_sequence<S
 std::unordered_map<std::string, std::stringstream> benchmarkResultsText;
 std::unordered_map<std::string, std::ofstream> currentFile;
 // Select the path where to write the benchmark files
-const std::string path{ "" };
+const std::string path{ "C:/Users/oscar/Dropbox\\ (Personal)/cvGPUSpeedup/Benchmarks/Windows/LatencyHiding/04-08-24-RTX3050/" };
 
 constexpr int ITERS = 100;
 
@@ -52,15 +52,14 @@ float computeVariance(const float& mean, const std::array<float, ITERATIONS>& ti
     return sumOfDiff / (ITERATIONS - 1);
 }
 
-template <int BATCH, int ITERATIONS, int NUM_BATCH_VALUES, const std::array<size_t, NUM_BATCH_VALUES>& batchValues>
+template <int VARIABLE_DIMENSION, int ITERATIONS, int NUM_BATCH_VALUES, const std::array<size_t, NUM_BATCH_VALUES>& variableDimanesionValues>
 inline void processExecution(const BenchmarkResultsNumbers& resF,
                              const std::string& functionName,
                              const std::array<float, ITERS>& cvGSelapsedTime,
                              const std::string& variableDimension) {
-
     // Create 2D Table for changing types and changing batch
     const std::string fileName = functionName + std::string(".csv");
-    if constexpr (BATCH == batchValues[0]) {
+    if constexpr (VARIABLE_DIMENSION == variableDimanesionValues[0]) {
         if (currentFile.find(fileName) == currentFile.end()) {
             currentFile[fileName].open(path + fileName);
         }
@@ -77,7 +76,7 @@ inline void processExecution(const BenchmarkResultsNumbers& resF,
         const float cvgsMean = resF.cvGSelapsedTimeAcum / ITERATIONS;
         const float cvgsVariance = computeVariance(cvgsMean, cvGSelapsedTime);
 
-        currentFile[fileName] << BATCH;
+        currentFile[fileName] << VARIABLE_DIMENSION;
         currentFile[fileName] << ", " << cvgsMean;
         currentFile[fileName] << ", " << computeVariance(cvgsMean, cvGSelapsedTime);
         currentFile[fileName] << ", " << resF.cvGSelapsedTimeMax;
@@ -89,7 +88,7 @@ inline void processExecution(const BenchmarkResultsNumbers& resF,
 
 #ifdef ENABLE_BENCHMARK
 #define START_CVGS_BENCHMARK \
-std::cout << "Executing " << __func__ << " fusing " << BATCH << " operations. " << std::endl; \
+std::cout << "Executing " << __func__ << " fusing " << VARIABLE_DIMENSION << " operations. " << std::endl; \
 cudaEvent_t start, stop; \
 BenchmarkResultsNumbers resF; \
 resF.cvGSelapsedTimeMax = fk::minValue<float>; \
@@ -113,7 +112,7 @@ resF.cvGSelapsedTimeMax = resF.cvGSelapsedTimeMax < cvGSelapsedTime[i] ? cvGSela
 resF.cvGSelapsedTimeMin = resF.cvGSelapsedTimeMin > cvGSelapsedTime[i] ? cvGSelapsedTime[i] : resF.cvGSelapsedTimeMin; \
 resF.cvGSelapsedTimeAcum += cvGSelapsedTime[i]; \
 } \
-processExecution<BATCH, ITERS, batchValues.size(), batchValues>(resF, __func__, cvGSelapsedTime, VARIABLE_DIMENSION);
+processExecution<VARIABLE_DIMENSION, ITERS, variableDimanesionValues.size(), variableDimanesionValues>(resF, __func__, cvGSelapsedTime, VARIABLE_DIMENSION_NAME);
 #else
 #define STOP_CVGS_BENCHMARK
 #endif
