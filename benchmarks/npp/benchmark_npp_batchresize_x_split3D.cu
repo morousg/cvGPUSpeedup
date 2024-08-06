@@ -74,7 +74,6 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 	if (enabled)
 	{
 		const float alpha = 0.3f;
-
 		const uchar3 val_init = {5u, 5u, 5u};
 		const float3 val_alpha = {alpha, alpha, alpha};
 		const float3 val_sub = {1.f, 4.f, 3.2f};
@@ -87,7 +86,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 		{
 			fk::Ptr2D<uchar3> d_input((int)NUM_ELEMS_X, (int)NUM_ELEMS_Y);
 
-			std::array<fk::Rect2d, BATCH> crops_2d;
+			std::array<fk::ROI, BATCH> crops_2d;
 			std::array<NppiImageDescriptor, BATCH> srccropsdesc;
 			for (int crop_i = 0; crop_i < BATCH; crop_i++)
 			{
@@ -98,15 +97,16 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			}
 
 			const fk::Size up(UP_W, UP_H);
-			fk::Ptr2D<uchar3> d_up(up);
-			fk::Ptr2D<float3> d_temp(up);
-			fk::Ptr2D<float3> d_temp2(up);
+			fk::Ptr2D<uchar3> d_up((int)NUM_ELEMS_X, (int)NUM_ELEMS_Y);;
+			fk::Ptr2D<float3> d_temp((int)NUM_ELEMS_X, (int)NUM_ELEMS_Y);;
+			fk::Ptr2D<float3> d_temp2((int)NUM_ELEMS_X, (int)NUM_ELEMS_Y); 
 
 			std::array<std::vector<fk::Ptr2D<float3>>, BATCH> d_output_crop_npp;
 			std::array<std::vector<fk::Ptr2D<float3>>, BATCH> d_output_cvGS;
 
-			fk::Ptr2D<float3> d_tensor_output(BATCH, up.width * up.height * float3, 3);
-			d_tensor_output.step = up.width * up.height * sizeof(float);
+			fk::Tensor<uchar3> d_tensor_output; 
+		 
+		//	d_tensor_output.step = up.width * up.height * sizeof(float);
             std::array<fk::Ptr2D<float3>, BATCH> crops;
 
 			std::array<NppiImageDescriptor, BATCH> dstcropsdesc;
@@ -119,11 +119,12 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			}
 
 			// NPP version
-			NppStreamContext nppcontext = initNppStreamContext(static_cast<cudaStream_t>(compute_stream.cudaPtr()));
-
+ 
+			NppStreamContext nppcontext = initNppStreamContext(compute_stream);
+			
 			for (int i = 0; i < BATCH; ++i)
 			{				
-				NPP_CHECK(nppiConvert_8u32f_C3R_Ctx(d_input[i].ptr(), d_input[i].step, d_output[i].ptr(), d_input[i].step(), up, nppcontext));
+				NPP_CHECK(nppiConvert_8u32f_C3R_Ctx(d_input[i].ptr(), d_input[i].ptr().dims.pitch, d_output[i].ptr(), d_input[i].pitch(), up, nppcontext));
 			}
 			//(for i=0;i<BATCH;++i)
 			// nppiConvert_8u32f_AC3
