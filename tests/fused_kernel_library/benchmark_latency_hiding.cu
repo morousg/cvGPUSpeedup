@@ -20,7 +20,6 @@
 
 #ifdef ENABLE_BENCHMARK
 constexpr char VARIABLE_DIMENSION_NAME[]{ "Number of Operations" };
-#endif
 
 constexpr size_t NUM_EXPERIMENTS = 30;
 constexpr size_t FIRST_VALUE = 1;
@@ -90,8 +89,9 @@ inline int testLatencyHidingHelper(cudaStream_t stream, const std::integer_seque
         return -1;
     }
 }
-
+#endif
 int launch() {
+#ifdef ENABLE_BENCHMARK
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
 
@@ -100,4 +100,6 @@ int launch() {
     CLOSE_BENCHMARK
 
     return result;
+#endif
+    return 0;
 }
