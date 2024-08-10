@@ -17,45 +17,45 @@
 #include <fused_kernel/core/execution_model/operations.cuh>
 
 namespace fk {
-    template <typename I, typename P = I, typename O = I>
-    struct Add_ {
-        BINARY_DECL_EXEC(O, I, P) {
-            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sum_ can't work with cuda vector types.");
+    template <typename I1, typename I2 = I1, typename O = I1, typename IT = BinaryType>
+    struct Add {};
+
+    template <typename I1, typename I2, typename O>
+    struct Add<I1, I2, O, BinaryType> {
+        BINARY_DECL_EXEC(O, I1, I2) {
             return input + params;
         }
     };
 
+    template <typename I1, typename I2, typename O>
+    struct Add<I1, I2, O, UnaryType> {
+        using InputType = Tuple<I1, I2>;
+        using OutputType = O;
+        using InstanceType = UnaryType;
+        static constexpr  __forceinline OutputType exec(const InputType& input) {
+            return get_v<0>(input) + get_v<1>(input);
+        }
+    };
+
     template <typename I, typename P = I, typename O = I>
-    struct Sub_ {
+    struct Sub {
         BINARY_DECL_EXEC(O, I, P) {
-            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Sub_ can't work with cuda vector types.");
             return input - params;
         }
     };
 
     template <typename I, typename P = I, typename O = I>
-    struct Mul_ {
+    struct Mul {
         BINARY_DECL_EXEC(O, I, P) {
-            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Mul_ can't work with cuda vector types.");
             return input * params;
         }
     };
 
     template <typename I, typename P = I, typename O = I>
-    struct Div_ {
+    struct Div {
         BINARY_DECL_EXEC(O, I, P) {
-            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Div_ can't work with cuda vector types.");
             return input / params;
         }
     };
-
-    template <typename I, typename P = I, typename O = I>
-    using Add = BinaryV<Add_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
-    template <typename I, typename P = I, typename O = I>
-    using Sub = BinaryV<Sub_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
-    template <typename I, typename P = I, typename O = I>
-    using Mul = BinaryV<Mul_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
-    template <typename I, typename P = I, typename O = I>
-    using Div = BinaryV<Div_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
 } // namespace fk
 
