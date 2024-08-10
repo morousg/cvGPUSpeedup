@@ -138,6 +138,8 @@ As you can see, the resulting performance makes the pre-processing virtually fre
 
 ## Quick start guide
 
+cvGPUSpeedup is a wrapper over the library FusedKernel. All the files related to cvGPUSpeedup are dependent on OpenCV and can be found in include/. All the FusedKernel library files are independent from OpenCV, and can be found in include/fused_kernel.
+
 ### Fused Kernel Library
 
 Assuming you installed the NVIDIA CUDA SDK versions 11.8 or 12 up to 12.3.
