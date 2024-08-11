@@ -15,7 +15,6 @@
 #pragma once
 
 #include <opencv2/core.hpp>
-#include <string>
 #include <iostream>
 
 #include <fused_kernel/core/utils/cuda_vector_utils.h>

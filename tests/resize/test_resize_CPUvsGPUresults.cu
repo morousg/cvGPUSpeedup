@@ -12,18 +12,11 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include "tests/main.h"
 
-#include <opencv2/core.hpp>
-#include <opencv2/core/cuda_stream_accessor.hpp>
 #include <opencv2/cudaarithm.hpp>
-#include <opencv2/cudawarping.hpp>
-#include <opencv2/core/cuda.hpp>
 #include <opencv2/opencv.hpp>
 #include <cvGPUSpeedup.cuh>
-
-#include "tests/main.h"
 
 int launch() {
     cv::cuda::Stream cv_stream;
