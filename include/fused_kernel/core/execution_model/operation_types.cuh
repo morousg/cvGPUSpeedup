@@ -14,7 +14,8 @@
 
 #pragma once
 
-#include <fused_kernel/core/data/ptr_nd.h>
+#include <fused_kernel/core/data/point.h>
+#include <fused_kernel/core/utils/template_operations.h>
 
 namespace fk {
 

@@ -17,7 +17,6 @@
 
 #include <cassert>
 
-#include <fused_kernel/core/utils/utils.h>
 #include <fused_kernel/core/utils/type_lists.h>
 #include <fused_kernel/core/utils/template_operations.h>
 
@@ -292,6 +291,7 @@ namespace fk {
     }
 } // namespace fk
 
+#ifdef DEBUG_MATRIX
 template <typename T>
 struct to_printable {
     FK_HOST_FUSE int exec(T val) {
@@ -340,6 +340,7 @@ template <typename T>
 inline constexpr typename std::enable_if_t<fk::validCUDAVec<T>, std::ostream&> operator<<(std::ostream& outs, const T& val) {
     return print_vector<T>::exec(outs, val);
 }
+#endif
 
 #define VEC_UNARY_OP(op, input_type, output_type) \
 FK_HOST_DEVICE_CNST output_type ## 1 operator op(const input_type ## 1 & a) \

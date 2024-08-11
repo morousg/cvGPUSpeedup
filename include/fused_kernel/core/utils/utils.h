@@ -17,8 +17,9 @@
 
 #pragma once
 
-#include <iostream>
-#include <exception>
+//#include <iostream>
+#include <string>
+#include <stdexcept>
 #include <cuda.h>
 #include <cuda_runtime.h>
 
@@ -41,13 +42,19 @@ using ushort = unsigned short;
 using ulong = unsigned long;
 
 namespace fk {
-    constexpr inline void gpuAssert(cudaError_t code,
+    inline void gpuAssert(cudaError_t code,
         const char *file,
         int line,
         bool abort = true) {
         if (code != cudaSuccess) {
-            std::cout << "GPUassert: " << cudaGetErrorString(code) << " File: " << file << " Line:" << line << std::endl;
-            if (abort) throw std::exception();
+            std::string message = "GPUassert: ";
+            message.append(cudaGetErrorString(code));
+            message.append(" File: ");
+            message.append(file);
+            message.append(" Line:");
+            message.append(std::to_string(line).c_str());
+            message.append("/n");
+            if (abort) throw std::runtime_error(message.c_str());
         }
     }
 } // namespace fk

@@ -26,7 +26,11 @@ namespace fk {
     };
 
     struct MxVFloat3 {
-        BINARY_DECL_EXEC(float3, float3, M3x3Float) {
+        using OutputType = float3;
+        using InputType = float3;
+        using ParamsType = M3x3Float; 
+        using InstanceType = BinaryType; 
+        static constexpr  __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             const float3 xOut = input * params.x;
             const float3 yOut = input * params.y;
             const float3 zOut = input * params.z;

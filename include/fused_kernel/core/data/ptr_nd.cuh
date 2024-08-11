@@ -14,10 +14,7 @@
 
 #pragma once
 
-#include <array>
-
-#include <fused_kernel/core/utils/parameter_pack_utils.cuh>
-
+#include <fused_kernel/core/data/point.h>
 #include <fused_kernel/core/data/ptr_nd.h>
 
 namespace fk {

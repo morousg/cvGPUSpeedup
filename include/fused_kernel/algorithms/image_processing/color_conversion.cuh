@@ -14,13 +14,11 @@
 
 #pragma once
 
-#include <fused_kernel/core/utils/type_lists.h>
-#include <fused_kernel/core/execution_model/memory_operations.cuh>
-#include <fused_kernel/core/execution_model/device_functions.cuh>
-#include <fused_kernel/core/execution_model/thread_fusion.cuh>
-#include <fused_kernel/algorithms/basic_ops/logical.cuh>
+#include <fused_kernel/core/data/ptr_nd.cuh>
+#include <fused_kernel/core/execution_model/unary_operation_sequence.cuh>
 #include <fused_kernel/algorithms/basic_ops/algebraic.cuh>
 #include <fused_kernel/algorithms/image_processing/saturate.cuh>
+#include <fused_kernel/algorithms/basic_ops/cast.cuh>
 
 namespace fk {
     template <typename I>
@@ -44,7 +42,10 @@ namespace fk {
     template <typename I, typename O>
     struct RGB2Gray<I, O, CCIR_601> {
     public:
-        UNARY_DECL_EXEC(I, O) {
+        using InputType = I;
+        using OutputType = O;
+        using InstanceType = UnaryType;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
             // 0.299*R + 0.587*G + 0.114*B
             if constexpr (std::is_unsigned_v<OutputType>) {
                 return __float2uint_rn(compute_luminance(input));
@@ -130,13 +131,7 @@ namespace fk {
         using Base = typename VectorTraits<T>::base;
 
         static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-            if constexpr (CD == p8bit) {
-                return Saturate<float>::exec(input, {0.f, 255.f});
-            } else if constexpr (CD == p10bit) {
-                return Saturate<float>::exec(input, {0.f, 1023.f});
-            } else if constexpr (CD == p12bit) {
-                return Saturate<float>::exec(input, {0.f, 4095.f});
-            }
+            return Saturate<float>::exec(input, { 0.f, static_cast<float>(maxDepthValue<CD>) });
         }
     };
 
@@ -217,7 +212,10 @@ namespace fk {
 
     template <typename I, typename O, ColorDepth CD>
     struct SaturateDenormalizePixel {
-        UNARY_DECL_EXEC(I, O) {
+        using InputType = I;
+        using OutputType = O;
+        using InstanceType = UnaryType;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
             static_assert(std::is_same_v<VBase<I>, float>, "SaturateDenormalizePixel only works with float base types.");
             const InputType saturatedFloat = SaturateFloat<InputType>::exec(input);
             return DenormalizePixel<OutputType, CD>::exec(saturatedFloat);
@@ -391,58 +389,58 @@ namespace fk {
     // Will work for COLOR_RGB2RGBA too
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGR2BGRA, I, O, CD> {
-        using type = Unary<AddOpaqueAlpha<I, CD>>;
+        using type = AddOpaqueAlpha<I, CD>;
     };
 
     // Will work for COLOR_RGBA2RGB too
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGRA2BGR, I, O, CD> {
-        using type = Unary<Discard<I, VectorType_t<VBase<I>, 3>>>;
+        using type = Discard<I, VectorType_t<VBase<I>, 3>>;
     };
 
     // Will work for COLOR_RGB2BGRA too
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGR2RGBA, I, O, CD> {
-        using type = Unary<VectorReorder<I, 2, 1, 0>, AddOpaqueAlpha<I, CD>>;
+        using type = UnaryOperationSequence<VectorReorder<I, 2, 1, 0>, AddOpaqueAlpha<I, CD>>;
     };
 
     // Will work for COLOR_RGBA2BGR too
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGRA2RGB, I, O, CD> {
-        using type = Unary<VectorReorder<I, 2, 1, 0, 3>,
+        using type = UnaryOperationSequence<VectorReorder<I, 2, 1, 0, 3>,
                            Discard<I, VectorType_t<VBase<I>, 3>>>;
     };
 
     // Will work for COLOR_RGB2BGR too
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGR2RGB, I, O, CD> {
-        using type = Unary<VectorReorder<I, 2, 1, 0>>;
+        using type = VectorReorder<I, 2, 1, 0>;
     };
 
     // Will work for COLOR_RGBA2BGRA too
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGRA2RGBA, I, O, CD> {
-        using type = Unary<VectorReorder<I, 2, 1, 0, 3>>;
+        using type = VectorReorder<I, 2, 1, 0, 3>;
     };
 
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_RGB2GRAY, I, O, CD> {
-        using type = Unary<RGB2Gray<I, O>>;
+        using type = RGB2Gray<I, O>;
     };
 
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGR2GRAY, I, O, CD> {
-        using type = Unary<VectorReorder<I, 2, 1, 0>, RGB2Gray<I, O>>;
+        using type = UnaryOperationSequence<VectorReorder<I, 2, 1, 0>, RGB2Gray<I, O>>;
     };
 
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_RGBA2GRAY, I, O, CD> {
-        using type = Unary<RGB2Gray<I, O>>;
+        using type = RGB2Gray<I, O>;
     };
 
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGRA2GRAY, I, O, CD> {
-        using type = Unary<VectorReorder<I, 2, 1, 0, 3>, RGB2Gray<I, O>>;
+        using type = UnaryOperationSequence<VectorReorder<I, 2, 1, 0, 3>, RGB2Gray<I, O>>;
     };
 
     template <ColorConversionCodes code, typename I, typename O, ColorDepth CD = ColorDepth::p8bit>

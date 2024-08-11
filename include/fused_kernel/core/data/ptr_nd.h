@@ -14,25 +14,9 @@
 
 #pragma once
 
-#include <fused_kernel/core/utils/cuda_vector_utils.h>
+#include <fused_kernel/core/utils/utils.h>
 
 namespace fk {
-
-    struct Size {
-        constexpr Size(int width_, int height_) : width(width_),
-            height(height_) {};
-        Size() {};
-        int width{0};
-        int height{0};
-    };
-
-    struct Point {
-        uint x;
-        uint y;
-        uint z;
-        FK_HOST_DEVICE_CNST Point(const uint x_ = 0, const uint y_ = 0, const uint z_ = 0) : x(x_), y(y_), z(z_) {}
-    };
-
     inline constexpr uint computeDiscardedThreads(const uint width, const uint height, const uint blockDimx, const uint blockDimy) {
         const uint modX = width % blockDimx;
         const uint modY = height % blockDimy;
@@ -194,8 +178,7 @@ namespace fk {
     struct RawPtr<_1D, T> {
         T* data{nullptr};
         PtrDims<_1D> dims;
-        using base = typename VectorTraits<T>::base;
-        enum { cn = cn<T> };
+        using type = T;
         enum { ND = _1D };
     };
 
@@ -203,8 +186,7 @@ namespace fk {
     struct RawPtr<_2D, T> {
         T* data{nullptr};
         PtrDims<_2D> dims;
-        using base = typename VectorTraits<T>::base;
-        enum { cn = cn<T> };
+        using type = T;
         enum { ND = _2D };
     };
 
@@ -212,8 +194,7 @@ namespace fk {
     struct RawPtr<_3D, T> {
         T* data{nullptr};
         PtrDims<_3D> dims;
-        using base = typename VectorTraits<T>::base;
-        enum { cn = cn<T> };
+        using type = T;
         enum { ND = _3D };
     };
 
@@ -221,8 +202,7 @@ namespace fk {
     struct RawPtr<T3D, T> {
         T* data{nullptr};
         PtrDims<T3D> dims;
-        using base = typename VectorTraits<T>::base;
-        enum { cn = cn<T> };
+        using type = T;
         enum { ND = T3D };
     };
 

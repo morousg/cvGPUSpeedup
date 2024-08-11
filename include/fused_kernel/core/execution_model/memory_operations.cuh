@@ -1,5 +1,5 @@
 /* 
-   Copyright 2023 Oscar Amoros Huguet
+   Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -14,11 +14,10 @@
    limitations under the License. */
 
 #pragma once
-#include <fused_kernel/core/utils/cuda_vector_utils.h>
-#include <fused_kernel/core/execution_model/operations.cuh>
-#include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
+#include <fused_kernel/core/data/size.h>
+#include <fused_kernel/core/data/ptr_nd.cuh>
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>
-#include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/operation_types.cuh>
 
 namespace fk {
 
@@ -342,47 +341,6 @@ namespace fk {
             return Operation::pitch(thread, ptr[thread.z]);
         }
     };
-
-    // BatchRead DeviceFunction builders
-    template <typename Operation, size_t BATCH, int... Idx>
-    constexpr inline std::enable_if_t<isReadBackType<Operation>, SourceReadBack<BatchRead<Operation, BATCH>>> buildBatchReadDF_helper(
-        const std::array<typename Operation::ParamsType, BATCH>& params,
-        const std::array<typename Operation::BackFunction, BATCH>& back_functions,
-        const Size& output_planes,
-        const std::integer_sequence<int, Idx...>&) {
-
-        return { {params[Idx]...}, {back_functions[Idx]...},
-            {static_cast<uint>(output_planes.width), static_cast<uint>(output_planes.height), static_cast<uint>(BATCH)} };
-    }
-
-    template <typename Operation, size_t BATCH, int... Idx>
-    constexpr inline std::enable_if_t<isReadType<Operation>, SourceRead<BatchRead<Operation, BATCH>>> buildBatchReadDF_helper(
-        const std::array<typename Operation::ParamsType, BATCH>& params,
-        const Size& output_planes,
-        const std::integer_sequence<int, Idx...>&) {
-
-        return { {params[Idx]...},
-            {static_cast<uint>(output_planes.width), static_cast<uint>(output_planes.height), static_cast<uint>(BATCH)} };
-    }
-
-    template <typename Operation, size_t BATCH>
-    constexpr inline std::enable_if_t<isReadBackType<Operation>, SourceReadBack<BatchRead<Operation, BATCH>>>
-        buildBatchReadDF(const std::array<typename Operation::ParamsType, BATCH>& params,
-            const std::array<typename Operation::BackFunction, BATCH>& back_functions,
-            const Size& output_planes) {
-
-        return buildBatchReadDF_helper<Operation, BATCH>(params, back_functions, output_planes,
-            std::make_integer_sequence<int, BATCH>{});
-    }
-
-    template <typename Operation, size_t BATCH>
-    constexpr inline std::enable_if_t<isReadType<Operation>, SourceRead<BatchRead<Operation, BATCH>>>
-        buildBatchReadDF(const std::array<typename Operation::ParamsType, BATCH>& params,
-            const Size& output_planes) {
-
-        return buildBatchReadDF_helper<Operation, BATCH>(params, output_planes,
-            std::make_integer_sequence<int, BATCH>{});
-    }
 
     /* The following code has the following copy right
 

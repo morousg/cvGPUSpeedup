@@ -14,9 +14,7 @@
 
 #pragma once
 
-#include <fused_kernel/core/execution_model/operations.cuh>
-
-#include <cuda.h>
+#include <fused_kernel/algorithms/basic_ops/logical.cuh>
 
 namespace fk {
     // Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
@@ -342,13 +340,19 @@ namespace fk {
 
     template <typename I, typename O>
     struct SaturateCast {
-        UNARY_DECL_EXEC(I, O) {
+        using InputType = I;
+        using OutputType = O;
+        using InstanceType = UnaryType;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
             return saturate_cast<OutputType>(input);
         }
     };
 
     struct SaturateFloatBase {
-        UNARY_DECL_EXEC(float, float) {
+        using InputType = float;
+        using OutputType = float;
+        using InstanceType = UnaryType;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
             return Max<float>::exec(0.f, Min<float>::exec(input, 1.f));
         }
     };
@@ -368,7 +372,10 @@ namespace fk {
 
     template <typename T>
     struct SaturateFloat {
-        UNARY_DECL_EXEC(T, T) {
+        using InputType = T;
+        using OutputType = T;
+        using InstanceType = UnaryType;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
             static_assert(std::is_same_v<VBase<T>, float>, "Satureate float only works with float base types.");
             return UnaryV<T,T,SaturateFloatBase>::exec(input);
         }

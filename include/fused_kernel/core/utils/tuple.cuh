@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include <fused_kernel/core/utils/utils.h>
 #include <fused_kernel/core/utils/type_lists.h>
 
 namespace fk {

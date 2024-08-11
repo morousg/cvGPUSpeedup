@@ -14,12 +14,8 @@
 
 #pragma once
 
-#include <fused_kernel/core/utils/type_lists.h>
 #include <fused_kernel/core/utils/cuda_vector_utils.h>
-#include <fused_kernel/core/utils/template_operations.h>
-#include <fused_kernel/core/data/vector_types.cuh>
-#include <fused_kernel/core/data/ptr_nd.cuh>
-#include <cuda_runtime.h>
+#include <fused_kernel/core/data/point.h>
 
 namespace fk {
 

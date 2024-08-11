@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -14,4 +14,14 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
+#include <fused_kernel/core/utils/utils.h>
+
+namespace fk {
+    struct Size {
+        constexpr Size(int width_, int height_) : width(width_),
+            height(height_) {};
+        Size() {};
+        int width{ 0 };
+        int height{ 0 };
+    };
+} // namespace fk

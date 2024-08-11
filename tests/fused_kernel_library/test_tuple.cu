@@ -12,13 +12,17 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
+#include "tests/main.h"
+
+#include <iostream>
 #include <type_traits>
 
-#include <fused_kernel/core/utils/tuple.cuh>
+#include <fused_kernel/core/utils/operation_tuple.cuh>
+//#include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
+#include <fused_kernel/algorithms/basic_ops/cuda_vector.cuh>
+#include <fused_kernel/core/utils/cuda_vector_utils.h>
 #include <fused_kernel/core/utils/template_operations.h>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
-
-#include "tests/main.h"
 
 constexpr bool buildTuple() {
 
