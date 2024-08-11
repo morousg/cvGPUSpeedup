@@ -12,16 +12,15 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#include <type_traits>
-
-#include <fused_kernel/core/utils/tuple.cuh>
-#include <fused_kernel/core/utils/template_operations.h>
-#include <fused_kernel/core/execution_model/memory_operations.cuh>
-
 #include "tests/main.h"
 
-constexpr bool buildTuple() {
+#include <iostream>
 
+#include <fused_kernel/core/utils/operation_tuple.cuh>
+#include <fused_kernel/algorithms/basic_ops/cuda_vector.cuh>
+#include <fused_kernel/core/execution_model/memory_operations.cuh>
+
+constexpr bool buildTuple() {
     constexpr fk::Tuple<int, float, double, float3> test{1, 4.f, 5.0, {4.f, 3.f, 1.f}};
 
     constexpr bool result1 = fk::TupleUtil::get<0>(test) == 1;
@@ -34,7 +33,6 @@ constexpr bool buildTuple() {
 }
 
 constexpr bool buildOperationTupleType() {
-
     using Op1 = fk::PerThreadRead<fk::_2D, uchar3>;
     using Op2 = fk::VectorReorder<uchar3, 0, 1, 2>;
     using Op3 = fk::PerThreadWrite<fk::_2D, uchar3>;
@@ -71,7 +69,6 @@ constexpr bool tupleInsert() {
 }
 
 bool modifyTupleElement() {
-
     fk::Tuple<int, float, double> myTuple{1, 1.f, 1.0};
 
     fk::get_v<0>(myTuple) += 1;

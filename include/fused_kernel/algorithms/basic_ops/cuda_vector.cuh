@@ -14,12 +14,15 @@
 
 #pragma once
 
-#include <fused_kernel/core/execution_model/operations.cuh>
+#include <fused_kernel/core/execution_model/operation_types.cuh>
+#include <fused_kernel/core/utils/cuda_vector_utils.h>
 
 namespace fk {
     template <typename I, typename O>
     struct Discard {
-        using InputType = I; using OutputType = O; using InstanceType = UnaryType;
+        using InputType = I;
+        using OutputType = O;
+        using InstanceType = UnaryType;
         static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
             static_assert(cn<I> > cn<O>, "Output type should at least have one channel less");
             static_assert(std::is_same_v<typename VectorTraits<I>::base,

@@ -15,7 +15,6 @@
 
 #pragma once
 
-#include <fused_kernel/core/utils/utils.h>
 #include <fused_kernel/core/utils/tuple.cuh>
 
 #include <array>

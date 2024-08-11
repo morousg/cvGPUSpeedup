@@ -15,8 +15,8 @@
 #pragma once
 
 #include <vector_types.h>
-#include <fused_kernel/core/execution_model/operations.cuh>
-#include <utility>
+#include <fused_kernel/core/execution_model/operation_tuple_operation.cuh>
+#include <fused_kernel/core/execution_model/unary_operation_sequence.cuh>
 
 namespace fk { // namespace FusedKernel
 

@@ -14,9 +14,6 @@
 
 #include "tests/main.h"
 
-#include <fused_kernel/core/execution_model/thread_fusion.cuh>
-#include <fused_kernel/algorithms/basic_ops/cuda_vector.cuh>
-#include <fused_kernel/algorithms/basic_ops/arithmetic.cuh>
 #include "tests/testsCommon.cuh"
 #include "tests/nvtx.h"
 #include <cvGPUSpeedup.cuh>

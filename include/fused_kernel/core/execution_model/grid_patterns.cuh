@@ -19,7 +19,6 @@
 namespace cooperative_groups {};
 namespace cg = cooperative_groups;
 
-#include <fused_kernel/core/utils/utils.h>
 #include <fused_kernel/core/utils/parameter_pack_utils.cuh>
 #include <fused_kernel/core/execution_model/device_functions.cuh>
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>

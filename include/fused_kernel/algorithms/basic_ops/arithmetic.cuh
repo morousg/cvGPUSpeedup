@@ -14,15 +14,21 @@
 
 #pragma once
 
-#include <fused_kernel/core/execution_model/operations.cuh>
+#include <fused_kernel/core/utils/tuple.cuh>
+#include <fused_kernel/core/execution_model/operation_types.cuh>
+#include <fused_kernel/core/utils/cuda_vector_utils.h>
 
 namespace fk {
     template <typename I1, typename I2 = I1, typename O = I1, typename IT = BinaryType>
     struct Add {};
 
-    template <typename I1, typename I2, typename O>
-    struct Add<I1, I2, O, BinaryType> {
-        BINARY_DECL_EXEC(O, I1, I2) {
+    template <typename I, typename P, typename O>
+    struct Add<I, P, O, BinaryType> {
+        using OutputType = O;
+        using InputType = I;
+        using ParamsType = P;
+        using InstanceType = BinaryType;
+        static constexpr  __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             return input + params;
         }
     };
@@ -32,28 +38,40 @@ namespace fk {
         using InputType = Tuple<I1, I2>;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr  __forceinline OutputType exec(const InputType& input) {
+        static constexpr  __device__ __forceinline__ OutputType exec(const InputType& input) {
             return get_v<0>(input) + get_v<1>(input);
         }
     };
 
     template <typename I, typename P = I, typename O = I>
     struct Sub {
-        BINARY_DECL_EXEC(O, I, P) {
+        using OutputType = O;
+        using InputType = I;
+        using ParamsType = P;
+        using InstanceType = BinaryType;
+        static constexpr  __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             return input - params;
         }
     };
 
     template <typename I, typename P = I, typename O = I>
     struct Mul {
-        BINARY_DECL_EXEC(O, I, P) {
+        using OutputType = O;
+        using InputType = I;
+        using ParamsType = P;
+        using InstanceType = BinaryType;
+        static constexpr  __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             return input * params;
         }
     };
 
     template <typename I, typename P = I, typename O = I>
     struct Div {
-        BINARY_DECL_EXEC(O, I, P) {
+        using OutputType = O;
+        using InputType = I;
+        using ParamsType = P;
+        using InstanceType = BinaryType;
+        static constexpr  __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             return input / params;
         }
     };

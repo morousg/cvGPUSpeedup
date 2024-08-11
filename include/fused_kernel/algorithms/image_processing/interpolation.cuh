@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/algorithms/basic_ops/logical.cuh>
 
 namespace fk {

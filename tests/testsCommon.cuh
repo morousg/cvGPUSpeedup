@@ -18,16 +18,11 @@
 
 #include <sstream>
 #include <fstream>
-#include <iostream>
 #include <unordered_map>
 #include <array>
 
-#include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>
 #include <opencv2/cudaarithm.hpp>
-#include <opencv2/cudawarping.hpp>
-#include <opencv2/core/cuda.hpp>
 
 template <size_t START_VALUE, size_t INCREMENT, std::size_t... Is>
 constexpr std::array<size_t, sizeof...(Is)> generate_sequence(std::index_sequence<Is...>) {

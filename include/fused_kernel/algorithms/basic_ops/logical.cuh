@@ -14,14 +14,18 @@
 
 #pragma once
 
-#include <fused_kernel/core/execution_model/operations.cuh>
+#include <fused_kernel/core/execution_model/vector_operations.cuh>
 
 namespace fk {
     enum ShiftDirection { Left, Right };
 
     template <typename T, ShiftDirection SD>
     struct Shift_ {
-        BINARY_DECL_EXEC(T, T, uint) {
+        using OutputType = T;
+        using InputType = T;
+        using ParamsType = uint;
+        using InstanceType = BinaryType;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(!validCUDAVec<T>, "Shift can't work with cuda vector types.");
             static_assert(std::is_unsigned_v<T>, "Shift only works with unsigned integers.");
             if constexpr (SD == Left) {
@@ -52,7 +56,11 @@ namespace fk {
 
     template <typename I, typename P = I, typename O = I>
     struct Max_ {
-        BINARY_DECL_EXEC(O, I, P) {
+        using OutputType = O;
+        using InputType = I;
+        using ParamsType = P;
+        using InstanceType = BinaryType;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Max_ can't work with cuda vector types.");
             return input >= params ? input : params;
         }
@@ -60,7 +68,11 @@ namespace fk {
 
     template <typename I, typename P = I, typename O = I>
     struct Min_ {
-        BINARY_DECL_EXEC(O, I, P) {
+        using OutputType = O;
+        using InputType = I;
+        using ParamsType = P;
+        using InstanceType = BinaryType;
+        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Min_ can't work with cuda vector types.");
             return input <= params ? input : params;
         }

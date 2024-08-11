@@ -12,12 +12,10 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#include <sstream>
+#include "tests/main.h"
 
 #include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
-
-#include "tests/main.h"
 
 template <int I, int O>
 bool test_resize_write(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {

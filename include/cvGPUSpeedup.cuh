@@ -17,7 +17,7 @@
 #include <cvGPUSpeedupHelpers.cuh>
 #include <fused_kernel/fused_kernel.cuh>
 #include <fused_kernel/core/data/circular_tensor.cuh>
-#include <fused_kernel/algorithms/image_processing/resize.cuh>
+#include <fused_kernel/algorithms/image_processing/resize_builders.cuh>
 #include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
 
 #include <opencv2/core.hpp>
@@ -117,7 +117,7 @@ inline constexpr auto cvtColor() {
     using InputType = CUDA_T(I);
     using OutputType = CUDA_T(O);
 
-    return fk::ColorConversion<(fk::ColorConversionCodes)CODE, InputType, OutputType>{};
+    return fk::Unary<fk::ColorConversion<(fk::ColorConversionCodes)CODE, InputType, OutputType>>{};
 }
 
 template <int O>

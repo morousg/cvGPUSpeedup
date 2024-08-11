@@ -12,15 +12,11 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#include <fstream>
-#include <iostream>
+#include "tests/main.h"
 
 #include "tests/testsCommon.cuh"
 #include <opencv2/opencv.hpp>
 #include <cvGPUSpeedup.cuh>
-#include <fused_kernel/algorithms/image_processing/resize.cuh>
-
-#include "tests/main.h"
 
 struct PerPlaneSequenceSelector {
     FK_HOST_DEVICE_FUSE uint at(const uint& index) {

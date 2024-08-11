@@ -12,13 +12,12 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#include <sstream>
+#include "tests/main.h"
+
 #include <vector>
 
 #include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
-
-#include "tests/main.h"
 
 template <int CV_TYPE_I, int CV_TYPE_O, int BATCH>
 bool test_read_convert_split(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
