@@ -1,4 +1,3 @@
-option (ENABLE_BENCHMARK "build benchmarking unit tests" OFF)
 
 set (LAUNCH_SOURCES ${CMAKE_SOURCE_DIR}/tests/main.cpp ${CMAKE_SOURCE_DIR}/tests/main.h)
 function (enable_intellisense TARGET_NAME)
@@ -14,7 +13,7 @@ function (enable_intellisense TARGET_NAME)
 	add_cuda_to_target(${cuda_target} "")
 	
 	if(${ENABLE_DEBUG})
-		add_debug_support_to_target(${cuda_target})
+		add_cuda_debug_support_to_target(${cuda_target})
 	endif()
 
 	if(${ENABLE_NVTX})
@@ -52,7 +51,8 @@ function (discover_tests DIR)
 			
 		if (${is_npp} GREATER -1)
 			add_executable(${cuda_target} ${cuda_source} ${LAUNCH_SOURCES})			
-			target_link_libraries(${cuda_target} PRIVATE CUDA::nppc)				
+			target_link_libraries(${cuda_target} PRIVATE CUDA::nppc)		
+			add_opencv_to_target(${cuda_target} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs"  )		
 			enable_intellisense(${cuda_target})
 		endif()
 		 

@@ -27,7 +27,7 @@ function (discover_tests DIR)
 			add_cuda_to_target(${cuda_target} "")
 			
 			if(${ENABLE_DEBUG})
-				add_debug_support_to_target(${cuda_target})
+				add_cuda_debug_support_to_target(${cuda_target})
 			endif()
 
 			if(${ENABLE_NVTX})

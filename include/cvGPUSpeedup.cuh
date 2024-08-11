@@ -19,14 +19,14 @@
 #include <fused_kernel/core/data/circular_tensor.cuh>
 #include <fused_kernel/algorithms/image_processing/resize_builders.cuh>
 #include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
-#ifdef ENABLE_OPENCV
+
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>
-#endif
+
 namespace cvGS {
 
 enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
-#ifdef ENABLE_OPENCV
+
 template <typename T>
 inline constexpr fk::Ptr2D<T> gpuMat2Ptr2D(const cv::cuda::GpuMat& source) {
     const fk::Ptr2D<T> temp((T*)source.data, source.cols, source.rows, (uint)source.step);
@@ -87,7 +87,7 @@ inline constexpr auto convertTo(float alpha, float beta) {
     using ThirdOp = fk::Add<CUDA_T(O)>;
     return fk::Binary<FirstOp, SecondOp, ThirdOp>{{{fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }}}};
 }
- 
+
 template <int I>
 inline constexpr auto multiply(const cv::Scalar& src2) {
     return fk::Binary<fk::Mul<CUDA_T(I)>> { cvScalar2CUDAV<I>::get(src2) };
@@ -137,7 +137,7 @@ inline constexpr auto split(const cv::cuda::GpuMat& output, const cv::Size& plan
     return fk::Write<fk::TensorSplit<CUDA_T(O)>> {
         gpuMat2Tensor<BASE_CUDA_T(O)>(output, planeDims, CV_MAT_CN(O)).ptr()};
 }
-#endif
+
 template <int O>
 inline constexpr auto split(const fk::RawPtr<fk::_3D, typename fk::VectorTraits<CUDA_T(O)>::base>& output) {
     return fk::Write<fk::TensorSplit<CUDA_T(O)>> {output};
@@ -147,7 +147,7 @@ template <int O>
 inline constexpr auto splitT(const fk::RawPtr<fk::T3D, typename fk::VectorTraits<CUDA_T(O)>::base>& output) {
     return fk::Write<fk::TensorTSplit<CUDA_T(O)>> {output};
 }
-#ifdef ENABLE_OPENCV
+
 template <int T, int INTER_F>
 inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
@@ -176,12 +176,12 @@ template <int O>
 inline constexpr auto write(const cv::cuda::GpuMat& output, const cv::Size& plane) {
     return fk::Write<fk::PerThreadWrite<fk::_3D, CUDA_T(O)>>{ gpuMat2Tensor<CUDA_T(O)>(output, plane, 1).ptr() };
 }
-#endif
+
 template <typename T>
 inline constexpr auto write(const fk::Tensor<T>& output) {
     return fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, T>>{ output };
 }
-#ifdef ENABLE_OPENCV
+
 template <bool ENABLE_THREAD_FUSION, typename... DeviceFunctionTypes>
 inline constexpr void executeOperations(const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
@@ -249,7 +249,7 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
                                         const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
     executeOperations<true>(input, activeBatch, output, outputPlane, stream, deviceFunctions...);
 }
-#endif
+
 /* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
 
    Licensed under the Apache License, Version 2.0 (the "License");
