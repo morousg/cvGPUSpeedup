@@ -86,9 +86,9 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 		{
 
 			std::array<fk::Ptr2D<uchar3>, BATCH> d_input;
-			std::array<fk::Ptr2D<float3>, BATCH> d_crop, d_mul,d_sub,  d_div ;
-			std::array<fk::Ptr2D<float>, BATCH> channelA, channelB, channelC;
-
+			std::array<fk::Ptr2D<float3>, BATCH> d_crop, d_mul, d_sub, d_div;
+			std::array<fk::Ptr2D<float>,BATCH> channelA, channelB, channelC;
+			std::array<fk::Ptr2D<float>, BATCH> hchannelA, hchannelB, hchannelC;
 
 			NppiImageDescriptor* hBatchSrc = nullptr, * dBatchSrc = nullptr, * hBatchDst = nullptr, * dBatchDst = nullptr;
 			NppiResizeBatchROI_Advanced* dBatchROI = nullptr, * hBatchROI = nullptr;
@@ -121,17 +121,17 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			for (int i = 0; i < BATCH; ++i)
 			{
 				d_crop[i] = fk::Ptr2D<float3>(i + CROP_W, i + CROP_H);
-				d_mul[i] = fk::Ptr2D<float3>(i + CROP_W, i + CROP_H);				
-				d_sub[i] = fk::Ptr2D<float3>(i + CROP_W, i + CROP_H);				
+				d_mul[i] = fk::Ptr2D<float3>(i + CROP_W, i + CROP_H);
+				d_sub[i] = fk::Ptr2D<float3>(i + CROP_W, i + CROP_H);
 				d_div[i] = fk::Ptr2D<float3>(i + CROP_W, i + CROP_H);
-				
+
 				hBatchDst[i].pData = d_crop[i].ptr().data;
 				hBatchDst[i].nStep = d_crop[i].ptr().dims.pitch;
 				hBatchDst[i].oSize = szcrop;
 
-				NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_crop[i].ptr().data), d_crop[i].dims().pitch, sz, nppcontext));		 
-				NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_mul[i].ptr().data), d_mul[i].dims().pitch, sz, nppcontext)); 
-				NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].dims().pitch, sz, nppcontext)); 
+				NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_crop[i].ptr().data), d_crop[i].dims().pitch, sz, nppcontext));
+				NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_mul[i].ptr().data), d_mul[i].dims().pitch, sz, nppcontext));
+				NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].dims().pitch, sz, nppcontext));
 				NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].dims().pitch, sz, nppcontext));
 			}
 			// ROI
@@ -146,7 +146,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 
 			gpuErrchk(cudaMalloc(reinterpret_cast<void**>(&dBatchSrc), sizeof(NppiImageDescriptor) * BATCH));
 			gpuErrchk(cudaMalloc(reinterpret_cast<void**>(&dBatchDst), sizeof(NppiImageDescriptor) * BATCH));
-			gpuErrchk(cudaMalloc(reinterpret_cast<void**>(&dBatchROI), sizeof(NppiResizeBatchROI_Advanced) * BATCH));			
+			gpuErrchk(cudaMalloc(reinterpret_cast<void**>(&dBatchROI), sizeof(NppiResizeBatchROI_Advanced) * BATCH));
 			gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (dBatchSrc), hBatchSrc, sizeof(NppiImageDescriptor) * BATCH, cudaMemcpyHostToDevice, compute_stream));
 			gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (dBatchDst), hBatchDst, sizeof(NppiImageDescriptor) * BATCH, cudaMemcpyHostToDevice, compute_stream));
 			gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (dBatchROI), hBatchROI, sizeof(NppiResizeBatchROI_Advanced) * BATCH, cudaMemcpyHostToDevice, compute_stream));
@@ -160,17 +160,10 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 					d_input[i].ptr().dims.pitch,
 					reinterpret_cast<Npp32f*>(d_crop[i].ptr().data), d_crop[i].ptr().dims.pitch, hBatchDst[i].oSize, nppcontext));
 			}
-			
+
 			NPP_CHECK(nppiResizeBatch_32f_C3R_Advanced_Ctx(CROP_W, CROP_H, dBatchSrc, dBatchDst, dBatchROI, BATCH, NPPI_INTER_LINEAR, nppcontext));
 			// crop array of images using batch resize+ ROIs
-			/*gpuErrchk(cudaStreamSynchronize(compute_stream));
 
-			gpuErrchk(cudaFree(dBatchSrc));
-			gpuErrchk(cudaFree(dBatchDst));
-			gpuErrchk(cudaFree(dBatchROI));
-			gpuErrchk(cudaFreeHost(hBatchSrc));
-			gpuErrchk(cudaFreeHost(hBatchDst));
-			gpuErrchk(cudaFreeHost(hBatchROI));*/
 
 			// asume RGB->BGR
 			const int aDstOrder[3] = { 2, 1, 0 };
@@ -183,72 +176,85 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 					reinterpret_cast<Npp32f*>(d_mul[i].ptr().data), d_mul[i].ptr().dims.pitch, szcrop, nppcontext));
 
 				NPP_CHECK(nppiSubC_32f_C3R_Ctx(reinterpret_cast<Npp32f*>(d_mul[i].ptr().data), d_mul[i].ptr().dims.pitch, subValue,
-					reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].ptr().dims.pitch,  szcrop, nppcontext));
+					reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].ptr().dims.pitch, szcrop, nppcontext));
 
-				NPP_CHECK(nppiDivC_32f_C3R_Ctx(reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].ptr().dims.pitch,divValue, 
-					reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch,  szcrop, nppcontext));
- 
+				NPP_CHECK(nppiDivC_32f_C3R_Ctx(reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].ptr().dims.pitch, divValue,
+					reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch, szcrop, nppcontext));
+
 				//split
-				channelA[i] = fk::Ptr2D<float> (CROP_W, CROP_H);
+				channelA[i] = fk::Ptr2D<float>(CROP_W, CROP_H);
 				channelB[i] = fk::Ptr2D<float>(CROP_W, CROP_H);
 				channelC[i] = fk::Ptr2D<float>(CROP_W, CROP_H);
-				Npp32f* const aDst[3] = { channelA[i].ptr().data,channelB[i].ptr().data,channelC[i].ptr().data };				
+				Npp32f* const aDst[3] = { channelA[i].ptr().data,channelB[i].ptr().data,channelC[i].ptr().data };
 				NPP_CHECK(nppiCopy_32f_C3P3R_Ctx(reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch,
-																		   aDst, channelA[i].ptr().dims.pitch, szcrop, nppcontext));
- 
+					aDst, channelA[i].ptr().dims.pitch, szcrop, nppcontext));
+				gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (hchannelA[i].ptr().data), channelA[i].ptr().data, sizeof(float) * CROP_W * CROP_H * channelA[i].ptr().dims.pitch,
+					cudaMemcpyHostToDevice, compute_stream));
+				gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (hchannelB[i].ptr().data), channelB[i].ptr().data, sizeof(float) * CROP_W * CROP_H * channelA[i].ptr().dims.pitch,
+					cudaMemcpyHostToDevice, compute_stream));
+				gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (hchannelC[i].ptr().data), channelC[i].ptr().data, sizeof(float) * CROP_W * CROP_H * channelA[i].ptr().dims.pitch,
+					cudaMemcpyHostToDevice, compute_stream));
+
 			}
+			//gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (dBatchSrc), hBatchSrc, sizeof(NppiImageDescriptor) * BATCH, cudaMemcpyHostToDevice, compute_stream));
 
 			gpuErrchk(cudaStreamSynchronize(compute_stream));
 
-			// TODO: download results to Host
+			
+			
+			gpuErrchk(cudaFree(dBatchSrc));
+			gpuErrchk(cudaFree(dBatchDst));
+			gpuErrchk(cudaFree(dBatchROI));
+			gpuErrchk(cudaFreeHost(hBatchSrc));
+			gpuErrchk(cudaFreeHost(hBatchDst));
+			gpuErrchk(cudaFreeHost(hBatchROI))
 
+				//  split???? nppiCopy_32f_C3P3R_Ctx
 
-			//  split???? nppiCopy_32f_C3P3R_Ctx
+				// cvGPUSpeedup
+				/*cvGS::executeOperations(compute_stream,
+					cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH>(crops, up, BATCH),
+					cvGS::cvtColor<cv::COLOR_RGB2BGR, CV_TYPE_O>(),
+					cvGS::multiply<CV_TYPE_O>(val_alpha),
+					cvGS::subtract<CV_TYPE_O>(val_sub),
+					cvGS::divide<CV_TYPE_O>(val_div),
+					cvGS::split<CV_TYPE_O>(d_tensor_output, up));
+					*/
+					//			d_tensor_output.download(h_tensor_output, compute_stream);
 
-			// cvGPUSpeedup
-			/*cvGS::executeOperations(compute_stream,
-				cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH>(crops, up, BATCH),
-				cvGS::cvtColor<cv::COLOR_RGB2BGR, CV_TYPE_O>(),
-				cvGS::multiply<CV_TYPE_O>(val_alpha),
-				cvGS::subtract<CV_TYPE_O>(val_sub),
-				cvGS::divide<CV_TYPE_O>(val_div),
-				cvGS::split<CV_TYPE_O>(d_tensor_output, up));
-				*/
-				//			d_tensor_output.download(h_tensor_output, compute_stream);
+					//					// Verify results
+					// for (int crop_i = 0; crop_i < BATCH; crop_i++)
+					//	{
+					//	for (int i = 0; i < CV_MAT_CN(CV_TYPE_O); i++)
+					//{
+					//					d_crop_cv[crop_i].at(i).download(h_cvResults[crop_i].at(i), compute_stream);
+					//	}
+					//	}
 
-				//					// Verify results
-				// for (int crop_i = 0; crop_i < BATCH; crop_i++)
-				//	{
-				//	for (int i = 0; i < CV_MAT_CN(CV_TYPE_O); i++)
-				//{
-				//					d_crop_cv[crop_i].at(i).download(h_cvResults[crop_i].at(i), compute_stream);
-				//	}
-				//	}
-
-				/*
-				for (int crop_i = 0; crop_i < BATCH; crop_i++)
-				{
-					cv::Mat row = h_tensor_output.row(crop_i);
-					for (int i = 0; i < CV_MAT_CN(CV_TYPE_O); i++)
+					/*
+					for (int crop_i = 0; crop_i < BATCH; crop_i++)
 					{
-						int planeStart = i * up.width * up.height;
-						int planeEnd = ((i + 1) * up.width * up.height) - 1;
-						cv::Mat plane = row.colRange(planeStart, planeEnd);
-						h_cvGSResults[crop_i].push_back(cv::Mat(up.height, up.width, plane.type(), plane.data));
+						cv::Mat row = h_tensor_output.row(crop_i);
+						for (int i = 0; i < CV_MAT_CN(CV_TYPE_O); i++)
+						{
+							int planeStart = i * up.width * up.height;
+							int planeEnd = ((i + 1) * up.width * up.height) - 1;
+							cv::Mat plane = row.colRange(planeStart, planeEnd);
+							h_cvGSResults[crop_i].push_back(cv::Mat(up.height, up.width, plane.type(), plane.data));
+						}
 					}
-				}
 
-				for (int crop_i = 0; crop_i < BATCH; crop_i++)
-				{
-					for (int i = 0; i < CV_MAT_CN(CV_TYPE_O); i++)
+					for (int crop_i = 0; crop_i < BATCH; crop_i++)
 					{
-						cv::Mat cvRes = h_cvResults[crop_i].at(i);
-						cv::Mat cvGSRes = h_cvGSResults[crop_i].at(i);
-						diff = cv::abs(cvRes - cvGSRes);
-						bool passedThisTime = checkResults<CV_MAT_DEPTH(CV_TYPE_O)>(diff.cols, diff.rows, diff);
-						passed &= passedThisTime;
-					}
-				}*/
+						for (int i = 0; i < CV_MAT_CN(CV_TYPE_O); i++)
+						{
+							cv::Mat cvRes = h_cvResults[crop_i].at(i);
+							cv::Mat cvGSRes = h_cvGSResults[crop_i].at(i);
+							diff = cv::abs(cvRes - cvGSRes);
+							bool passedThisTime = checkResults<CV_MAT_DEPTH(CV_TYPE_O)>(diff.cols, diff.rows, diff);
+							passed &= passedThisTime;
+						}
+					}*/
 		}
 
 		catch (const std::exception& e)
