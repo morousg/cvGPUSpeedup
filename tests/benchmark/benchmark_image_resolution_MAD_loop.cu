@@ -12,11 +12,12 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
+#include "tests/main.h"
+
 #include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
-
-#include "tests/main.h"
+#include <fused_kernel/algorithms/basic_ops/static_loop.cuh>
 
 #ifdef ENABLE_BENCHMARK
 

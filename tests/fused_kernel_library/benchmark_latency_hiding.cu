@@ -17,6 +17,7 @@
 #include <tests/fkTestsCommon.h>
 #include <fused_kernel/fused_kernel.cuh>
 #include <fused_kernel/algorithms/basic_ops/arithmetic.cuh>
+#include <fused_kernel/algorithms/basic_ops/static_loop.cuh>
 
 #ifdef ENABLE_BENCHMARK
 constexpr char VARIABLE_DIMENSION_NAME[]{ "Number of Operations" };
