@@ -110,7 +110,7 @@ bool testDivergentBatch() {
 
     for (uint i = 0; i < BATCH; i++) {
         fk::Ptr2D<uint> h_temp(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
-        h_temp.setTo(i);
+        fk::setTo(i, h_temp);
         h_inputAllocations.push_back(h_temp);
         fk::Ptr2D<uint> temp(WIDTH, HEIGHT);
         inputAllocations.push_back(temp);
@@ -185,7 +185,7 @@ bool testCircularTensor() {
     fk::Ptr2D<IT> input(WIDTH, HEIGHT);
     fk::Ptr2D<IT> h_input(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
 
-    h_myTensor.setTo(10.0f);
+    fk::setTo(10.0f, h_myTensor);
 
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
@@ -193,12 +193,7 @@ bool testCircularTensor() {
     gpuErrchk(cudaMemcpyAsync(myTensor.ptr().data, h_myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
 
     for (int i = 0; i < ITERS; i++) {
-        h_input.setTo(fk::make_<IT>(i + 1, i + 1, i + 1));
-        gpuErrchk(cudaMemcpy2DAsync(input.ptr().data, input.ptr().dims.pitch,
-            h_input.ptr().data, h_input.ptr().dims.pitch,
-            h_input.ptr().dims.width * sizeof(IT),
-            h_input.ptr().dims.height,
-            cudaMemcpyHostToDevice, stream));
+        fk::setTo(fk::make_<IT>(i + 1, i + 1, i + 1), input, stream);
         myTensor.update(stream, fk::SourceRead<fk::PerThreadRead<fk::_2D, IT>> {input.ptr(), {WIDTH, HEIGHT, 1}},
             fk::Unary<fk::SaturateCast<IT, OT>> {},
             fk::Write<fk::TensorSplit<OT>> {myTensor.ptr()});
@@ -238,7 +233,7 @@ bool testCircularTensorcvGS() {
     cv::cuda::GpuMat input(HEIGHT, WIDTH, IT);
     fk::Ptr2D<CUDA_T(IT)> h_input(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
 
-    h_myTensor.setTo(10.0f);
+    fk::setTo(10.f, h_myTensor);
 
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
@@ -247,7 +242,7 @@ bool testCircularTensorcvGS() {
     gpuErrchk(cudaMemcpyAsync(myTensor.ptr().data, h_myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
 
     for (int i = 0; i < ITERS; i++) {
-        h_input.setTo(fk::make_<CUDA_T(IT)>(i + 1, i + 1, i + 1));
+        fk::setTo(fk::make_<CUDA_T(IT)>(i + 1, i + 1, i + 1), h_input);
         gpuErrchk(cudaMemcpy2DAsync(input.data, input.step,
                                     h_input.ptr().data, h_input.ptr().dims.pitch,
                                     h_input.ptr().dims.width * sizeof(CUDA_T(IT)),
@@ -299,7 +294,7 @@ bool testTransposedCircularTensorcvGS() {
     cv::cuda::GpuMat input(HEIGHT, WIDTH, IT);
     fk::Ptr2D<CUDA_T(IT)> h_input(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
 
-    h_myTensor.setTo(10.0f);
+    fk::setTo(10.f, h_myTensor);
 
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
@@ -308,7 +303,7 @@ bool testTransposedCircularTensorcvGS() {
     gpuErrchk(cudaMemcpyAsync(myTensor.ptr().data, h_myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
 
     for (int i = 0; i < ITERS; i++) {
-        h_input.setTo(fk::make_<CUDA_T(IT)>(i + 1, i + 1, i + 1));
+        fk::setTo(fk::make_<CUDA_T(IT)>(i + 1, i + 1, i + 1), h_input);
         gpuErrchk(cudaMemcpy2DAsync(input.data, input.step,
             h_input.ptr().data, h_input.ptr().dims.pitch,
             h_input.ptr().dims.width * sizeof(CUDA_T(IT)),
@@ -357,7 +352,7 @@ bool testTransposedOldestFirstCircularTensorcvGS() {
     cv::cuda::GpuMat input(HEIGHT, WIDTH, IT);
     fk::Ptr2D<CUDA_T(IT)> h_input(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
 
-    h_myTensor.setTo(10.0f);
+    fk::setTo(10.f, h_myTensor);
 
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
@@ -366,7 +361,7 @@ bool testTransposedOldestFirstCircularTensorcvGS() {
     gpuErrchk(cudaMemcpyAsync(myTensor.ptr().data, h_myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
 
     for (int i = 0; i < ITERS; i++) {
-        h_input.setTo(fk::make_<CUDA_T(IT)>(i + 1, i + 1, i + 1));
+        fk::setTo(fk::make_<CUDA_T(IT)>(i + 1, i + 1, i + 1), h_input);
         gpuErrchk(cudaMemcpy2DAsync(input.data, input.step,
             h_input.ptr().data, h_input.ptr().dims.pitch,
             h_input.ptr().dims.width * sizeof(CUDA_T(IT)),
@@ -415,7 +410,7 @@ bool testOldestFirstCircularTensorcvGS_noSplit() {
     cv::cuda::GpuMat input(HEIGHT, WIDTH, CV_8UC4);
     fk::Ptr2D<CUDA_T(CV_8UC4)> h_input(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
 
-    h_myTensor.setTo(fk::make_set<float4>(10.0f));
+    fk::setTo(fk::make_set<float4>(10.0f), h_myTensor);
 
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
@@ -424,7 +419,7 @@ bool testOldestFirstCircularTensorcvGS_noSplit() {
     gpuErrchk(cudaMemcpyAsync(myTensor.ptr().data, h_myTensor.ptr().data, myTensor.sizeInBytes(), cudaMemcpyHostToDevice, stream));
 
     for (int i = 0; i < ITERS; i++) {
-        h_input.setTo(fk::make_set<CUDA_T(CV_8UC4)>(i + 1));
+        fk::setTo(fk::make_set<CUDA_T(CV_8UC4)>(i + 1), h_input);
         gpuErrchk(cudaMemcpy2DAsync(input.data, input.step,
                                     h_input.ptr().data, h_input.ptr().dims.pitch,
                                     h_input.ptr().dims.width * sizeof(CUDA_T(CV_8UC4)),

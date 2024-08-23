@@ -15,6 +15,7 @@
 #pragma once
 
 #include <fused_kernel/core/execution_model/vector_operations.cuh>
+#include <fused_kernel/core/utils/tuple.cuh>
 
 namespace fk {
     enum ShiftDirection { Left, Right };
@@ -25,7 +26,7 @@ namespace fk {
         using InputType = T;
         using ParamsType = uint;
         using InstanceType = BinaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(!validCUDAVec<T>, "Shift can't work with cuda vector types.");
             static_assert(std::is_unsigned_v<T>, "Shift only works with unsigned integers.");
             if constexpr (SD == Left) {
@@ -48,7 +49,7 @@ namespace fk {
         using OutputType = bool;
         using InstanceType = UnaryType;
         using AcceptedTypes = TypeList<uchar, ushort, uint>;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
             static_assert(one_of_v<InputType, AcceptedTypes>, "Input type not valid for UnaryIsEven");
             return (input & 1u) == 0;
         }
@@ -60,7 +61,7 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Max_ can't work with cuda vector types.");
             return input >= params ? input : params;
         }
@@ -72,11 +73,22 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Min_ can't work with cuda vector types.");
             return input <= params ? input : params;
         }
     };
+
+    template <typename I1, typename I2=I1>
+    struct Equal {
+        using OutputType = bool;
+        using InputType = fk::Tuple<I1,I2>;
+        using InstanceType = UnaryType;
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
+            return fk::get_v<0>(input) == fk::get_v<1>(input);
+        }
+    };
+
 
     template <typename I, typename P = I, typename O = I>
     using Max = BinaryV<Max_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;

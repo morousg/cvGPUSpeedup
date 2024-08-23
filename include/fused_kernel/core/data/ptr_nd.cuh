@@ -322,16 +322,6 @@ namespace fk {
             return PtrImpl<D, T>::getNumElements(ptr_a.dims);
         }
 
-        inline constexpr void setTo(const T& val) {
-            if (type == MemType::Host || type == MemType::HostPinned) {
-                for (int i = 0; i < (int)getNumElements(); i++) {
-                    ptr_a.data[i] = val;
-                }
-            } else {
-                throw std::exception();
-            }
-
-        }
         inline constexpr int getRefCount() const {
             return ref->cnt;
         }

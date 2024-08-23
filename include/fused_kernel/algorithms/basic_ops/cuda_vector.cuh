@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -14,8 +14,7 @@
 
 #pragma once
 
-#include <fused_kernel/core/execution_model/operation_types.cuh>
-#include <fused_kernel/core/utils/cuda_vector_utils.h>
+#include <fused_kernel/algorithms/basic_ops/logical.cuh>
 
 namespace fk {
     template <typename I, typename O>
@@ -23,7 +22,7 @@ namespace fk {
         using InputType = I;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
             static_assert(cn<I> > cn<O>, "Output type should at least have one channel less");
             static_assert(std::is_same_v<typename VectorTraits<I>::base,
                 typename VectorTraits<O>::base>,
@@ -47,7 +46,7 @@ namespace fk {
         using InputType = T;
         using OutputType = T;
         using InstanceType = UnaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
             static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnaryVectorReorder");
             static_assert(cn<InputType> >= 2, "Minimum number of channels is 2: UnaryVectorReorder");
             return VReorder<idxs...>::exec(input);
@@ -59,13 +58,35 @@ namespace fk {
         using InputType = T;
         using OutputType = VBase<T>;
         using InstanceType = UnaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-            if constexpr (cn<T> == 2) {
-                return Operation::exec(input.x, input.y);
-            } else if constexpr (cn<T> == 3) {
-                return Operation::exec(Operation::exec(input.x, input.y), input.z);
-            } else if constexpr (cn<T> == 4) {
-                return Operation::exec(Operation::exec(Operation::exec(input.x, input.y), input.z), input.w);
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
+            if constexpr (std::is_same_v<typename Operation::InstanceType, UnaryType>) {
+                if constexpr (cn<T> == 1) {
+                    if constexpr (validCUDAVec<T>) {
+                        return input.x;
+                    } else {
+                        return input;
+                    }
+                } else if constexpr (cn<T> == 2) {
+                    return Operation::exec({ input.x, input.y });
+                } else if constexpr (cn<T> == 3) {
+                    return Operation::exec({ Operation::exec({ input.x, input.y }), input.z });
+                } else if constexpr (cn<T> == 4) {
+                    return Operation::exec({ Operation::exec({ Operation::exec({ input.x, input.y }), input.z }), input.w });
+                }
+            } else if constexpr (std::is_same_v<typename Operation::InstanceType, BinaryType>) {
+                if constexpr (cn<T> == 1) {
+                    if constexpr (validCUDAVec<T>) {
+                        return input.x;
+                    } else {
+                        return input;
+                    }
+                } else if constexpr (cn<T> == 2) {
+                    return Operation::exec(input.x, input.y);
+                } else if constexpr (cn<T> == 3) {
+                    return Operation::exec(Operation::exec(input.x, input.y), input.z);
+                } else if constexpr (cn<T> == 4) {
+                    return Operation::exec(Operation::exec(Operation::exec(input.x, input.y), input.z), input.w);
+                }
             }
         }
     };
@@ -76,7 +97,7 @@ namespace fk {
         using OutputType = O;
         using ParamsType = typename VectorTraits<I>::base;
         using InstanceType = BinaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(cn<InputType> == cn<OutputType> -1, "Output type should have one channel more");
             static_assert(std::is_same_v<typename VectorTraits<InputType>::base, typename VectorTraits<OutputType>::base>,
                 "Base types should be the same");
@@ -102,4 +123,15 @@ namespace fk {
     constexpr __device__ __host__ __forceinline__ VOneLess<I> discard_last(const I& input) {
         return Discard<I, VOneLess<I>>::exec(input);
     }
+
+    template <typename T>
+    struct VectorAnd {
+        static_assert(std::is_same_v<VBase<T>, bool>, "VectorAnd only works with boolean vectors");
+        using InputType = T;
+        using OutputType = bool;
+        using InstanceType = UnaryType;
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
+            return VectorReduce<T, Equal<bool, bool>>::exec(input);
+        }
+    };
 } // namespace fk

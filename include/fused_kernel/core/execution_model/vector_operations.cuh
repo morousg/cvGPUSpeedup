@@ -23,7 +23,7 @@ namespace fk {
         using InputType = I;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
             static_assert(cn<InputType> == cn<OutputType>, "Unary struct requires same number of channels for input and output types.");
             constexpr bool allCUDAOrNotCUDA = (validCUDAVec<InputType> && validCUDAVec<OutputType>) ||
                 !(validCUDAVec<InputType> || validCUDAVec<OutputType>);
@@ -58,7 +58,7 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(cn<I> == cn<O>, "Binary struct requires same number of channels for input and output types.");
             constexpr bool allCUDAOrNotCUDA = (validCUDAVec<I> && validCUDAVec<O>) || !(validCUDAVec<I> || validCUDAVec<O>);
             static_assert(allCUDAOrNotCUDA, "Binary struct requires input and output types to be either both valild CUDA vectors or none.");
