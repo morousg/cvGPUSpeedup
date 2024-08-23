@@ -12,11 +12,12 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
+#include "tests/main.h"
+
 #include "tests/testsCommon.cuh"
+#include <fused_kernel/algorithms/basic_ops/static_loop.cuh>
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
-
-#include "tests/main.h"
 
 #ifdef ENABLE_BENCHMARK
 constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
