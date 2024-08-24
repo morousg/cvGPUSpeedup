@@ -17,11 +17,14 @@
 #include <fused_kernel/core/utils/utils.h>
 
 namespace fk {
-    struct Size {
-        constexpr Size(int width_, int height_) : width(width_),
+    template <typename T>
+    struct Size_ {
+        constexpr Size_(T width_, T height_) : width(width_),
             height(height_) {};
-        Size() {};
-        int width{ 0 };
-        int height{ 0 };
+        constexpr Size_() {};
+        T width{ 0 };
+        T height{ 0 };
     };
+
+    using Size = Size_<int>;
 } // namespace fk

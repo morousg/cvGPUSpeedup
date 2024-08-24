@@ -17,10 +17,14 @@
 #include <fused_kernel/core/utils/utils.h>
 
 namespace fk {
-    struct Point {
-        uint x;
-        uint y;
-        uint z;
-        FK_HOST_DEVICE_CNST Point(const uint x_ = 0, const uint y_ = 0, const uint z_ = 0) : x(x_), y(y_), z(z_) {}
+
+    template <typename T>
+    struct Point_ {
+        T x;
+        T y;
+        T z;
+        FK_HOST_DEVICE_CNST Point_(const T x_ = 0, const T y_ = 0, const T z_ = 0) : x(x_), y(y_), z(z_) {}
     };
+
+    using Point = Point_<uint>;
 } // namespace fk
