@@ -192,7 +192,7 @@ namespace fk {
     }
 
     template <ND D, typename T>
-    inline constexpr void setTo(const T& value, Ptr<D, T>& outputPtr, cudaStream_t stream = 0) {
+    inline constexpr void setTo(const T& value, Ptr<D, T>& outputPtr, const cudaStream_t& stream = 0) {
         RawPtr<D, T> output = outputPtr.ptr();
         if (outputPtr.getMemType() == MemType::Device) {
             if constexpr (D == _1D) {
