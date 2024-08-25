@@ -28,7 +28,7 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        static constexpr  __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        static constexpr  __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             return input + params;
         }
     };
@@ -38,7 +38,7 @@ namespace fk {
         using InputType = Tuple<I1, I2>;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr  __device__ __forceinline__ OutputType exec(const InputType& input) {
+        static constexpr  __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
             return get_v<0>(input) + get_v<1>(input);
         }
     };
@@ -49,7 +49,7 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        static constexpr  __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        static constexpr  __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             return input - params;
         }
     };
@@ -60,7 +60,7 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        static constexpr  __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        static constexpr  __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             return input * params;
         }
     };
@@ -71,7 +71,7 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        static constexpr  __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        static constexpr  __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             return input / params;
         }
     };

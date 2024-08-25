@@ -30,7 +30,7 @@ namespace fk {
         using InputType = float3;
         using ParamsType = M3x3Float; 
         using InstanceType = BinaryType; 
-        static constexpr  __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        static constexpr  __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
             const float3 xOut = input * params.x;
             const float3 yOut = input * params.y;
             const float3 zOut = input * params.z;

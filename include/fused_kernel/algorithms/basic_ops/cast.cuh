@@ -22,7 +22,7 @@ namespace fk {
         using InputType = I;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
             return static_cast<O>(input);
         }
     };
@@ -32,7 +32,7 @@ namespace fk {
         using InputType = I;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
             return UnaryV<I, O, CastBase<VBase<I>, VBase<O>>>::exec(input);
         }
     };

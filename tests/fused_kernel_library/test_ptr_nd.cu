@@ -15,6 +15,9 @@
 #include "tests/main.h"
 
 #include <fused_kernel/core/data/ptr_nd.cuh>
+#include <fused_kernel/core/utils/cuda_vector_utils.h>
+#include <fused_kernel/algorithms/basic_ops/cuda_vector.cuh>
+#include <fused_kernel/fused_kernel.cuh>
 
 using PtrToTest = fk::Ptr2D<uchar3>;
 constexpr int WIDTH = 64;
@@ -33,7 +36,21 @@ PtrToTest& test_return_by_reference(PtrToTest& somePtr) {
 }
 
 int launch() {
-    PtrToTest test(WIDTH, HEIGHT);
+
+    cudaStream_t stream;
+    gpuErrchk(cudaStreamCreate(&stream));
+
+    PtrToTest test0(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
+    fk::setTo(fk::make_<uchar3>(1, 2, 3), test0);
+    bool h_correct{ true };
+    for (int y = 0; y < HEIGHT; y++) {
+        for (int x = 0; x < WIDTH; x++) {
+            const bool3 boolVect = *fk::PtrAccessor<fk::_2D>::cr_point(fk::Point(x, y), test0.ptr()) == fk::make_<uchar3>(1, 2, 3);
+            h_correct &= fk::VectorAnd<bool3>::exec(boolVect);
+        }
+    }
+
+    PtrToTest test1(WIDTH, HEIGHT);
 
     auto test2 = PtrToTest(WIDTH, HEIGHT);
 
@@ -45,12 +62,28 @@ int launch() {
     const PtrToTest& test5 = test_return_by_const_reference(somePtr);
     PtrToTest& test6 = test_return_by_reference(somePtr);
 
-    bool result = test.getRefCount() == 1;
+    bool result = test1.getRefCount() == 1;
     result &= test2.getRefCount() == 1;
     result &= test3.getRefCount() == 1;
     result &= test4.getRefCount() == 1;
     result &= test5.getRefCount() == 1;
     result &= test6.getRefCount() == 1;
 
-    return result ? 0 : -1;
+    PtrToTest test7(WIDTH, HEIGHT);
+    PtrToTest h_test7(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
+    fk::setTo(fk::make_<uchar3>(3,6,10), test7, stream);
+    gpuErrchk(cudaMemcpy2DAsync(h_test7.ptr().data, h_test7.ptr().dims.pitch,
+                                test7.ptr().data, test7.ptr().dims.pitch,
+                                WIDTH * sizeof(uchar3), HEIGHT, cudaMemcpyDeviceToHost, stream));
+    gpuErrchk(cudaStreamSynchronize(stream));
+
+    bool h_correct2{ true };
+    for (int y = 0; y < HEIGHT; y++) {
+        for (int x = 0; x < WIDTH; x++) {
+            const bool3 boolVect = *fk::PtrAccessor<fk::_2D>::cr_point(fk::Point(x, y), h_test7.ptr()) == fk::make_<uchar3>(3, 6, 10);
+            h_correct2 &= fk::VectorAnd<bool3>::exec(boolVect);
+        }
+    }
+
+    return result && h_correct && h_correct2 ? 0 : -1;
 }

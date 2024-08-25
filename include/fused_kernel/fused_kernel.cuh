@@ -16,6 +16,7 @@
 
 #include <fused_kernel/core/execution_model/grid_patterns.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
+#include <fused_kernel/algorithms/basic_ops/set.cuh>
 
 namespace fk {
     template <typename ReadDeviceFunction, typename... DeviceFunctionTypes>
@@ -188,5 +189,26 @@ namespace fk {
     template <typename I, typename O, int Batch, typename... operations>
     inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const Tensor<O>& output, const cudaStream_t& stream, const operations&... ops) {
         executeOperations<true>(input, activeBatch, output, stream, ops...);
+    }
+
+    template <ND D, typename T>
+    inline constexpr void setTo(const T& value, Ptr<D, T>& outputPtr, const cudaStream_t& stream = 0) {
+        RawPtr<D, T> output = outputPtr.ptr();
+        if (outputPtr.getMemType() == MemType::Device) {
+            if constexpr (D == _1D) {
+                const dim3 activeThreads(output.dims.width);
+                executeOperations(stream, SourceRead<ReadSet<T>>{value, activeThreads}, Write<PerThreadWrite<D, T>>{output});
+            } else if constexpr (D == _2D) {
+                const dim3 activeThreads(output.dims.width, output.dims.height);
+                executeOperations(stream, SourceRead<ReadSet<T>>{value, activeThreads}, Write<PerThreadWrite<D, T>>{output});
+            } else if constexpr (D == _3D) {
+                const dim3 activeThreads(output.dims.width, output.dims.height, output.dims.planes);
+                executeOperations(stream, SourceRead<ReadSet<T>>{value, activeThreads}, Write<PerThreadWrite<D, T>>{output});
+            }
+        } else {
+            for (int i = 0; i < (int)outputPtr.getNumElements(); i++) {
+                output.data[i] = value;
+            }
+        }
     }
 } // namespace fk
