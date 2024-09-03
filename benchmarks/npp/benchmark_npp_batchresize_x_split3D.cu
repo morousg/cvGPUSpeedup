@@ -16,7 +16,7 @@
 
 #include "tests/testsCommon.cuh"
 #include <npp.h>
- 
+
 #include <nppi_geometry_transforms.h>
 #include <fused_kernel/fused_kernel.cuh>
 #include <fused_kernel/algorithms/image_processing/resize_builders.cuh>
@@ -25,7 +25,7 @@
 
 #include "tests/main.h"
 
-constexpr char VARIABLE_DIMENSION[]{ "Batch size" };
+ 
 constexpr size_t NUM_EXPERIMENTS = 9;
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 10;
@@ -76,22 +76,18 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 
 	if (enabled)
 	{
-		const float alpha = 0.3f;
-		const float3 val_alpha = { alpha, alpha, alpha };
-		const float3 val_sub = { 1.f, 4.f, 3.2f };
-		const float3 val_div = { 1.f, 4.f, 3.2f };
-		const float3 val_init_output = { 0.0f, 0.0f, 0.0f };
-		const uchar CROP_W = 60;
-		const uchar CROP_H = 120;
-		const uchar UP_W = 64;
-		const uchar UP_H = 128;
-
+		 
 		try
 		{
+			const float alpha = 0.3f;
+			const uchar CROP_W = 60;
+			const uchar CROP_H = 120;
+			const uchar UP_W = 64;
+			const uchar UP_H = 128;
 
 			std::array<fk::Ptr2D<uchar3>, BATCH> d_input;
-			std::array<fk::Ptr2D<float3>, BATCH> d_crop, d_mul, d_sub, d_div,d_inputf;
-			std::array<fk::Ptr2D<float>,BATCH> channelA, channelB, channelC;
+			std::array<fk::Ptr2D<float3>, BATCH> d_crop, d_mul, d_sub, d_div, d_inputf;
+			std::array<fk::Ptr2D<float>, BATCH> channelA, channelB, channelC;
 			std::array<fk::Ptr2D<float>, BATCH> hchannelA, hchannelB, hchannelC;
 
 			NppiImageDescriptor* hBatchSrc = nullptr, * dBatchSrc = nullptr, * hBatchDst = nullptr, * dBatchDst = nullptr;
@@ -116,12 +112,12 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			{
 				d_input[i] = fk::Ptr2D<uchar3>(UP_W, UP_H);
 				d_inputf[i] = fk::Ptr2D<float3>(UP_W, UP_H);
-				NPP_CHECK(nppiSet_8u_C3R_Ctx(aValue, reinterpret_cast<Npp8u*>(d_input[i].ptr().data), d_input[i].dims().pitch, sz, nppcontext));				
+				NPP_CHECK(nppiSet_8u_C3R_Ctx(aValue, reinterpret_cast<Npp8u*>(d_input[i].ptr().data), d_input[i].dims().pitch, sz, nppcontext));
 				hBatchSrc[i].pData = d_inputf[i].ptr().data;
 				hBatchSrc[i].nStep = d_inputf[i].ptr().dims.pitch;
 				hBatchSrc[i].oSize = sz;
 			}
-			std::vector <std::array<Npp32f*,3>> aDst;
+			std::vector <std::array<Npp32f*, 3>> aDst;
 			// dest images (Rgb, 32f)
 			for (int i = 0; i < BATCH; ++i)
 			{
@@ -145,13 +141,13 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 				hchannelA[i] = fk::Ptr2D<float>(CROP_W, CROP_H, channelA[i].ptr().dims.pitch, fk::MemType::HostPinned);
 				hchannelB[i] = fk::Ptr2D<float>(CROP_W, CROP_H, channelB[i].ptr().dims.pitch, fk::MemType::HostPinned);
 				hchannelC[i] = fk::Ptr2D<float>(CROP_W, CROP_H, channelC[i].ptr().dims.pitch, fk::MemType::HostPinned);
-				std::array<Npp32f*, 3> ptrs= { reinterpret_cast<Npp32f*>(channelA[i].ptr().data),
+				std::array<Npp32f*, 3> ptrs = { reinterpret_cast<Npp32f*>(channelA[i].ptr().data),
 				reinterpret_cast<Npp32f*>(channelB[i].ptr().data),
 				reinterpret_cast<Npp32f*>(channelC[i].ptr().data) };
 				aDst.push_back(ptrs);
-				
+
 			}
-	 
+
 			// ROI
 			for (int i = 0; i < BATCH; ++i)
 			{
@@ -160,15 +156,14 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 				hBatchROI[i].oSrcRectROI = srcrect;
 				hBatchROI[i].oDstRectROI = dstrect;
 			}
-
-
+			 
 			gpuErrchk(cudaMalloc(reinterpret_cast<void**>(&dBatchSrc), sizeof(NppiImageDescriptor) * BATCH));
 			gpuErrchk(cudaMalloc(reinterpret_cast<void**>(&dBatchDst), sizeof(NppiImageDescriptor) * BATCH));
 			gpuErrchk(cudaMalloc(reinterpret_cast<void**>(&dBatchROI), sizeof(NppiResizeBatchROI_Advanced) * BATCH));
 			gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (dBatchSrc), hBatchSrc, sizeof(NppiImageDescriptor) * BATCH, cudaMemcpyHostToDevice, compute_stream));
 			gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (dBatchDst), hBatchDst, sizeof(NppiImageDescriptor) * BATCH, cudaMemcpyHostToDevice, compute_stream));
 			gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (dBatchROI), hBatchROI, sizeof(NppiResizeBatchROI_Advanced) * BATCH, cudaMemcpyHostToDevice, compute_stream));
-			
+
 			// NPP version
 			// convert to 32f			
 
@@ -183,16 +178,15 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			NPP_CHECK(nppiResizeBatch_32f_C3R_Advanced_Ctx(CROP_W, CROP_H, dBatchSrc, dBatchDst, dBatchROI, BATCH, NPPI_INTER_LINEAR, nppcontext));
 			// crop array of images using batch resize+ ROIs
 
-
 			// asume RGB->BGR
 			const int aDstOrder[3] = { 2, 1, 0 };
 			for (int i = 0; i < BATCH; ++i)
 			{
-			NPP_CHECK(nppiSwapChannels_32f_C3IR_Ctx(reinterpret_cast<Npp32f*>(d_crop[i].ptr().data), d_crop[i].ptr().dims.pitch, sz, aDstOrder, nppcontext));
-			//	gpuErrchk(cudaStreamSynchronize(compute_stream));
-//				NPP_CHECK(nppiSwapChannels_32f_C3IR_Ctx(reinterpret_cast<Npp32f*>(dBatchDst[i].pData), dBatchDst[i].nStep, sz, aDstOrder, nppcontext));
+				NPP_CHECK(nppiSwapChannels_32f_C3IR_Ctx(reinterpret_cast<Npp32f*>(d_crop[i].ptr().data), d_crop[i].ptr().dims.pitch, sz, aDstOrder, nppcontext));
+				//	gpuErrchk(cudaStreamSynchronize(compute_stream));
+	//				NPP_CHECK(nppiSwapChannels_32f_C3IR_Ctx(reinterpret_cast<Npp32f*>(dBatchDst[i].pData), dBatchDst[i].nStep, sz, aDstOrder, nppcontext));
 
-				
+
 				NPP_CHECK(nppiMulC_32f_C3R_Ctx(reinterpret_cast<Npp32f*>(d_crop[i].ptr().data), d_crop[i].ptr().dims.pitch, mulValue,
 					reinterpret_cast<Npp32f*>(d_mul[i].ptr().data), d_mul[i].ptr().dims.pitch, szcrop, nppcontext));
 
@@ -203,12 +197,11 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 					reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch, szcrop, nppcontext));
 
 				//split
-	 
+				 
 				NPP_CHECK(nppiCopy_32f_C3P3R_Ctx(reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch,
 					reinterpret_cast<Npp32f**>(aDst[i].front()), channelA[i].ptr().dims.pitch, szcrop, nppcontext));
 			}
-			
-
+			 
 			//Bucle final de copia
 			for (int i = 0; i < BATCH; ++i)
 			{
@@ -217,15 +210,11 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 				gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (hchannelB[i].ptr().data), channelB[i].ptr().data, sizeof(float) * CROP_W * CROP_H,
 					cudaMemcpyHostToDevice, compute_stream));
 				gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (hchannelC[i].ptr().data), channelC[i].ptr().data, sizeof(float) * CROP_W * CROP_H,
-					cudaMemcpyHostToDevice, compute_stream)); 
+					cudaMemcpyHostToDevice, compute_stream));
 
-			}
-			
-				
+			} 
+
 			gpuErrchk(cudaStreamSynchronize(compute_stream));
-
-			
-			
 			gpuErrchk(cudaFree(dBatchSrc));
 			gpuErrchk(cudaFree(dBatchDst));
 			gpuErrchk(cudaFree(dBatchROI));
@@ -233,78 +222,37 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			gpuErrchk(cudaFreeHost(hBatchDst));
 			gpuErrchk(cudaFreeHost(hBatchROI))
 
+				//do the same via fk
 /*
-//do the same via fk
-			
 			std::array<fk::Ptr2D<uchar3>, BATCH> d_crop1;
 			for (int i = 0; i < BATCH; i++) {
-				
-				d_crop1[i]= d_input[i].crop2D(fk::Point(i, i,0), fk::PtrDims<fk::_2D>(i + 60, i + 120,0));
+				d_crop1[i] = d_input[i].crop2D(fk::Point(i, i, 0), fk::PtrDims<fk::_2D>(i + 60, i + 120, 0));
 
-			}
-			
+			} 
+ 
+	 
 
-			const auto readOp =
-				fk::resize<fk::PerThreadRead<fk::_2D, uchar3>, uchar3, fk::InterpolationType::INTER_LINEAR, BATCH, fk::AspectRatio::IGNORE_AR>
-				(d_crop1, fk::Size(CROP_W, CROP_W), BATCH);
+		const auto readOp =
+				fk::resize<fk::PerThreadRead<fk::_2D, uchar3>, 
+				uchar3, 
+				fk::InterpolationType::INTER_LINEAR, 
+				BATCH, 
+				fk::AspectRatio::IGNORE_AR>(d_crop1, fk::Size(CROP_W, CROP_W), BATCH);
 			auto colorConvert = fk::Unary<fk::VectorReorder<float3, 2, 1, 0>>{};
-			auto multiply = fk::Binary<fk::Mul<float3>> { fk::make_set<float3>(4.f) };
+			auto multiply = fk::Binary<fk::Mul<float3>>{ fk::make_set<float3>(4.f) };
 			auto sub = fk::Binary<fk::Sub<float3>>{ fk::make_set<float3>(4.f) };
 			auto div = fk::Binary<fk::Div<float3>>{ fk::make_set<float3>(4.f) };
 
+  
 			fk::SplitWriteParams<fk::_2D, float3> writeParams;
-			writeParams.x = /*RawPtr<_2D, float>*/;
-///			writeParams.y = /*RawPtr<_2D, float>*/;
-//			writeParams.z = /*RawPtr<_2D, float>*/;
+			writeParams.x = fk::Ptr2D<float> (CROP_W, CROP_H);// hA.ptr().data;/*RawPtr<_2D, float>;
+			writeParams.y = fk::Ptr2D<float>(CROP_W, CROP_H);// hB.ptr().data;/*RawPtr<_2D, float>;
+			writeParams.z = fk::Ptr2D<float>(CROP_W, CROP_H); //hC.ptr().data;/*RawPtr<_2D, float>;
 
-		/*	auto split = fk::Write<fk::SplitWrite<fk::_2D, floa3>>{writeParams};
+			auto split = fk::Write<fk::SplitWrite<fk::_2D, float3>>{ writeParams };
 
-			fk::executeOperations(compute_stream, readOp, colorConvert, multiply,sub,div,split);
+			fk::executeOperations(compute_stream, readOp, colorConvert, multiply, sub, div, split);
 			*/
-				// cvGPUSpeedup
-				/*cvGS::executeOperations(compute_stream,
-					cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH>(crops, up, BATCH),
-					cvGS::cvtColor<cv::COLOR_RGB2BGR, CV_TYPE_O>(),
-					cvGS::multiply<CV_TYPE_O>(val_alpha),
-					cvGS::subtract<CV_TYPE_O>(val_sub),
-					cvGS::divide<CV_TYPE_O>(val_div),
-					cvGS::split<CV_TYPE_O>(d_tensor_output, up));
-					*/
-					//			d_tensor_output.download(h_tensor_output, compute_stream);
-
-					//					// Verify results
-					// for (int crop_i = 0; crop_i < BATCH; crop_i++)
-					//	{
-					//	for (int i = 0; i < CV_MAT_CN(CV_TYPE_O); i++)
-					//{
-					//					d_crop_cv[crop_i].at(i).download(h_cvResults[crop_i].at(i), compute_stream);
-					//	}
-					//	}
-
-					/*
-					for (int crop_i = 0; crop_i < BATCH; crop_i++)
-					{
-						cv::Mat row = h_tensor_output.row(crop_i);
-						for (int i = 0; i < CV_MAT_CN(CV_TYPE_O); i++)
-						{
-							int planeStart = i * up.width * up.height;
-							int planeEnd = ((i + 1) * up.width * up.height) - 1;
-							cv::Mat plane = row.colRange(planeStart, planeEnd);
-							h_cvGSResults[crop_i].push_back(cv::Mat(up.height, up.width, plane.type(), plane.data));
-						}
-					}
-
-					for (int crop_i = 0; crop_i < BATCH; crop_i++)
-					{
-						for (int i = 0; i < CV_MAT_CN(CV_TYPE_O); i++)
-						{
-							cv::Mat cvRes = h_cvResults[crop_i].at(i);
-							cv::Mat cvGSRes = h_cvGSResults[crop_i].at(i);
-							diff = cv::abs(cvRes - cvGSRes);
-							bool passedThisTime = checkResults<CV_MAT_DEPTH(CV_TYPE_O)>(diff.cols, diff.rows, diff);
-							passed &= passedThisTime;
-						}
-					}*/
 		}
 
 		catch (const std::exception& e)
@@ -332,6 +280,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 
 		return passed;
 	}
+	return passed;
 }
 template <size_t... Is>
 bool test_npp_batchresize_x_split3D(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cudaStream_t compute_stream, bool enabled)
