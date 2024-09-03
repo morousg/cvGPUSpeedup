@@ -195,18 +195,9 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 
 				NPP_CHECK(nppiDivC_32f_C3R_Ctx(reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].ptr().dims.pitch, divValue,
 					reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch, szcrop, nppcontext));
-
-				//split
-				hchannelA[i] = fk::Ptr2D<float>(CROP_W, CROP_H, channelA[i].ptr().dims.pitch, fk::MemType::HostPinned);
-				hchannelB[i] = fk::Ptr2D<float>(CROP_W, CROP_H, channelB[i].ptr().dims.pitch, fk::MemType::HostPinned);
-				hchannelC[i] = fk::Ptr2D<float>(CROP_W, CROP_H, channelC[i].ptr().dims.pitch, fk::MemType::HostPinned);
-			//	Npp32f* const aDst1[3] = { channelA[i].ptr().data,channelB[i].ptr().data,channelC[i].ptr().data };
-
-
-				auto vals = aDst[i].front();
-				Npp32f* const aDst1[3]
-				= { &vals[0],&vals[1],&vals[2] };
-
+				 
+				const auto vals = aDst[i].front();
+				Npp32f* const aDst1[3] = { &vals[0],&vals[1],&vals[2] };
 
 				NPP_CHECK(nppiCopy_32f_C3P3R_Ctx(reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch,
 					aDst1, channelA[i].ptr().dims.pitch, szcrop, nppcontext));
