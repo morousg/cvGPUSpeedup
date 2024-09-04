@@ -224,25 +224,24 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			gpuErrchk(cudaFreeHost(hBatchROI))
 
 				//do the same via fk
-/*
-			std::array<fk::Ptr2D<uchar3>, BATCH> d_crop1;
+ 
+			std::array<fk::RawPtr<fk::_2D, uchar3>, BATCH> d_crop1;
 			for (int i = 0; i < BATCH; i++) {
 				d_crop1[i] = d_input[i].crop2D(fk::Point(i, i, 0), fk::PtrDims<fk::_2D>(i + 60, i + 120, 0));
 
 			} 
  
-	 
-
+ 
 		const auto readOp =
 				fk::resize<fk::PerThreadRead<fk::_2D, uchar3>, 
-				uchar3, 
+				float3, 
 				fk::InterpolationType::INTER_LINEAR, 
 				BATCH, 
 				fk::AspectRatio::IGNORE_AR>(d_crop1, fk::Size(CROP_W, CROP_W), BATCH);
 			auto colorConvert = fk::Unary<fk::VectorReorder<float3, 2, 1, 0>>{};
-			auto multiply = fk::Binary<fk::Mul<float3>>{ fk::make_set<float3>(4.f) };
-			auto sub = fk::Binary<fk::Sub<float3>>{ fk::make_set<float3>(4.f) };
-			auto div = fk::Binary<fk::Div<float3>>{ fk::make_set<float3>(4.f) };
+			auto multiply = fk::Binary<fk::Mul<float3>>{ fk::make_set<float3>(alpha) };
+			auto sub = fk::Binary<fk::Sub<float3>>{ fk::make_<float3>(1.f, 4.f, 3.2f) };
+			auto div = fk::Binary<fk::Div<float3>>{ fk::make_<float3>(1.f, 4.f, 3.2f) };
 
   
 			fk::SplitWriteParams<fk::_2D, float3> writeParams;
@@ -253,7 +252,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			auto split = fk::Write<fk::SplitWrite<fk::_2D, float3>>{ writeParams };
 
 			fk::executeOperations(compute_stream, readOp, colorConvert, multiply, sub, div, split);
-			*/
+	 
 		}
 
 		catch (const std::exception& e)
