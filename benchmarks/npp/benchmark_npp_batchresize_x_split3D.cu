@@ -13,7 +13,7 @@
    limitations under the License. */
 
 #include <sstream>
-
+#include <numeric>
 #include "tests/testsCommon.cuh"
 #include <npp.h>
 
@@ -83,7 +83,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 		const uchar UP_H = 128;
 		try
 		{
- 
+
 
 			std::array<fk::Ptr2D<uchar3>, BATCH> d_input;
 			std::array<fk::Ptr2D<float3>, BATCH> d_crop_npp, d_mul, d_sub, d_div, d_inputf;
@@ -202,7 +202,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 				NPP_CHECK(nppiCopy_32f_C3P3R_Ctx(reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch,
 					aDst1, channelA[i].ptr().dims.pitch, szcrop, nppcontext));
 			}
-			 
+
 			//Bucle final de copia
 			for (int i = 0; i < BATCH; ++i)
 			{
@@ -225,12 +225,11 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 
 				//do the same via fk
 
-				std::array<fk::RawPtr<fk::_2D, uchar3>, BATCH> d_crop_fk;
+			std::array<fk::RawPtr<fk::_2D, uchar3>, BATCH> d_crop_fk;
 			for (int i = 0; i < BATCH; i++) {
 				d_crop_fk[i] = d_input[i].crop2D(fk::Point(i, i, 0), fk::PtrDims<fk::_2D>(i + 60, i + 120, 0));
 
-			}
-			
+			} 
 
 			const auto readOp =
 				fk::resize<fk::PerThreadRead<fk::_2D, uchar3>,
@@ -252,7 +251,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			auto split = fk::Write<fk::SplitWrite<fk::_2D, float3>>{ writeParams };
 
 			fk::executeOperations(compute_stream, readOp, colorConvert, multiply, sub, div, split);
-			
+
 			gpuErrchk(cudaStreamSynchronize(compute_stream));
 
 			fk::Ptr2D<float> x(CROP_W, CROP_H * BATCH, writeParams.x.dims.pitch, fk::MemType::HostPinned);// hA.ptr().data;/*RawPtr<_2D, float>;
@@ -260,54 +259,65 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			fk::Ptr2D<float> z(CROP_W, CROP_H * BATCH, writeParams.z.dims.pitch, fk::MemType::HostPinned);// hA.ptr().data;/*RawPtr<_2D, float>;
 
 			//	for (int i = 0; i < BATCH; ++i)
-			
+
 		//note:si comnet aquesta linea no funciona la copia...per que???
 			fk::Ptr2D<float> x1(CROP_W, CROP_H * BATCH);
 
-			//Bucle final de copia fk
-			//for (int i = 0; i < BATCH; ++i)
+			//copy tensor
 
-			{		//{
-				gpuErrchk(cudaMemcpyAsync(x.ptr().data, writeParams.x.data, sizeof(float) * CROP_W * CROP_H * BATCH,
-					cudaMemcpyDeviceToHost, compute_stream));
-				gpuErrchk(cudaMemcpyAsync(y.ptr().data, writeParams.y.data, sizeof(float) * CROP_W * CROP_H * BATCH,
-					cudaMemcpyDeviceToHost, compute_stream));
-				gpuErrchk(cudaMemcpyAsync(z.ptr().data, writeParams.z.data, sizeof(float) * CROP_W * CROP_H * BATCH,
-					cudaMemcpyDeviceToHost, compute_stream));
+			gpuErrchk(cudaMemcpyAsync(x.ptr().data, writeParams.x.data, sizeof(float) * CROP_W * CROP_H * BATCH,
+				cudaMemcpyDeviceToHost, compute_stream));
+			gpuErrchk(cudaMemcpyAsync(y.ptr().data, writeParams.y.data, sizeof(float) * CROP_W * CROP_H * BATCH,
+				cudaMemcpyDeviceToHost, compute_stream));
+			gpuErrchk(cudaMemcpyAsync(z.ptr().data, writeParams.z.data, sizeof(float) * CROP_W * CROP_H * BATCH,
+				cudaMemcpyDeviceToHost, compute_stream));
 
-			}
 
 			gpuErrchk(cudaStreamSynchronize(compute_stream));
-			
+
 			//compare data
 			const int LIMIT = (CROP_H * CROP_W);
+			
 			float diff_x[LIMIT][BATCH];
 			float diff_y[LIMIT][BATCH];
 			float diff_z[LIMIT][BATCH];
-			std::memset(diff_x, 0, LIMIT*BATCH);
-			std::memset(diff_y, 0, LIMIT* BATCH);
-			std::memset(diff_z, 0, LIMIT* BATCH);
+			float avg_x[BATCH];
+			float avg_y[BATCH];
+			float avg_z[BATCH];
+			std::memset(diff_x, 0, LIMIT * BATCH);
+			std::memset(diff_y, 0, LIMIT * BATCH);
+			std::memset(diff_z, 0, LIMIT * BATCH);
+			std::memset(avg_x, 0, BATCH);
+			std::memset(avg_y, 0,  BATCH);
+			std::memset(avg_z, 0,  BATCH);
 			const float TOLERANCE = 1e-3;
 
-		
 			for (int j = 0; j < BATCH; ++j)
 			{
+				std::vector<float> vec_x;
+				std::vector<float> vec_y;
+				std::vector<float> vec_z;
+
 				for (int i = 0; i < LIMIT; ++i)
 				{
-					diff_x[i][j] = std::abs(x.ptr().data[(j * LIMIT) + i] - hchannelA[j].ptr().data[i]);
-					diff_y[i][j] = std::abs(y.ptr().data[(j * LIMIT) + i] - hchannelB[j].ptr().data[i]);
-					diff_z[i][j] = std::abs(z.ptr().data[(j * LIMIT) + i] - hchannelC[j].ptr().data[i]);
-					std::cout << "i:" << i <<" j:"<<j << " x:" << x.ptr().data[i] << " hchannelA:" << hchannelA[j].ptr().data[i] << "absdiff" << diff_x[i][j] << std::endl;
-					std::cout << "i:" << i << " j:" << j << " y:" << x.ptr().data[i] << " hchannelB:" << hchannelB[j].ptr().data[i] << "absdiff" << diff_y[i][j] << std::endl;
-					std::cout << "i:" << i << " j:" << j << " z:" << x.ptr().data[i] << " hchannelC:" << hchannelC[j].ptr().data[i] << "absdiff" << diff_z[i][j] << std::endl;
-
+					vec_x.push_back(std::abs(x.ptr().data[(j * LIMIT) + i] - hchannelA[j].ptr().data[i]));
+					vec_y.push_back(std::abs(y.ptr().data[(j * LIMIT) + i] - hchannelB[j].ptr().data[i]));
+					vec_z.push_back(std::abs(z.ptr().data[(j * LIMIT) + i] - hchannelC[j].ptr().data[i]));
+				//	std::cout << "i:" << i << " j:" << j << " x:" << x.ptr().data[i] << " hchannelA:" << hchannelA[j].ptr().data[i] << "absdiff" << diff_x[i][j] << std::endl;
+			//		std::cout << "i:" << i << " j:" << j << " y:" << x.ptr().data[i] << " hchannelB:" << hchannelB[j].ptr().data[i] << "absdiff" << diff_y[i][j] << std::endl;
+				//	std::cout << "i:" << i << " j:" << j << " z:" << x.ptr().data[i] << " hchannelC:" << hchannelC[j].ptr().data[i] << "absdiff" << diff_z[i][j] << std::endl;
+					
 					//	if (diff_x[i] > TOLERANCE || diff_y[i] > TOLERANCE || diff_z[i] > TOLERANCE)
 						//{
 						//	std::exception e("exceeed tolerance");					
 							//throw (e);
 		//
 			//			}
-				} 
+				}
+				avg_x[j] = std::accumulate(vec_x.begin(), vec_x.end(), 0.0) / vec_x.size();
+				avg_y[j] = std::accumulate(vec_y.begin(), vec_y.end(), 0.0) / vec_y.size();
+				avg_z[j] = std::accumulate(vec_z.begin(), vec_z.end(), 0.0) / vec_z.size();
+
 			}
 			int k = 0;
 
