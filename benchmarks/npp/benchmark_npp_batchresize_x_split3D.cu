@@ -68,8 +68,7 @@ NppStreamContext initNppStreamContext(const cudaStream_t& stream)
 }
 
 template <int BATCH>
-bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cudaStream_t& compute_stream, bool enabled)
-{
+bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cudaStream_t& compute_stream, bool enabled) {
 	std::stringstream error_s;
 	bool passed = true;
 	bool exception = false;
@@ -97,11 +96,10 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			NppStreamContext nppcontext = initNppStreamContext(compute_stream);
 
 			// source images (rgb 8bit)
-			const Npp8u aValue[3] = { 5, 5, 5 };
-			const Npp32f fValue[3] = { 1.0f, 3.0f, 10.0f };
+			const Npp8u aValue[3] =  { 5, 5, 5 }; 
 			const Npp32f mulValue[3] = { alpha, alpha, alpha };
-			const Npp32f subValue[3] = { 1.f, 4.f, 3.2f };
-			const Npp32f divValue[3] = { 1.f, 4.f, 3.2f };
+			const Npp32f subValue[3] =  { 1.f, 4.f, 3.2f };
+			const Npp32f divValue[3] =   { 1.f, 4.f, 3.2f };			 
 			const NppiSize sz{ UP_W, UP_H };
 			const NppiSize szcrop = { CROP_W, CROP_H };
 			gpuErrchk(cudaMallocHost(reinterpret_cast<void**>(&hBatchSrc), sizeof(NppiImageDescriptor) * BATCH));
@@ -130,11 +128,11 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 				hBatchDst[i].nStep = d_crop_npp[i].ptr().dims.pitch;
 				hBatchDst[i].oSize = szcrop;
 
-				NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_crop_npp[i].ptr().data), d_crop_npp[i].dims().pitch, sz, nppcontext));
-				NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_mul[i].ptr().data), d_mul[i].dims().pitch, sz, nppcontext));
-				NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].dims().pitch, sz, nppcontext));
-				NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].dims().pitch, sz, nppcontext));
-				// Bucle inicial d'alocatacio
+				//	NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_crop_npp[i].ptr().data), d_crop_npp[i].dims().pitch, sz, nppcontext));
+			///		NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_mul[i].ptr().data), d_mul[i].dims().pitch, sz, nppcontext));
+				//	NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].dims().pitch, sz, nppcontext));
+			//		NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].dims().pitch, sz, nppcontext));
+					// Bucle inicial d'alocatacio
 				channelA[i] = fk::Ptr2D<float>(CROP_W, CROP_H);
 				channelB[i] = fk::Ptr2D<float>(CROP_W, CROP_H);
 				channelC[i] = fk::Ptr2D<float>(CROP_W, CROP_H);
@@ -223,14 +221,16 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			gpuErrchk(cudaFreeHost(hBatchDst));
 			gpuErrchk(cudaFreeHost(hBatchROI))
 
-				//do the same via fk
+			fk::Tensor<float> h_tensor(CROP_W, CROP_H, BATCH, 3, fk::MemType::HostPinned);
+			fk::Tensor<float> d_tensor(CROP_W, CROP_H, BATCH, 3);
+			//do the same via fk
 
 			std::array<fk::RawPtr<fk::_2D, uchar3>, BATCH> d_crop_fk;
 			for (int i = 0; i < BATCH; i++) {
 				d_crop_fk[i] = d_input[i].crop2D(fk::Point(i, i, 0), fk::PtrDims<fk::_2D>(i + 60, i + 120, 0));
 
-			} 
-
+			}
+			
 			const auto readOp =
 				fk::resize<fk::PerThreadRead<fk::_2D, uchar3>,
 				float3,
@@ -242,88 +242,44 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			auto sub = fk::Binary<fk::Sub<float3>>{ fk::make_<float3>(1.f, 4.f, 3.2f) };
 			auto div = fk::Binary<fk::Div<float3>>{ fk::make_<float3>(1.f, 4.f, 3.2f) };
 
-
-			fk::SplitWriteParams<fk::_2D, float3> writeParams;
-			writeParams.x = fk::Ptr2D<float>(CROP_W, CROP_H);// hA.ptr().data;/*RawPtr<_2D, float>;
-			writeParams.y = fk::Ptr2D<float>(CROP_W, CROP_H);// hB.ptr().data;/*RawPtr<_2D, float>;
-			writeParams.z = fk::Ptr2D<float>(CROP_W, CROP_H); //hC.ptr().data;/*RawPtr<_2D, float>;
-
-			auto split = fk::Write<fk::SplitWrite<fk::_2D, float3>>{ writeParams };
+			auto split = fk::Write<fk::TensorSplit<float3>>{ d_tensor.ptr() };
 
 			fk::executeOperations(compute_stream, readOp, colorConvert, multiply, sub, div, split);
 
-			gpuErrchk(cudaStreamSynchronize(compute_stream));
-
-			fk::Ptr2D<float> x(CROP_W, CROP_H * BATCH, writeParams.x.dims.pitch, fk::MemType::HostPinned);// hA.ptr().data;/*RawPtr<_2D, float>;
-			fk::Ptr2D<float> y(CROP_W, CROP_H * BATCH, writeParams.y.dims.pitch, fk::MemType::HostPinned);// hA.ptr().data;/*RawPtr<_2D, float>;
-			fk::Ptr2D<float> z(CROP_W, CROP_H * BATCH, writeParams.z.dims.pitch, fk::MemType::HostPinned);// hA.ptr().data;/*RawPtr<_2D, float>;
-
-			//	for (int i = 0; i < BATCH; ++i)
-
-		//note:si comnet aquesta linea no funciona la copia...per que???
-			fk::Ptr2D<float> x1(CROP_W, CROP_H * BATCH);
-
 			//copy tensor
 
-			gpuErrchk(cudaMemcpyAsync(x.ptr().data, writeParams.x.data, sizeof(float) * CROP_W * CROP_H * BATCH,
-				cudaMemcpyDeviceToHost, compute_stream));
-			gpuErrchk(cudaMemcpyAsync(y.ptr().data, writeParams.y.data, sizeof(float) * CROP_W * CROP_H * BATCH,
-				cudaMemcpyDeviceToHost, compute_stream));
-			gpuErrchk(cudaMemcpyAsync(z.ptr().data, writeParams.z.data, sizeof(float) * CROP_W * CROP_H * BATCH,
-				cudaMemcpyDeviceToHost, compute_stream));
-
-
+			gpuErrchk(cudaMemcpyAsync(h_tensor.ptr().data, d_tensor.ptr().data, d_tensor.sizeInBytes(), cudaMemcpyDeviceToHost, compute_stream));
 			gpuErrchk(cudaStreamSynchronize(compute_stream));
 
 			//compare data
-			const int LIMIT = (CROP_H * CROP_W);
-			
-			float diff_x[LIMIT][BATCH];
-			float diff_y[LIMIT][BATCH];
-			float diff_z[LIMIT][BATCH];
-			float avg_x[BATCH];
-			float avg_y[BATCH];
-			float avg_z[BATCH];
-			std::memset(diff_x, 0, LIMIT * BATCH);
-			std::memset(diff_y, 0, LIMIT * BATCH);
-			std::memset(diff_z, 0, LIMIT * BATCH);
-			std::memset(avg_x, 0, BATCH);
-			std::memset(avg_y, 0,  BATCH);
-			std::memset(avg_z, 0,  BATCH);
-			const float TOLERANCE = 1e-3;
+			constexpr int COLOR_PLANE = CROP_H * CROP_W;
+			constexpr int IMAGE_STRIDE = (COLOR_PLANE * 3);
 
+			const float TOLERANCE = 1e-37;
 			for (int j = 0; j < BATCH; ++j)
 			{
-				std::vector<float> vec_x;
-				std::vector<float> vec_y;
-				std::vector<float> vec_z;
-
-				for (int i = 0; i < LIMIT; ++i)
-				{
-					vec_x.push_back(std::abs(x.ptr().data[(j * LIMIT) + i] - hchannelA[j].ptr().data[i]));
-					vec_y.push_back(std::abs(y.ptr().data[(j * LIMIT) + i] - hchannelB[j].ptr().data[i]));
-					vec_z.push_back(std::abs(z.ptr().data[(j * LIMIT) + i] - hchannelC[j].ptr().data[i]));
-				//	std::cout << "i:" << i << " j:" << j << " x:" << x.ptr().data[i] << " hchannelA:" << hchannelA[j].ptr().data[i] << "absdiff" << diff_x[i][j] << std::endl;
-			//		std::cout << "i:" << i << " j:" << j << " y:" << x.ptr().data[i] << " hchannelB:" << hchannelB[j].ptr().data[i] << "absdiff" << diff_y[i][j] << std::endl;
-				//	std::cout << "i:" << i << " j:" << j << " z:" << x.ptr().data[i] << " hchannelC:" << hchannelC[j].ptr().data[i] << "absdiff" << diff_z[i][j] << std::endl;
-					
-					//	if (diff_x[i] > TOLERANCE || diff_y[i] > TOLERANCE || diff_z[i] > TOLERANCE)
-						//{
-						//	std::exception e("exceeed tolerance");					
-							//throw (e);
-		//
-			//			}
+				for (int c = 0; c < 3; ++c) {
+					for (int i = 0; i < COLOR_PLANE; ++i)
+					{
+						const int i_tensor = i + (COLOR_PLANE * c);
+						const float result = h_tensor.ptr().data[(j * IMAGE_STRIDE) + i_tensor];
+						if (c == 0) {
+							float nppResult = hchannelA[j].ptr().data[i];
+							float diff = std::abs(result - nppResult);
+							passed &= diff < TOLERANCE;
+						} else if (c == 1) {
+							float nppResult = hchannelB[j].ptr().data[i];
+							float diff = std::abs(result - nppResult);
+							passed &= diff < TOLERANCE;
+						} else {
+							float nppResult = hchannelC[j].ptr().data[i];
+							float diff = std::abs(result - nppResult);
+							passed &= diff < TOLERANCE;
+						}
+					}
 				}
-				avg_x[j] = std::accumulate(vec_x.begin(), vec_x.end(), 0.0) / vec_x.size();
-				avg_y[j] = std::accumulate(vec_y.begin(), vec_y.end(), 0.0) / vec_y.size();
-				avg_z[j] = std::accumulate(vec_z.begin(), vec_z.end(), 0.0) / vec_z.size();
-
 			}
-			int k = 0;
-
 		}
-
-
 
 		catch (const std::exception& e)
 		{
@@ -352,11 +308,28 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 	}
 	return passed;
 }
+
+template <size_t First, size_t... Rest>
+bool launch_test_npp_batchresize_x_split3D_helper(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<First, Rest...> seq, cudaStream_t compute_stream, bool enabled) {
+	if constexpr (sizeof...(Rest) == 0) {
+		return test_npp_batchresize_x_split3D<batchValues[First]>(NUM_ELEMS_X, NUM_ELEMS_Y, compute_stream, enabled);
+	} else {
+		size_t currentBatch = First;
+		const bool passed1 = test_npp_batchresize_x_split3D<batchValues[First]>(NUM_ELEMS_X, NUM_ELEMS_Y, compute_stream, enabled);
+		const bool passed2 = launch_test_npp_batchresize_x_split3D_helper<Rest...>(NUM_ELEMS_X, NUM_ELEMS_Y, std::index_sequence<Rest...>{}, compute_stream, enabled);
+		return passed1 && passed2;
+	}
+}
+
 template <size_t... Is>
-bool test_npp_batchresize_x_split3D(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cudaStream_t compute_stream, bool enabled)
+bool launch_test_npp_batchresize_x_split3D(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cudaStream_t compute_stream, bool enabled)
 {
-	bool passed = true;
-	int dummy[] = { (passed &= test_npp_batchresize_x_split3D<batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, compute_stream, enabled), 0)... };
+	/*bool passed = true;
+	int dummy[] = {(passed &= test_npp_batchresize_x_split3D<batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, compute_stream, enabled), 0)...};
+	(void)dummy;*/
+
+	const bool passed = launch_test_npp_batchresize_x_split3D_helper<Is...>(NUM_ELEMS_X, NUM_ELEMS_Y, seq, compute_stream, enabled);
+
 	return passed;
 }
 
@@ -372,7 +345,7 @@ int launch()
 	results["test_npp_batchresize_x_split3D"] = true;
 	std::make_index_sequence<batchValues.size()> iSeq{};
 
-	results["test_npp_batchresize_x_split3D"] &= test_npp_batchresize_x_split3D(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, stream, true);
+	results["test_npp_batchresize_x_split3D"] &= launch_test_npp_batchresize_x_split3D(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, stream, true);
 
 	int returnValue = 0;
 	for (const auto& [key, passed] : results)
