@@ -172,19 +172,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 				reinterpret_cast<Npp32f*>(d_input_f.ptr().data), d_input_f.ptr().dims.pitch,
 				NppiSize{static_cast<int>(NUM_ELEMS_X), static_cast<int>(NUM_ELEMS_Y)}, nppcontext));
 
-			
-	/*		for (int i = 0; i < BATCH; ++i)
-			{
-				auto tmp = fk::Ptr2D<float>(UP_W, UP_H, 0, fk::MemType::HostPinned);
-				gpuErrchk(cudaMemcpyAsync(tmp.ptr().data, d_inputf[i].ptr().data, sizeof(float) * UP_W * UP_H, cudaMemcpyDeviceToHost, compute_stream));
-				gpuErrchk(cudaStreamSynchronize(compute_stream));
-				std::cout << "xxxxxxxxxxxxxxxxxxxxxx" << std::endl;
-				for (int j = 0; j < (UP_W * UP_H); ++j)
-					std::cout << " | " << tmp.ptr().data[j] << " | ";
-
-					std::cout<<"xxxxxxxxxxxxxxxxxxxxxx" << std::endl;
-			}
-		*/	
+ 
 			NPP_CHECK(nppiResizeBatch_32f_C3R_Advanced_Ctx(UP_W, UP_H, dBatchSrc, dBatchDst, dBatchROI, BATCH, NPPI_INTER_LINEAR, nppcontext));
 			// crop array of images using batch resize+ ROIs
 			//force fill 5
@@ -264,7 +252,6 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			auto multiply = fk::Binary<fk::Mul<float3>>{ fk::make_<float3>(mulValue[0], mulValue[1], mulValue[2]) };
 			auto sub = fk::Binary<fk::Sub<float3>>{ fk::make_<float3>(subValue[0], subValue[1], subValue[2]) };
 			auto div = fk::Binary<fk::Div<float3>>{ fk::make_<float3>(divValue[0], divValue[1], divValue[2]) };
-
 			auto split = fk::Write<fk::TensorSplit<float3>>{ d_tensor.ptr() };
 
 			fk::executeOperations(compute_stream, readOp, colorConvert, multiply, sub, div, split);
