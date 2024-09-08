@@ -17,6 +17,7 @@
 #include "tests/testsCommon.cuh"
 #include <npp.h>
 
+#include "tests/testUtils.cuh"
 #include <nppi_geometry_transforms.h>
 #include <fused_kernel/fused_kernel.cuh>
 #include <fused_kernel/algorithms/image_processing/resize_builders.cuh>
@@ -25,15 +26,14 @@
 
 #include "tests/main.h"
 
-
 constexpr size_t NUM_EXPERIMENTS = 9;
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 10;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 constexpr inline void nppAssert(NppStatus code,
-	const char* file,
-	int line,
-	bool abort = true)
+								const char *file,
+								int line,
+								bool abort = true)
 {
 	if (code != NPP_SUCCESS)
 	{
@@ -48,8 +48,8 @@ constexpr inline void nppAssert(NppStatus code,
 		nppAssert((ans), __FILE__, __LINE__, true); \
 	}
 
-NppStreamContext initNppStreamContext(const cudaStream_t& stream);
-NppStreamContext initNppStreamContext(const cudaStream_t& stream)
+NppStreamContext initNppStreamContext(const cudaStream_t &stream);
+NppStreamContext initNppStreamContext(const cudaStream_t &stream)
 {
 	int device = 0;
 	int ccmajor = 0;
@@ -62,13 +62,14 @@ NppStreamContext initNppStreamContext(const cudaStream_t& stream)
 	gpuErrchk(cudaDeviceGetAttribute(&ccmajor, cudaDevAttrComputeCapabilityMinor, device));
 	gpuErrchk(cudaDeviceGetAttribute(&ccminor, cudaDevAttrComputeCapabilityMajor, device));
 	gpuErrchk(cudaStreamGetFlags(stream, &flags));
-	NppStreamContext nppstream = { stream, device, prop.multiProcessorCount, prop.maxThreadsPerMultiProcessor,
-								  prop.maxThreadsPerBlock, prop.sharedMemPerBlock, ccmajor, ccminor, flags };
+	NppStreamContext nppstream = {stream, device, prop.multiProcessorCount, prop.maxThreadsPerMultiProcessor,
+								  prop.maxThreadsPerBlock, prop.sharedMemPerBlock, ccmajor, ccminor, flags};
 	return nppstream;
 }
 
 template <int BATCH>
-bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cudaStream_t& compute_stream, bool enabled) {
+bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cudaStream_t &compute_stream, bool enabled)
+{
 	std::stringstream error_s;
 	bool passed = true;
 	bool exception = false;
@@ -76,19 +77,20 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 	if (enabled)
 	{
 		const float alpha = 0.3f;
-		const uchar CROP_W = 60;
-		const uchar CROP_H = 120;
-		const uchar UP_W = 64;
-		const uchar UP_H = 128;
+		const uchar CROP_W = 2;
+		const uchar CROP_H = 2;
+		const uchar UP_W = 4;
+		const uchar UP_H = 4;
 		try
 		{
-
-
-			std::array<fk::Ptr2D<uchar3>, BATCH> d_input;
-			std::array<fk::Ptr2D<float3>, BATCH> d_crop_npp, d_mul, d_sub, d_div, d_inputf;
+			constexpr uchar3 init_val{1,2,3};
+			fk::Ptr2D<uchar3> d_input(NUM_ELEMS_X, NUM_ELEMS_Y);
+			fk::setTo(init_val, d_input, compute_stream);
+			fk::Ptr2D<float3> d_input_f(NUM_ELEMS_X, NUM_ELEMS_Y);
+			std::array<fk::Ptr2D<float3>, BATCH> d_resized_npp, d_mul, d_sub, d_div;
 			std::array<fk::Ptr2D<float>, BATCH> channelA, channelB, channelC;
 			std::array<fk::Ptr2D<float>, BATCH> hchannelA, hchannelB, hchannelC;
-
+			fk::Tensor<float> d_tensornpp(UP_W, UP_H, BATCH, 3);
 			NppiImageDescriptor* hBatchSrc = nullptr, * dBatchSrc = nullptr, * hBatchDst = nullptr, * dBatchDst = nullptr;
 			NppiResizeBatchROI_Advanced* dBatchROI = nullptr, * hBatchROI = nullptr;
 
@@ -96,61 +98,61 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			NppStreamContext nppcontext = initNppStreamContext(compute_stream);
 
 			// source images (rgb 8bit)
-			const Npp8u aValue[3] =  { 5, 5, 5 }; 
+			const Npp8u aValue[3] = { init_val.x ,init_val.y ,init_val.z };
 			const Npp32f mulValue[3] = { alpha, alpha, alpha };
 			const Npp32f subValue[3] =  { 1.f, 4.f, 3.2f };
-			const Npp32f divValue[3] =   { 1.f, 4.f, 3.2f };			 
+			const Npp32f divValue[3] =  { 1.f, 4.f, 3.2f };
 			const NppiSize sz{ UP_W, UP_H };
 			const NppiSize szcrop = { CROP_W, CROP_H };
+			// asume RGB->BGR
+			const int aDstOrder[3] = { 2, 1, 0 };
 			gpuErrchk(cudaMallocHost(reinterpret_cast<void**>(&hBatchSrc), sizeof(NppiImageDescriptor) * BATCH));
 			gpuErrchk(cudaMallocHost(reinterpret_cast<void**>(&hBatchDst), sizeof(NppiImageDescriptor) * BATCH));
 			gpuErrchk(cudaMallocHost(reinterpret_cast<void**>(&hBatchROI), sizeof(NppiResizeBatchROI_Advanced) * BATCH));
 
-			for (int i = 0; i < BATCH; ++i)
-			{
-				d_input[i] = fk::Ptr2D<uchar3>(UP_W, UP_H);
-				d_inputf[i] = fk::Ptr2D<float3>(UP_W, UP_H);
-				NPP_CHECK(nppiSet_8u_C3R_Ctx(aValue, reinterpret_cast<Npp8u*>(d_input[i].ptr().data), d_input[i].dims().pitch, sz, nppcontext));
-				hBatchSrc[i].pData = d_inputf[i].ptr().data;
-				hBatchSrc[i].nStep = d_inputf[i].ptr().dims.pitch;
+				//printTensor(d_input_tensor);
+			
+			for (int i = 0; i < BATCH; ++i) {
+				//NPP_CHECK(nppiSet_8u_C3R_Ctx(aValue, reinterpret_cast<Npp8u*>(d_input[i].ptr().data), d_input[i].dims().pitch, sz, nppcontext));
+				//gpuErrchk(cudaMemsetAsync(reinterpret_cast<Npp8u*>(d_input[i].ptr().data), aValue[0], sizeof(uchar3) * UP_W * UP_H,compute_stream));
+			
+				hBatchSrc[i].pData = d_input_f.ptr().data;
+				hBatchSrc[i].nStep = d_input_f.ptr().dims.pitch;
 				hBatchSrc[i].oSize = sz;
 			}
-			std::vector <std::array<Npp32f*, 3>> aDst;
+			
+			std::vector<std::array<Npp32f*, 3>> aDst;
 			// dest images (Rgb, 32f)
 			for (int i = 0; i < BATCH; ++i)
 			{
-				d_crop_npp[i] = fk::Ptr2D<float3>(i + CROP_W, i + CROP_H);
-				d_mul[i] = fk::Ptr2D<float3>(i + CROP_W, i + CROP_H);
-				d_sub[i] = fk::Ptr2D<float3>(i + CROP_W, i + CROP_H);
-				d_div[i] = fk::Ptr2D<float3>(i + CROP_W, i + CROP_H);
+				d_resized_npp[i] = fk::Ptr2D<float3>(UP_W, UP_H);
+				d_mul[i] = fk::Ptr2D<float3>(UP_W, UP_H);
+				d_sub[i] = fk::Ptr2D<float3>(UP_W, UP_H);
+				d_div[i] = fk::Ptr2D<float3>(UP_W, UP_H);
 
-				hBatchDst[i].pData = d_crop_npp[i].ptr().data;
-				hBatchDst[i].nStep = d_crop_npp[i].ptr().dims.pitch;
-				hBatchDst[i].oSize = szcrop;
+				hBatchDst[i].pData = d_resized_npp[i].ptr().data;
+				hBatchDst[i].nStep = d_resized_npp[i].ptr().dims.pitch;
+				hBatchDst[i].oSize = sz;
 
-				//	NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_crop_npp[i].ptr().data), d_crop_npp[i].dims().pitch, sz, nppcontext));
-			///		NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_mul[i].ptr().data), d_mul[i].dims().pitch, sz, nppcontext));
-				//	NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].dims().pitch, sz, nppcontext));
-			//		NPP_CHECK(nppiSet_32f_C3R_Ctx(fValue, reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].dims().pitch, sz, nppcontext));
-					// Bucle inicial d'alocatacio
-				channelA[i] = fk::Ptr2D<float>(CROP_W, CROP_H);
-				channelB[i] = fk::Ptr2D<float>(CROP_W, CROP_H);
-				channelC[i] = fk::Ptr2D<float>(CROP_W, CROP_H);
-				hchannelA[i] = fk::Ptr2D<float>(CROP_W, CROP_H, channelA[i].ptr().dims.pitch, fk::MemType::HostPinned);
-				hchannelB[i] = fk::Ptr2D<float>(CROP_W, CROP_H, channelB[i].ptr().dims.pitch, fk::MemType::HostPinned);
-				hchannelC[i] = fk::Ptr2D<float>(CROP_W, CROP_H, channelC[i].ptr().dims.pitch, fk::MemType::HostPinned);
+				channelA[i] = fk::Ptr2D<float>(UP_W, UP_H);
+				channelB[i] = fk::Ptr2D<float>(UP_W, UP_H);
+				channelC[i] = fk::Ptr2D<float>(UP_W, UP_H);
+
+				hchannelA[i] = fk::Ptr2D<float>(UP_W, UP_H, channelA[i].ptr().dims.pitch, fk::MemType::HostPinned);
+				hchannelB[i] = fk::Ptr2D<float>(UP_W, UP_H, channelB[i].ptr().dims.pitch, fk::MemType::HostPinned);
+				hchannelC[i] = fk::Ptr2D<float>(UP_W, UP_H, channelC[i].ptr().dims.pitch, fk::MemType::HostPinned);
+
 				std::array<Npp32f*, 3> ptrs = { reinterpret_cast<Npp32f*>(channelA[i].ptr().data),
-				reinterpret_cast<Npp32f*>(channelB[i].ptr().data),
-				reinterpret_cast<Npp32f*>(channelC[i].ptr().data) };
+												reinterpret_cast<Npp32f*>(channelB[i].ptr().data),
+												reinterpret_cast<Npp32f*>(channelC[i].ptr().data) };
 				aDst.push_back(ptrs);
-
 			}
 
 			// ROI
 			for (int i = 0; i < BATCH; ++i)
 			{
 				NppiRect srcrect = { i, i, CROP_W, CROP_H };
-				NppiRect dstrect = { 0, 0, CROP_W, CROP_H };
+				NppiRect dstrect = { 0, 0, UP_W, UP_H };
 				hBatchROI[i].oSrcRectROI = srcrect;
 				hBatchROI[i].oDstRectROI = dstrect;
 			}
@@ -158,59 +160,78 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			gpuErrchk(cudaMalloc(reinterpret_cast<void**>(&dBatchSrc), sizeof(NppiImageDescriptor) * BATCH));
 			gpuErrchk(cudaMalloc(reinterpret_cast<void**>(&dBatchDst), sizeof(NppiImageDescriptor) * BATCH));
 			gpuErrchk(cudaMalloc(reinterpret_cast<void**>(&dBatchROI), sizeof(NppiResizeBatchROI_Advanced) * BATCH));
-			gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (dBatchSrc), hBatchSrc, sizeof(NppiImageDescriptor) * BATCH, cudaMemcpyHostToDevice, compute_stream));
-			gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (dBatchDst), hBatchDst, sizeof(NppiImageDescriptor) * BATCH, cudaMemcpyHostToDevice, compute_stream));
-			gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (dBatchROI), hBatchROI, sizeof(NppiResizeBatchROI_Advanced) * BATCH, cudaMemcpyHostToDevice, compute_stream));
+			gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**>(dBatchSrc), hBatchSrc, sizeof(NppiImageDescriptor) * BATCH, cudaMemcpyHostToDevice, compute_stream));
+			gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**>(dBatchDst), hBatchDst, sizeof(NppiImageDescriptor) * BATCH, cudaMemcpyHostToDevice, compute_stream));
+			gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**>(dBatchROI), hBatchROI, sizeof(NppiResizeBatchROI_Advanced) * BATCH, cudaMemcpyHostToDevice, compute_stream));
 
 			// NPP version
-			// convert to 32f			
+			// convert to 32f
+			
+			NPP_CHECK(nppiConvert_8u32f_C3R_Ctx(reinterpret_cast<Npp8u*>(d_input.ptr().data),
+				d_input.ptr().dims.pitch,
+				reinterpret_cast<Npp32f*>(d_input_f.ptr().data), d_input_f.ptr().dims.pitch,
+				NppiSize{static_cast<int>(NUM_ELEMS_X), static_cast<int>(NUM_ELEMS_Y)}, nppcontext));
 
-			for (int i = 0; i < BATCH; ++i)
+			
+	/*		for (int i = 0; i < BATCH; ++i)
 			{
-				NPP_CHECK(nppiConvert_8u32f_C3R_Ctx(reinterpret_cast<Npp8u*>(d_input[i].ptr().data),
-					d_input[i].ptr().dims.pitch,
-					reinterpret_cast<Npp32f*>(d_inputf[i].ptr().data), d_inputf[i].ptr().dims.pitch, hBatchSrc[i].oSize, nppcontext));
+				auto tmp = fk::Ptr2D<float>(UP_W, UP_H, 0, fk::MemType::HostPinned);
+				gpuErrchk(cudaMemcpyAsync(tmp.ptr().data, d_inputf[i].ptr().data, sizeof(float) * UP_W * UP_H, cudaMemcpyDeviceToHost, compute_stream));
+				gpuErrchk(cudaStreamSynchronize(compute_stream));
+				std::cout << "xxxxxxxxxxxxxxxxxxxxxx" << std::endl;
+				for (int j = 0; j < (UP_W * UP_H); ++j)
+					std::cout << " | " << tmp.ptr().data[j] << " | ";
+
+					std::cout<<"xxxxxxxxxxxxxxxxxxxxxx" << std::endl;
 			}
-
-
-			NPP_CHECK(nppiResizeBatch_32f_C3R_Advanced_Ctx(CROP_W, CROP_H, dBatchSrc, dBatchDst, dBatchROI, BATCH, NPPI_INTER_LINEAR, nppcontext));
+		*/	
+			NPP_CHECK(nppiResizeBatch_32f_C3R_Advanced_Ctx(UP_W, UP_H, dBatchSrc, dBatchDst, dBatchROI, BATCH, NPPI_INTER_LINEAR, nppcontext));
 			// crop array of images using batch resize+ ROIs
+			//force fill 5
+			constexpr int COLOR_PLANE = UP_H * UP_W;
+			constexpr int IMAGE_STRIDE = (COLOR_PLANE * 3);
+			
+ 
 
-			// asume RGB->BGR
-			const int aDstOrder[3] = { 2, 1, 0 };
 			for (int i = 0; i < BATCH; ++i)
 			{
-				NPP_CHECK(nppiSwapChannels_32f_C3IR_Ctx(reinterpret_cast<Npp32f*>(d_crop_npp[i].ptr().data), d_crop_npp[i].ptr().dims.pitch, sz, aDstOrder, nppcontext));
-				//	gpuErrchk(cudaStreamSynchronize(compute_stream));
-	//				NPP_CHECK(nppiSwapChannels_32f_C3IR_Ctx(reinterpret_cast<Npp32f*>(dBatchDst[i].pData), dBatchDst[i].nStep, sz, aDstOrder, nppcontext));
-
-
-				NPP_CHECK(nppiMulC_32f_C3R_Ctx(reinterpret_cast<Npp32f*>(d_crop_npp[i].ptr().data), d_crop_npp[i].ptr().dims.pitch, mulValue,
-					reinterpret_cast<Npp32f*>(d_mul[i].ptr().data), d_mul[i].ptr().dims.pitch, szcrop, nppcontext));
+				 
+				NPP_CHECK(nppiSwapChannels_32f_C3IR_Ctx(reinterpret_cast<Npp32f*>(d_resized_npp[i].ptr().data), d_resized_npp[i].ptr().dims.pitch, sz, aDstOrder, nppcontext));
+				
+				NPP_CHECK(nppiMulC_32f_C3R_Ctx(reinterpret_cast<Npp32f*>(d_resized_npp[i].ptr().data), d_resized_npp[i].ptr().dims.pitch, mulValue,
+					reinterpret_cast<Npp32f*>(d_mul[i].ptr().data), d_mul[i].ptr().dims.pitch, sz, nppcontext));
 
 				NPP_CHECK(nppiSubC_32f_C3R_Ctx(reinterpret_cast<Npp32f*>(d_mul[i].ptr().data), d_mul[i].ptr().dims.pitch, subValue,
-					reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].ptr().dims.pitch, szcrop, nppcontext));
+				reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].ptr().dims.pitch, sz, nppcontext));
 
-				NPP_CHECK(nppiDivC_32f_C3R_Ctx(reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].ptr().dims.pitch, divValue,
-					reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch, szcrop, nppcontext));
+		NPP_CHECK(nppiDivC_32f_C3R_Ctx(reinterpret_cast<Npp32f*>(d_sub[i].ptr().data), d_sub[i].ptr().dims.pitch, divValue,
+					reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch, sz, nppcontext));
 
 				const auto vals = aDst[i].front();
-				Npp32f* const aDst1[3] = { &vals[0],&vals[1],&vals[2] };
+				Npp32f* const aDst1[3] = { &vals[0], &vals[1], &vals[2] };
 
-				NPP_CHECK(nppiCopy_32f_C3P3R_Ctx(reinterpret_cast<Npp32f*>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch,
-					aDst1, channelA[i].ptr().dims.pitch, szcrop, nppcontext));
+				 NPP_CHECK(nppiCopy_32f_C3P3R_Ctx(reinterpret_cast<Npp32f*>(d_resized_npp[i].ptr().data), d_resized_npp[i].ptr().dims.pitch,
+			 		aDst1, channelA[i].ptr().dims.pitch, sz, nppcontext));
 			}
-
-			//Bucle final de copia
+			//for (int i = 0; i < BATCH; ++i)
+			//{
+			//	fk::setTo(fk::make_set<float3>(5.0f), d_div[i]);
+				//fk::setTo(fk::make_set<float>(5.0f), channelA[i]);
+				//fk::setTo(fk::make_set<float>(5.0f), channelB[i]);
+				//fk::setTo(fk::make_set<float>(5.0f), channelC[i]);
+			//}
+			// Bucle final de copia
 			for (int i = 0; i < BATCH; ++i)
 			{
-				gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (hchannelA[i].ptr().data), channelA[i].ptr().data, sizeof(float) * CROP_W * CROP_H,
-					cudaMemcpyHostToDevice, compute_stream));
-				gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (hchannelB[i].ptr().data), channelB[i].ptr().data, sizeof(float) * CROP_W * CROP_H,
-					cudaMemcpyHostToDevice, compute_stream));
-				gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void**> (hchannelC[i].ptr().data), channelC[i].ptr().data, sizeof(float) * CROP_W * CROP_H,
-					cudaMemcpyHostToDevice, compute_stream));
-
+				gpuErrchk(cudaMemcpy2DAsync(reinterpret_cast<void**>(hchannelA[i].ptr().data), hchannelA[i].dims().pitch, 
+					channelA[i].ptr().data, channelA[i].dims().pitch, channelA[i].dims().width * sizeof(float), CROP_H,
+					cudaMemcpyDeviceToHost, compute_stream));
+				gpuErrchk(cudaMemcpy2DAsync(reinterpret_cast<void**>(hchannelB[i].ptr().data), hchannelB[i].dims().pitch,
+					channelB[i].ptr().data, channelB[i].dims().pitch, channelB[i].dims().width * sizeof(float), CROP_H,
+					cudaMemcpyDeviceToHost, compute_stream));
+				gpuErrchk(cudaMemcpy2DAsync(reinterpret_cast<void**>(hchannelC[i].ptr().data), hchannelC[i].dims().pitch,
+					channelC[i].ptr().data, channelC[i].dims().pitch, channelC[i].dims().width * sizeof(float), CROP_H,
+					cudaMemcpyDeviceToHost, compute_stream));
 			}
 
 			gpuErrchk(cudaStreamSynchronize(compute_stream));
@@ -221,67 +242,105 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 			gpuErrchk(cudaFreeHost(hBatchDst));
 			gpuErrchk(cudaFreeHost(hBatchROI))
 
-			fk::Tensor<float> h_tensor(CROP_W, CROP_H, BATCH, 3, fk::MemType::HostPinned);
-			fk::Tensor<float> d_tensor(CROP_W, CROP_H, BATCH, 3);
-			//do the same via fk
+				fk::Tensor<float>
+				h_tensor(UP_W, UP_H, BATCH, 3, fk::MemType::HostPinned);
+			fk::Tensor<float> d_tensor(UP_W, UP_H, BATCH, 3);
+
+			// do the same via fk
 
 			std::array<fk::RawPtr<fk::_2D, uchar3>, BATCH> d_crop_fk;
-			for (int i = 0; i < BATCH; i++) {
-				d_crop_fk[i] = d_input[i].crop2D(fk::Point(i, i, 0), fk::PtrDims<fk::_2D>(i + 60, i + 120, 0));
-
+			for (int i = 0; i < BATCH; i++)
+			{
+				d_crop_fk[i] = d_input.crop2D(fk::Point(i, i), fk::PtrDims<fk::_2D>(60, 120));
 			}
-			
+
 			const auto readOp =
 				fk::resize<fk::PerThreadRead<fk::_2D, uchar3>,
 				float3,
 				fk::InterpolationType::INTER_LINEAR,
 				BATCH,
-				fk::AspectRatio::IGNORE_AR>(d_crop_fk, fk::Size(CROP_W, CROP_W), BATCH);
+				fk::AspectRatio::IGNORE_AR>(d_crop_fk, fk::Size(UP_W, UP_W), BATCH);
 			auto colorConvert = fk::Unary<fk::VectorReorder<float3, 2, 1, 0>>{};
-			auto multiply = fk::Binary<fk::Mul<float3>>{ fk::make_set<float3>(alpha) };
-			auto sub = fk::Binary<fk::Sub<float3>>{ fk::make_<float3>(1.f, 4.f, 3.2f) };
-			auto div = fk::Binary<fk::Div<float3>>{ fk::make_<float3>(1.f, 4.f, 3.2f) };
+			auto multiply = fk::Binary<fk::Mul<float3>>{ fk::make_<float3>(mulValue[0], mulValue[1], mulValue[2]) };
+			auto sub = fk::Binary<fk::Sub<float3>>{ fk::make_<float3>(subValue[0], subValue[1], subValue[2]) };
+			auto div = fk::Binary<fk::Div<float3>>{ fk::make_<float3>(divValue[0], divValue[1], divValue[2]) };
 
 			auto split = fk::Write<fk::TensorSplit<float3>>{ d_tensor.ptr() };
 
 			fk::executeOperations(compute_stream, readOp, colorConvert, multiply, sub, div, split);
 
-			//copy tensor
+			// copy tensor
 
-			gpuErrchk(cudaMemcpyAsync(h_tensor.ptr().data, d_tensor.ptr().data, d_tensor.sizeInBytes(), cudaMemcpyDeviceToHost, compute_stream));
+			gpuErrchk(cudaMemcpy2DAsync(h_tensor.ptr().data, h_tensor.dims().pitch, d_tensor.ptr().data, d_tensor.dims().pitch,
+				d_tensor.dims().width * sizeof(float) * 3, d_tensor.dims().height, cudaMemcpyDeviceToHost, compute_stream));
+
 			gpuErrchk(cudaStreamSynchronize(compute_stream));
 
-			//compare data
-			constexpr int COLOR_PLANE = CROP_H * CROP_W;
-			constexpr int IMAGE_STRIDE = (COLOR_PLANE * 3);
+			// compare data
 
-			const float TOLERANCE = 1e-37;
+
+			const float TOLERANCE = 1e-3;
 			for (int j = 0; j < BATCH; ++j)
 			{
-				for (int c = 0; c < 3; ++c) {
+				for (int c = 0; c < 3; ++c)
+				{
 					for (int i = 0; i < COLOR_PLANE; ++i)
 					{
 						const int i_tensor = i + (COLOR_PLANE * c);
 						const float result = h_tensor.ptr().data[(j * IMAGE_STRIDE) + i_tensor];
-						if (c == 0) {
+						switch (c)
+						{
+						case 0:
+						{
 							float nppResult = hchannelA[j].ptr().data[i];
 							float diff = std::abs(result - nppResult);
+
 							passed &= diff < TOLERANCE;
-						} else if (c == 1) {
+
+							break;
+						}
+						case 1:
+						{
 							float nppResult = hchannelB[j].ptr().data[i];
 							float diff = std::abs(result - nppResult);
 							passed &= diff < TOLERANCE;
-						} else {
+							break;
+						}
+						case 2:
+						{
 							float nppResult = hchannelC[j].ptr().data[i];
 							float diff = std::abs(result - nppResult);
 							passed &= diff < TOLERANCE;
+							break;
 						}
+						}
+					}
+				}
+			}
+
+
+
+			if (!passed)
+			{
+				std::cout << "fk:" << std::endl;
+				printTensor(h_tensor);
+
+				std::cout << "npp:" << std::endl;
+				for (int b = 0; b < BATCH; ++b)
+				{
+
+					for (int i = 0; i < COLOR_PLANE; ++i)
+					{
+						std::cout << hchannelA[b].ptr().data[i] << " | ";
+						std::cout << hchannelB[b].ptr().data[i] << " | ";
+						std::cout << hchannelC[b].ptr().data[i] << " | "<<std::endl<<"..................." << std::endl ;
+
 					}
 				}
 			}
 		}
 
-		catch (const std::exception& e)
+		catch (const std::exception &e)
 		{
 			error_s << e.what();
 			passed = false;
@@ -290,6 +349,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 
 		if (!passed)
 		{
+
 			if (!exception)
 			{
 				std::stringstream ss;
@@ -310,10 +370,14 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 }
 
 template <size_t First, size_t... Rest>
-bool launch_test_npp_batchresize_x_split3D_helper(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<First, Rest...> seq, cudaStream_t compute_stream, bool enabled) {
-	if constexpr (sizeof...(Rest) == 0) {
+bool launch_test_npp_batchresize_x_split3D_helper(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<First, Rest...> seq, cudaStream_t compute_stream, bool enabled)
+{
+	if constexpr (sizeof...(Rest) == 0)
+	{
 		return test_npp_batchresize_x_split3D<batchValues[First]>(NUM_ELEMS_X, NUM_ELEMS_Y, compute_stream, enabled);
-	} else {
+	}
+	else
+	{
 		size_t currentBatch = First;
 		const bool passed1 = test_npp_batchresize_x_split3D<batchValues[First]>(NUM_ELEMS_X, NUM_ELEMS_Y, compute_stream, enabled);
 		const bool passed2 = launch_test_npp_batchresize_x_split3D_helper<Rest...>(NUM_ELEMS_X, NUM_ELEMS_Y, std::index_sequence<Rest...>{}, compute_stream, enabled);
@@ -348,7 +412,7 @@ int launch()
 	results["test_npp_batchresize_x_split3D"] &= launch_test_npp_batchresize_x_split3D(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, stream, true);
 
 	int returnValue = 0;
-	for (const auto& [key, passed] : results)
+	for (const auto &[key, passed] : results)
 	{
 		if (passed)
 		{
