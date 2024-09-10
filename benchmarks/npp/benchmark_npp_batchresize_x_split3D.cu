@@ -77,13 +77,14 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
     const float alpha = 0.3f;
     const uchar CROP_W = 2;
     const uchar CROP_H = 2;
-    const uchar UP_W = 3;
-    const uchar UP_H = 3;
+    const uchar UP_W = 8;
+    const uchar UP_H = 8;
     try {
       constexpr uchar3 init_val{1,2 , 3};
       fk::Ptr2D<uchar3> d_input(NUM_ELEMS_X, NUM_ELEMS_Y);
       fk::setTo(init_val, d_input, compute_stream);
       fk::Ptr2D<float3> d_input_f(NUM_ELEMS_X, NUM_ELEMS_Y);
+      //fk::Ptr2D<float3> h_input_f(NUM_ELEMS_X, NUM_ELEMS_Y,d_input.dims().pitch,fk::MemType::HostPinned);
       std::array<fk::Ptr2D<float3>, BATCH> d_resized_npp, d_mul, d_sub, d_div;
       std::array<fk::Ptr2D<float>, BATCH> d_channelA, d_channelB, d_channelC;
       std::array<fk::Ptr2D<float>, BATCH> h_channelA, h_channelB, h_channelC;
@@ -101,6 +102,10 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       const Npp32f divValue[3] = {1.f, 4.f, 3.2f};
       const NppiSize sz{UP_W, UP_H};
       const NppiSize szcrop = {CROP_W, CROP_H};
+      // crop array of images using batch resize+ ROIs
+      // force fill 5
+      constexpr int COLOR_PLANE = UP_H * UP_W;
+      constexpr int IMAGE_STRIDE = (COLOR_PLANE * 3);
       // asume RGB->BGR
       const int aDstOrder[3] = {2, 1, 0};
       gpuErrchk(cudaMallocHost(reinterpret_cast<void **>(&hBatchSrc), sizeof(NppiImageDescriptor) * BATCH));
@@ -142,6 +147,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 
       // ROI
       for (int i = 0; i < BATCH; ++i) {
+        //NppiRect srcrect = {i, i, CROP_W, CROP_H};
         NppiRect srcrect = {i, i, CROP_W, CROP_H};
         NppiRect dstrect = {0, 0, UP_W, UP_H};
         hBatchROI[i].oSrcRectROI = srcrect;
@@ -166,48 +172,164 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
                                           NppiSize{static_cast<int>(NUM_ELEMS_X), static_cast<int>(NUM_ELEMS_Y)},
                                           nppcontext));
 
+/* gpuErrchk(cudaMemcpy2DAsync(reinterpret_cast<void **>(h_input_f.ptr().data), h_input_f.dims().pitch,
+                                  d_input_f.ptr().data, d_input_f.dims().pitch, d_input_f.dims().width * sizeof(float),
+                                  UP_H, cudaMemcpyDeviceToHost, compute_stream));
+      gpuErrchk(cudaStreamSynchronize(compute_stream));
+
+      for (int i = 0; i < IMAGE_STRIDE; ++i) {
+        ((i % COLOR_PLANE == 0)) ? std::cout << std::endl
+                                 : std::cout << "|" << h_input_f.ptr().data[i].x << " " << h_input_f.ptr().data[i].y
+                                             << " " << h_input_f.ptr().data[i].z << "|";
+      }
+  */
+
+ 
+
       NPP_CHECK(nppiResizeBatch_32f_C3R_Advanced_Ctx(UP_W, UP_H, dBatchSrc, dBatchDst, dBatchROI, BATCH,
                                                      NPPI_INTER_LINEAR, nppcontext));
-      // crop array of images using batch resize+ ROIs
-      // force fill 5
-      constexpr int COLOR_PLANE = UP_H * UP_W;
-      constexpr int IMAGE_STRIDE = (COLOR_PLANE * 3);
 
+/* std::cout << " npp post resize and crop: " << std::endl;
+    for (int i = 0; i < BATCH; ++i) {
+        fk::Ptr2D<float3> h_resized_npp (UP_W, UP_H, hBatchDst[i].nStep, fk::MemType::HostPinned);
+        gpuErrchk(cudaMemcpy2DAsync(reinterpret_cast<void **>(h_resized_npp.ptr().data), h_resized_npp.dims().pitch,
+                                    hBatchDst[i].pData, hBatchDst[i].nStep, hBatchDst[i].oSize.width * sizeof(float3),
+                                    hBatchDst[i].oSize.height,
+                                    cudaMemcpyDeviceToHost,
+                                    compute_stream));
+        gpuErrchk(cudaStreamSynchronize(compute_stream));
+
+        for (int c = 0; c < COLOR_PLANE; ++c) {
+          ((c % COLOR_PLANE == 0)) ? std::cout << std::endl
+                                   : std::cout << "|" << h_resized_npp.ptr().data[c].x << " "
+                                               << h_resized_npp.ptr().data[i].y << " " << h_resized_npp.ptr().data[c].z
+                                               << "|";
+        }
+        
+      }
+    std::cout << std::endl;
+    */
       for (int i = 0; i < BATCH; ++i) {
+        
         NPP_CHECK(nppiSwapChannels_32f_C3IR_Ctx(reinterpret_cast<Npp32f *>(d_resized_npp[i].ptr().data),
                                                 d_resized_npp[i].ptr().dims.pitch, sz, aDstOrder, nppcontext));
 
+        /*
+        fk::Ptr2D<float3> h_swap_npp(UP_W, UP_H, hBatchDst[i].nStep, fk::MemType::HostPinned);
+        gpuErrchk(cudaMemcpy2DAsync(reinterpret_cast<void **>(h_swap_npp.ptr().data), h_swap_npp.dims().pitch,
+                                    d_resized_npp[i].ptr().data, hBatchDst[i].nStep,
+                                    hBatchDst[i].oSize.width * sizeof(float3),
+                                    hBatchDst[i].oSize.height, cudaMemcpyDeviceToHost, compute_stream));
+        gpuErrchk(cudaStreamSynchronize(compute_stream));
+         std::cout << std::endl;
+        std::cout << " npp post swap: " << std::endl;
+        for (int c = 0; c < COLOR_PLANE; ++c) {
+          ((c % COLOR_PLANE == 0)) ? std::cout << std::endl
+                                   : std::cout << "|" << h_swap_npp.ptr().data[c].x << " " << h_swap_npp.ptr().data[i].y
+                                               << " " << h_swap_npp.ptr().data[c].z
+                                               << "|";
+        }
+        */
         NPP_CHECK(nppiMulC_32f_C3R_Ctx(
             reinterpret_cast<Npp32f *>(d_resized_npp[i].ptr().data), d_resized_npp[i].ptr().dims.pitch, mulValue,
             reinterpret_cast<Npp32f *>(d_mul[i].ptr().data), d_mul[i].ptr().dims.pitch, sz, nppcontext));
-
+        /*
+        fk::Ptr2D<float3> h_mul_npp(UP_W, UP_H, hBatchDst[i].nStep, fk::MemType::HostPinned);
+        gpuErrchk(cudaMemcpy2DAsync(reinterpret_cast<void **>(h_mul_npp.ptr().data), h_mul_npp.dims().pitch,
+                                     d_mul[i].ptr().data, hBatchDst[i].nStep,
+                                    hBatchDst[i].oSize.width * sizeof(float3), hBatchDst[i].oSize.height,
+                                    cudaMemcpyDeviceToHost, compute_stream));
+        gpuErrchk(cudaStreamSynchronize(compute_stream));
+        std::cout << std::endl;
+        std::cout << " npp post mul: " << std::endl;
+        for (int c = 0; c < COLOR_PLANE; ++c) {
+          ((c % COLOR_PLANE == 0)) ? std::cout << std::endl
+                                   : std::cout << "|" << h_mul_npp.ptr().data[c].x << " " << h_mul_npp.ptr().data[i].y
+                                               << " " << h_mul_npp.ptr().data[c].z << "|";
+        }
+        */
         NPP_CHECK(nppiSubC_32f_C3R_Ctx(reinterpret_cast<Npp32f *>(d_mul[i].ptr().data), d_mul[i].ptr().dims.pitch,
                                        subValue, reinterpret_cast<Npp32f *>(d_sub[i].ptr().data),
                                        d_sub[i].ptr().dims.pitch, sz, nppcontext));
-
+        /*
+        fk::Ptr2D<float3> h_sub_npp(UP_W, UP_H, hBatchDst[i].nStep, fk::MemType::HostPinned);
+        gpuErrchk(cudaMemcpy2DAsync(reinterpret_cast<void **>(h_sub_npp.ptr().data), h_sub_npp.dims().pitch,
+                                    d_sub[i].ptr().data, hBatchDst[i].nStep, hBatchDst[i].oSize.width * sizeof(float3),
+                                    hBatchDst[i].oSize.height, cudaMemcpyDeviceToHost, compute_stream));
+        gpuErrchk(cudaStreamSynchronize(compute_stream));
+        std::cout << std::endl;
+        std::cout << " npp post sub: " << std::endl;
+        for (int c = 0; c < COLOR_PLANE; ++c) {
+          ((c % COLOR_PLANE == 0)) ? std::cout << std::endl
+                                   : std::cout << "|" << h_sub_npp.ptr().data[c].x << " " << h_sub_npp.ptr().data[i].y
+                                               << " " << h_sub_npp.ptr().data[c].z << "|";
+        }
+        */
         NPP_CHECK(nppiDivC_32f_C3R_Ctx(reinterpret_cast<Npp32f *>(d_sub[i].ptr().data), d_sub[i].ptr().dims.pitch,
                                        divValue, reinterpret_cast<Npp32f *>(d_div[i].ptr().data),
                                        d_div[i].ptr().dims.pitch, sz, nppcontext));
-
-        const auto vals = aDst[i].front();
+        /*
+           fk::Ptr2D<float3> h_div_npp(UP_W, UP_H, hBatchDst[i].nStep, fk::MemType::HostPinned);
+        gpuErrchk(cudaMemcpy2DAsync(reinterpret_cast<void **>(h_div_npp.ptr().data), h_div_npp.dims().pitch,
+                                    d_div[i].ptr().data, hBatchDst[i].nStep, hBatchDst[i].oSize.width * sizeof(float3),
+                                    hBatchDst[i].oSize.height, cudaMemcpyDeviceToHost, compute_stream));
+        gpuErrchk(cudaStreamSynchronize(compute_stream));
+        std::cout << std::endl;
+        std::cout << " npp div  : " << std::endl;
+        for (int c = 0; c < COLOR_PLANE; ++c) {
+          ((c % COLOR_PLANE == 0)) ? std::cout << std::endl
+                                   : std::cout << "|" << h_div_npp.ptr().data[c].x << " " << h_div_npp.ptr().data[i].y
+                                               << " " << h_div_npp.ptr().data[c].z << "|";
+        }
+        */
+         const auto vals = aDst[i].front();
         Npp32f *const aDst1[3] = {&vals[0], &vals[1], &vals[2]};
 
-        NPP_CHECK(nppiCopy_32f_C3P3R_Ctx(reinterpret_cast<Npp32f *>(d_resized_npp[i].ptr().data),
-                                         d_resized_npp[i].ptr().dims.pitch, aDst1, d_channelA[i].ptr().dims.pitch, sz,
+        NPP_CHECK(nppiCopy_32f_C3P3R_Ctx(reinterpret_cast<Npp32f *>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch,
+                                         aDst1, d_channelA[i].ptr().dims.pitch, sz,
                                          nppcontext));
+        /*
+        fk::Ptr2D<float> h_CA(UP_W, UP_H, h_channelA[i].dims().pitch, fk::MemType::HostPinned);
+        gpuErrchk(cudaMemcpy2DAsync(h_CA.ptr().data, h_channelA[i].dims().pitch, aDst1[0], h_channelA[i].dims().pitch,
+                                    UP_W * sizeof(float), UP_H,
+                                    cudaMemcpyDeviceToHost, compute_stream));
+        fk::Ptr2D<float> h_CB(UP_W, UP_H, h_channelA[i].dims().pitch, fk::MemType::HostPinned);
+        gpuErrchk(cudaMemcpy2DAsync(h_CB.ptr().data, h_channelA[i].dims().pitch, aDst1[1], h_channelA[i].dims().pitch,
+                                    UP_W * sizeof(float), UP_H,
+                                    cudaMemcpyDeviceToHost, compute_stream));
+        fk::Ptr2D<float> h_CC(UP_W, UP_H, hBatchDst[i].nStep, fk::MemType::HostPinned);
+        gpuErrchk(cudaMemcpy2DAsync(h_CC.ptr().data, h_channelA[i].dims().pitch, aDst1[2], h_channelA[i].dims().pitch,
+                                    UP_W * sizeof(float), UP_H,
+                                    cudaMemcpyDeviceToHost, compute_stream));
+
+        gpuErrchk(cudaStreamSynchronize(compute_stream));
+        std::cout << std::endl;
+        std::cout << " npp channels : " << std::endl;
+        for (int c = 0; c < IMAGE_STRIDE; ++c) {
+
+            if (c % COLOR_PLANE == 0)
+            std::cout << std::endl;
+             
+              std::cout << "|" << h_CA.ptr().data[c] << " " << h_CB.ptr().data[c] << " " << h_CC.ptr().data[c] << "|";
+              ;
+        } 
+        */
       }
        
       // Bucle final de copia
       for (int i = 0; i < BATCH; ++i) {
-        gpuErrchk(cudaMemcpy2DAsync(reinterpret_cast<void **>(h_channelA[i].ptr().data), h_channelA[i].dims().pitch,
+        const auto vals = aDst[i].front();
+        Npp32f *const aDst1[3] = {&vals[0], &vals[1], &vals[2]};
+
+        gpuErrchk(cudaMemcpy2DAsync( h_channelA[i].ptr().data, h_channelA[i].dims().pitch,
                                     d_channelA[i].ptr().data, d_channelA[i].dims().pitch,
                                     d_channelA[i].dims().width * sizeof(float), CROP_H, cudaMemcpyDeviceToHost,
                                     compute_stream));
-        gpuErrchk(cudaMemcpy2DAsync(reinterpret_cast<void **>(h_channelB[i].ptr().data), h_channelB[i].dims().pitch,
+        gpuErrchk(cudaMemcpy2DAsync(h_channelB[i].ptr().data, h_channelB[i].dims().pitch,
                                     d_channelB[i].ptr().data, d_channelB[i].dims().pitch,
                                     d_channelB[i].dims().width * sizeof(float), CROP_H, cudaMemcpyDeviceToHost,
                                     compute_stream));
-        gpuErrchk(cudaMemcpy2DAsync(reinterpret_cast<void **>(h_channelC[i].ptr().data), h_channelC[i].dims().pitch,
+        gpuErrchk(cudaMemcpy2DAsync(h_channelC[i].ptr().data, h_channelC[i].dims().pitch,
                                     d_channelC[i].ptr().data, d_channelC[i].dims().pitch,
                                     d_channelC[i].dims().width * sizeof(float), CROP_H, cudaMemcpyDeviceToHost,
                                     compute_stream));
@@ -286,17 +408,28 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       }
 
       if (!passed) {
-        std::cout << "fk:" << std::endl;
-        printTensor(h_tensor);
-
+        //std::cout << "fk:" << std::endl;
+        //printTensor(h_tensor);
+        
         std::cout << "npp:" << std::endl;
         for (int b = 0; b < BATCH; ++b) {
-          for (int i = 0; i < COLOR_PLANE; ++i) {
-            std::cout << "batch/plane " << b << "," << i << std::endl;
-            std::cout << h_channelA[b].ptr().data[i] ;
-            std::cout << h_channelA[b].ptr().data[i] << " | ";
-            std::cout << h_channelB[b].ptr().data[i] << " | ";
-            std::cout << h_channelC[b].ptr().data[i] << " | " << std::endl << "..................." << std::endl;
+       
+          for (int i = 0; i < IMAGE_STRIDE; ++i) {
+            
+            for (int c=0;c<COLOR_PLANE;++c )
+                {
+              std::cout << "|" << h_channelA[b].ptr().data[c];
+            }
+            std::cout << std::endl;
+            for (int c = 0; c < COLOR_PLANE; ++c) {
+              std::cout << "|" << h_channelB[b].ptr().data[c];
+            }
+            std::cout << std::endl;
+            for (int c = 0; c < COLOR_PLANE; ++c) {
+              std::cout << "|" << h_channelC[b].ptr().data[c];
+            }
+            
+                  
           }
         }
       }
