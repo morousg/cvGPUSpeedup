@@ -76,10 +76,10 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 
   if (enabled) {
     const float alpha = 0.3f;
-    const uchar CROP_W = 2;
-    const uchar CROP_H = 2;
-    const uchar UP_W = 8;
-    const uchar UP_H = 8;
+    const uchar CROP_W = 60;
+    const uchar CROP_H = 120;
+    const uchar UP_W = 64;
+    const uchar UP_H = 128;
     try {
       constexpr uchar3 init_val{1, 2, 3};
       fk::Ptr2D<uchar3> d_input(NUM_ELEMS_X, NUM_ELEMS_Y);
