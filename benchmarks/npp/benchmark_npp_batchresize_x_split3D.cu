@@ -121,22 +121,23 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       std::vector<std::array<Npp32f *, 3>> aDst;
       // dest images (Rgb, 32f)
       for (int i = 0; i < BATCH; ++i) {
+        // NPP variables
         d_resized_npp[i] = fk::Ptr2D<float3>(UP_W, UP_H);
         d_mul[i] = fk::Ptr2D<float3>(UP_W, UP_H);
         d_sub[i] = fk::Ptr2D<float3>(UP_W, UP_H);
         d_div[i] = fk::Ptr2D<float3>(UP_W, UP_H);
-
+        // Fill NPP Batch struct
         hBatchDst[i].pData = d_resized_npp[i].ptr().data;
         hBatchDst[i].nStep = d_resized_npp[i].ptr().dims.pitch;
         hBatchDst[i].oSize = sz;
-
+        // Allocate pointers for split images (device)
         d_channelA[i] = fk::Ptr2D<float>(UP_W, UP_H);
         d_channelB[i] = fk::Ptr2D<float>(UP_W, UP_H);
         d_channelC[i] = fk::Ptr2D<float>(UP_W, UP_H);
-
-        h_channelA[i] = fk::Ptr2D<float>(UP_W, UP_H, d_channelA[i].ptr().dims.pitch, fk::MemType::HostPinned);
-        h_channelB[i] = fk::Ptr2D<float>(UP_W, UP_H, d_channelB[i].ptr().dims.pitch, fk::MemType::HostPinned);
-        h_channelC[i] = fk::Ptr2D<float>(UP_W, UP_H, d_channelC[i].ptr().dims.pitch, fk::MemType::HostPinned);
+        // Allocate pointers for split images (host)
+        h_channelA[i] = fk::Ptr2D<float>(UP_W, UP_H, 0, fk::MemType::HostPinned);
+        h_channelB[i] = fk::Ptr2D<float>(UP_W, UP_H, 0, fk::MemType::HostPinned);
+        h_channelC[i] = fk::Ptr2D<float>(UP_W, UP_H, 0, fk::MemType::HostPinned);
 
         std::array<Npp32f *, 3> ptrs = {reinterpret_cast<Npp32f *>(d_channelA[i].ptr().data),
                                         reinterpret_cast<Npp32f *>(d_channelB[i].ptr().data),
@@ -280,53 +281,69 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
                                    : std::cout << "|" << h_div_npp.ptr().data[c].x << " " << h_div_npp.ptr().data[i].y
                                                << " " << h_div_npp.ptr().data[c].z << "|";
         }
-        
-        const auto vals = aDst[i].front();
-        Npp32f *const aDst1[3] = {&vals[0], &vals[1], &vals[2]};
+
+        Npp32f* const aDst_arr[3] = {reinterpret_cast<Npp32f *>(d_channelA[i].ptr().data), 
+                                     reinterpret_cast<Npp32f *>(d_channelB[i].ptr().data),
+                                     reinterpret_cast<Npp32f *>(d_channelC[i].ptr().data)};
 
         NPP_CHECK(nppiCopy_32f_C3P3R_Ctx(reinterpret_cast<Npp32f *>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch,
-                                         aDst1, d_channelA[i].ptr().dims.pitch, sz, nppcontext));
-        /*
-        fk::Ptr2D<float> h_CA(UP_W, UP_H, h_channelA[i].dims().pitch, fk::MemType::HostPinned);
-        gpuErrchk(cudaMemcpy2DAsync(h_CA.ptr().data, h_channelA[i].dims().pitch, aDst1[0], h_channelA[i].dims().pitch,
+                                         aDst_arr, d_channelA[i].ptr().dims.pitch, sz, nppcontext));
+        
+        fk::Ptr2D<float> h_CA(UP_W, UP_H, 0, fk::MemType::HostPinned);
+        gpuErrchk(cudaMemcpy2DAsync(h_CA.ptr().data, h_CA.dims().pitch, aDst_arr[0], d_channelA[i].dims().pitch,
                                     UP_W * sizeof(float), UP_H,
                                     cudaMemcpyDeviceToHost, compute_stream));
         fk::Ptr2D<float> h_CB(UP_W, UP_H, h_channelA[i].dims().pitch, fk::MemType::HostPinned);
-        gpuErrchk(cudaMemcpy2DAsync(h_CB.ptr().data, h_channelA[i].dims().pitch, aDst1[1], h_channelA[i].dims().pitch,
+        gpuErrchk(cudaMemcpy2DAsync(h_CB.ptr().data, h_CB.dims().pitch, aDst_arr[1], d_channelB[i].dims().pitch,
                                     UP_W * sizeof(float), UP_H,
                                     cudaMemcpyDeviceToHost, compute_stream));
         fk::Ptr2D<float> h_CC(UP_W, UP_H, hBatchDst[i].nStep, fk::MemType::HostPinned);
-        gpuErrchk(cudaMemcpy2DAsync(h_CC.ptr().data, h_channelA[i].dims().pitch, aDst1[2], h_channelA[i].dims().pitch,
+        gpuErrchk(cudaMemcpy2DAsync(h_CC.ptr().data, h_CC.dims().pitch, aDst_arr[2], d_channelC[i].dims().pitch,
                                     UP_W * sizeof(float), UP_H,
                                     cudaMemcpyDeviceToHost, compute_stream));
 
         gpuErrchk(cudaStreamSynchronize(compute_stream));
         std::cout << std::endl;
         std::cout << " npp channels : " << std::endl;
-        for (int c = 0; c < IMAGE_STRIDE; ++c) {
-
-            if (c % COLOR_PLANE == 0)
-            std::cout << std::endl;
-
-              std::cout << "|" << h_CA.ptr().data[c] << " " << h_CB.ptr().data[c] << " " << h_CC.ptr().data[c] << "|";
-              ;
+        for (int y = 0; y < UP_H; y++) {
+          for (int x = 0; x < UP_W; x++) {
+            const float value = *fk::PtrAccessor<fk::_2D>::cr_point(fk::Point(x, y), h_CA.ptr());
+            std::cout << " " << value;
+          }
+          std::cout << std::endl;
         }
-        */
+        std::cout << std::endl;
+        for (int y = 0; y < UP_H; y++) {
+          for (int x = 0; x < UP_W; x++) {
+            const float value = *fk::PtrAccessor<fk::_2D>::cr_point(fk::Point(x, y), h_CB.ptr());
+            std::cout << " " << value;
+          }
+          std::cout << std::endl;
+        }
+        std::cout << std::endl;
+        for (int y = 0; y < UP_H; y++) {
+          for (int x = 0; x < UP_W; x++) {
+            const float value = *fk::PtrAccessor<fk::_2D>::cr_point(fk::Point(x, y), h_CC.ptr());
+            std::cout << " " << value;
+          }
+          std::cout << std::endl;
+        }
       }
 
       // Bucle final de copia
       for (int i = 0; i < BATCH; ++i) {
-        const auto vals = aDst[i].front();
-        Npp32f *const aDst1[3] = {&vals[0], &vals[1], &vals[2]};
+        
+        const auto d_dims = d_channelA[i].dims();
+        const auto h_dims = h_channelA[i].dims();
 
-        gpuErrchk(cudaMemcpy2DAsync(h_channelA[i].ptr().data, h_channelA[i].dims().pitch, d_channelA[i].ptr().data,
-                                    d_channelA[i].dims().pitch, d_channelA[i].dims().width * sizeof(float), CROP_H,
+        gpuErrchk(cudaMemcpy2DAsync(h_channelA[i].ptr().data, h_dims.pitch, d_channelA[i].ptr().data,
+                                    d_dims.pitch, d_dims.width * sizeof(float), d_dims.height,
                                     cudaMemcpyDeviceToHost, compute_stream));
-        gpuErrchk(cudaMemcpy2DAsync(h_channelB[i].ptr().data, h_channelB[i].dims().pitch, d_channelB[i].ptr().data,
-                                    d_channelB[i].dims().pitch, d_channelB[i].dims().width * sizeof(float), CROP_H,
+        gpuErrchk(cudaMemcpy2DAsync(h_channelB[i].ptr().data, h_dims.pitch, d_channelB[i].ptr().data,
+                                    d_dims.pitch, d_dims.width * sizeof(float), d_dims.height,
                                     cudaMemcpyDeviceToHost, compute_stream));
-        gpuErrchk(cudaMemcpy2DAsync(h_channelC[i].ptr().data, h_channelC[i].dims().pitch, d_channelC[i].ptr().data,
-                                    d_channelC[i].dims().pitch, d_channelC[i].dims().width * sizeof(float), CROP_H,
+        gpuErrchk(cudaMemcpy2DAsync(h_channelC[i].ptr().data, h_dims.pitch, d_channelC[i].ptr().data,
+                                    d_dims.pitch, d_dims.width * sizeof(float), d_dims.height,
                                     cudaMemcpyDeviceToHost, compute_stream));
       }
 
