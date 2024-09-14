@@ -51,7 +51,7 @@ function (discover_tests DIR)
 			
 		if (${is_npp} GREATER -1)
 			add_executable(${cuda_target} ${cuda_source} ${LAUNCH_SOURCES})			
-			target_link_libraries(${cuda_target} PRIVATE CUDA::nppc)		
+			target_link_libraries(${cuda_target} PRIVATE CUDA::nppc CUDA::nppial CUDA::nppidei CUDA::nppig) 		
 			add_opencv_to_target(${cuda_target} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs"  )		
 			enable_intellisense(${cuda_target})
 		endif()
