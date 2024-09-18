@@ -26,7 +26,7 @@
 #include "tests/main.h"
 #include "tests/testUtils.cuh"
 #include "tests/testsNppCommon.cuh"
-
+constexpr char VARIABLE_DIMENSION[]{"Batch size"};
 constexpr size_t NUM_EXPERIMENTS = 9;
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 10;

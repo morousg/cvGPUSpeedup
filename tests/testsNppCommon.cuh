@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2024 Albert Andaluz Gonzalez
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,21 +50,20 @@ struct BenchmarkResultsNumbers {
 
 template <size_t ITERATIONS> float computeVariance(const float &mean, const std::array<float, ITERATIONS> &times) {
   float sumOfDiff = 0.f;
-  for (int i = 0; i < ITERATIONS; i++) {
-    const float diff = times[i] - mean;
+  for (int idx = 0; idx <ITERATIONS; ++idx) {
+    const float diff = times[idx] - mean;
     sumOfDiff += (diff * diff);
   }
   return sumOfDiff / (ITERATIONS - 1);
 }
 
-template <int VARIABLE_DIMENSION, int ITERATIONS, int NUM_BATCH_VALUES,
-          const std::array<size_t, NUM_BATCH_VALUES> &variableDimanesionValues>
+template <int BATCH, int ITERATIONS, int NUM_BATCH_VALUES, const std::array<size_t, NUM_BATCH_VALUES> &batchValues>
 inline void processExecution(const BenchmarkResultsNumbers &resF, const std::string &functionName,
                              const std::array<float, ITERS> &NPPelapsedTime,
                              const std::array<float, ITERS> &FKelapsedTime, const std::string &variableDimension) {
   // Create 2D Table for changing types and changing batch
   const std::string fileName = functionName + std::string(".csv");
-  if constexpr (VARIABLE_DIMENSION == variableDimanesionValues[0]) {
+  if constexpr (BATCH == batchValues[0]) {
     if (currentFile.find(fileName) == currentFile.end()) {
       currentFile[fileName].open(path + fileName);
     }
@@ -88,12 +87,12 @@ inline void processExecution(const BenchmarkResultsNumbers &resF, const std::str
     const float NPPVariance = computeVariance(NPPMean, NPPelapsedTime);
     const float FKVariance = computeVariance(FKMean, FKelapsedTime);
     float meanSpeedup{0.f};
-    for (int i = 0; i < ITERS; i++) {
-      meanSpeedup += NPPelapsedTime[i] / FKelapsedTime[i];
+    for (int idx = 0; idx <ITERS; ++idx) {
+      meanSpeedup += NPPelapsedTime[idx] / FKelapsedTime[idx];
     }
     meanSpeedup /= ITERS;
 
-    currentFile[fileName] << VARIABLE_DIMENSION;
+ 
     currentFile[fileName] << BATCH;
     currentFile[fileName] << ", " << NPPMean;
     currentFile[fileName] << ", " << computeVariance(NPPMean, NPPelapsedTime);
@@ -126,7 +125,7 @@ inline void processExecution(const BenchmarkResultsNumbers &resF, const std::str
   gpuErrchk(cudaEventCreate(&stop));                                                                                   \
   std::array<float, ITERS> NPPelapsedTime;                                                                             \
   std::array<float, ITERS> FKelapsedTime;                                                                              \
-  for (int i = 0; i < ITERS; i++) {                                                                                    \
+  for (int idx = 0; idx <ITERS; ++idx) {                                                                                    \
     gpuErrchk(cudaEventRecord(start, compute_stream));
 #else
 #define START_NPP_BENCHMARK
@@ -136,10 +135,10 @@ inline void processExecution(const BenchmarkResultsNumbers &resF, const std::str
 #define STOP_NPP_START_FK_BENCHMARK                                                                                    \
   gpuErrchk(cudaEventRecord(stop, compute_stream));                                                                            \
   gpuErrchk(cudaEventSynchronize(stop));                                                                               \
-  gpuErrchk(cudaEventElapsedTime(&NPPelapsedTime[i], start, stop));                                                    \
-  resF.NPPelapsedTimeMax = resF.NPPelapsedTimeMax < NPPelapsedTime[i] ? NPPelapsedTime[i] : resF.NPPelapsedTimeMax;    \
-  resF.NPPelapsedTimeMin = resF.NPPelapsedTimeMin > NPPelapsedTime[i] ? NPPelapsedTime[i] : resF.NPPelapsedTimeMin;    \
-  resF.NPPelapsedTimeAcum += NPPelapsedTime[i];                                                                        \
+  gpuErrchk(cudaEventElapsedTime(&NPPelapsedTime[idx], start, stop));                                                    \
+  resF.NPPelapsedTimeMax = resF.NPPelapsedTimeMax < NPPelapsedTime[idx] ? NPPelapsedTime[idx] : resF.NPPelapsedTimeMax;    \
+  resF.NPPelapsedTimeMin = resF.NPPelapsedTimeMin > NPPelapsedTime[idx] ? NPPelapsedTime[idx] : resF.NPPelapsedTimeMin;    \
+  resF.NPPelapsedTimeAcum += NPPelapsedTime[idx];                                                                        \
   gpuErrchk(cudaEventRecord(start, compute_stream));
 #else
 #define STOP_NPP_START_FK_BENCHMARK
@@ -149,13 +148,13 @@ inline void processExecution(const BenchmarkResultsNumbers &resF, const std::str
 #define STOP_FK_BENCHMARK                                                                                              \
   gpuErrchk(cudaEventRecord(stop, compute_stream));                                                                            \
   gpuErrchk(cudaEventSynchronize(stop));                                                                               \
-  gpuErrchk(cudaEventElapsedTime(&FKelapsedTime[i], start, stop));                                                     \
-  resF.FKelapsedTimeMax = resF.FKelapsedTimeMax < FKelapsedTime[i] ? FKelapsedTime[i] : resF.FKelapsedTimeMax;         \
-  resF.FKelapsedTimeMin = resF.FKelapsedTimeMin > FKelapsedTime[i] ? FKelapsedTime[i] : resF.FKelapsedTimeMin;         \
-  resF.FKelapsedTimeAcum += FKelapsedTime[i];                                                                          \
-  } \                                                                                                                \
+  gpuErrchk(cudaEventElapsedTime(&FKelapsedTime[idx], start, stop));                                                     \
+  resF.FKelapsedTimeMax = resF.FKelapsedTimeMax < FKelapsedTime[idx] ? FKelapsedTime[idx] : resF.FKelapsedTimeMax;         \
+  resF.FKelapsedTimeMin = resF.FKelapsedTimeMin > FKelapsedTime[idx] ? FKelapsedTime[idx] : resF.FKelapsedTimeMin;         \
+  resF.FKelapsedTimeAcum += FKelapsedTime[idx];                                                                          \
+  }                                                                                                                  \
 processExecution<BATCH, ITERS, batchValues.size(), batchValues>(                               \
-      resF, __func__, NPPelapsedTime, FKelapsedTime, VARIABLE_DIMENSION);
+      resF, __func__, NPPelapsedTime, FKelapsedTime ,VARIABLE_DIMENSION);
 #else
 #define STOP_FK_BENCHMARK
 #endif
