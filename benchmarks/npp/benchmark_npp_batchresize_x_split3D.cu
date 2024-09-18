@@ -1,4 +1,4 @@
-﻿/* Copyright 2024 Oscar Amoros Huguet 
+﻿/* Copyright 2024 Oscar Amoros Huguet
    Copyright 2024 Albert Andaluz Gonzalez
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +25,7 @@
 
 #include "tests/main.h"
 #include "tests/testUtils.cuh"
-#include "tests/testsCommon.cuh"
+#include "tests/testsNppCommon.cuh"
 
 constexpr size_t NUM_EXPERIMENTS = 9;
 constexpr size_t FIRST_VALUE = 10;
@@ -102,6 +102,8 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       const Npp32f divValue[3] = {1.f, 4.f, 3.2f};
       const NppiSize sz{UP_W, UP_H};
       const NppiSize szcrop = {CROP_W, CROP_H};
+      fk::Tensor<float> h_tensor(UP_W, UP_H, BATCH, 3, fk::MemType::HostPinned);
+      fk::Tensor<float> d_tensor(UP_W, UP_H, BATCH, 3);
       // crop array of images using batch resize+ ROIs
       // force fill 5
       constexpr int COLOR_PLANE = UP_H * UP_W;
@@ -164,7 +166,8 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
                                 cudaMemcpyHostToDevice, compute_stream));
       gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void **>(dBatchROI), hBatchROI,
                                 sizeof(NppiResizeBatchROI_Advanced) * BATCH, cudaMemcpyHostToDevice, compute_stream));
-
+      START_NPP_BENCHMARK
+    
       // NPP version
       // convert to 32f
       // print2D("Values after initialization", d_input, compute_stream);
@@ -222,7 +225,8 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
         print2D("Split Y", d_channelB[i], compute_stream);
         print2D("Split Z", d_channelC[i], compute_stream);*/
       }
-
+      STOP_NPP_START_FK_BENCHMARK
+      
       // Bucle final de copia
       for (int i = 0; i < BATCH; ++i) {
         const auto d_dims = d_channelA[i].dims();
@@ -247,9 +251,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       gpuErrchk(cudaFreeHost(hBatchDst));
       gpuErrchk(cudaFreeHost(hBatchROI))
 
-          fk::Tensor<float>
-              h_tensor(UP_W, UP_H, BATCH, 3, fk::MemType::HostPinned);
-      fk::Tensor<float> d_tensor(UP_W, UP_H, BATCH, 3);
+
 
       // do the same via fk
 
@@ -267,14 +269,14 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       auto split = fk::Write<fk::TensorSplit<float3>>{d_tensor.ptr()};
 
       fk::executeOperations(compute_stream, readOp, colorConvert, multiply, sub, div, split);
-
+      STOP_FK_BENCHMARK
       // copy tensor
       gpuErrchk(cudaMemcpyAsync(h_tensor.ptr().data, d_tensor.ptr().data, h_tensor.sizeInBytes(),
                                 cudaMemcpyDeviceToHost, compute_stream));
       gpuErrchk(cudaStreamSynchronize(compute_stream));
 
       // compare data
-
+      const enum CHANNEL { RED, GREEN, BLUE };
       const float TOLERANCE = 1e-3;
       for (int j = 0; j < BATCH; ++j) {
         for (int c = 0; c < 3; ++c) {
@@ -282,7 +284,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
             const int i_tensor = i + (COLOR_PLANE * c);
             const float result = h_tensor.ptr().data[(j * IMAGE_STRIDE) + i_tensor];
             switch (c) {
-            case 0: {
+            case RED: {
               float nppResult = h_channelA[j].ptr().data[i];
               float diff = std::abs(result - nppResult);
 
@@ -290,13 +292,13 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 
               break;
             }
-            case 1: {
+            case GREEN: {
               float nppResult = h_channelB[j].ptr().data[i];
               float diff = std::abs(result - nppResult);
               passed &= diff < TOLERANCE;
               break;
             }
-            case 2: {
+            case BLUE: {
               float nppResult = h_channelC[j].ptr().data[i];
               float diff = std::abs(result - nppResult);
               passed &= diff < TOLERANCE;
