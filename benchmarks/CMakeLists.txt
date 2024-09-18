@@ -20,6 +20,10 @@ function (enable_intellisense TARGET_NAME)
 		add_nvtx_support_to_target(${cuda_target})
 	endif()
 
+	if(${ENABLE_BENCHMARK})
+		target_compile_definitions(${cuda_target} PRIVATE ENABLE_BENCHMARK)
+	endif()
+
 	set_target_properties(${cuda_target} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
   
 	target_include_directories(${cuda_target} PRIVATE "${CMAKE_SOURCE_DIR}")      
