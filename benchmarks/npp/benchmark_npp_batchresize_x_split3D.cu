@@ -415,7 +415,7 @@ int launch() {
 
   results["test_npp_batchresize_x_split3D"] &=
       launch_test_npp_batchresize_x_split3D(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, stream, true);
-
+  CLOSE_BENCHMARK
   int returnValue = 0;
   for (const auto &[key, passed] : results) {
     if (passed) {

@@ -35,7 +35,7 @@ constexpr std::array<size_t, NUM_ELEMS> arrayIndexSecuence =
 std::unordered_map<std::string, std::stringstream> benchmarkResultsText;
 std::unordered_map<std::string, std::ofstream> currentFile;
 // Select the path where to write the benchmark files
-const std::string path{""};
+const std::string path{"C:/benchmarkresults"};
 
 constexpr int ITERS = 100;
 
@@ -125,7 +125,7 @@ inline void processExecution(const BenchmarkResultsNumbers &resF, const std::str
   gpuErrchk(cudaEventCreate(&stop));                                                                                   \
   std::array<float, ITERS> NPPelapsedTime;                                                                             \
   std::array<float, ITERS> FKelapsedTime;                                                                              \
-  for (int idx = 0; idx <ITERS; ++idx) {                                                                                    \
+  for (int idx = 0; idx <1; ++idx) {                                                                                    \
     gpuErrchk(cudaEventRecord(start, compute_stream));
 #else
 #define START_NPP_BENCHMARK
