@@ -29,13 +29,11 @@ template <size_t START_VALUE, size_t INCREMENT, size_t NUM_ELEMS>
 constexpr std::array<size_t, NUM_ELEMS> arrayIndexSecuence =
     generate_sequence<START_VALUE, INCREMENT>(std::make_index_sequence<NUM_ELEMS>{});
  
- 
-
 #ifdef ENABLE_BENCHMARK
 std::unordered_map<std::string, std::stringstream> benchmarkResultsText;
 std::unordered_map<std::string, std::ofstream> currentFile;
 // Select the path where to write the benchmark files
-const std::string path{"C:/benchmarkresults"};
+const std::string path{""};
 
 constexpr int ITERS = 100;
 

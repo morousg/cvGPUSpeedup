@@ -167,6 +167,19 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
                                 cudaMemcpyHostToDevice, compute_stream));
       gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void **>(dBatchROI), hBatchROI,
                                 sizeof(NppiResizeBatchROI_Advanced) * BATCH, cudaMemcpyHostToDevice, compute_stream));
+
+      std::array<fk::RawPtr<fk::_2D, uchar3>, BATCH> d_crop_fk;
+      for (int i = 0; i < BATCH; i++) {
+        d_crop_fk[i] = d_input.crop2D(fk::Point(i, i), fk::PtrDims<fk::_2D>(CROP_W, CROP_H));
+      }
+
+      // This operation parameters won't change, so we can generate them once instead of
+      // generating them on evey iteration
+      auto colorConvert = fk::Unary<fk::VectorReorder<float3, BLUE, GREEN, RED>>{};
+      auto multiply = fk::Binary<fk::Mul<float3>>{fk::make_<float3>(mulValue[0], mulValue[1], mulValue[2])};
+      auto sub = fk::Binary<fk::Sub<float3>>{fk::make_<float3>(subValue[0], subValue[1], subValue[2])};
+      auto div = fk::Binary<fk::Div<float3>>{fk::make_<float3>(divValue[0], divValue[1], divValue[2])};
+
       START_NPP_BENCHMARK
 
       // NPP version
@@ -230,18 +243,8 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       STOP_NPP_START_FK_BENCHMARK
 
       // do the same via fk
-
-      std::array<fk::RawPtr<fk::_2D, uchar3>, BATCH> d_crop_fk;
-      for (int i = 0; i < BATCH; i++) {
-        d_crop_fk[i] = d_input.crop2D(fk::Point(i, i), fk::PtrDims<fk::_2D>(CROP_W, CROP_H));
-      }
-
       const auto readOp = fk::resize<fk::PerThreadRead<fk::_2D, uchar3>, float3, fk::InterpolationType::INTER_LINEAR,
                                      BATCH, fk::AspectRatio::IGNORE_AR>(d_crop_fk, fk::Size(UP_W, UP_H), BATCH);
-      auto colorConvert = fk::Unary<fk::VectorReorder<float3, BLUE, GREEN, RED>>{};
-      auto multiply = fk::Binary<fk::Mul<float3>>{fk::make_<float3>(mulValue[0], mulValue[1], mulValue[2])};
-      auto sub = fk::Binary<fk::Sub<float3>>{fk::make_<float3>(subValue[0], subValue[1], subValue[2])};
-      auto div = fk::Binary<fk::Div<float3>>{fk::make_<float3>(divValue[0], divValue[1], divValue[2])};
       auto split = fk::Write<fk::TensorSplit<float3>>{d_tensor.ptr()};
 
       fk::executeOperations(compute_stream, readOp, colorConvert, multiply, sub, div, split);
@@ -409,6 +412,9 @@ int launch() {
 
   cudaStream_t stream;
   gpuErrchk(cudaStreamCreate(&stream));
+
+  // Warmup test execution
+  test_npp_batchresize_x_split3D<FIRST_VALUE>(NUM_ELEMS_X, NUM_ELEMS_Y, stream, true);
 
   std::unordered_map<std::string, bool> results;
   results["test_npp_batchresize_x_split3D"] = true;
