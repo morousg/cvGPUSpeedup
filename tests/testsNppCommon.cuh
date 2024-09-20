@@ -125,7 +125,7 @@ inline void processExecution(const BenchmarkResultsNumbers &resF, const std::str
   gpuErrchk(cudaEventCreate(&stop));                                                                                   \
   std::array<float, ITERS> NPPelapsedTime;                                                                             \
   std::array<float, ITERS> FKelapsedTime;                                                                              \
-  for (int idx = 0; idx <1; ++idx) {                                                                                    \
+  for (int idx = 0; idx <ITERS; ++idx) {                                                                                    \
     gpuErrchk(cudaEventRecord(start, compute_stream));
 #else
 #define START_NPP_BENCHMARK

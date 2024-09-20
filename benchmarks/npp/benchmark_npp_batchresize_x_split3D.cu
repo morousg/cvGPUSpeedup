@@ -31,6 +31,7 @@ constexpr size_t NUM_EXPERIMENTS = 9;
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 10;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
+enum CHANNEL { RED, GREEN, BLUE };
 constexpr inline void nppAssert(NppStatus code, const char *file, int line, bool abort = true) {
   if (code != NPP_SUCCESS) {
     std::cout << "NPP failure: "
@@ -96,12 +97,12 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       NppStreamContext nppcontext = initNppStreamContext(compute_stream);
 
       // source images (rgb 8bit)
-      const Npp8u aValue[3] = {init_val.x, init_val.y, init_val.z};
+
       const Npp32f mulValue[3] = {alpha, alpha, alpha};
       const Npp32f subValue[3] = {1.f, 4.f, 3.2f};
       const Npp32f divValue[3] = {1.f, 4.f, 3.2f};
       const NppiSize sz{UP_W, UP_H};
-      const NppiSize szcrop = {CROP_W, CROP_H};
+
       fk::Tensor<float> h_tensor(UP_W, UP_H, BATCH, 3, fk::MemType::HostPinned);
       fk::Tensor<float> d_tensor(UP_W, UP_H, BATCH, 3);
       // crop array of images using batch resize+ ROIs
@@ -109,7 +110,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       constexpr int COLOR_PLANE = UP_H * UP_W;
       constexpr int IMAGE_STRIDE = (COLOR_PLANE * 3);
       // asume RGB->BGR
-      const int aDstOrder[3] = {2, 1, 0};
+      const int aDstOrder[3] = {BLUE, GREEN, RED};
       gpuErrchk(cudaMallocHost(reinterpret_cast<void **>(&hBatchSrc), sizeof(NppiImageDescriptor) * BATCH));
       gpuErrchk(cudaMallocHost(reinterpret_cast<void **>(&hBatchDst), sizeof(NppiImageDescriptor) * BATCH));
       gpuErrchk(cudaMallocHost(reinterpret_cast<void **>(&hBatchROI), sizeof(NppiResizeBatchROI_Advanced) * BATCH));
@@ -167,7 +168,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void **>(dBatchROI), hBatchROI,
                                 sizeof(NppiResizeBatchROI_Advanced) * BATCH, cudaMemcpyHostToDevice, compute_stream));
       START_NPP_BENCHMARK
-    
+
       // NPP version
       // convert to 32f
       // print2D("Values after initialization", d_input, compute_stream);
@@ -225,9 +226,31 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
         print2D("Split Y", d_channelB[i], compute_stream);
         print2D("Split Z", d_channelC[i], compute_stream);*/
       }
+
       STOP_NPP_START_FK_BENCHMARK
-      
-      // Bucle final de copia
+
+      // do the same via fk
+
+      std::array<fk::RawPtr<fk::_2D, uchar3>, BATCH> d_crop_fk;
+      for (int i = 0; i < BATCH; i++) {
+        d_crop_fk[i] = d_input.crop2D(fk::Point(i, i), fk::PtrDims<fk::_2D>(CROP_W, CROP_H));
+      }
+
+      const auto readOp = fk::resize<fk::PerThreadRead<fk::_2D, uchar3>, float3, fk::InterpolationType::INTER_LINEAR,
+                                     BATCH, fk::AspectRatio::IGNORE_AR>(d_crop_fk, fk::Size(UP_W, UP_H), BATCH);
+      auto colorConvert = fk::Unary<fk::VectorReorder<float3, BLUE, GREEN, RED>>{};
+      auto multiply = fk::Binary<fk::Mul<float3>>{fk::make_<float3>(mulValue[0], mulValue[1], mulValue[2])};
+      auto sub = fk::Binary<fk::Sub<float3>>{fk::make_<float3>(subValue[0], subValue[1], subValue[2])};
+      auto div = fk::Binary<fk::Div<float3>>{fk::make_<float3>(divValue[0], divValue[1], divValue[2])};
+      auto split = fk::Write<fk::TensorSplit<float3>>{d_tensor.ptr()};
+
+      fk::executeOperations(compute_stream, readOp, colorConvert, multiply, sub, div, split);
+      STOP_FK_BENCHMARK
+      // copy tensor
+      gpuErrchk(cudaMemcpyAsync(h_tensor.ptr().data, d_tensor.ptr().data, h_tensor.sizeInBytes(),
+                                cudaMemcpyDeviceToHost, compute_stream));
+
+      // Bucle final de copia (NPP)
       for (int i = 0; i < BATCH; ++i) {
         const auto d_dims = d_channelA[i].dims();
         const auto h_dims = h_channelA[i].dims();
@@ -244,6 +267,8 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       }
 
       gpuErrchk(cudaStreamSynchronize(compute_stream));
+
+      // free NPP Data
       gpuErrchk(cudaFree(dBatchSrc));
       gpuErrchk(cudaFree(dBatchDst));
       gpuErrchk(cudaFree(dBatchROI));
@@ -251,32 +276,8 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       gpuErrchk(cudaFreeHost(hBatchDst));
       gpuErrchk(cudaFreeHost(hBatchROI))
 
+          // compare data
 
-
-      // do the same via fk
-
-      std::array<fk::RawPtr<fk::_2D, uchar3>, BATCH> d_crop_fk;
-      for (int i = 0; i < BATCH; i++) {
-        d_crop_fk[i] = d_input.crop2D(fk::Point(i, i), fk::PtrDims<fk::_2D>(CROP_W, CROP_H));
-      }
-
-      const auto readOp = fk::resize<fk::PerThreadRead<fk::_2D, uchar3>, float3, fk::InterpolationType::INTER_LINEAR,
-                                     BATCH, fk::AspectRatio::IGNORE_AR>(d_crop_fk, fk::Size(UP_W, UP_H), BATCH);
-      auto colorConvert = fk::Unary<fk::VectorReorder<float3, 2, 1, 0>>{};
-      auto multiply = fk::Binary<fk::Mul<float3>>{fk::make_<float3>(mulValue[0], mulValue[1], mulValue[2])};
-      auto sub = fk::Binary<fk::Sub<float3>>{fk::make_<float3>(subValue[0], subValue[1], subValue[2])};
-      auto div = fk::Binary<fk::Div<float3>>{fk::make_<float3>(divValue[0], divValue[1], divValue[2])};
-      auto split = fk::Write<fk::TensorSplit<float3>>{d_tensor.ptr()};
-
-      fk::executeOperations(compute_stream, readOp, colorConvert, multiply, sub, div, split);
-      STOP_FK_BENCHMARK
-      // copy tensor
-      gpuErrchk(cudaMemcpyAsync(h_tensor.ptr().data, d_tensor.ptr().data, h_tensor.sizeInBytes(),
-                                cudaMemcpyDeviceToHost, compute_stream));
-      gpuErrchk(cudaStreamSynchronize(compute_stream));
-
-      // compare data
-      const enum CHANNEL { RED, GREEN, BLUE };
       const float TOLERANCE = 1e-3;
       for (int j = 0; j < BATCH; ++j) {
         for (int c = 0; c < 3; ++c) {
