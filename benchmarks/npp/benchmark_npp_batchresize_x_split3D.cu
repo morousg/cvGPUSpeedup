@@ -16,15 +16,21 @@
 #include <npp.h>
 #include <nppi_geometry_transforms.h>
 
-#include <cvGPUSpeedup.cuh>
+#include <fused_kernel/core/data/size.h>
+#include <fused_kernel/algorithms/basic_ops/cuda_vector.cuh>
+#include <fused_kernel/core/utils/parameter_pack_utils.cuh>
+
+
 #include <fused_kernel/algorithms/basic_ops/arithmetic.cuh>
 #include <fused_kernel/algorithms/image_processing/resize_builders.cuh>
 #include <fused_kernel/fused_kernel.cuh>
+
 #include <numeric>
 #include <sstream>
+#include <iostream>
 
 #include "tests/main.h"
-#include "tests/testUtils.cuh"
+ 
 #include "tests/testsNppCommon.cuh"
 constexpr char VARIABLE_DIMENSION[]{"Batch size"};
 constexpr size_t NUM_EXPERIMENTS = 9;

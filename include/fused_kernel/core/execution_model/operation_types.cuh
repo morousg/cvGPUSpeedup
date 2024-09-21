@@ -16,7 +16,7 @@
 
 #include <fused_kernel/core/data/point.h>
 #include <fused_kernel/core/utils/template_operations.h>
-
+#include <fused_kernel/core/utils/type_lists.h>
 namespace fk {
 
     struct ReadType {};
