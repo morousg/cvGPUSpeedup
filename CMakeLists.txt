@@ -21,7 +21,14 @@ add_subdirectory(include)
 add_subdirectory(lib)
 
 option (BUILD_UTEST "build standard unit tests" ON)
+option (ENABLE_BENCHMARK "build benchmarking unit tests" OFF)
 if (${BUILD_UTEST})
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+
+if (${ENABLE_BENCHMARK})
+    enable_testing()
+    add_subdirectory(benchmarks)
 endif()

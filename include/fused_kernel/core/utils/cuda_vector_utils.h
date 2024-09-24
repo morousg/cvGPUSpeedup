@@ -292,6 +292,8 @@ namespace fk {
 } // namespace fk
 
 #ifdef DEBUG_MATRIX
+#include <iostream>
+
 template <typename T>
 struct to_printable {
     FK_HOST_FUSE int exec(T val) {
