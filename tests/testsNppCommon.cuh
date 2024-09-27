@@ -35,7 +35,7 @@ std::unordered_map<std::string, std::ofstream> currentFile;
 // Select the path where to write the benchmark files
 const std::string path{""};
 
-constexpr int ITERS = 100;
+constexpr int ITERS = 10000;
 
 struct BenchmarkResultsNumbers {
   float NPPelapsedTimeMax;

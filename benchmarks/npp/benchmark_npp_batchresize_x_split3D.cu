@@ -16,27 +16,27 @@
 #include <npp.h>
 #include <nppi_geometry_transforms.h>
 
-#include <fused_kernel/core/data/size.h>
+#include "tests/nvmlPower.h"
 #include <fused_kernel/algorithms/basic_ops/cuda_vector.cuh>
+#include <fused_kernel/core/data/size.h>
 #include <fused_kernel/core/utils/parameter_pack_utils.cuh>
-
 
 #include <fused_kernel/algorithms/basic_ops/arithmetic.cuh>
 #include <fused_kernel/algorithms/image_processing/resize_builders.cuh>
 #include <fused_kernel/fused_kernel.cuh>
 
+#include <iostream>
 #include <numeric>
 #include <sstream>
-#include <iostream>
 
 #include "tests/main.h"
- 
+
 #include "tests/testsNppCommon.cuh"
 constexpr char VARIABLE_DIMENSION[]{"Batch size"};
-constexpr size_t NUM_EXPERIMENTS = 9;
+constexpr size_t NUM_EXPERIMENTS = 1;//9;
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 10;
-constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
+constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues{90};//arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 enum CHANNEL { RED, GREEN, BLUE };
 constexpr inline void nppAssert(NppStatus code, const char *file, int line, bool abort = true) {
   if (code != NPP_SUCCESS) {
@@ -75,18 +75,19 @@ NppStreamContext initNppStreamContext(const cudaStream_t &stream) {
 }
 
 template <int BATCH>
-bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cudaStream_t &compute_stream,
+bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cudaStream_t &compute_stream, nvmlPower& nvml,
                                     bool enabled) {
   std::stringstream error_s;
   bool passed = true;
   bool exception = false;
-
+ 
+  
   if (enabled) {
     const float alpha = 0.3f;
-    const uchar CROP_W = 60;
-    const uchar CROP_H = 120;
-    const uchar UP_W = 64;
-    const uchar UP_H = 128;
+    const uint CROP_W = 500;
+    const uint CROP_H = 500;
+    const uint UP_W = 512;
+    const uint UP_H = 512;
     try {
       constexpr uchar3 init_val{1, 2, 3};
       fk::Ptr2D<uchar3> d_input(NUM_ELEMS_X, NUM_ELEMS_Y);
@@ -186,21 +187,19 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       auto sub = fk::Binary<fk::Sub<float3>>{fk::make_<float3>(subValue[0], subValue[1], subValue[2])};
       auto div = fk::Binary<fk::Div<float3>>{fk::make_<float3>(divValue[0], divValue[1], divValue[2])};
 
-      START_NPP_BENCHMARK
-
+      nvml.startPolling();
+      //START_NPP_BENCHMARK
+      for (int idx = 0; idx <ITERS; ++idx) {
       // NPP version
       // convert to 32f
-      // print2D("Values after initialization", d_input, compute_stream);
 
-      NPP_CHECK(nppiConvert_8u32f_C3R_Ctx(reinterpret_cast<Npp8u *>(d_input.ptr().data), d_input.ptr().dims.pitch,
+      /*NPP_CHECK(nppiConvert_8u32f_C3R_Ctx(reinterpret_cast<Npp8u *>(d_input.ptr().data), d_input.ptr().dims.pitch,
                                           reinterpret_cast<Npp32f *>(d_input_f.ptr().data), d_input_f.ptr().dims.pitch,
                                           NppiSize{static_cast<int>(NUM_ELEMS_X), static_cast<int>(NUM_ELEMS_Y)},
                                           nppcontext));
 
-      // print2D("Values after conversion to fp32", d_input_f, compute_stream);
-
       NPP_CHECK(nppiResizeBatch_32f_C3R_Advanced_Ctx(UP_W, UP_H, dBatchSrc, dBatchDst, dBatchROI, BATCH,
-                                                     NPPI_INTER_LINEAR, nppcontext));
+                                                     NPPI_INTER_LINEAR, nppcontext));*/
 
       /*for (int i = 0; i < BATCH; ++i) {
         std::stringstream ss;
@@ -208,7 +207,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
         print2D(ss.str(), d_resized_npp[i], compute_stream);
       }*/
 
-      for (int i = 0; i < BATCH; ++i) {
+      /*for (int i = 0; i < BATCH; ++i) {
         // std::cout << "Processing BATCH " << i << std::endl;
         NPP_CHECK(nppiSwapChannels_32f_C3R_Ctx(
             reinterpret_cast<Npp32f *>(d_resized_npp[i].ptr().data), d_resized_npp[i].ptr().dims.pitch,
@@ -244,19 +243,25 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
         /* print2D("Split X", d_channelA[i], compute_stream);
         print2D("Split Y", d_channelB[i], compute_stream);
         print2D("Split Z", d_channelC[i], compute_stream);*/
-      }
-
-      STOP_NPP_START_FK_BENCHMARK
-
+      //}
+      //std::cout<<"NPP power:"<<std::endl;
+    
+      //STOP_NPP_START_FK_BENCHMARK
+      //nvml.startPolling();
       // do the same via fk
       const auto readOp = fk::resize<fk::PerThreadRead<fk::_2D, uchar3>, float3, fk::InterpolationType::INTER_LINEAR,
                                      BATCH, fk::AspectRatio::IGNORE_AR>(d_crop_fk, fk::Size(UP_W, UP_H), BATCH);
       auto split = fk::Write<fk::TensorSplit<float3>>{d_tensor.ptr()};
 
       fk::executeOperations(compute_stream, readOp, colorConvert, multiply, sub, div, split);
-      STOP_FK_BENCHMARK
+      }
+      gpuErrchk(cudaStreamSynchronize(compute_stream));
+      nvml.stopPolling();
+      //std::cout<<"FK power:"<<std::endl;
+      //nvml.stopPolling();
+      //STOP_FK_BENCHMARK
       // copy tensor
-      gpuErrchk(cudaMemcpyAsync(h_tensor.ptr().data, d_tensor.ptr().data, h_tensor.sizeInBytes(),
+      /*gpuErrchk(cudaMemcpyAsync(h_tensor.ptr().data, d_tensor.ptr().data, h_tensor.sizeInBytes(),
                                 cudaMemcpyDeviceToHost, compute_stream));
 
       // Bucle final de copia (NPP)
@@ -287,7 +292,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 
           // compare data
 
-      const float TOLERANCE = 1e-3;
+          const float TOLERANCE = 1e-3;
       for (int j = 0; j < BATCH; ++j) {
         for (int c = 0; c < 3; ++c) {
           for (int i = 0; i < COLOR_PLANE; ++i) {
@@ -378,10 +383,8 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
             std::cout << std::endl;
           }
         }
-      }
-    }
-
-    catch (const std::exception &e) {
+      }*/
+    } catch (const std::exception &e) {
       error_s << e.what();
       passed = false;
       exception = true;
@@ -402,10 +405,10 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
 
 template <size_t... Is>
 bool launch_test_npp_batchresize_x_split3D(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y,
-                                           std::index_sequence<Is...> seq, cudaStream_t compute_stream, bool enabled) {
+                                           std::index_sequence<Is...> seq, cudaStream_t compute_stream, nvmlPower& nvml, bool enabled) {
   bool passed = true;
   int dummy[] = {
-      (passed &= test_npp_batchresize_x_split3D<batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, compute_stream, enabled),
+      (passed &= test_npp_batchresize_x_split3D<batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, compute_stream, nvml, enabled),
        0)...};
   (void)dummy;
 
@@ -413,22 +416,23 @@ bool launch_test_npp_batchresize_x_split3D(const size_t NUM_ELEMS_X, const size_
 }
 
 int launch() {
-  constexpr size_t NUM_ELEMS_X = 3840;
-  constexpr size_t NUM_ELEMS_Y = 2160;
+  nvmlPower nvml;
+  constexpr size_t NUM_ELEMS_X = 3840*2;
+  constexpr size_t NUM_ELEMS_Y = 2160*2;
 
   cudaStream_t stream;
   gpuErrchk(cudaStreamCreate(&stream));
 
   // Warmup test execution
-  test_npp_batchresize_x_split3D<FIRST_VALUE>(NUM_ELEMS_X, NUM_ELEMS_Y, stream, true);
+  test_npp_batchresize_x_split3D<FIRST_VALUE>(NUM_ELEMS_X, NUM_ELEMS_Y, stream, nvml, true);
 
   std::unordered_map<std::string, bool> results;
   results["test_npp_batchresize_x_split3D"] = true;
   std::make_index_sequence<batchValues.size()> iSeq{};
 
   results["test_npp_batchresize_x_split3D"] &=
-      launch_test_npp_batchresize_x_split3D(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, stream, true);
-  CLOSE_BENCHMARK
+      launch_test_npp_batchresize_x_split3D(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, stream, nvml, true);
+  //CLOSE_BENCHMARK
   int returnValue = 0;
   for (const auto &[key, passed] : results) {
     if (passed) {
