@@ -19,6 +19,8 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
+// By default this benchmark is disabled because it's compilation is too slow
+#undef ENABLE_BENCHMARK
 #ifdef ENABLE_BENCHMARK
 constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
 #ifndef CUDART_MAJOR_VERSION
