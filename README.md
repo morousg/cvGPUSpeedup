@@ -184,6 +184,4 @@ There is a set of tests and benchmarks, that can be executed with ctest or the V
 More detailed information in the future.
 
 # Final words and contact
-[Grup Mediapro](https://www.mediapro.tv) uses cvGPUSpeedup in the [AutomaticTV](https://www.automatic.tv) multicam live sports production system.  This product depends on custom Deep Neural Networks. Compared to vanilla OpenCV-CUDA implementation,  we obtained speedups of up to 167x in some cases.
-
-If you are interested in investing in cvGPUSpeedup development for your own usage, please contact <oamoros@mediapro.tv>
+If you are interested in investing in cvGPUSpeedup development for your own usage, please contact <oscar.amoros@outlook.es>
