@@ -184,4 +184,4 @@ There is a set of tests and benchmarks, that can be executed with ctest or the V
 More detailed information in the future.
 
 # Final words and contact
-If you are interested in investing in cvGPUSpeedup development for your own usage, please contact <oscar.amoros@outlook.es>
+If you are interested in investing in cvGPUSpeedup development for your own usage, please contact the author at <oscar.amoros@outlook.es>
