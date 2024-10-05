@@ -13,14 +13,15 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
+#include "tests/main.h"
+
 #include <npp.h>
 #include <nppi_geometry_transforms.h>
 
 #include <fused_kernel/core/data/size.h>
 #include <fused_kernel/algorithms/basic_ops/cuda_vector.cuh>
 #include <fused_kernel/core/utils/parameter_pack_utils.cuh>
-
-
+#include <fused_kernel/core/data/rect.h>
 #include <fused_kernel/algorithms/basic_ops/arithmetic.cuh>
 #include <fused_kernel/algorithms/image_processing/resize_builders.cuh>
 #include <fused_kernel/fused_kernel.cuh>
@@ -28,8 +29,6 @@
 #include <numeric>
 #include <sstream>
 #include <iostream>
-
-#include "tests/main.h"
  
 #include "tests/testsNppCommon.cuh"
 constexpr char VARIABLE_DIMENSION[]{"Batch size"};
@@ -47,8 +46,7 @@ constexpr inline void nppAssert(NppStatus code, const char *file, int line, bool
   }
 }
 
-#define NPP_CHECK(ans)                                                                                                 \
-  { nppAssert((ans), __FILE__, __LINE__, true); }
+#define NPP_CHECK(ans) { nppAssert((ans), __FILE__, __LINE__, true); }
 
 NppStreamContext initNppStreamContext(const cudaStream_t &stream);
 NppStreamContext initNppStreamContext(const cudaStream_t &stream) {
@@ -82,32 +80,36 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
   bool exception = false;
 
   if (enabled) {
-    const float alpha = 0.3f;
-    const uchar CROP_W = 60;
-    const uchar CROP_H = 120;
-    const uchar UP_W = 64;
-    const uchar UP_H = 128;
+    constexpr float alpha = 0.3f;
+    constexpr uchar CROP_W = 60;
+    constexpr uchar CROP_H = 120;
+    constexpr uchar UP_W = 64;
+    constexpr uchar UP_H = 128;
     try {
+      // Original image from where we will crop
       constexpr uchar3 init_val{1, 2, 3};
       fk::Ptr2D<uchar3> d_input(NUM_ELEMS_X, NUM_ELEMS_Y);
       fk::setTo(init_val, d_input, compute_stream);
-      fk::Ptr2D<float3> d_input_f(NUM_ELEMS_X, NUM_ELEMS_Y);
-      std::array<fk::Ptr2D<float3>, BATCH> d_resized_npp, d_swap, d_mul, d_sub, d_div;
+      
+      // Batches of crops (fk)
+      std::array<fk::Ptr2D<uchar3>, BATCH> d_cropped;
+      std::array<fk::Ptr2D<float3>, BATCH> d_cropped_FP32, d_resized_npp, d_swap, d_mul, d_sub, d_div;
       std::array<fk::Ptr2D<float>, BATCH> d_channelA, d_channelB, d_channelC;
       std::array<fk::Ptr2D<float>, BATCH> h_channelA, h_channelB, h_channelC;
-      fk::Tensor<float> d_tensornpp(UP_W, UP_H, BATCH, 3);
-      NppiImageDescriptor *hBatchSrc = nullptr, *dBatchSrc = nullptr, *hBatchDst = nullptr, *dBatchDst = nullptr;
+
+      // Batches of crops (npp)
+      NppiImageDescriptor *hBatchSrc = nullptr, *dBatchSrc = nullptr, *hBatchSrcFP32 = nullptr, *dBatchSrcFP32 = nullptr, *hBatchDst = nullptr, *dBatchDst = nullptr;
       NppiResizeBatchROI_Advanced *dBatchROI = nullptr, *hBatchROI = nullptr;
 
-      // init data adn set to inital value
+      // Init NPP context
       NppStreamContext nppcontext = initNppStreamContext(compute_stream);
 
-      // source images (rgb 8bit)
-
-      const Npp32f mulValue[3] = {alpha, alpha, alpha};
-      const Npp32f subValue[3] = {1.f, 4.f, 3.2f};
-      const Npp32f divValue[3] = {1.f, 4.f, 3.2f};
-      const NppiSize sz{UP_W, UP_H};
+      // Initialize function parameters
+      constexpr Npp32f mulValue[3] = {alpha, alpha, alpha};
+      constexpr Npp32f subValue[3] = {1.f, 4.f, 3.2f};
+      constexpr Npp32f divValue[3] = {1.f, 4.f, 3.2f};
+      constexpr NppiSize crop_size{CROP_W, CROP_H};
+      constexpr NppiSize up_size{UP_W, UP_H};
 
       fk::Tensor<float> h_tensor(UP_W, UP_H, BATCH, 3, fk::MemType::HostPinned);
       fk::Tensor<float> d_tensor(UP_W, UP_H, BATCH, 3);
@@ -118,28 +120,42 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       // asume RGB->BGR
       const int aDstOrder[3] = {BLUE, GREEN, RED};
       gpuErrchk(cudaMallocHost(reinterpret_cast<void **>(&hBatchSrc), sizeof(NppiImageDescriptor) * BATCH));
+      gpuErrchk(cudaMallocHost(reinterpret_cast<void **>(&hBatchSrcFP32), sizeof(NppiImageDescriptor) * BATCH));
       gpuErrchk(cudaMallocHost(reinterpret_cast<void **>(&hBatchDst), sizeof(NppiImageDescriptor) * BATCH));
       gpuErrchk(cudaMallocHost(reinterpret_cast<void **>(&hBatchROI), sizeof(NppiResizeBatchROI_Advanced) * BATCH));
-
-      for (int i = 0; i < BATCH; ++i) {
-        hBatchSrc[i].pData = d_input_f.ptr().data;
-        hBatchSrc[i].nStep = d_input_f.ptr().dims.pitch;
-        hBatchSrc[i].oSize = NppiSize{static_cast<int>(NUM_ELEMS_X), static_cast<int>(NUM_ELEMS_Y)};
-      }
+      gpuErrchk(cudaMalloc(reinterpret_cast<void **>(&dBatchSrc), sizeof(NppiImageDescriptor) * BATCH));
+      gpuErrchk(cudaMalloc(reinterpret_cast<void **>(&dBatchSrcFP32), sizeof(NppiImageDescriptor) * BATCH));
+      gpuErrchk(cudaMalloc(reinterpret_cast<void **>(&dBatchDst), sizeof(NppiImageDescriptor) * BATCH));
+      gpuErrchk(cudaMalloc(reinterpret_cast<void **>(&dBatchROI), sizeof(NppiResizeBatchROI_Advanced) * BATCH));
 
       std::vector<std::array<Npp32f *, 3>> aDst;
       // dest images (Rgb, 32f)
       for (int i = 0; i < BATCH; ++i) {
         // NPP variables
+        d_cropped_FP32[i] = fk::Ptr2D<float3>(CROP_W, CROP_H);
         d_resized_npp[i] = fk::Ptr2D<float3>(UP_W, UP_H);
         d_swap[i] = fk::Ptr2D<float3>(UP_W, UP_H);
         d_mul[i] = fk::Ptr2D<float3>(UP_W, UP_H);
         d_sub[i] = fk::Ptr2D<float3>(UP_W, UP_H);
         d_div[i] = fk::Ptr2D<float3>(UP_W, UP_H);
-        // Fill NPP Batch struct
+
+        // Fill NPP Batch structs
         hBatchDst[i].pData = d_resized_npp[i].ptr().data;
         hBatchDst[i].nStep = d_resized_npp[i].ptr().dims.pitch;
-        hBatchDst[i].oSize = sz;
+        hBatchDst[i].oSize = up_size;
+
+        const fk::Point current_start_coord(i, i);
+        hBatchSrc[i].pData = reinterpret_cast<void*>(fk::PtrAccessor<fk::_2D>::point(current_start_coord, d_input.ptr()));
+        hBatchSrc[i].nStep = d_input.dims().pitch;
+        hBatchSrc[i].oSize = crop_size;
+
+        hBatchSrcFP32[i].pData = d_cropped_FP32[i].ptr().data;
+        hBatchSrcFP32[i].nStep = d_cropped_FP32[i].dims().pitch;
+        hBatchSrcFP32[i].oSize = up_size;
+
+        hBatchROI[i].oSrcRectROI = NppiRect{0, 0, CROP_W, CROP_H};
+        hBatchROI[i].oDstRectROI = NppiRect{0, 0, UP_W, UP_H};
+
         // Allocate pointers for split images (device)
         d_channelA[i] = fk::Ptr2D<float>(UP_W, UP_H);
         d_channelB[i] = fk::Ptr2D<float>(UP_W, UP_H);
@@ -155,24 +171,14 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
         aDst.push_back(ptrs);
       }
 
-      // ROI
-      for (int i = 0; i < BATCH; ++i) {
-        // NppiRect srcrect = {i, i, CROP_W, CROP_H};
-        NppiRect srcrect = {i, i, CROP_W, CROP_H};
-        NppiRect dstrect = {0, 0, UP_W, UP_H};
-        hBatchROI[i].oSrcRectROI = srcrect;
-        hBatchROI[i].oDstRectROI = dstrect;
-      }
-
-      gpuErrchk(cudaMalloc(reinterpret_cast<void **>(&dBatchSrc), sizeof(NppiImageDescriptor) * BATCH));
-      gpuErrchk(cudaMalloc(reinterpret_cast<void **>(&dBatchDst), sizeof(NppiImageDescriptor) * BATCH));
-      gpuErrchk(cudaMalloc(reinterpret_cast<void **>(&dBatchROI), sizeof(NppiResizeBatchROI_Advanced) * BATCH));
+      gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void **>(dBatchSrcFP32), hBatchSrcFP32, sizeof(NppiImageDescriptor) * BATCH,
+                                cudaMemcpyHostToDevice, compute_stream));
       gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void **>(dBatchSrc), hBatchSrc, sizeof(NppiImageDescriptor) * BATCH,
                                 cudaMemcpyHostToDevice, compute_stream));
       gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void **>(dBatchDst), hBatchDst, sizeof(NppiImageDescriptor) * BATCH,
                                 cudaMemcpyHostToDevice, compute_stream));
-      gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void **>(dBatchROI), hBatchROI,
-                                sizeof(NppiResizeBatchROI_Advanced) * BATCH, cudaMemcpyHostToDevice, compute_stream));
+      gpuErrchk(cudaMemcpyAsync(reinterpret_cast<void **>(dBatchROI), hBatchROI, sizeof(NppiResizeBatchROI_Advanced) * BATCH,
+                                cudaMemcpyHostToDevice, compute_stream));
 
       std::array<fk::RawPtr<fk::_2D, uchar3>, BATCH> d_crop_fk;
       for (int i = 0; i < BATCH; i++) {
@@ -192,14 +198,14 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       // convert to 32f
       // print2D("Values after initialization", d_input, compute_stream);
 
-      NPP_CHECK(nppiConvert_8u32f_C3R_Ctx(reinterpret_cast<Npp8u *>(d_input.ptr().data), d_input.ptr().dims.pitch,
-                                          reinterpret_cast<Npp32f *>(d_input_f.ptr().data), d_input_f.ptr().dims.pitch,
-                                          NppiSize{static_cast<int>(NUM_ELEMS_X), static_cast<int>(NUM_ELEMS_Y)},
-                                          nppcontext));
+      for (int i = 0; i < BATCH; ++i) {
+        NPP_CHECK(nppiConvert_8u32f_C3R_Ctx(reinterpret_cast<const Npp8u*>(hBatchSrc[i].pData), hBatchSrc[i].nStep, reinterpret_cast<Npp32f*>(hBatchSrcFP32[i].pData),
+                                            hBatchSrcFP32[i].nStep, hBatchSrcFP32[i].oSize, nppcontext));
+      }
 
       // print2D("Values after conversion to fp32", d_input_f, compute_stream);
 
-      NPP_CHECK(nppiResizeBatch_32f_C3R_Advanced_Ctx(UP_W, UP_H, dBatchSrc, dBatchDst, dBatchROI, BATCH,
+      NPP_CHECK(nppiResizeBatch_32f_C3R_Advanced_Ctx(UP_W, UP_H, dBatchSrcFP32, dBatchDst, dBatchROI, BATCH,
                                                      NPPI_INTER_LINEAR, nppcontext));
 
       /*for (int i = 0; i < BATCH; ++i) {
@@ -212,25 +218,25 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
         // std::cout << "Processing BATCH " << i << std::endl;
         NPP_CHECK(nppiSwapChannels_32f_C3R_Ctx(
             reinterpret_cast<Npp32f *>(d_resized_npp[i].ptr().data), d_resized_npp[i].ptr().dims.pitch,
-            reinterpret_cast<Npp32f *>(d_swap[i].ptr().data), d_swap[i].dims().pitch, sz, aDstOrder, nppcontext));
+            reinterpret_cast<Npp32f *>(d_swap[i].ptr().data), d_swap[i].dims().pitch, up_size, aDstOrder, nppcontext));
 
         // print2D("Values after swap", d_swap[i], compute_stream);
 
         NPP_CHECK(nppiMulC_32f_C3R_Ctx(reinterpret_cast<Npp32f *>(d_swap[i].ptr().data), d_swap[i].ptr().dims.pitch,
                                        mulValue, reinterpret_cast<Npp32f *>(d_mul[i].ptr().data),
-                                       d_mul[i].ptr().dims.pitch, sz, nppcontext));
+                                       d_mul[i].ptr().dims.pitch, up_size, nppcontext));
 
         // print2D("Values after mul", d_mul[i], compute_stream);
 
         NPP_CHECK(nppiSubC_32f_C3R_Ctx(reinterpret_cast<Npp32f *>(d_mul[i].ptr().data), d_mul[i].ptr().dims.pitch,
                                        subValue, reinterpret_cast<Npp32f *>(d_sub[i].ptr().data),
-                                       d_sub[i].ptr().dims.pitch, sz, nppcontext));
+                                       d_sub[i].ptr().dims.pitch, up_size, nppcontext));
 
         // print2D("Values after sub", d_sub[i], compute_stream);
 
         NPP_CHECK(nppiDivC_32f_C3R_Ctx(reinterpret_cast<Npp32f *>(d_sub[i].ptr().data), d_sub[i].ptr().dims.pitch,
                                        divValue, reinterpret_cast<Npp32f *>(d_div[i].ptr().data),
-                                       d_div[i].ptr().dims.pitch, sz, nppcontext));
+                                       d_div[i].ptr().dims.pitch, up_size, nppcontext));
 
         // print2D("Values after div", d_div[i], compute_stream);
 
@@ -239,7 +245,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
                                      reinterpret_cast<Npp32f *>(d_channelC[i].ptr().data)};
 
         NPP_CHECK(nppiCopy_32f_C3P3R_Ctx(reinterpret_cast<Npp32f *>(d_div[i].ptr().data), d_div[i].ptr().dims.pitch,
-                                         aDst_arr, d_channelA[i].ptr().dims.pitch, sz, nppcontext));
+                                         aDst_arr, d_channelA[i].ptr().dims.pitch, up_size, nppcontext));
 
         /* print2D("Split X", d_channelA[i], compute_stream);
         print2D("Split Y", d_channelB[i], compute_stream);
