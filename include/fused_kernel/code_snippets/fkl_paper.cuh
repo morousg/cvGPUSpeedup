@@ -53,7 +53,8 @@ template <typename Op> struct BinaryOperationInstance {
 
 // Figure pointwise
 template <typename R, typename... OpIs>
-constexpr __device__ __forceinline__ auto process_helper(const R &result, const OpIs &...instances) {
+constexpr __device__ __forceinline__ 
+auto process_helper(const R &result, const OpIs &...instances) {
   if constexpr (sizeof...(instances) > 0) {
     return process(result, instances…);
   } else {
@@ -62,19 +63,24 @@ constexpr __device__ __forceinline__ auto process_helper(const R &result, const 
 }
 
 template <typename I, typename FirstOpI, typename... OpIs>
-constexpr __device__ __forceinline__ auto process(const I &inputReg, const FirstOpI &instance,
-                                                  const OpIs &...instances) {
+constexpr __device__ __forceinline__ 
+auto process(const I &inputReg,
+             const FirstOpI &instance,
+             const OpIs &...instances) {
   if constexpr (/*FirstOpI::InstanceType  == UnaryType*/) {
     const auto result = FirstOpI::Operation::exec(inputReg);
     return process_helper(result, instances...);
   } else { // Is BinaryType
-    const auto result = FirstOpI::Operation::exec(inputReg, instance.params);
+    const auto result =
+        FirstOpI::Operation::exec(inputReg, instance.params);
     return process_helper(result, instances...);
   }
 }
 
 template <typename I, typename O, typename... OpIs>
-__global__ void pointwise(const I input, O output, const OpIs... instances) {
+__global__ void pointwise(const I input, 
+                          O output,
+                          const OpIs... instances) {
   S_ASSERT_INPUT_OUTPUT     // Check that I/O types match
       const I inputReg = 0; // read input for current thread
   output[index] = process(inputReg, instances...);
