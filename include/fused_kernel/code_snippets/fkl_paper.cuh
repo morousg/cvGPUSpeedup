@@ -81,8 +81,9 @@ template <typename I, typename O, typename... OpIs>
 __global__ void pointwise(const I input, 
                           O output,
                           const OpIs... instances) {
-  S_ASSERT_INPUT_OUTPUT     // Check that I/O types match
-      const I inputReg = 0; // read input for current thread
-  output[index] = process(inputReg, instances...);
+  S_ASSERT_INPUT_OUTPUT // Check that I/O types match
+  int idx = 0; // compute thread idx
+  const I inputReg = input[idx]; // read input for current thread
+  output[idx] = process(inputReg, instances...);
 }
 // end Figure pointwise
