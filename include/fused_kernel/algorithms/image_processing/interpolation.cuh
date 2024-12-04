@@ -15,6 +15,7 @@
 #pragma once
 
 #include <fused_kernel/algorithms/basic_ops/logical.cuh>
+#include <fused_kernel/core/data/size.h>
 
 namespace fk {
     template <typename T>

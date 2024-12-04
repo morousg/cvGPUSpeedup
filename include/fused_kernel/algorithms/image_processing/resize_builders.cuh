@@ -16,6 +16,7 @@
 #include <fused_kernel/core/external/carotene/saturate_cast.hpp>
 #include <fused_kernel/algorithms/image_processing/resize.cuh>
 #include <fused_kernel/core/execution_model/memory_operation_builders.cuh>
+#include <fused_kernel/core/utils/parameter_pack_utils.cuh>
 
 namespace fk {
     enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
