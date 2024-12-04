@@ -113,9 +113,6 @@ namespace fk {
                     }
                 }
 
-                // TODO: add the generation of the ResizeRead params and return std::pair
-                const ResizeReadParams<IType> rreadParams{};
-
                 const int x1 = static_cast<int>((dSize.width - targetWidth) / 2);
                 const int y1 = static_cast<int>((dSize.height - targetHeight) / 2);
 
