@@ -24,6 +24,19 @@ namespace fk {
     template <typename Operation>
     constexpr bool hasParamsAndBackFunction = one_of_v<typename Operation::InstanceType, TypeList<ReadBackType, TernaryType>>;
 
+    template <typename Operation, typename Enabler> struct OperationData;
+
+    template <typename Operation>
+    struct OperationData<Operation, std::enable_if_t<isBinaryType<Operation> || isReadType<Operation>, void>> {
+        typename Operation::ParamsType params;
+    };
+
+    template <typename Operation> 
+    struct OperationData<Operation, std::enable_if_t<isTernaryType<Operation> || isReadBackType<Operation>, void>> {
+        typename Operation::ParamsType params;
+        typename Operation::BackFunction back_function;
+    };
+
     template <typename Enabler, typename... Operations>
     struct OperationTuple_;
 
