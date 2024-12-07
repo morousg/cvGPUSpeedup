@@ -210,34 +210,38 @@ namespace fk { // namespace fused kernel
     template <std::size_t Index, typename T, typename... Types>
     using InsertType_t = typename InsertType<Index, T, Types...>::type;
 
-    template <typename Restriction, typename TypeList, bool last, size_t currentIdx, size_t... indexes>
-    struct RestrictedIndexSequenceBuilder {
-        using type = std::conditional_t <TypeList::size == currentIdx + 1,
-                                         std::conditional_t<Restriction::template complies<TypeAt_t<currentIdx, TypeList>>(),
-                                            std::index_sequence<indexes..., currentIdx>,
-                                            std::index_sequence<indexes...>>,
-                                         std::conditional_t<Restriction::template complies<TypeAt_t<currentIdx, TypeList>>(),
-                                            typename RestrictedIndexSequenceBuilder<Restriction, TypeList, currentIdx + 1 == TypeList::size, currentIdx + 1, indexes..., currentIdx>::type,
-                                            typename RestrictedIndexSequenceBuilder<Restriction, TypeList, currentIdx + 1 == TypeList::size, currentIdx + 1, indexes...>::type>>;
+    template <typename T, typename Restriction, typename TypeList, bool last, T currentInt, T... integers>
+    struct RestrictedIntegerSequenceBuilder;
+
+    template <typename T, typename Restriction, typename TypeList, T currentInt, T... integers>
+    struct RestrictedIntegerSequenceBuilder<T, Restriction, TypeList, false, currentInt, integers...> {
+        static_assert(TypeList::size > 0, "Can't generate an integer sequence for an empty TypeList");
+        using type = std::conditional_t<(sizeof...(integers) > 0),
+            std::conditional_t <TypeList::size == currentInt + 1,
+                std::conditional_t<Restriction::template complies<TypeAt_t<currentInt, TypeList>>(),
+                    std::integer_sequence<T, integers..., currentInt>,
+                    std::integer_sequence<T, integers...>>,
+                std::conditional_t<Restriction::template complies<TypeAt_t<currentInt, TypeList>>(),
+                    typename RestrictedIntegerSequenceBuilder<T, Restriction, TypeList, currentInt + 1 == TypeList::size, currentInt + 1, integers..., currentInt>::type,
+                    typename RestrictedIntegerSequenceBuilder<T, Restriction, TypeList, currentInt + 1 == TypeList::size, currentInt + 1, integers...>::type>>,
+            std::conditional_t<TypeList::size == 1,
+                std::conditional_t<Restriction::template complies<TypeAt_t<currentInt, TypeList>>(),
+                    std::integer_sequence<T, currentInt>,
+                    std::integer_sequence<T>>,
+                std::conditional_t<Restriction::template complies<TypeAt_t<currentInt, TypeList>>(),
+                    typename RestrictedIntegerSequenceBuilder<T, Restriction, TypeList, currentInt + 1 == TypeList::size, currentInt + 1, currentInt>::type,
+                    typename RestrictedIntegerSequenceBuilder<T, Restriction, TypeList, currentInt + 1 == TypeList::size, currentInt + 1>::type>>>;
     };
 
-    template <typename Restriction, typename TypeList, size_t currentIdx, size_t... indexes>
-    struct RestrictedIndexSequenceBuilder<Restriction, TypeList, true, currentIdx, indexes...> {
-        using type = void;
+    template <typename T, typename Restriction, typename TypeList, T currentInt, T... integers>
+    struct RestrictedIntegerSequenceBuilder<T, Restriction, TypeList, true, currentInt, integers...> {
+        using type = std::conditional_t<(sizeof...(integers) > 0), std::integer_sequence<T,integers...>, std::integer_sequence<T>>;
     };
 
-    template <typename Restriction, typename TypeList>
-    struct RestrictedIndexSequenceBuilder<Restriction, TypeList, false, 0> {
-        using type = std::conditional_t<TypeList::size == 1,
-                                        std::conditional_t<Restriction::template complies<TypeAt_t<0, TypeList>>(),
-                                            std::index_sequence<0>,
-                                            std::index_sequence<>>,
-                                        std::conditional_t<Restriction::template complies<TypeAt_t<0, TypeList>>(),
-                                            typename RestrictedIndexSequenceBuilder<Restriction, TypeList, 1 == TypeList::size, 1, 0>::type,
-                                            typename RestrictedIndexSequenceBuilder<Restriction, TypeList, 1 == TypeList::size, 1>::type>>;
-    };
+    template <typename T, typename TypeRestriction, typename TypeList>
+    using filtered_integer_sequence_t = typename RestrictedIntegerSequenceBuilder<T, TypeRestriction, TypeList, false, 0>::type;
 
     template <typename TypeRestriction, typename TypeList>
-    using filtered_index_sequence_t = typename RestrictedIndexSequenceBuilder<TypeRestriction, TypeList, false, 0>::type;
+    using filtered_index_sequence_t = typename RestrictedIntegerSequenceBuilder<size_t, TypeRestriction, TypeList, false, 0>::type;
 
 } // namespace fk
