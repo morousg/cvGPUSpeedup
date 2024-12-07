@@ -14,6 +14,11 @@
 
 #include <iostream>
 
+#include <fused_kernel/core/data/ptr_nd.cuh>
+#include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/memory_operations.cuh>
+#include <fused_kernel/algorithms/basic_ops/arithmetic.cuh>
+#include <fused_kernel/algorithms/image_processing/saturate.cuh>
 #include <fused_kernel/fused_kernel.cuh>
 #include <fused_kernel/algorithms/basic_ops/arithmetic.cuh>
 #include <fused_kernel/core/utils/template_operations.h>
@@ -88,15 +93,15 @@ int launch() {
     fk::Write<fk::PerThreadWrite<fk::_2D, uint>> write { output };
 
     auto fusedDF = fk::fuseDF(read, cast, fk::Binary<fk::Mul<uint>>{4});
-    fusedDF.params.params;
-    //fusedDF.params.next.params; // Should not compile
-    fusedDF.params.next.next.params;
+    fusedDF.params.instance.params;
+    //fusedDF.params.next.instance.params; // Should not compile
+    fusedDF.params.next.next.instance.params;
 
     fk::cuda_transform<<<dim3(1,8),dim3(64,8),0,stream>>>(fusedDF, write);
 
     fk::OperationTuple<fk::PerThreadRead<fk::_2D, uchar>, fk::SaturateCast<uchar, uint>, fk::PerThreadWrite<fk::_2D, uint>> myTup{};
 
-    fk::get_params<2>(myTup);
+    fk::get<2>(myTup);
     constexpr bool test1 = std::is_same_v<fk::get_type_t<0, decltype(myTup)>, fk::PerThreadRead<fk::_2D, uchar>>;
     constexpr bool test2 = std::is_same_v<fk::get_type_t<1, decltype(myTup)>, fk::SaturateCast<uchar, uint>>;
     constexpr bool test3 = std::is_same_v<fk::get_type_t<2, decltype(myTup)>, fk::PerThreadWrite<fk::_2D, uint>>;
@@ -104,10 +109,10 @@ int launch() {
     gpuErrchk(cudaStreamSynchronize(stream));
 
     if (test2Dpassed && fk::and_v<test1, test2, test3>) {
-        std::cout << "cuda_transform executed!!" << std::endl; 
+        std::cout << "cuda_transform executed!!" << std::endl;
+        return 0;
     } else {
         std::cout << "cuda_transform failed!!" << std::endl;
+        return -1;
     }
-
-    return 0;
 }
