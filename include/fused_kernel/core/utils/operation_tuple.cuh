@@ -31,6 +31,10 @@ namespace fk {
     template <typename T>
     constexpr bool hasParams_v = hasParams<T>::value;
 
+    using BFList = TypeList<ReadBackType, TernaryType>;
+    template <typename OpOrDF>
+    constexpr bool hasNoBackFunction_v = !one_of_v<typename OpOrDF::InstanceType, BFList>;
+
     // hasBackFunction trait
     template <typename, typename = std::void_t<>>
     struct hasBackFunction : std::false_type {};
@@ -65,14 +69,14 @@ namespace fk {
     template <typename Operation, typename Enabler=void> struct OperationData;
 
     template <typename Operation>
-    struct OperationData<Operation, std::enable_if_t<hasParamsNoArray<Operation>, void>> {
+    struct OperationData<Operation, std::enable_if_t<hasParamsNoArray<Operation> && hasNoBackFunction_v<Operation>, void>> {
         constexpr OperationData() {};
         constexpr OperationData(const typename Operation::ParamsType& params_) : params(params_) {}
         typename Operation::ParamsType params;
     };
 
     template <typename Operation>
-    struct OperationData<Operation, std::enable_if_t<hasParamsArray<Operation>, void>> {
+    struct OperationData<Operation, std::enable_if_t<hasParamsArray<Operation> && hasNoBackFunction_v<Operation>, void>> {
         OperationData() {};
         OperationData(const typename Operation::ParamsType& params_) {
             std::copy(std::begin(params_), std::end(params_), std::begin(params));
