@@ -42,11 +42,19 @@ namespace fk { // namespace fused kernel
         return ppGet<0>(args...);
     }
 
-    template <size_t idx, size_t... isq>
-    constexpr inline size_t get_index_f(const std::index_sequence<isq...>&) {
-        return ppGet<static_cast<int>(idx)>(isq...);
+    template <size_t idx, size_t... iseq>
+    constexpr inline size_t get_index_f(const std::index_sequence<iseq...>&) {
+        return ppGet<static_cast<int>(idx)>(iseq...);
     }
 
-    template <size_t idx, typename ISQ>
-    constexpr size_t get_index = get_index_f<idx>(ISQ{});
+    template <size_t idx, typename ISeq>
+    constexpr size_t get_index = get_index_f<idx>(ISeq{});
+
+    template <typename T, T idx, T... iseq>
+    constexpr inline size_t get_integer_f(const std::integer_sequence<T, iseq...>&) {
+        return ppGet<static_cast<int>(idx)>(iseq...);
+    }
+
+    template <typename T, T idx, typename ISeq>
+    constexpr T get_integer = get_integer_f<T, idx>(ISeq{});
 } // namespace fk
