@@ -15,8 +15,8 @@
 #pragma once
 
 #include <vector_types.h>
-#include <fused_kernel/core/execution_model/operation_tuple_operation.cuh>
-#include <fused_kernel/core/execution_model/unary_operation_sequence.cuh>
+#include <fused_kernel/core/execution_model/fused_operation.cuh>
+#include <fused_kernel/core/utils/parameter_pack_utils.cuh>
 
 namespace fk { // namespace FusedKernel
 
@@ -158,9 +158,9 @@ namespace fk { // namespace FusedKernel
 
     template <typename... Operations>
     struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) > 1)>, Operations...> {
-        using Operation = OperationTupleOperation<Operations...>;
+        using Operation = FusedOperation<Operations...>;
         using InstanceType = BinaryType;
-        IS
+        IS_ASSERT(BinaryType)
 
         constexpr BinaryDeviceFunction_() {}
 
@@ -174,8 +174,7 @@ namespace fk { // namespace FusedKernel
     struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) == 1)>, Operations...> {
         using Operation = FirstType_t<Operations...>;
         using InstanceType = BinaryType;
-        IS
-
+        IS_ASSERT(BinaryType)
         typename Operation::ParamsType params;
     };
 
@@ -185,7 +184,7 @@ namespace fk { // namespace FusedKernel
     * of the current kernel.
     * It generates an output and returns it in register memory.
     * It can be composed of a single Operation or of a chain of Operations, in which case it wraps them into an
-    * OperationTupleOperation.
+    * FusedOperation.
     * Expects Operation_t to have an static __device__ function member with the following parameters:
     * OutputType exec(const InputType& input, const ParamsType& params)
     */
@@ -220,7 +219,7 @@ namespace fk { // namespace FusedKernel
     */
     template <typename... Operations>
     struct UnaryDeviceFunction {
-        using Operation = UnaryOperationSequence<Operations...>;
+        using Operation = FusedOperation<Operations...>;
         using InstanceType = UnaryType;
         IS_ASSERT(UnaryType)
     };
@@ -338,11 +337,11 @@ namespace fk { // namespace FusedKernel
     FK_HOST_CNST auto fuseDF(const DeviceFunctions&... deviceFunctions) {
         using FirstDF = FirstType_t<DeviceFunctions...>;
         if constexpr (isAnyReadType<FirstDF> && FirstDF::isSource) {
-            return make_source(DF_t<OperationTupleOperation<typename DeviceFunctions::Operation...>>
+            return make_source(DF_t<FusedOperation<typename DeviceFunctions::Operation...>>
                                { devicefunctions_to_operationtuple(deviceFunctions...) },
                                ppFirst(deviceFunctions...).activeThreads);
         } else {
-            return DF_t<OperationTupleOperation<typename DeviceFunctions::Operation...>>
+            return DF_t<FusedOperation<typename DeviceFunctions::Operation...>>
                     { devicefunctions_to_operationtuple(deviceFunctions...) };
         }
     }

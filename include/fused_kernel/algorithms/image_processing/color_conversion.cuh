@@ -15,7 +15,6 @@
 #pragma once
 
 #include <fused_kernel/core/data/ptr_nd.cuh>
-#include <fused_kernel/core/execution_model/unary_operation_sequence.cuh>
 #include <fused_kernel/algorithms/basic_ops/algebraic.cuh>
 #include <fused_kernel/algorithms/image_processing/saturate.cuh>
 #include <fused_kernel/algorithms/basic_ops/cast.cuh>
@@ -401,13 +400,13 @@ namespace fk {
     // Will work for COLOR_RGB2BGRA too
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGR2RGBA, I, O, CD> {
-        using type = UnaryOperationSequence<VectorReorder<I, 2, 1, 0>, AddOpaqueAlpha<I, CD>>;
+        using type = FusedOperation<VectorReorder<I, 2, 1, 0>, AddOpaqueAlpha<I, CD>>;
     };
 
     // Will work for COLOR_RGBA2BGR too
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGRA2RGB, I, O, CD> {
-        using type = UnaryOperationSequence<VectorReorder<I, 2, 1, 0, 3>,
+        using type = FusedOperation<VectorReorder<I, 2, 1, 0, 3>,
                            Discard<I, VectorType_t<VBase<I>, 3>>>;
     };
 
@@ -430,7 +429,7 @@ namespace fk {
 
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGR2GRAY, I, O, CD> {
-        using type = UnaryOperationSequence<VectorReorder<I, 2, 1, 0>, RGB2Gray<I, O>>;
+        using type = FusedOperation<VectorReorder<I, 2, 1, 0>, RGB2Gray<I, O>>;
     };
 
     template <typename I, typename O, ColorDepth CD>
@@ -440,7 +439,7 @@ namespace fk {
 
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGRA2GRAY, I, O, CD> {
-        using type = UnaryOperationSequence<VectorReorder<I, 2, 1, 0, 3>, RGB2Gray<I, O>>;
+        using type = FusedOperation<VectorReorder<I, 2, 1, 0, 3>, RGB2Gray<I, O>>;
     };
 
     template <ColorConversionCodes code, typename I, typename O, ColorDepth CD = ColorDepth::p8bit>
