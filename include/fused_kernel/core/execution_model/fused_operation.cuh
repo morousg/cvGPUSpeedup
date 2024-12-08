@@ -29,7 +29,6 @@ namespace fk {
     template <typename T>
     constexpr bool has_next_v = has_next<T>::value;
 
-
     // FusedOperation implementation struct
     struct FusedOperationImpl {
 
@@ -41,16 +40,13 @@ namespace fk {
         template <typename Tuple_>
         FK_HOST_DEVICE_FUSE auto exec_operate(const typename Tuple_::Operation::InputType& i_data, const Tuple_& tuple) {
             using Operation = typename Tuple_::Operation;
+            static_assert(isComputeType<Operation>, "The operation is WriteType and shouldn't be.");
             if constexpr (std::is_same_v<typename Operation::InstanceType, TernaryType>) {
                 return Operation::exec(i_data, tuple.instance.params, tuple.instance.back_function);
             } else if constexpr (std::is_same_v<typename Operation::InstanceType, BinaryType>) {
                 return Operation::exec(i_data, tuple.instance.params);
             } else if constexpr (std::is_same_v<typename Operation::InstanceType, UnaryType>) {
                 return Operation::exec(i_data);
-                // Assuming the behavior of a MidWriteType DeviceFunction
-            } else if constexpr (std::is_same_v<typename Operation::InstanceType, WriteType>) {
-                Operation::exec(i_data, tuple.instance.params);
-                return i_data;
             }
         }
         template <typename Tuple_>
@@ -62,6 +58,26 @@ namespace fk {
                 return Operation::exec(thread, tuple.instance.params, tuple.instance.back_function);
             }
         }
+        template <typename Tuple_>
+        FK_HOST_DEVICE_FUSE auto exec_operate(const Point& thread,
+                                              const typename Tuple_::Operation::InputType& i_data,
+                                              const Tuple_& tuple) {
+            using Operation = typename Tuple_::Operation;
+            if constexpr (std::is_same_v<typename Operation::InstanceType, TernaryType>) {
+                return Operation::exec(i_data, tuple.instance.params, tuple.instance.back_function);
+            } else if constexpr (std::is_same_v<typename Operation::InstanceType, BinaryType>) {
+                return Operation::exec(i_data, tuple.instance.params);
+            } else if constexpr (std::is_same_v<typename Operation::InstanceType, UnaryType>) {
+                return Operation::exec(i_data);
+            } else if constexpr (std::is_same_v<typename Operation::InstanceType, WriteType>) {
+                // Assuming the behavior of a MidWriteType DeviceFunction
+                Operation::exec(thread, i_data, tuple.instance.params);
+                return i_data;
+            } else if constexpr (std::is_same_v<typename Operation::InstanceType, MidWriteType>) {
+                // We are executing another FusedOperation that is MidWriteType
+                return Operation::exec(thread, i_data, tuple.instance.params);
+            }
+        }
 
         template <typename FirstOp, typename... Operations>
         FK_HOST_DEVICE_FUSE
@@ -69,6 +85,22 @@ namespace fk {
             if constexpr (sizeof...(Operations) > 0) {
                 if constexpr (has_next_v<OperationTuple<FirstOp, Operations...>>) {
                     return tuple_operate(result, tuple.next);
+                } else {
+                    return tuple_operate<Operations...>(result);
+                }
+            } else {
+                return result;
+            }
+        }
+
+        template <typename FirstOp, typename... Operations>
+        FK_HOST_DEVICE_FUSE
+            auto tuple_operate_helper(const Point& thread,
+                                      const typename FirstOp::OutputType& result,
+                                      const OperationTuple<FirstOp, Operations...>& tuple) {
+            if constexpr (sizeof...(Operations) > 0) {
+                if constexpr (has_next_v<OperationTuple<FirstOp, Operations...>>) {
+                    return tuple_operate(thread, result, tuple.next);
                 } else {
                     return tuple_operate<Operations...>(result);
                 }
@@ -99,10 +131,19 @@ namespace fk {
         FK_HOST_DEVICE_FUSE auto tuple_operate(const Point& thread,
                                                const OperationTuple<FirstOp, RemOps...>& tuple) {
             const auto result = exec_operate(thread, tuple);
-            return tuple_operate_helper(result, tuple);
+            return tuple_operate_helper(thread, result, tuple);
+        }
+        template <typename FirstOp, typename... RemOps>
+        FK_HOST_DEVICE_FUSE auto tuple_operate(const Point& thread,
+                                               const typename FirstOp::InputType& input,
+                                               const OperationTuple<FirstOp, RemOps...>& tuple) {
+            const auto result = exec_operate(thread, input, tuple);
+            return tuple_operate_helper(thread, result, tuple);
         }
     };
 
+    
+    
     template <typename Enabler, typename... Operations>
     struct FusedOperation_ {};
 
@@ -119,7 +160,8 @@ namespace fk {
     };
 
     template <typename... Operations>
-    struct FusedOperation_<std::enable_if_t<!isAnyReadType<FirstType_t<Operations...>> && !allUnaryTypes<Operations...>>, Operations...> {
+    struct FusedOperation_<std::enable_if_t<isComputeType<FirstType_t<Operations...>> &&
+                                            !allUnaryTypes<Operations...>>, Operations...> {
         using InputType = typename FirstType_t<Operations...>::InputType;
         using ParamsType = OperationTuple<Operations...>;
         using OutputType = typename LastType_t<Operations...>::OutputType;
@@ -145,5 +187,56 @@ namespace fk {
     };
 
     template <typename... Operations>
+    struct FusedOperation_<std::enable_if_t<isWriteType<FirstType_t<Operations...>>>, Operations...> {
+        using ParamsType = OperationTuple<Operations...>;
+        using OutputType = typename LastType_t<Operations...>::OutputType;
+        using InputType = typename FirstType_t<Operations...>::InputType;
+        using InstanceType = MidWriteType;
+        // THREAD_FUSION in this case will not be used in the current Transform implementation
+        // May be used in future implementations
+        static constexpr bool THREAD_FUSION{ FirstType_t<Operations...>::THREAD_FUSION };
+        using WriteDataType = typename FirstType_t<Operations...>::WriteDataType;
+    public:
+        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const InputType& input, const ParamsType& tuple) {
+            return FusedOperationImpl::tuple_operate(thread, input, tuple);
+        }
+    };
+
+    template <typename... Operations>
     using FusedOperation = FusedOperation_<void, Operations...>;
+
+    template <typename T>
+    struct is_fused_operation : std::false_type {};
+
+    template <typename... Operations>
+    struct is_fused_operation<FusedOperation<Operations...>> : std::true_type {};
+
+    template <template <typename...> class SomeDF, typename... Operations>
+    FK_HOST_DEVICE_CNST auto fusedOperationToOperationTuple(const SomeDF<FusedOperation<Operations...>>& df) {
+        if constexpr (hasParams_v<FusedOperation<Operations...>>) {
+            return df.params;
+        } else { // UnaryType case
+            return OperationTuple<Operations...>{};
+        }
+    }
+
+    template <typename DeviceFunction>
+    FK_HOST_DEVICE_CNST auto devicefunctions_to_operationtuple(const DeviceFunction& df) {
+        using Op = typename DeviceFunction::Operation;
+        if constexpr (is_fused_operation<Op>::value) {
+            return fusedOperationToOperationTuple(df);
+        } else if constexpr (hasParamsAndBackFunction_v<Op>) {
+            return OperationTuple<Op>{ {df.params, df.back_function} };
+        } else if constexpr (hasParams_v<Op>) {
+            return OperationTuple<Op>{ {df.params} };
+        } else { // UnaryType case
+            return OperationTuple<Op>{};
+        }
+    }
+
+    template <typename DeviceFunction, typename... DeviceFunctions>
+    FK_HOST_DEVICE_CNST auto devicefunctions_to_operationtuple(const DeviceFunction& df, const DeviceFunctions&... dfs) {
+        using Op = typename DeviceFunction::Operation;
+        return cat(devicefunctions_to_operationtuple(df), devicefunctions_to_operationtuple(dfs...));
+    }
 } // namespace fk

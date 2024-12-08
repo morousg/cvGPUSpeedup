@@ -88,13 +88,13 @@ namespace fk { // namespace FusedKernel
     /**
     * @brief BinaryDeviceFunction_: implementation alias of BinaryDeviceFunction
     */
-    template <typename Enabler, typename... Operations>
+    template <typename Enabler, typename FirstOp, typename... Operations>
     struct BinaryDeviceFunction_ {};
 
-    template <typename... Operations>
-    struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) > 1)>, Operations...> final
-        : OperationData<FusedOperation<Operations...>> {
-        using Operation = FusedOperation<Operations...>;
+    template <typename FirstOp, typename... Operations>
+    struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) > 0)>, FirstOp, Operations...> final
+        : OperationData<FusedOperation<FirstOp, Operations...>> {
+        using Operation = FusedOperation<FirstOp, Operations...>;
         using InstanceType = BinaryType;
         IS_ASSERT(BinaryType)
 
@@ -102,13 +102,13 @@ namespace fk { // namespace FusedKernel
 
         template <typename... ParamTypes>
         constexpr BinaryDeviceFunction_(const ParamTypes&... provided_params)
-            : OperationData<FusedOperation<Operations...>>(make_operation_tuple<Operations...>(provided_params...)) {}
+            : OperationData<FusedOperation<FirstOp, Operations...>>(make_operation_tuple<FirstOp, Operations...>(provided_params...)) {}
     };
 
-    template <typename... Operations>
-    struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) == 1)>, Operations...> final
-    : public OperationData<FirstType_t<Operations...>> {
-        using Operation = FirstType_t<Operations...>;
+    template <typename FirstOp, typename... Operations>
+    struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) == 0)>, FirstOp, Operations...> final
+    : public OperationData<FirstOp> {
+        using Operation = FirstOp;
         using InstanceType = BinaryType;
         IS_ASSERT(BinaryType)
     };
@@ -149,19 +149,19 @@ namespace fk { // namespace FusedKernel
     * Expects Operation_t to have an static __device__ function member with the following parameters:
     * OutputType exec(const InputType& input)
     */
-    template <typename Enabler, typename... Operations>
+    template <typename Enabler, typename FirstOperation, typename... Operations>
     struct UnaryDeviceFunction_;
 
-    template <typename... Operations>
-    struct UnaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) > 1)>, Operations...> {
-        using Operation = FusedOperation<Operations...>;
+    template <typename FirstOperation, typename... Operations>
+    struct UnaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) > 0)>, FirstOperation, Operations...> {
+        using Operation = FusedOperation<FirstOperation, Operations...>;
         using InstanceType = UnaryType;
         IS_ASSERT(UnaryType)
     };
 
-    template <typename... Operations>
-    struct UnaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) == 1)>, Operations...> {
-        using Operation = FirstType_t<Operations...>;
+    template <typename FirstOperation, typename... Operations>
+    struct UnaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) == 0)>, FirstOperation, Operations...> {
+        using Operation = FirstOperation;
         using InstanceType = UnaryType;
         IS_ASSERT(UnaryType)
     };
@@ -178,7 +178,9 @@ namespace fk { // namespace FusedKernel
     template <typename Operation_t>
     struct MidWriteDeviceFunction final : public OperationData<Operation_t> {
         DEVICE_FUNCTION_DETAILS_IS(MidWriteType)
-        ASSERT(WriteType)
+        static_assert(std::is_same_v<typename Operation::InstanceType, WriteType> ||
+                      std::is_same_v<typename Operation::InstanceType, MidWriteType>,
+                      "Operation is not WriteType or MidWriteType");
     };
 
     /**
@@ -226,44 +228,59 @@ namespace fk { // namespace FusedKernel
     template <typename Enabler, typename... Operations>
     struct DeviceFunctionType {};
 
-    template <typename... Operations>
-    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 1 && isReadType<FirstType_t<Operations...>>>, Operations...> {
-        using type = Read<FirstType_t<Operations...>>;
+    // Single Operation cases
+    template <typename FirstType, typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 0 &&
+                                               isReadType<FirstType>>, FirstType, Operations...> {
+        using Operation = FirstType;
+        using type = Read<Operation>;
     };
 
-    template <typename... Operations>
-    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 1 &&
-        isReadBackType<FirstType_t<Operations...>>>, Operations...> {
-        using type = ReadBack<FirstType_t<Operations...>>;
+    template <typename FirstType, typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 0 &&
+                                               isReadBackType<FirstType>>, FirstType, Operations...> {
+        using Operation = FirstType;
+        using type = ReadBack<Operation>;
     };
 
-    template <typename... Operations>
-    struct DeviceFunctionType<std::enable_if_t<allUnaryTypes<Operations...>>, Operations...> {
-        using type = Unary<Operations...>;
+    template <typename FirstType, typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 0 &&
+                                               isTernaryType<FirstType>>, FirstType, Operations...> {
+        using Operation = FirstType;
+        using type = Ternary<Operation>;
     };
 
-    template <typename... Operations>
-    struct DeviceFunctionType<std::enable_if_t<!allUnaryTypes<Operations...>&&
-        isComputeType<FirstType_t<Operations...>>>, Operations...> {
-        using type = Binary<Operations...>;
+    template <typename FirstType, typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 0 &&
+                                               isWriteType<FirstType>>, FirstType, Operations...> {
+        using Operation = FirstType;
+        using type = Write<Operation>;
     };
 
-    template <typename... Operations>
-    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 1 &&
-        std::is_same_v<typename FirstType_t<Operations...>::InstanceType, TernaryType>>, Operations...> {
-        using type = Ternary<FirstType_t<Operations...>>;
+    // Multiple Operation cases
+    template <typename FirstType, typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<(sizeof...(Operations) > 0) &&
+                                               isAnyReadType<FirstType>>, FirstType, Operations...> {
+        using type = Read<FusedOperation<FirstType, Operations...>>;
     };
 
-    template <typename... Operations>
-    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 1 &&
-        std::is_same_v<typename FirstType_t<Operations...>::InstanceType, MidWriteType>>, Operations...> {
-        using type = MidWrite<FirstType_t<Operations...>>;
+    template <typename FirstType, typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<(sizeof...(Operations) > 0) &&
+                                               allUnaryTypes<FirstType, Operations...>>, FirstType, Operations...> {
+        using type = Unary<FirstType, Operations...>;
     };
 
-    template <typename... Operations>
-    struct DeviceFunctionType<std::enable_if_t<sizeof...(Operations) == 1 &&
-        std::is_same_v<typename FirstType_t<Operations...>::InstanceType, WriteType>>, Operations...> {
-        using type = Write<FirstType_t<Operations...>>;
+    template <typename FirstType, typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<(sizeof...(Operations) > 0) &&
+                                               !allUnaryTypes<FirstType, Operations...> &&
+                                               isComputeType<FirstType>>, FirstType, Operations...> {
+        using type = Binary<FirstType, Operations...>;
+    };
+
+    template <typename FirstType, typename... Operations>
+    struct DeviceFunctionType<std::enable_if_t<(sizeof...(Operations) > 0) &&
+                                               isWriteType<FirstType>>, FirstType, Operations...> {
+        using type = MidWrite<FusedOperation<FirstType, Operations...>>;
     };
 
     template <typename... Operations>

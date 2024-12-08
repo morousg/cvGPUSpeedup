@@ -31,7 +31,10 @@ namespace fk { // namespace FusedKernel
             FK_DEVICE_FUSE auto operate(const Point& thread, const T& i_data, const DeviceFunction& df, const DeviceFunctionTypes&... deviceFunctionInstances) {
                 if constexpr (DeviceFunction::template is<WriteType>) {
                     return i_data;
-                } else if constexpr (DeviceFunction::template is<MidWriteType>) {
+                // MidWriteOperation with continuations, based on FusedOperation
+                } else if constexpr (DeviceFunction::template is<MidWriteType> && isMidWriteType<typename DeviceFunction::Operation>) {
+                    return DeviceFunction::Operation::exec(thread, i_data, df.params);
+                } else if constexpr (DeviceFunction::template is<MidWriteType> && !isMidWriteType<typename DeviceFunction::Operation>) {
                     DeviceFunction::Operation::exec(thread, i_data, df.params);
                     return i_data;
                 } else {

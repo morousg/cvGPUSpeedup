@@ -207,8 +207,14 @@ namespace fk { // namespace fused kernel
                                        >;
     };
 
-    template <std::size_t Index, typename T, typename... Types>
-    using InsertType_t = typename InsertType<Index, T, Types...>::type;
+    template <std::size_t Index, typename T, typename TypeList>
+    using InsertType_t = typename InsertType<Index, T, TypeList>::type;
+
+    template <typename TypeList, typename T>
+    using InsertTypeBack_t = typename InsertType<TypeList::size, T, TypeList>::type;
+
+    template <typename T, typename TypeList>
+    using InsertTypeFront_t = typename InsertType<0, T, TypeList>::type;
 
     template <typename T, typename Restriction, typename TypeList, bool last, T currentInt, T... integers>
     struct RestrictedIntegerSequenceBuilder;

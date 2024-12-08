@@ -271,24 +271,6 @@ namespace fk {
                         t2, filtered_integer_sequence_t<int, NotUnaryRestriction, TypeList<typename Operations2::InstanceType...>>{});
     }
 
-    template <typename DeviceFunction>
-    FK_HOST_DEVICE_CNST auto devicefunctions_to_operationtuple(const DeviceFunction& df) {
-        using Op = typename DeviceFunction::Operation;
-        if constexpr (hasParamsAndBackFunction_v<Op>) {
-            return OperationTuple<Op>{ {df.params, df.back_function} };
-        } else if constexpr (hasParams_v<Op>) {
-            return OperationTuple<Op>{ {df.params} };
-        } else { // UnaryType case
-            return OperationTuple<Op>{};
-        }
-    }
-
-    template <typename DeviceFunction, typename... DeviceFunctions>
-    FK_HOST_DEVICE_CNST auto devicefunctions_to_operationtuple(const DeviceFunction& df, const DeviceFunctions&... dfs) {
-        using Op = typename DeviceFunction::Operation;
-        return cat(devicefunctions_to_operationtuple(df), devicefunctions_to_operationtuple(dfs...));
-    }
-
     template <typename Operation, typename Param>
     FK_HOST_DEVICE_CNST OperationTuple<Operation> make_operation_tuple(const Param& param) {
         static_assert(hasParams_v<Operation>, "Operation expected to have parameters");

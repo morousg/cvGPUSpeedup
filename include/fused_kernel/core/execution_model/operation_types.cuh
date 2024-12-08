@@ -47,10 +47,21 @@ namespace fk {
     template <typename OperationORDeviceFunction>
     constexpr bool isTernaryType = std::is_same_v<typename OperationORDeviceFunction::InstanceType, TernaryType>;
 
+    template <typename OperationORDeviceFunction>
+    constexpr bool isWriteType = std::is_same_v<typename OperationORDeviceFunction::InstanceType, WriteType>;
+
+    template <typename OperationORDeviceFunction>
+    constexpr bool isMidWriteType = std::is_same_v<typename OperationORDeviceFunction::InstanceType, MidWriteType>;
+
     using ComputeTypeList = TypeList<UnaryType, BinaryType, TernaryType>;
 
     template <typename OperationORDeviceFunction>
     constexpr bool isComputeType = one_of_v<typename OperationORDeviceFunction::InstanceType, ComputeTypeList>;
+
+    using WriteTypeList = TypeList<WriteType, MidWriteType>;
+
+    template <typename OperationORDeviceFunction>
+    constexpr bool isAnyWriteType = one_of_v<typename OperationORDeviceFunction::InstanceType, WriteTypeList>;
 
     template <typename DeviceFunction>
     using GetInputType_t = typename DeviceFunction::Operation::InputType;
@@ -82,5 +93,14 @@ namespace fk {
 
     template <typename... OperationsOrDeviceFunctions>
     constexpr bool allUnaryTypes = and_v<isUnaryType<OperationsOrDeviceFunctions>...>;
+
+    template <typename... OperationORDeviceFunction>
+    constexpr bool noneWriteType = and_v<(!isWriteType<OperationORDeviceFunction>)...>;
+
+    template <typename... OperationORDeviceFunction>
+    constexpr bool noneMidWriteType = and_v<(!isMidWriteType<OperationORDeviceFunction>)...>;
+
+    template <typename... OperationORDeviceFunction>
+    constexpr bool noneAnyWriteType = and_v<(!isAnyWriteType<OperationORDeviceFunction>)...>;
 
 } // namespace fk
