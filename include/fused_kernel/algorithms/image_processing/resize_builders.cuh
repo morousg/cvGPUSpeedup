@@ -34,7 +34,7 @@ namespace fk {
                 { srcSize }
             };
 
-            const ResizeDF resizeInstance{ resizeParams, input, activeThreads };
+            const ResizeDF resizeInstance{ {resizeParams, input}, activeThreads };
 
             return resizeInstance;
         }
@@ -55,7 +55,7 @@ namespace fk {
                 {Size(input.dims.width, input.dims.height)}
             };
 
-            const ResizeDF resizeInstance{ resizeParams, backDF, activeThreads };
+            const ResizeDF resizeInstance{ {resizeParams, backDF}, activeThreads };
 
             return resizeInstance;
         } else {
@@ -68,7 +68,7 @@ namespace fk {
                 {Size(input.dims.width, input.dims.height)}
             };
 
-            const ResizeDF resizeInstance{ resizeParams, backDF, activeThreads };
+            const ResizeDF resizeInstance{ {resizeParams, backDF}, activeThreads };
 
             return resizeInstance;
         }

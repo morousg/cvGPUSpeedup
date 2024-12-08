@@ -27,7 +27,7 @@ namespace fk {
         const Size& output_planes,
         const std::integer_sequence<int, Idx...>&) {
 
-        return { {params[Idx]...}, {back_functions[Idx]...},
+        return { {{params[Idx]...}, {back_functions[Idx]...}},
             {static_cast<uint>(output_planes.width), static_cast<uint>(output_planes.height), static_cast<uint>(BATCH)} };
     }
 

@@ -45,24 +45,9 @@ namespace fk { // namespace FusedKernel
     IS_ASSERT(instance_type)
 
     template <typename Operation_t>
-    struct ReadDeviceFunction {
+    struct ReadDeviceFunction final : public OperationData<Operation_t> {
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadType)
-
         static constexpr bool isSource{false};
-
-        typename Operation::ParamsType params;
-
-        ReadDeviceFunction<Operation_t>& operator=(const ReadDeviceFunction<Operation_t>& other) {
-            if (this != &other) {
-                if constexpr (std::is_array_v<typename Operation::ParamsType>) {
-                    std::copy(std::begin(other.params), std::end(other.params), std::begin(params));
-                } else {
-                    params = other.params;
-                }
-                params = other.params;
-            }
-            return *this;
-        }
     };
 
     /**
@@ -73,48 +58,16 @@ namespace fk { // namespace FusedKernel
     * It can only be the first DeviceFunction in a sequence of DeviceFunctions.
     */
     template <typename Operation_t>
-    struct SourceReadDeviceFunction {
+    struct SourceReadDeviceFunction final : public OperationData<Operation_t> {
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadType)
-
         static constexpr bool isSource{ true };
-
-        typename Operation::ParamsType params;
         dim3 activeThreads;
-
-        SourceReadDeviceFunction<Operation_t>& operator=(const SourceReadDeviceFunction<Operation_t>& other) {
-            if (this != &other) {
-                if constexpr (std::is_array_v<typename Operation::ParamsType>) {
-                    std::copy(std::begin(other.params), std::end(other.params), std::begin(params));
-                } else {
-                    params = other.params;
-                }
-                activeThreads = other.activeThreads;
-            }
-            return *this;
-        }
     };
 
     template <typename Operation_t>
-    struct ReadBackDeviceFunction {
+    struct ReadBackDeviceFunction final : public OperationData<Operation_t> {
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadBackType)
-
         static constexpr bool isSource{ false };
-
-        typename Operation::ParamsType params;
-        typename Operation::BackFunction back_function;
-
-        ReadBackDeviceFunction<Operation_t>& operator=(const ReadBackDeviceFunction<Operation_t>& other) {
-            if (this != &other) {
-                if constexpr (std::is_array_v<typename Operation::ParamsType>) {
-                    std::copy(std::begin(other.params), std::end(other.params), std::begin(params));
-                    std::copy(std::begin(other.back_function), std::end(other.back_function), std::begin(back_function));
-                } else {
-                    params = other.params;
-                    back_function = other.back_function;
-                }
-            }
-            return *this;
-        }
     };
 
     /**
@@ -126,28 +79,10 @@ namespace fk { // namespace FusedKernel
     * It can only be the first DeviceFunction in a sequence of DeviceFunctions.
     */
     template <typename Operation_t>
-    struct SourceReadBackDeviceFunction {
+    struct SourceReadBackDeviceFunction final : public OperationData<Operation_t> {
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadBackType)
-
         static constexpr bool isSource{ true };
-
-        typename Operation::ParamsType params;
-        typename Operation::BackFunction back_function;
         dim3 activeThreads;
-
-        SourceReadBackDeviceFunction<Operation_t>& operator=(const SourceReadBackDeviceFunction<Operation_t>& other) {
-            if (this != &other) {
-                if constexpr (std::is_array_v<typename Operation::ParamsType>) {
-                    std::copy(std::begin(other.params), std::end(other.params), std::begin(params));
-                    std::copy(std::begin(other.back_function), std::end(other.back_function), std::begin(back_function));
-                } else {
-                    params = other.params;
-                    back_function = other.back_function;
-                }
-                activeThreads = other.activeThreads;
-            }
-            return *this;
-        }
     };
 
     /**
@@ -157,7 +92,8 @@ namespace fk { // namespace FusedKernel
     struct BinaryDeviceFunction_ {};
 
     template <typename... Operations>
-    struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) > 1)>, Operations...> {
+    struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) > 1)>, Operations...> final
+        : OperationData<FusedOperation<Operations...>> {
         using Operation = FusedOperation<Operations...>;
         using InstanceType = BinaryType;
         IS_ASSERT(BinaryType)
@@ -165,17 +101,16 @@ namespace fk { // namespace FusedKernel
         constexpr BinaryDeviceFunction_() {}
 
         template <typename... ParamTypes>
-        constexpr BinaryDeviceFunction_(const ParamTypes&... provided_params) : params(make_operation_tuple<Operations...>(provided_params...)) {}
-
-        typename Operation::ParamsType params;
+        constexpr BinaryDeviceFunction_(const ParamTypes&... provided_params)
+            : OperationData<FusedOperation<Operations...>>(make_operation_tuple<Operations...>(provided_params...)) {}
     };
 
     template <typename... Operations>
-    struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) == 1)>, Operations...> {
+    struct BinaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) == 1)>, Operations...> final
+    : public OperationData<FirstType_t<Operations...>> {
         using Operation = FirstType_t<Operations...>;
         using InstanceType = BinaryType;
         IS_ASSERT(BinaryType)
-        typename Operation::ParamsType params;
     };
 
     /**
@@ -202,11 +137,8 @@ namespace fk { // namespace FusedKernel
     * OutputType exec(const InputType& input, const ParamsType& params, const BackFunction& back_function)
     */
     template <typename Operation_t>
-    struct TernaryDeviceFunction {
+    struct TernaryDeviceFunction final : public OperationData<Operation_t> {
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(TernaryType)
-
-        typename Operation::ParamsType params;
-        typename Operation::BackFunction back_function;
     };
 
     /**
@@ -217,12 +149,25 @@ namespace fk { // namespace FusedKernel
     * Expects Operation_t to have an static __device__ function member with the following parameters:
     * OutputType exec(const InputType& input)
     */
+    template <typename Enabler, typename... Operations>
+    struct UnaryDeviceFunction_;
+
     template <typename... Operations>
-    struct UnaryDeviceFunction {
+    struct UnaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) > 1)>, Operations...> {
         using Operation = FusedOperation<Operations...>;
         using InstanceType = UnaryType;
         IS_ASSERT(UnaryType)
     };
+
+    template <typename... Operations>
+    struct UnaryDeviceFunction_<std::enable_if_t<(sizeof...(Operations) == 1)>, Operations...> {
+        using Operation = FirstType_t<Operations...>;
+        using InstanceType = UnaryType;
+        IS_ASSERT(UnaryType)
+    };
+
+    template <typename... Operations>
+    using UnaryDeviceFunction = UnaryDeviceFunction_<void, Operations...>;
 
     /**
     * @brief MidWriteDeviceFunction: represents a DeviceFunction that takes the result of the previous DeviceFunction as input
@@ -231,11 +176,9 @@ namespace fk { // namespace FusedKernel
     * It returns the input data without modification, so that another DeviceFunction can be executed after it, using the same data.
     */
     template <typename Operation_t>
-    struct MidWriteDeviceFunction {
+    struct MidWriteDeviceFunction final : public OperationData<Operation_t> {
         DEVICE_FUNCTION_DETAILS_IS(MidWriteType)
         ASSERT(WriteType)
-
-        typename Operation::ParamsType params;
     };
 
     /**
@@ -245,9 +188,8 @@ namespace fk { // namespace FusedKernel
     * It can only be the last DeviceFunction in a sequence of DeviceFunctions.
     */
     template <typename Operation_t>
-    struct WriteDeviceFunction {
+    struct WriteDeviceFunction final : public OperationData<Operation_t> {
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(WriteType)
-        typename Operation::ParamsType params;
     };
 
 #undef DEVICE_FUNCTION_DETAILS
@@ -366,7 +308,7 @@ namespace fk { // namespace FusedKernel
         const std::array<typename Operation::ParamsType, NPtr>& paramsArr,
         const std::array<typename Operation::BackFunction, NPtr>& backFunctions,
         const std::index_sequence<Index...>&) {
-        return { (DF_t<Operation>{paramsArr[Index], backFunctions[Index]})...};
+        return { (DF_t<Operation>{ OperationData<Operation>{paramsArr[Index], backFunctions[Index]} })... };
     }
 
     template <typename Operation, size_t NPtr>

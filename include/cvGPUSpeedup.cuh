@@ -279,7 +279,7 @@ public:
     template <typename... DeviceFunctionTypes>
     inline constexpr void update(const cv::cuda::Stream& stream, const cv::cuda::GpuMat& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
         const fk::SourceRead<fk::PerThreadRead<fk::_2D, CUDA_T(I)>> readDeviceFunction{
-            { (CUDA_T(I)*)input.data, { static_cast<uint>(input.cols), static_cast<uint>(input.rows), static_cast<uint>(input.step) } },
+            {{(CUDA_T(I)*)input.data, { static_cast<uint>(input.cols), static_cast<uint>(input.rows), static_cast<uint>(input.step) }}},
             { static_cast<uint>(input.cols), static_cast<uint>(input.rows), 1 }
         };
         fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>::update(cv::cuda::StreamAccessor::getStream(stream), readDeviceFunction, deviceFunctionInstances...);
