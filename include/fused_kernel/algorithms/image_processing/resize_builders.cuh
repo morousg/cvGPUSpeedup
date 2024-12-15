@@ -13,9 +13,8 @@
    limitations under the License. */
 #pragma once
 
-#include <fused_kernel/core/external/carotene/saturate_cast.hpp>
+#include <fused_kernel/algorithms/image_processing/saturate.cuh>
 #include <fused_kernel/algorithms/image_processing/resize.cuh>
-#include <fused_kernel/core/execution_model/memory_operation_builders.cuh>
 #include <fused_kernel/core/utils/parameter_pack_utils.cuh>
 
 namespace fk {
@@ -23,9 +22,10 @@ namespace fk {
 
     template <typename BackFunction, enum InterpolationType IType>
     inline const auto resize(const BackFunction& input,
-        const Size& srcSize, const Size& dstSize) {
+                             const Size& srcSize,
+                             const Size& dstSize) {
         if constexpr (IType == InterpolationType::INTER_LINEAR) {
-            using ResizeDF = SourceReadBack<ResizeRead<BackFunction, IType>>;
+            using ResizeDF = SourceReadBack<ResizeRead<IType, BackFunction>>;
             const dim3 activeThreads{ static_cast<uint>(dstSize.width), static_cast<uint>(dstSize.height) };
             const double cfx = static_cast<double>(dstSize.width) / srcSize.width;
             const double cfy = static_cast<double>(dstSize.height) / srcSize.height;
@@ -43,7 +43,7 @@ namespace fk {
     template <typename I, enum InterpolationType IType>
     inline const auto resize(const RawPtr<_2D, I>& input, const Size& dSize, const double& fx, const double& fy) {
         using BackFunction = Read<PerThreadRead<_2D, I>>;
-        using ResizeDF = SourceReadBack<ResizeRead<BackFunction, IType>>;
+        using ResizeDF = SourceReadBack<ResizeRead<IType, BackFunction>>;
 
         const BackFunction backDF{ input };
         if (dSize.width != 0 && dSize.height != 0) {
@@ -59,8 +59,8 @@ namespace fk {
 
             return resizeInstance;
         } else {
-            const Size computedDSize{ CAROTENE_NS::internal::saturate_cast<int>(input.dims.width * fx),
-                                      CAROTENE_NS::internal::saturate_cast<int>(input.dims.height * fy) };
+            const Size computedDSize{ SaturateCast<double, int>::exec(input.dims.width * fx),
+                                      SaturateCast<double, int>::exec(input.dims.height * fy) };
 
             const dim3 activeThreads{ static_cast<uint>(computedDSize.width), static_cast<uint>(computedDSize.height) };
             const typename ResizeDF::Operation::ParamsType resizeParams{
@@ -78,7 +78,7 @@ namespace fk {
     struct GetResizeReadParams {
         using OutputType = ResizeReadParams<IType>;
         template <int Idx>
-        static constexpr inline OutputType transform(const int& usedPlanes, const InputType& input, const int& targetWidth, const int& targetHeight) {
+        static constexpr inline OutputType translate(const int& usedPlanes, const InputType& input, const int& targetWidth, const int& targetHeight) {
             const PtrDims<_2D> sourceDims = input.dims;
             if constexpr (IType == InterpolationType::INTER_LINEAR) {
                 return ResizeReadParams<IType>{ { static_cast<float>(1.0 / (static_cast<double>(targetWidth) / (double)sourceDims.width)),
@@ -93,7 +93,7 @@ namespace fk {
         using OutputType = std::pair<ApplyROIParams<T>, ResizeReadParams<IType>>;
         template <int Idx>
         static constexpr inline OutputType
-            transform(const int& usedPlanes, const InputType& inputElem, const Size& dSize, const T& backgroundValue) {
+            translate(const int& usedPlanes, const InputType& inputElem, const Size& dSize, const T& backgroundValue) {
             if (Idx < usedPlanes) {
                 const PtrDims<_2D> sourceDims = inputElem.dims;
                 float scaleFactor = dSize.height / (float)sourceDims.height;
@@ -121,7 +121,7 @@ namespace fk {
                     /*x2*/ x1 + targetWidth - 1,
                     /*y2*/ y1 + targetHeight - 1,
                     /*defaultValue*/ backgroundValue },
-                    GetResizeReadParams<InputType, IType>::template transform<Idx>(usedPlanes, inputElem, targetWidth, targetHeight) };
+                    GetResizeReadParams<InputType, IType>::template translate<Idx>(usedPlanes, inputElem, targetWidth, targetHeight) };
             } else {
                 return { { /*x1*/ -1,
                     /*y1*/ -1,
@@ -134,29 +134,31 @@ namespace fk {
     };
 
     template <typename PixelReadOp, typename O, enum InterpolationType IType, size_t NPtr, enum AspectRatio AR>
-    inline const auto resize(const std::array<typename PixelReadOp::ParamsType, NPtr>& input,
-        const fk::Size& dsize, const int& usedPlanes,
+    inline const auto resize(
+        const std::array<typename PixelReadOp::ParamsType, NPtr>& input,
+        const Size& dsize, const int& usedPlanes,
         const O& backgroundValue = fk::make_set<O>(0)) {
         using ReadPixelDF = Read<PixelReadOp>;
-        using ResizeReadOp = ResizeRead<ReadPixelDF, IType>;
+        using ResizeReadOp = ResizeRead<IType, ReadPixelDF>;
 
         const std::array<ReadPixelDF, NPtr> pixelReadDFs = paramsArrayToDFArray<PixelReadOp>(input);
 
         if constexpr (AR != IGNORE_AR) {
             // We will instantiate this types only if we use AR
             using ResizeDF = ReadBack<ResizeReadOp>;
-            using ApplyROYOp = ApplyROI<ResizeDF, ROI::OFFSET_THREADS>;
+            using ApplyROYOp = ApplyROI<ROI::OFFSET_THREADS, ResizeDF>;
 
             const std::array<std::pair<ApplyROIParams<O>, ResizeReadParams<IType>>, NPtr> roiAndResizeParams =
-                static_transform<GetApplyROYParams<typename PixelReadOp::ParamsType, AR, O, IType>>(usedPlanes, input, dsize, backgroundValue);
-            const auto roiParams = static_transform_get_first(roiAndResizeParams);
-            const auto resizeParams = static_transform_get_second(roiAndResizeParams);
+                static_translate<GetApplyROYParams<typename PixelReadOp::ParamsType, AR, O, IType>>(usedPlanes, input, dsize, backgroundValue);
+            const auto roiParams = static_translate_get_first(roiAndResizeParams);
+            const auto resizeParams = static_translate_get_second(roiAndResizeParams);
             const std::array<ResizeDF, NPtr> resizeDFs = paramsArrayToDFArray<ResizeReadOp>(resizeParams, pixelReadDFs);
-            return buildBatchReadDF<ApplyROYOp>(roiParams, resizeDFs, dsize);
+            return BatchReadBack<NPtr, ApplyROYOp>::build_source(roiParams, resizeDFs, dsize);
         } else {
             const std::array<ResizeReadParams<IType>, NPtr> resizeParams =
-                static_transform<GetResizeReadParams<typename PixelReadOp::ParamsType, IType>>(usedPlanes, input, dsize.width, dsize.height);
-            return buildBatchReadDF<ResizeReadOp>(resizeParams, pixelReadDFs, dsize);
+                static_translate<GetResizeReadParams<typename PixelReadOp::ParamsType, IType>>(usedPlanes, input, dsize.width, dsize.height);
+            return make_source(BatchReadBack<NPtr>::template build<ResizeRead<IType>, PixelReadOp>(resizeParams, input),
+                               dim3(static_cast<uint>(dsize.width), static_cast<uint>(dsize.height), static_cast<uint>(usedPlanes)));
         }
     }
 }

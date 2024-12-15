@@ -119,7 +119,7 @@ namespace fk {
     template <bool THREAD_FUSION, typename I, int Batch, typename... DeviceFunctionTypes>
     inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
         const Ptr2D<I>& firstInput = input[0];
-        using ReadDeviceFunction = SourceRead<BatchRead<PerThreadRead<_2D, I>, Batch>>;
+        using ReadDeviceFunction = SourceRead<BatchRead<Batch, PerThreadRead<_2D, I>>>;
         ReadDeviceFunction firstOp;
         for (int plane = 0; plane < activeBatch; plane++) {
             firstOp.params[plane] = input[plane];
@@ -157,7 +157,7 @@ namespace fk {
     inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const Tensor<O>& output, const cudaStream_t& stream, const DeviceFunctionTypes&... deviceFunctions) {
         const Ptr2D<I>& firstInput = input[0];
         
-        using ReadDF = SourceRead<BatchRead<PerThreadRead<_2D, I>, Batch>>;
+        using ReadDF = SourceRead<BatchRead<Batch, PerThreadRead<_2D, I>>>;
         ReadDF firstOp;
         for (int plane = 0; plane < activeBatch; plane++) {
             firstOp.params[plane] = input[plane];

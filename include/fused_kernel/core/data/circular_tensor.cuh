@@ -12,7 +12,8 @@
    See the License for the specific language governing permissions and
    limitations under the License.*/
 
-#pragma once
+#ifndef FK_CIRCULAR_TENSOR
+#define FK_CIRCULAR_TENSOR
 
 #include <fused_kernel/core/data/ptr_nd.cuh>
 #include <fused_kernel/core/execution_model/grid_patterns.cuh>
@@ -149,3 +150,5 @@ namespace fk {
         int m_nextUpdateIdx{ 0 };
     };
 } // namespace fk
+
+#endif

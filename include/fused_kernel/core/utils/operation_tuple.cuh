@@ -31,6 +31,18 @@ namespace fk {
     template <typename T>
     constexpr bool hasParams_v = hasParams<T>::value;
 
+    // Primary template: assumes T does not have member 'next'
+    template <typename, typename = std::void_t<>>
+    struct has_next : std::false_type {};
+
+    // Specialized template: this will be chosen if T has member 'next'
+    template <typename T>
+    struct has_next<T, std::void_t<decltype(std::declval<T>().next)>> : std::true_type {};
+
+    // Helper variable template for easier usage
+    template <typename T>
+    constexpr bool has_next_v = has_next<T>::value;
+
     using BFList = TypeList<ReadBackType, TernaryType>;
     template <typename OpOrDF>
     constexpr bool hasNoBackFunction_v = !one_of_v<typename OpOrDF::InstanceType, BFList>;
@@ -70,44 +82,44 @@ namespace fk {
 
     template <typename Operation>
     struct OperationData<Operation, std::enable_if_t<hasParamsNoArray<Operation> && hasNoBackFunction_v<Operation>, void>> {
-        constexpr OperationData() {};
-        constexpr OperationData(const typename Operation::ParamsType& params_) : params(params_) {}
-        typename Operation::ParamsType params;
+        FK_HOST_DEVICE_CNST OperationData() {};
+        FK_HOST_DEVICE_CNST OperationData(const typename Operation::ParamsType& params_) : params(params_) {}
+        typename Operation::ParamsType params{};
     };
 
     template <typename Operation>
     struct OperationData<Operation, std::enable_if_t<hasParamsArray<Operation> && hasNoBackFunction_v<Operation>, void>> {
-        OperationData() {};
-        OperationData(const typename Operation::ParamsType& params_) {
+        FK_HOST_DEVICE_CNST OperationData() {};
+        __host__ __forceinline__ OperationData(const typename Operation::ParamsType& params_) {
             std::copy(std::begin(params_), std::end(params_), std::begin(params));
         }
-        OperationData<Operation>& operator=(const OperationData<Operation>& other) {
+        __host__ __forceinline__ OperationData<Operation>& operator=(const OperationData<Operation>& other) {
             if (this != &other) {
                 std::copy(std::begin(other.params), std::end(other.params), std::begin(params));
             }
             return *this;
         }
-        typename Operation::ParamsType params;
+        typename Operation::ParamsType params{};
     };
 
     template <typename Operation> 
     struct OperationData<Operation, std::enable_if_t<hasParamsAndBackFunction_v<Operation> &&
         !std::is_array_v<typename Operation::ParamsType> &&
         !std::is_array_v<typename Operation::BackFunction>, void>> {
-        constexpr OperationData() {};
-        constexpr OperationData(const typename Operation::ParamsType& params_,
-                                const typename Operation::BackFunction& back_function_) :
-            params(params_), back_function(back_function_) {}
-        typename Operation::ParamsType params;
-        typename Operation::BackFunction back_function;
+        FK_HOST_DEVICE_CNST OperationData() {};
+        FK_HOST_DEVICE_CNST OperationData(const typename Operation::ParamsType& params_,
+                                          const typename Operation::BackFunction& back_function_) :
+                                          params(params_), back_function(back_function_) {}
+        typename Operation::ParamsType params{};
+        typename Operation::BackFunction back_function{};
     };
 
     template <typename Operation>
     struct OperationData<Operation, std::enable_if_t<hasParamsAndBackFunction_v<Operation> &&
         (std::is_array_v<typename Operation::ParamsType> ||
             std::is_array_v<typename Operation::BackFunction>), void>> {
-        OperationData() {};
-        OperationData(const typename Operation::ParamsType& params_,
+        __host__ __forceinline__ OperationData() {};
+        __host__ __forceinline__ OperationData(const typename Operation::ParamsType& params_,
             const typename Operation::BackFunction& back_function_) {
             if constexpr (std::is_array_v<typename Operation::ParamsType>) {
                 std::copy(std::begin(params_), std::end(params_), std::begin(params));
@@ -120,7 +132,7 @@ namespace fk {
                 back_function = back_function_;
             }
         }
-        OperationData<Operation>& operator=(const OperationData<Operation>& other) {
+        __host__ __forceinline__ OperationData<Operation>& operator=(const OperationData<Operation>& other) {
             if (this != &other) {
                 if constexpr (std::is_array_v<typename Operation::ParamsType>) {
                     std::copy(std::begin(other.params), std::end(other.params), std::begin(params));
@@ -135,8 +147,8 @@ namespace fk {
             }
             return *this;
         }
-        typename Operation::ParamsType params;
-        typename Operation::BackFunction back_function;
+        typename Operation::ParamsType params{};
+        typename Operation::BackFunction back_function{};
     };
 
     template <typename Enabler, typename... Operations>
@@ -183,7 +195,7 @@ namespace fk {
     using OperationTuple = OperationTuple_<void, Operations...>;
 
     template <typename... Operations>
-    constexpr bool allOpTupleUnary_f(const OperationTuple<Operations...>& opTup) {
+    FK_HOST_DEVICE_CNST bool allOpTupleUnary_f(const OperationTuple<Operations...>& opTup) {
         return allUnaryTypes<Operations...>;
     }
 
@@ -242,7 +254,7 @@ namespace fk {
 
     struct NotUnaryRestriction {
         template <typename Type>
-        static constexpr __host__ __device__ bool complies() {
+        FK_HOST_DEVICE_FUSE bool complies() {
             using NotUnary =
                 TypeList<ReadType, ReadBackType, BinaryType, TernaryType, MidWriteType, WriteType>;
             if constexpr (one_of_v<Type, NotUnary>) {

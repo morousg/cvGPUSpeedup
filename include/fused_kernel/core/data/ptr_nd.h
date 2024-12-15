@@ -12,7 +12,8 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_PTR_ND
+#define FK_PTR_ND
 
 #include <fused_kernel/core/utils/utils.h>
 
@@ -208,4 +209,4 @@ namespace fk {
 
 } // namespace fk
 
-#undef FK_DEVICE_HOST
+#endif

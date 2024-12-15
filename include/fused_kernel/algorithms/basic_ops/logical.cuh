@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -12,21 +12,23 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_LOGICAL
+#define FK_LOGICAL
 
 #include <fused_kernel/core/execution_model/vector_operations.cuh>
 #include <fused_kernel/core/utils/tuple.cuh>
+#include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {
     enum ShiftDirection { Left, Right };
 
     template <typename T, ShiftDirection SD>
-    struct Shift_ {
+    struct ShiftBase {
         using OutputType = T;
         using InputType = T;
         using ParamsType = uint;
         using InstanceType = BinaryType;
-        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(!validCUDAVec<T>, "Shift can't work with cuda vector types.");
             static_assert(std::is_unsigned_v<T>, "Shift only works with unsigned integers.");
             if constexpr (SD == Left) {
@@ -36,12 +38,23 @@ namespace fk {
             }
         }
     };
-    template <typename T, typename P, ShiftDirection SD>
-    using Shift = BinaryV<Shift_<VBase<T>, SD>, T, P>;
-    template <typename T, typename P = uint>
-    using ShiftLeft = Shift<T, P, ShiftDirection::Left>;
-    template <typename T, typename P = uint>
-    using ShiftRight = Shift<T, P, ShiftDirection::Right>;
+
+    template <typename T, ShiftDirection SD>
+    struct Shift {
+        using OutputType = T;
+        using InputType = T;
+        using ParamsType = uint;
+        using InstanceType = BinaryType;
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
+            return BinaryV<ShiftBase<VBase<T>, SD>, T, uint>::exec(input, params);
+        }
+        using InstantiableType = Binary<BinaryV<ShiftBase<VBase<T>, SD>, T, uint>>;
+        DEFAULT_BINARY_BUILD
+    };
+    template <typename T>
+    using ShiftLeft = Shift<T, ShiftDirection::Left>;
+    template <typename T>
+    using ShiftRight = Shift<T, ShiftDirection::Right>;
 
     template <typename I>
     struct IsEven {
@@ -49,34 +62,62 @@ namespace fk {
         using OutputType = bool;
         using InstanceType = UnaryType;
         using AcceptedTypes = TypeList<uchar, ushort, uint>;
-        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             static_assert(one_of_v<InputType, AcceptedTypes>, "Input type not valid for UnaryIsEven");
             return (input & 1u) == 0;
         }
+        using InstantiableType = Unary<IsEven<I>>;
+        DEFAULT_UNARY_BUILD
     };
 
     template <typename I, typename P = I, typename O = I>
-    struct Max_ {
+    struct MaxBase {
         using OutputType = O;
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Max_ can't work with cuda vector types.");
             return input >= params ? input : params;
         }
     };
 
     template <typename I, typename P = I, typename O = I>
-    struct Min_ {
+    struct Max {
         using OutputType = O;
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
+            return BinaryV<MaxBase<VBase<I>, VBase<P>, VBase<O>>, I, P, O>::exec(input, params);
+        }
+        using InstantiableType = Binary<BinaryV<MaxBase<VBase<I>, VBase<P>, VBase<O>>, I, P, O>>;
+        DEFAULT_BINARY_BUILD
+    };
+
+    template <typename I, typename P = I, typename O = I>
+    struct MinBase {
+        using OutputType = O;
+        using InputType = I;
+        using ParamsType = P;
+        using InstanceType = BinaryType;
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Min_ can't work with cuda vector types.");
             return input <= params ? input : params;
         }
+    };
+
+    template <typename I, typename P = I, typename O = I>
+    struct Min {
+        using OutputType = O;
+        using InputType = I;
+        using ParamsType = P;
+        using InstanceType = BinaryType;
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
+            return BinaryV<MinBase<VBase<I>, VBase<P>, VBase<O>>, I, P, O>::exec(input, params);
+        }
+        using InstantiableType = Binary<BinaryV<MinBase<VBase<I>, VBase<P>, VBase<O>>, I, P, O>>;
+        DEFAULT_BINARY_BUILD
     };
 
     template <typename I1, typename I2=I1>
@@ -84,14 +125,14 @@ namespace fk {
         using OutputType = bool;
         using InputType = fk::Tuple<I1,I2>;
         using InstanceType = UnaryType;
-        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             return fk::get_v<0>(input) == fk::get_v<1>(input);
         }
+        using InstantiableType = Unary<Equal<I1, I2>>;
+        DEFAULT_UNARY_BUILD
     };
-
-
-    template <typename I, typename P = I, typename O = I>
-    using Max = BinaryV<Max_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
-    template <typename I, typename P = I, typename O = I>
-    using Min = BinaryV<Min_<VBase<I>, VBase<P>, VBase<O>>, I, P, O>;
 } //namespace fk
+
+#include <fused_kernel/core/execution_model/default_builders_undef.h>
+
+#endif

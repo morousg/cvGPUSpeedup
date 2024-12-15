@@ -12,10 +12,13 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_INTERPOLATION
+#define FK_INTERPOLATION
 
 #include <fused_kernel/algorithms/basic_ops/logical.cuh>
 #include <fused_kernel/core/data/size.h>
+#include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {
     template <typename T>
@@ -39,27 +42,32 @@ namespace fk {
         Size src_size;
     };
 
-    template <typename BackFunction, InterpolationType INTER_T>
+    template <InterpolationType INTER_T, typename BackFunction_ = void>
     struct Interpolate {};
 
     template <typename BackFunction_>
-    struct Interpolate<BackFunction_, InterpolationType::INTER_LINEAR> {
+    struct Interpolate<InterpolationType::INTER_LINEAR, BackFunction_> {
         using BackFunction = BackFunction_;
         using ReadOutputType = typename BackFunction::Operation::OutputType;
         using OutputType = fk::VectorType_t<float, cn<ReadOutputType>>;
         using InputType = float2;
         using ParamsType = InterpolationParameters<InterpolationType::INTER_LINEAR>;
         using InstanceType = TernaryType;
-        static __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params, const BackFunction& back_function) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params, const BackFunction& back_function) {
             const float src_x = input.x;
             const float src_y = input.y;
 
+#ifdef __CUDA_ARCH__
             const int x1 = __float2int_rd(src_x);
             const int y1 = __float2int_rd(src_y);
+#else
+            const int x1 = static_cast<int>(std::floor(x));
+            const int y1 = static_cast<int>(std::floor(x));
+#endif
             const int x2 = x1 + 1;
             const int y2 = y1 + 1;
 
-            const fk::Size srcSize = params.src_size;
+            const Size srcSize = params.src_size;
             const int x2_read = Min<int>::exec(x2, srcSize.width - 1);
             const int y2_read = Min<int>::exec(y2, srcSize.height - 1);
 
@@ -78,5 +86,21 @@ namespace fk {
                    (src_reg0x1 * ((x2 - src_x) * (src_y - y1))) +
                    (src_reg1x1 * ((src_x - x1) * (src_y - y1)));
         }
+        using InstantiableType = Ternary<Interpolate<InterpolationType::INTER_LINEAR, BackFunction>>;
+        DEFAULT_TERNARY_BUILD
+    };
+
+    template <InterpolationType INTER_T>
+    struct Interpolate<INTER_T, void> {
+        template <typename RealBackFunction>
+        static constexpr __host__ __forceinline__
+            auto build(const typename Interpolate<INTER_T, RealBackFunction>::ParamsType& params,
+                       const RealBackFunction& backfunction) {
+            return Interpolate<INTER_T, RealBackFunction>::build(params, backfunction);
+        }
     };
 } // namespace fk
+
+#include <fused_kernel/core/execution_model/default_builders_undef.h>
+
+#endif

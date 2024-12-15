@@ -24,7 +24,7 @@
 // Read
 using RPerThrFloat = fk::PerThreadRead<fk::_2D, float>;
 // ReadBack
-using RBResize = fk::ResizeRead<fk::DF_t<RPerThrFloat>, fk::InterpolationType::INTER_LINEAR>;
+using RBResize = fk::ResizeRead<fk::InterpolationType::INTER_LINEAR, fk::DF<RPerThrFloat>>;
 // Unary
 using UIntFloat = fk::Cast<int, float>;
 using UFloatInt = fk::Cast<float, int>;
@@ -34,7 +34,7 @@ using BAddInt = fk::Add<int>;
 using BAddFloat = fk::Add<float>;
 using Binaries = fk::TypeList<BAddInt, BAddFloat>;
 // Ternary
-using TInterpFloat = fk::Interpolate<fk::DF_t<RPerThrFloat>, fk::InterpolationType::INTER_LINEAR>;
+using TInterpFloat = fk::Interpolate<fk::InterpolationType::INTER_LINEAR, fk::DF<RPerThrFloat>>;
 // Write
 using WPerThrFloat = fk::PerThreadWrite<fk::_2D, float>;
 // MidWrite

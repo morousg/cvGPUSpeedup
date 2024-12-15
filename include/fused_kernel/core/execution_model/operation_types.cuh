@@ -38,6 +38,12 @@ namespace fk {
     template <typename OperationORDeviceFunction>
     constexpr bool isAnyReadType = one_of_v<typename OperationORDeviceFunction::InstanceType, ReadTypeList>;
 
+    template <typename OperationORDeviceFunction, typename = void>
+    struct is_any_read_type : std::false_type {};
+
+    template <typename OperationORDeviceFunction>
+    struct is_any_read_type<OperationORDeviceFunction, std::enable_if_t<isAnyReadType<OperationORDeviceFunction>, void>> : std::true_type {};
+
     template <typename OperationORDeviceFunction>
     constexpr bool isUnaryType = std::is_same_v<typename OperationORDeviceFunction::InstanceType, UnaryType>;
 
@@ -94,6 +100,13 @@ namespace fk {
     template <typename... OperationsOrDeviceFunctions>
     constexpr bool allUnaryTypes = and_v<isUnaryType<OperationsOrDeviceFunctions>...>;
 
+    template <typename Enabler, typename... OperationsOrDeviceFunctions>
+    struct are_all_unary_types : std::false_type {};
+
+    template <typename... OperationsOrDeviceFunctions>
+    struct are_all_unary_types<std::enable_if_t<allUnaryTypes<OperationsOrDeviceFunctions...>>,
+                               OperationsOrDeviceFunctions...> : std::true_type {};
+
     template <typename... OperationORDeviceFunction>
     constexpr bool noneWriteType = and_v<(!isWriteType<OperationORDeviceFunction>)...>;
 
@@ -102,5 +115,4 @@ namespace fk {
 
     template <typename... OperationORDeviceFunction>
     constexpr bool noneAnyWriteType = and_v<(!isAnyWriteType<OperationORDeviceFunction>)...>;
-
 } // namespace fk

@@ -74,7 +74,7 @@ inline constexpr auto convertTo(float alpha) {
 
     using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
     using SecondOp = fk::Mul<CUDA_T(O)>;
-    return fk::Binary<FirstOp, SecondOp>(fk::make_set<CUDA_T(O)>(alpha));
+    return FirstOp::build().then(SecondOp::build(fk::make_set<CUDA_T(O)>(alpha)));
 }
 
 template <int I, int O>
@@ -85,7 +85,7 @@ inline constexpr auto convertTo(float alpha, float beta) {
     using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
     using SecondOp = fk::Mul<CUDA_T(O)>;
     using ThirdOp = fk::Add<CUDA_T(O)>;
-    return fk::Binary<FirstOp, SecondOp, ThirdOp>{{{fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }}}};
+    return fk::FusedOperation<FirstOp, SecondOp, ThirdOp>::build({ {fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }} });
 }
 
 template <int I>

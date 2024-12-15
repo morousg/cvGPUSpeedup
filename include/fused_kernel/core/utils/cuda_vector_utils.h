@@ -13,7 +13,8 @@
    limitations under the License.
 */
 
-#pragma once
+#ifndef FK_CUDA_VECTOR_UTILS
+#define FK_CUDA_VECTOR_UTILS
 
 #include <cassert>
 
@@ -921,4 +922,4 @@ namespace fk {
     };
 }
 
-#undef FK_DEVICE_HOST
+#endif

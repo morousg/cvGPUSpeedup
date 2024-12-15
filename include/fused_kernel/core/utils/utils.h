@@ -15,9 +15,9 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_UTILS
+#define FK_UTILS
 
-//#include <iostream>
 #include <string>
 #include <stdexcept>
 #include <cuda.h>
@@ -60,3 +60,5 @@ namespace fk {
 } // namespace fk
 
 #define gpuErrchk(ans) { fk::gpuAssert((ans), __FILE__, __LINE__, true); }
+
+#endif

@@ -16,9 +16,10 @@
 #pragma once
 
 #include <fused_kernel/core/utils/cuda_vector_utils.h>
+#include <cstddef>
 
 namespace fk {
-    template <typename T, std::size_t SIZE>
+    template <typename T, size_t SIZE>
     union Array {
         enum { size = SIZE };
         T at[SIZE];

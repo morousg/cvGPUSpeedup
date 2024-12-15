@@ -21,7 +21,6 @@
 #include <fused_kernel/algorithms/basic_ops/arithmetic.cuh>
 #include <fused_kernel/algorithms/basic_ops/cast.cuh>
 #include <fused_kernel/algorithms/image_processing/saturate.cuh>
-#include <fused_kernel/core/execution_model/fused_operation.cuh>
 
 bool test_OTInitialization() {
 
@@ -41,8 +40,6 @@ bool test_OTInitialization() {
     using Op2 = fk::SaturateCast<uchar, uint>;
     const fk::Unary<Op2> cast = {};
 
-    fk::Unary<Op2>::Operation;
-
     const auto ot1 = fk::devicefunctions_to_operationtuple(read);
     const auto ot2 = fk::devicefunctions_to_operationtuple(cast);
 
@@ -58,7 +55,7 @@ bool test_OTInitialization() {
 
     const auto test8 = fk::fuseDF(read, cast);
 
-    const auto test9 = fk::make_source(fk::DF_t<fk::FusedOperation<typename decltype(read)::Operation,
+    const auto test9 = fk::make_source(fk::DF<fk::FusedOperation<typename decltype(read)::Operation,
                                                                    typename decltype(cast)::Operation>>
     { fk::devicefunctions_to_operationtuple(read, cast) }, read.activeThreads);
 

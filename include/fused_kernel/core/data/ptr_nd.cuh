@@ -12,7 +12,8 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_PTR_ND_CUH
+#define FK_PTR_ND_CUH
 
 #include <fused_kernel/core/data/point.h>
 #include <fused_kernel/core/data/ptr_nd.h>
@@ -430,3 +431,5 @@ namespace fk {
     };
 
 } // namespace fk
+
+#endif

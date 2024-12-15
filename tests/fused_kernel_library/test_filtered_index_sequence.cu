@@ -31,15 +31,15 @@ constexpr bool allDeviceFunctionsComplieWith(const fk::TypeList<ListTypes...>& t
 
 int launch() {
     using ReadDummy = fk::PerThreadRead<fk::_2D, int>;
-    using ReadBackDummy = fk::ResizeRead<fk::Read<ReadDummy>, fk::InterpolationType::INTER_LINEAR>;
+    using ReadBackDummy = fk::ResizeRead<fk::InterpolationType::INTER_LINEAR, fk::Read<ReadDummy>>;
     using BinaryDummy = fk::Add<int>;
-    using TernaryDummy = fk::Interpolate<fk::Read<ReadDummy>, fk::InterpolationType::INTER_LINEAR>;
+    using TernaryDummy = fk::Interpolate<fk::InterpolationType::INTER_LINEAR, fk::Read<ReadDummy>>;
     using WriteDummy = fk::PerThreadWrite<fk::_2D, int>;
 
     using DFList = fk::TypeList<fk::SourceRead<ReadDummy>, fk::SourceReadBack<ReadBackDummy>,
-                 fk::Read<ReadDummy>, fk::ReadBack<ReadBackDummy>,
-                 fk::Binary<BinaryDummy>, fk::Ternary<TernaryDummy>,
-                 fk::MidWrite<WriteDummy>, fk::Write<WriteDummy>>;
+                   fk::Read<ReadDummy>, fk::ReadBack<ReadBackDummy>,
+                   fk::Binary<BinaryDummy>, fk::Ternary<TernaryDummy>,
+                   fk::MidWrite<WriteDummy>, fk::Write<WriteDummy>>;
 
     constexpr bool correctDFRestrict = allDeviceFunctionsComplieWith<fk::NotUnaryRestriction>(DFList{});
 
