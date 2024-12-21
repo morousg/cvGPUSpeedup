@@ -20,12 +20,49 @@
 #include <fused_kernel/core/data/ptr_nd.cuh>
 #include <fused_kernel/core/execution_model/thread_fusion.cuh>
 #include <fused_kernel/core/execution_model/operation_types.cuh>
-#include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/core/execution_model/default_builders_def.h>
+#include <fused_kernel/core/data/array.cuh>
 
 namespace fk {
 
-    template <ND D, typename T>
+    template <typename InstantiableOp, typename Enabler = void>
+    struct Num_elems;
+
+    template <typename InstantiableOp>
+    struct Num_elems<InstantiableOp, std::enable_if_t<InstantiableOp::template is<ReadType>, void>> {
+        FK_HOST_DEVICE_FUSE uint x(const Point& thread, const InstantiableOp& df) {
+            return InstantiableOp::Operation::num_elems_x(thread, df.params);
+        }
+        FK_HOST_DEVICE_FUSE uint y(const Point& thread, const InstantiableOp& df) {
+            return InstantiableOp::Operation::num_elems_y(thread, df.params);
+        }
+        FK_HOST_DEVICE_FUSE Size size(const Point& thread, const InstantiableOp& df) {
+            return Size(x(thread, df), y(thread, df));
+        }
+        FK_HOST_DEVICE_FUSE uint z(const Point& thread, const InstantiableOp& df) {
+            return InstantiableOp::Operation::num_elems_z(thread, df.params);
+        }
+    };
+
+    template <typename InstantiableOp>
+    struct Num_elems<InstantiableOp, std::enable_if_t<InstantiableOp::template is<ReadBackType>, void>> {
+        FK_HOST_DEVICE_FUSE uint x(const Point& thread, const InstantiableOp& df) {
+            return InstantiableOp::Operation::num_elems_x(thread, df.params, df.back_function);
+        }
+
+        FK_HOST_DEVICE_FUSE uint y(const Point& thread, const InstantiableOp& df) {
+            return InstantiableOp::Operation::num_elems_y(thread, df.params, df.back_function);
+        }
+        FK_HOST_DEVICE_FUSE Size size(const Point& thread, const InstantiableOp& df) {
+            return Size(x(thread, df), y(thread, df));
+        }
+        FK_HOST_DEVICE_FUSE uint z(const Point& thread, const InstantiableOp& df) {
+            return InstantiableOp::Operation::num_elems_z(thread, df.params, df.back_function);
+        }
+    };
+
+    template <enum ND D, typename T>
     struct PerThreadRead {
         using ParamsType = RawPtr<D, T>;
         using ReadDataType = T;
@@ -42,6 +79,22 @@ namespace fk {
             return ptr.dims.width;
         }
 
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const ParamsType& ptr) {
+            if constexpr (D == _1D) {
+                return 1;
+            } else {
+                return ptr.dims.height;
+            }
+        }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& ptr) {
+            if constexpr (D == _1D || D == _2D) {
+                return 1;
+            } else {
+                return ptr.dims.planes;
+            }
+        }
+
         FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
             return ptr.dims.pitch;
         }
@@ -49,7 +102,7 @@ namespace fk {
         DEFAULT_READ_BUILD
     };
 
-    template <ND D, typename T>
+    template <enum ND D, typename T>
     struct PerThreadWrite {
         using ParamsType = RawPtr<D, T>;
         using InstanceType = WriteType;
@@ -86,6 +139,15 @@ namespace fk {
         FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
             return ptr.dims.width;
         }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const ParamsType& ptr) {
+            return ptr.dims.height;
+        }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& ptr) {
+            return ptr.dims.planes;
+        }
+
         FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
             return ptr.dims.pitch;
         }
@@ -210,6 +272,12 @@ namespace fk {
         FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
             return ptr.dims.width;
         }
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const ParamsType& ptr) {
+            return ptr.dims.height;
+        }
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& ptr) {
+            return ptr.dims.planes;
+        }
         FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
             return ptr.dims.pitch;
         }
@@ -245,6 +313,12 @@ namespace fk {
         }
         FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
             return ptr.dims.width;
+        }
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const ParamsType& ptr) {
+            return ptr.dims.height;
+        }
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& ptr) {
+            return ptr.dims.planes;
         }
         FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
             return ptr.dims.pitch;
@@ -302,142 +376,555 @@ namespace fk {
         DEFAULT_WRITE_BUILD
     };
 
-    template <int BATCH, typename Operation = void>
-    struct BatchReadBack {
-        using InstanceType = ReadBackType;
-        using ParamsType = typename Operation::ParamsType[BATCH];
-        using BackFunction = typename Operation::BackFunction[BATCH];
-        using OutputType = typename Operation::OutputType;
-        static constexpr bool THREAD_FUSION{ false };
-        using ReadDataType = typename Operation::ReadDataType;
+    enum PlanePolicy { PROCESS_ALL = 0, CONDITIONAL_WITH_DEFAULT = 1 };
 
-        template <uint ELEMS_PER_THREAD = 1>
-        FK_HOST_DEVICE_FUSE const auto exec(const Point& thread, const typename Operation::ParamsType(&params)[BATCH],
-            const typename Operation::BackFunction(&back_function)[BATCH]) {
-            return Operation::exec(thread, params[thread.z], back_function[thread.z]);
-        }
-        using InstantiableType = ReadBack<BatchReadBack<BATCH, Operation>>;
-        static constexpr __host__  __forceinline__ 
-        InstantiableType build(const ParamsType& params, const BackFunction& backFunction) {
-            return InstantiableType{ { params, backFunction } };
-        }
+    template <int BATCH, enum PlanePolicy PP, typename OpParamsType, typename DefaultType>
+    struct BatchReadParams;
 
-        using InstantiableSourceType = SourceReadBack<BatchReadBack<BATCH, Operation>>;
-    private:
-        template <int... Idx>
-        FK_HOST_FUSE InstantiableType build_helper(const std::array<ReadBack<Operation>, BATCH>& deviceFunctions,
-                                                   const std::integer_sequence<int, Idx...>&) {
-            return { {{deviceFunctions[Idx].params...}, {deviceFunctions[Idx].back_function...}} };
-        }
-
-        template <int... Idx>
-        FK_HOST_FUSE InstantiableType build_helper(const std::array<typename Operation::ParamsType, BATCH>& params,
-                                                   const std::array<typename Operation::BackFunction, BATCH>& back_functions,
-                                                   const std::integer_sequence<int, Idx...>&) {
-            return { {{params[Idx]...}, {back_functions[Idx]...}} };
-        }
-
-        template <int... Idx>
-        FK_HOST_FUSE InstantiableSourceType build_source_helper(const std::array<typename Operation::ParamsType, BATCH>& params,
-                                                                const std::array<typename Operation::BackFunction, BATCH>& back_functions,
-                                                                const Size& output_planes, const std::integer_sequence<int, Idx...>&) {
-            return { {{params[Idx]...}, {back_functions[Idx]...}},
-            {static_cast<uint>(output_planes.width), static_cast<uint>(output_planes.height), static_cast<uint>(BATCH)} };
-        }
-    public:
-        FK_HOST_FUSE InstantiableType build(const std::array<ReadBack<Operation>, BATCH>& deviceFunctions) {
-            return build_helper(deviceFunctions, std::make_integer_sequence<int, BATCH>{});
-        }
-
-        FK_HOST_FUSE InstantiableType build(const std::array<typename Operation::ParamsType, BATCH>& params,
-                                            const std::array<typename Operation::BackFunction, BATCH>& back_functions) {
-            return build_helper(params, back_functions, std::make_integer_sequence<int, BATCH>{});
-        }
-
-        FK_HOST_FUSE InstantiableSourceType build_source(const std::array<typename Operation::ParamsType, BATCH>& params,
-                                                         const std::array<typename Operation::BackFunction, BATCH>& back_functions,
-                                                         const Size& output_planes) {
-            return build_source_helper(params, back_functions, output_planes, std::make_integer_sequence<int, BATCH>{});
-        }
+    template <int BATCH, typename OpParamsType, typename DefaultType>
+    struct BatchReadParams<BATCH, CONDITIONAL_WITH_DEFAULT, OpParamsType, DefaultType> {
+        OpParamsType op_params[BATCH];
+        int usedPlanes;
+        DefaultType default_value;
     };
 
-    template <int BATCH>
-    struct BatchReadBack<BATCH, void> {
-    private:
-        // Base case: Only one Operation
-        template <typename Operation, typename ParamsArray>
-        FK_HOST_FUSE auto nested_build_ops(const size_t& idx, const ParamsArray& params_array) {
-            return Operation::build(params_array[idx]);
-        }
-
-        // Recursive case: Multiple Operations
-        template <typename Operation, typename... RestOperations, typename ParamsArray, typename... RestParamsArrays>
-        FK_HOST_FUSE auto nested_build_ops(const size_t& idx, const ParamsArray& params_array, const RestParamsArrays&... rest_params_arrays) {
-            return Operation::build(params_array[idx], nested_build_ops<RestOperations...>(idx, rest_params_arrays...));
-        }
-
-        template <typename... Operations, size_t... Idx, typename... ParamsArrays>
-        FK_HOST_FUSE auto nested_build_ops(const std::index_sequence<Idx...>&, const ParamsArrays&... params_arrays) {
-            static_assert(sizeof...(Operations) == sizeof...(ParamsArrays), "Operations and ParamsArrays should have the same size");
-            using OperationsArraysTypes = TypeList<TypeList<Operations, ParamsArrays>...>;
-            return std::array<BackType<OperationsArraysTypes>, sizeof...(Idx)>{nested_build_ops<Operations...>(Idx, params_arrays...)...};
-        }
-
-        template <typename... Operations, typename... ParamsArrays>
-        FK_HOST_FUSE auto build_batch_back(const ParamsArrays&... params_arrays) {
-            static_assert(sizeof...(Operations) == sizeof...(ParamsArrays), "Operations and ParamsArrays should have the same size");
-            return nested_build_ops<Operations...>(std::make_index_sequence<BATCH>{}, params_arrays...);
-        }
-    public:
-        template <typename Operation>
-        FK_HOST_FUSE auto build(const std::array<ReadBack<Operation>, BATCH>& deviceFunctions) {
-            return BatchReadBack<BATCH, Operation>::build(deviceFunctions);
-        }
-
-        template <typename... Operations, typename... ParamsArrays>
-        FK_HOST_FUSE auto build(const ParamsArrays&... params_arrays) {
-            return BatchReadBack<BATCH, void>::build(build_batch_back<Operations...>(params_arrays...));
-        }
+    template <int BATCH, typename OpParamsType, typename DefaultType>
+    struct BatchReadParams<BATCH, PROCESS_ALL, OpParamsType, DefaultType> {
+        OpParamsType op_params[BATCH];
     };
 
     template <int BATCH, typename Operation>
-    struct BatchRead {
-        using InstanceType = ReadType;
-        using ParamsType = typename Operation::ParamsType[BATCH];
+    struct BatchReadCommon {
+        protected:
+        // BUILDERS THAT CAN USE ANY BUILDER FROM OPERATION
+
+        template <size_t Idx, typename Array>
+        FK_HOST_FUSE auto get_element_at_index(const Array& array) -> decltype(array[Idx]) {
+            return array[Idx];
+        }
+
+        template <size_t Idx, typename... Arrays>
+        FK_HOST_FUSE auto call_build_at_index(const Arrays&... arrays) {
+            return Operation::build(get_element_at_index<Idx>(arrays)...);
+        }
+
+        template <size_t... Idx, typename... Arrays>
+        FK_HOST_FUSE auto build_helper_generic(const std::index_sequence<Idx...>&, const Arrays&... arrays) {
+            static_assert(sizeof...(Idx) == BATCH);
+            using OutputArrayType = decltype(Operation::build(std::declval<typename Arrays::value_type>()...));
+            return std::array<OutputArrayType, sizeof...(Idx)>{ call_build_at_index<Idx>(arrays...)... };
+        }
+
+        // END BUILDERS THAT CAN USE ANY BUILDER FROM OPERATION
+    };
+
+    /*template <int BATCH>
+    struct BatchReadCommon<BATCH, void> {};*/
+
+    /// @brief struct BatchRead
+    /// @tparam BATCH: number of thread planes and number of data planes to process
+    /// @tparam Operation: the read Operation to perform on the data
+    /// @tparam PP: enum to select if all planes will be processed equally, or only some
+    /// with the remainder not reading and returning a default value
+    template <int BATCH, typename Operation, enum PlanePolicy PP = PROCESS_ALL>
+    struct BatchRead final : BatchReadCommon<BATCH, Operation> {
         using OutputType = typename Operation::OutputType;
-        static constexpr bool THREAD_FUSION{ Operation::THREAD_FUSION };
+        using ParamsType = BatchReadParams<BATCH, PP, typename Operation::ParamsType, OutputType>;
         using ReadDataType = typename Operation::ReadDataType;
 
-        template <uint ELEMS_PER_THREAD=1>
-        FK_HOST_DEVICE_FUSE const auto exec(const Point& thread, const typename Operation::ParamsType(&params)[BATCH]) {
+        using InstanceType = ReadType;
+        static constexpr bool THREAD_FUSION{ (PP == PROCESS_ALL) ? Operation::THREAD_FUSION : false };
+
+    private:
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_HOST_DEVICE_FUSE const auto exec_helper(const Point& thread, const typename Operation::ParamsType(&params)[BATCH]) {
             if constexpr (THREAD_FUSION) {
                 return Operation::exec<ELEMS_PER_THREAD>(thread, params[thread.z]);
             } else {
                 return Operation::exec(thread, params[thread.z]);
             }
         }
+    public:
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_HOST_DEVICE_FUSE const auto exec(const Point& thread, const ParamsType& params) {
+            if constexpr (PP == CONDITIONAL_WITH_DEFAULT) {
+                static_assert(ELEMS_PER_THREAD == 1, "ELEMS_PER_THREAD should be 1");
+                if (params.usedPlanes <= thread.z) {
+                    return params.default_value;
+                } else {
+                    return exec_helper<1>(thread, params.op_params);
+                }
+            } else {
+                return exec_helper<ELEMS_PER_THREAD>(thread, params.op_params);
+            }
+        }
+
         FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
-            return Operation::num_elems_x(thread, ptr[thread.z]);
+            return Operation::num_elems_x(thread, ptr.op_params[thread.z]);
+        }
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const ParamsType& ptr) {
+            return Operation::num_elems_y(thread, ptr.op_params[thread.z]);
+        }
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& ptr) {
+            return Operation::num_elems_z(thread, ptr.op_params[thread.z]);
         }
         FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
-            return Operation::pitch(thread, ptr[thread.z]);
+            return Operation::pitch(thread, ptr.op_params[thread.z]);
         }
-        using InstantiableType = Read<BatchRead<BATCH, Operation>>;
+        using InstantiableType = Read<BatchRead<BATCH, Operation, PP>>;
+        /// @brief build(): host function to create a Read instance of BatchRead(BATCH, Operation, PROCESS_ALL)
+        /// @param params: is an array of parameters needed by each instance of the Operation
+        /// @return: returns an instance of Read(BatchRead(BATCH, Operation, PROCESS_ALL))
         DEFAULT_READ_BUILD
 
-        using InstantiableSourceType = SourceRead<BatchRead<BATCH, Operation>>;
+        using InstantiableSourceType = SourceRead<BatchRead<BATCH, Operation, PP>>;
     private:
-        template <int... Idx>
-        FK_HOST_FUSE InstantiableSourceType build_source_helper(const std::array<typename Operation::ParamsType, BATCH>& params,
-                                                                const Size& output_planes, const std::integer_sequence<int, Idx...>&) {
-            return { {{params[Idx]...}},
-            {static_cast<uint>(output_planes.width), static_cast<uint>(output_planes.height), static_cast<uint>(BATCH)} };
+        template <int... Idx, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
+        build_helper(const std::array<typename Operation::ParamsType, BATCH>& params,
+                     const int& usedPlanes, const OutputType& defaultValue, const std::integer_sequence<int, Idx...>&) {
+            return { {{params[Idx]...}, usedPlanes, defaultValue} };
         }
+        template <int... Idx, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
+        build_helper(const std::array<typename Operation::ParamsType, BATCH>& params,
+                     const std::integer_sequence<int, Idx...>&) {
+            return { {{params[Idx]...}} };
+        }
+        // DEVICE FUNCTION BASED BUILDERS
+
+        template <int... Idx, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
+        build_helper(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
+                     const std::integer_sequence<int, Idx...>&) {
+            return { {{instantiableOperations[Idx].params...}} };
+        }
+
+        template <int... Idx, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
+        build_helper(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
+                     const int& usedPlanes, const OutputType& defaultValue,
+                     const std::integer_sequence<int, Idx...>&) {
+            return { { {{ instantiableOperations[Idx].params... }, usedPlanes, defaultValue} } };
+        }
+
+        // END DEVICE FUNCTION BASED BUILDERS
     public:
-        FK_HOST_FUSE InstantiableSourceType build_source(const std::array<typename Operation::ParamsType, BATCH>& params,
-                                                         const Size& output_planes) {
-            return build_source_helper(params, output_planes, std::make_integer_sequence<int, BATCH>{});
+        // STANDARD BUILDERS WITH PARAMS
+
+        /// @brief build(): host function to create a Read instance of BatchRead with CONDITIONAL_WITH_DEFAULT
+        /// @param params: is an array of parameters needed by each instance of the Operation
+        /// @param usedPlanes: is the number of planes that need to execute the Operation::exec
+        ///                    in order, from 0 to usedPlanes - 1
+        /// @param defaultValue: is the value returned instead of Operation::exec for the planes
+        ///                      whith thread.z index >= usedPlanes
+        /// @return: returns an instance of Read(BatchRead(SIZE, Operation, CONDITIONAL_WITH_DEFAULT))
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE
+        std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
+        build(const std::array<typename Operation::ParamsType, BATCH>& params,
+              const int& usedPlanes, const OutputType& defaultValue) {
+            return build_helper(params, output_size, usedPlanes, defaultValue, std::make_integer_sequence<int, BATCH>{});
         }
+
+        /// @brief build(): host function to create a Read instance of BatchRead(BATCH, Operation, PROCESS_ALL)
+        /// @param params: is an array of parameters needed by each instance of the Operation
+        /// @return: returns an instance of Read(BatchRead(SIZE, Operation, CONDITIONAL_WITH_DEFAULT))
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE
+        std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
+        build(const std::array<typename Operation::ParamsType, BATCH>& params) {
+            return build_helper(params, output_size, std::make_integer_sequence<int, BATCH>{});
+        }
+        /// @brief build_source(): host function to create a ReadSource instance of
+        /// BatchRead(BATCH, Operation, CONDITIONAL_WITH_DEFAULT)
+        /// @param params: is an array of parameters needed by each instance of the Operation
+        /// @param usedPlanes: is the number of planes that need to execute the Operation::exec
+        ///                     in order, from 0 to usedPlanes - 1
+        /// @param defaultValue: is the value returned instead of Operation::exec for the planes
+        ///                      whith thread.z index >= usedPlanes
+        /// @return: returns an instance of SourceRead(BatchRead(SIZE, Operation, CONDITIONAL_WITH_DEFAULT))
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE
+        std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableSourceType>
+        build_source(const std::array<typename Operation::ParamsType, BATCH>& params, const int& usedPlanes,
+                     const OutputType& defaultValue) {
+            const InstantiableType instOperation = build(params, usedPlanes, defaultValue);
+            // Assuming all the back functions have the same output size
+            const Size output_size = Num_elems<InstantiableType>::size(Point(0, 0, 0), instOperation);
+            const dim3 activeThreads{ static_cast<uint>(output_size.width),
+                                      static_cast<uint>(output_size.height),
+                                      static_cast<uint>(BATCH) };
+            return make_source(instOperation, activeThreads);
+        }
+
+        /// @brief build_source(): host function to create a SourceRead instance of BatchRead(BATCH, Operation, PROCESS_ALL)
+        /// @param params: is an array of parameters needed by each instance of the Operation
+        /// @return: returns an instance of SourceRead(BatchRead(SIZE, Operation, PROCESS_ALL))
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE
+            std::enable_if_t<PP_ == PROCESS_ALL, InstantiableSourceType>
+            build_source(const std::array<typename Operation::ParamsType, BATCH>& params) {
+            const InstantiableType instOperation = build(params);
+            // Assuming all the back functions have the same output size
+            const Size outputSize = Num_elems<InstantiableType>::size(Point(0, 0, 0), instOperation);
+            const dim3 activeThreads{ static_cast<uint>(outputSize.width), static_cast<uint>(outputSize.height), static_cast<uint>(BATCH) };
+            return make_source(instOperation, activeThreads);
+        }
+
+        // END STANDARD BUILDERS WITH PARAMS
+
+        // DEVICE FUNCTION BASED BUILDERS
+
+        /// @brief build(): PROCESS_ALL
+        /// @param instantiableOperations 
+        /// @return 
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
+            build(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations) {
+            return build_helper(instantiableOperations, std::make_integer_sequence<int, BATCH>{});
+        }
+
+        /// @brief build(): CONDITIONAL_WITH_DEFAULT
+        /// @param instantiableOperations 
+        /// @param usedPlanes 
+        /// @param defaultValue 
+        /// @return 
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
+            build(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
+                const int& usedPlanes, const OutputType& defaultValue) {
+            return build_helper(instantiableOperations, usedPlanes, defaultValue, std::make_integer_sequence<int, BATCH>{});
+        }
+
+        /// @brief build_source(): PROCESS_ALL
+        /// @param instantiableOperations 
+        /// @return 
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableSourceType>
+            build_source(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations) {
+            const InstantiableType instOperation = build(instantiableOperations);
+            const Size output_size = Num_elems<InstantiableType>::size(Point(), instOperation);
+            const dim3 activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH) };
+            return make_source(instOperation, activeThreads);
+        }
+
+        /// @brief build_source(): CONDITIONAL_WITH_DEFAULT
+        /// @param instantiableOperations 
+        /// @param usedPlanes 
+        /// @param defaultValue 
+        /// @return 
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableSourceType>
+            build_source(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
+                const int& usedPlanes, const OutputType& defaultValue) {
+            const InstantiableType instOperation = build(instantiableOperations, usedPlanes, defaultValue);
+            const Size output_size = Num_elems<InstantiableType>::size(Point(), instOperation);
+            const dim3 activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH) };
+            return make_source(instOperation, activeThreads);
+        }
+
+        // END DEVICE FUNCTION BASED BUILDERS
+
+        // BUILDERS THAT CAN USE ANY BUILDER FROM OPERATION
+
+        /// @brief 
+        /// @tparam ...ArrayTypes 
+        /// @param ...arrays 
+        /// @return 
+        template <typename... ArrayTypes, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
+            build_batch(const ArrayTypes&... arrays) {
+            static_assert(allArraysSameSize_v<BATCH, ArrayTypes...>, "Not all arrays have the same size as BATCH");
+            const auto dfArray = build_helper_generic(std::make_index_sequence<BATCH>(), arrays...);
+            return build(dfArray);
+        }
+
+        /// @brief 
+        /// @tparam ...ArrayTypes 
+        /// @param usedPlanes 
+        /// @param defaultValue 
+        /// @param ...arrays 
+        /// @return 
+        template <typename... ArrayTypes, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
+            build_batch(const int& usedPlanes, const OutputType& defaultValue, const ArrayTypes&... arrays) {
+            static_assert(allArraysSameSize_v<BATCH, ArrayTypes...>, "Not all arrays have the same size as BATCH");
+            const auto dfArray = build_helper_generic(std::make_index_sequence<BATCH>(), arrays...);
+            return build(dfArray, usedPlanes, defaultValue);
+        }
+
+        // END BUILDERS THAT CAN USE ANY BUILDER FROM OPERATION
+    };
+
+    /// @brief struct BatchReadBack
+    /// @tparam BATCH: number of thread planes and number of data planes to process
+    /// @tparam PP: enum to select if all planes will be processed equally, or only some
+    /// with the remainder not reading and returning a default value
+    /// @tparam Operation: the read Operation to perform on the data
+    template <int BATCH, enum PlanePolicy PP = PROCESS_ALL, typename Operation = void>
+    struct BatchReadBack final : BatchReadCommon<BATCH, Operation> {
+        using InstanceType = ReadBackType;
+        using OutputType = typename Operation::OutputType;
+        using ParamsType = BatchReadParams<BATCH, PP, typename Operation::ParamsType, OutputType>;
+        using BackFunction = typename Operation::BackFunction[BATCH];
+        static constexpr bool THREAD_FUSION{ false };
+        using ReadDataType = typename Operation::ReadDataType;
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_HOST_DEVICE_FUSE auto exec(const Point& thread,
+                                      const ParamsType& params,
+                                      const typename Operation::BackFunction(&back_function)[BATCH]) {
+            if constexpr (PP == PROCESS_ALL) {
+                return Operation::exec(thread, params.op_params[thread.z], back_function[thread.z]);
+            } else {
+                if (params.usedPlanes <= thread.z) {
+                    return params.default_value;
+                } else {
+                    return Operation::exec(thread, params.op_params[thread.z], back_function[thread.z]);
+                } 
+            }
+        }
+        
+        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& params, const BackFunction& back_function) {
+            return Operation::num_elems_x(thread, params.op_params[thread.z], back_function[thread.z]);
+        }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const ParamsType& params, const BackFunction& back_function) {
+            return Operation::num_elems_y(thread, params.op_params[thread.z], back_function[thread.z]);
+        }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& params, const BackFunction& back_function) {
+            return Operation::num_elems_z(thread, params.op_params[thread.z], back_function[thread.z]);
+        }
+
+        using InstantiableType = ReadBack<BatchReadBack<BATCH, PP, Operation>>;
+
+        /// @brief 
+        /// @param params 
+        /// @param backFunction 
+        /// @return 
+        FK_HOST_FUSE 
+        InstantiableType build(const ParamsType& params, const BackFunction& backFunction) {
+            return InstantiableType{ { params, backFunction } };
+        }
+
+        using InstantiableSourceType = SourceReadBack<BatchReadBack<BATCH, PP, Operation>>;
+    private:
+        // STANDARD BUILDERS WITH PARAMS
+
+        template <int... Idx, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
+        build_helper(const std::array<typename Operation::ParamsType, BATCH>& params,
+                     const std::array<typename Operation::BackFunction, BATCH>& back_functions,
+                     const std::integer_sequence<int, Idx...>&) {
+            return { {{{params[Idx]...}}, {back_functions[Idx]...}} };
+        }
+
+        template <int... Idx, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
+        build_helper(const std::array<typename Operation::ParamsType, BATCH>& params,
+                     const std::array<typename Operation::BackFunction, BATCH>& back_functions,
+                     const int& usedPlanes, const OutputType& defaultValue,
+                     const std::integer_sequence<int, Idx...>&) {
+            return { {{{params[Idx]...}, usedPlanes, defaultValue}, {back_functions[Idx]...}} };
+        }
+
+        // END STANDARD BUILDERS WITH PARAMS
+
+        // DEVICE FUNCTION BASED BUILDERS
+
+        template <int... Idx, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
+        build_helper(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
+                     const std::integer_sequence<int, Idx...>&) {
+            return { {{instantiableOperations[Idx].params...}, {instantiableOperations[Idx].back_function...}} };
+        }
+
+        template <int... Idx, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
+        build_helper(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
+                     const int& usedPlanes, const OutputType& defaultValue,
+                     const std::integer_sequence<int, Idx...>&) {
+            return { {{{ instantiableOperations[Idx].params... }, usedPlanes, defaultValue}, {instantiableOperations[Idx].back_function...}} };
+        }
+
+        // END DEVICE FUNCTION BASED BUILDERS
+    public:
+        // STANDARD BUILDERS WITH PARAMS
+
+        /// @brief build():
+        /// @param params
+        /// @param back_functions
+        /// @return
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
+        build(const std::array<typename Operation::ParamsType, BATCH>& params,
+              const std::array<typename Operation::BackFunction, BATCH>& back_functions) {
+            return build_helper(params, back_functions, std::make_integer_sequence<int, BATCH>{});
+        }
+
+        /// @brief
+        /// @param params
+        /// @param back_functions
+        /// @param usedPlanes
+        /// @param defaultValue
+        /// @return
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
+        build(const std::array<typename Operation::ParamsType, BATCH>& params,
+              const std::array<typename Operation::BackFunction, BATCH>& back_functions,
+              const int& usedPlanes, const OutputType& defaultValue) {
+            return build_helper(params, back_functions, usedPlanes, defaultValue, std::make_integer_sequence<int, BATCH>{});
+        }
+
+        /// @brief 
+        /// @param params 
+        /// @param back_functions 
+        /// @return 
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableSourceType>
+        build_source(const std::array<typename Operation::ParamsType, BATCH>& params,
+                     const std::array<typename Operation::BackFunction, BATCH>& back_functions) {
+            const InstantiableType instOperation = build(params, back_functions);
+            const Size output_size = Num_elems<InstantiableType>::size(Point(), instOperation);
+            const dim3 activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH) };
+            return make_source(instOperation, activeThreads);
+        }
+
+        /// @brief 
+        /// @param params 
+        /// @param back_functions 
+        /// @param usedPlanes 
+        /// @param defaultValue 
+        /// @return 
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableSourceType>
+        build_source(const std::array<typename Operation::ParamsType, BATCH>& params,
+                     const std::array<typename Operation::BackFunction, BATCH>& back_functions,
+                     const int& usedPlanes, const OutputType& defaultValue) {
+            const InstantiableType instOperation = build(params, back_functions, usedPlanes, defaultValue);
+            const Size output_size = Num_elems<InstantiableType>::size(Point(), instOperation);
+            const dim3 activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH) };
+            return make_source(instOperation, activeThreads);
+        }
+
+        // END STANDARD BUILDERS WITH PARAMS
+
+        // DEVICE FUNCTION BASED BUILDERS
+
+        /// @brief build(): PROCESS_ALL
+        /// @param instantiableOperations 
+        /// @return 
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
+        build(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations) {
+            return build_helper(instantiableOperations, std::make_integer_sequence<int, BATCH>{});
+        }
+
+        /// @brief build(): CONDITIONAL_WITH_DEFAULT
+        /// @param instantiableOperations 
+        /// @param usedPlanes 
+        /// @param defaultValue 
+        /// @return 
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
+        build(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
+              const int& usedPlanes, const OutputType& defaultValue) {
+            return build_helper(instantiableOperations, usedPlanes, defaultValue, std::make_integer_sequence<int, BATCH>{});
+        }
+
+        /// @brief build_source(): PROCESS_ALL
+        /// @param instantiableOperations 
+        /// @return 
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableSourceType>
+        build_source(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations) {
+            const InstantiableType instOperation = build(instantiableOperations);
+            const Size output_size = Num_elems<InstantiableType>::size(Point(), instOperation);
+            const dim3 activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH)};
+            return make_source(instOperation, activeThreads);
+        }
+
+        /// @brief build_source(): CONDITIONAL_WITH_DEFAULT
+        /// @param instantiableOperations 
+        /// @param usedPlanes 
+        /// @param defaultValue 
+        /// @return 
+        template <enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableSourceType>
+        build_source(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
+                     const int& usedPlanes, const OutputType& defaultValue) {
+            const InstantiableType instOperation = build(instantiableOperations, usedPlanes, defaultValue);
+            const Size output_size = Num_elems<InstantiableType>::size(Point(), instOperation);
+            const ActiveThreads activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH) };
+            return make_source(instOperation, activeThreads);
+        }
+
+        // END DEVICE FUNCTION BASED BUILDERS
+
+        // BUILDERS THAT CAN USE ANY BUILDER FROM OPERATION
+
+        /// @brief 
+        /// @tparam ...ArrayTypes 
+        /// @param ...arrays 
+        /// @return 
+        template <typename... ArrayTypes, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
+        build_batch(const ArrayTypes&... arrays) {
+            static_assert(allArraysSameSize_v<BATCH, ArrayTypes...>, "Not all arrays have the same size as BATCH");
+            const auto dfArray = build_helper_generic(std::make_index_sequence<BATCH>(), arrays...);
+            return build(dfArray);
+        }
+
+        
+        template <typename... ArrayTypes, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
+        build_batch(const int& usedPlanes, const OutputType& defaultValue, const ArrayTypes&... arrays) {
+            static_assert(allArraysSameSize_v<BATCH, ArrayTypes...>, "Not all arrays have the same size as BATCH");
+            const auto dfArray = build_helper_generic(std::make_index_sequence<BATCH>(), arrays...);
+            return build(dfArray, usedPlanes, defaultValue);
+        }
+
+        // END BUILDERS THAT CAN USE ANY BUILDER FROM OPERATION
+    };
+
+    template <int BATCH, enum PlanePolicy PP>
+    struct BatchReadBack<BATCH, PP, void> {
+        // DEVICE FUNCTION BASED BUILDERS
+
+        template <typename Operation, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE
+        std::enable_if_t<PP_ == PROCESS_ALL, ReadBack<BatchReadBack<BATCH, PP_, Operation>>>
+        build(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations) {
+            return BatchReadBack<BATCH, PP, Operation>::build(instantiableOperations);
+        }
+
+        template <typename Operation, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE
+        std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, ReadBack<BatchReadBack<BATCH, PP_, Operation>>>
+        build(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
+              const int& usedPlanes, const typename Operation::OutputType& defaultValue) {
+            return BatchReadBack<BATCH, PP, Operation>::build(instantiableOperations, usedPlanes, defaultValue);
+        }
+
+        template <typename Operation, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE 
+        std::enable_if_t<PP_ == PROCESS_ALL, SourceReadBack<BatchReadBack<BATCH, PP_, Operation>>>
+        build_source(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations) {
+            return BatchReadBack<BATCH, PP, Operation>::build_source(instantiableOperations);
+        }
+
+        template <typename Operation, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE
+        std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, SourceReadBack<BatchReadBack<BATCH, PP_, Operation>>>
+        build_source(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
+                     const int& usedPlanes, const typename Operation::OutputType& defaultValue) {
+            return BatchReadBack<BATCH, PP, Operation>::build_source(instantiableOperations, usedPlanes, defaultValue);
+        }
+
+        // END DEVICE FUNCTION BASED BUILDERS
     };
 
     template <int BATCH, typename Operation>
@@ -467,6 +954,8 @@ namespace fk {
         using InstantiableType = Write<BatchWrite<BATCH, Operation>>;
         DEFAULT_WRITE_BUILD
     };
+
+
 
     /* The following code has the following copy right
 
@@ -611,52 +1100,6 @@ namespace fk {
         }
         using InstantiableType = Write<CircularTensorWrite<direction, Operation, BATCH>>;
         DEFAULT_WRITE_BUILD
-    };
-
-    enum ROI { OFFSET_THREADS, KEEP_THREAD_IDX };
-
-    template <typename T>
-    struct ApplyROIParams {
-        int x1, y1; // Top left
-        int x2, y2; // Bottom right
-        T defaultValue;
-    };
-
-    template <ROI USE, typename BackFunction_ = void>
-    struct ApplyROI {
-        using BackFunction = BackFunction_;
-        using OutputType = GetOutputType_t<BackFunction>;
-        using ParamsType = ApplyROIParams<OutputType>;
-        using ReadDataType = OutputType;
-        using InstanceType = ReadBackType;
-        static constexpr bool THREAD_FUSION{ false };
-
-        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const ParamsType& params, const BackFunction& back_function) {
-            if (thread.x >= params.x1 && thread.x <= params.x2 && thread.y >= params.y1 && thread.y <= params.y2) {
-                if constexpr (USE == OFFSET_THREADS) {
-                    const Point roiThread(thread.x - params.x1, thread.y - params.y1, thread.z);
-                    return read(roiThread, back_function);
-                } else {
-                    return read(thread, back_function);
-                }
-            } else {
-                return params.defaultValue;
-            }
-        }
-
-        using InstantiableType = ReadBack<ApplyROI<USE, BackFunction_>>;
-        static constexpr __host__ __forceinline__ auto build(const ParamsType& params, const BackFunction_& backFunction) {
-            return InstantiableType{ {params, backFunction} };
-        }
-    };
-
-    template <ROI USE>
-    struct ApplyROI<USE, void> {
-        template <typename RealBackFuntion>
-        static constexpr __host__ __forceinline__
-            auto build(const typename ApplyROI<USE, RealBackFuntion>::ParamsType& params, const RealBackFuntion& backFunction) {
-            return ApplyROI<USE, RealBackFuntion>::build(params, backFunction);
-        }
     };
 
 } //namespace fk

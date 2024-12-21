@@ -13,7 +13,8 @@
    limitations under the License.
 */
 
-#pragma once
+#ifndef FK_ARRAY
+#define FK_ARRAY
 
 #include <fused_kernel/core/utils/cuda_vector_utils.h>
 #include <cstddef>
@@ -180,9 +181,39 @@ namespace fk {
     }
 
     template <typename T, size_t BATCH, typename... Types>
-    FK_HOST_DEVICE_CNST Array<T, BATCH> make_array(Types... pars) {
+    FK_HOST_DEVICE_CNST Array<T, BATCH> make_array(const Types&... pars) {
         static_assert(sizeof...(Types) == BATCH, "Too many or too few elements for the array size.");
         static_assert(std::disjunction_v<std::is_same<T, Types>...>, "All the types should be the same");
         return { {pars...} };
     }
+
+    template <typename Array, typename Value, size_t... Idx>
+    FK_HOST_DEVICE_CNST Array make_set_array_helper(const std::index_sequence<Idx...>&, const Value& value) {
+        return { { (static_cast<void>(Idx), value)... } };
+    }
+
+    template <typename T, size_t BATCH>
+    FK_HOST_DEVICE_CNST Array<T, BATCH> make_set_array(const T& value) {
+        return make_set_array_helper<Array<T, BATCH>>(std::make_index_sequence<BATCH>(), value);
+    }
+
+    template <typename T, size_t BATCH>
+    FK_HOST_DEVICE_CNST std::array<T, BATCH> make_set_std_array(const T& value) {
+        return make_set_array_helper<std::array<T, BATCH>>(std::make_index_sequence<BATCH>(), value);
+    }
+
+    template <typename StdArray>
+    struct StdArrayDetails;
+
+    template <typename ArrayType, size_t SIZE>
+    struct StdArrayDetails<std::array<ArrayType, SIZE>> {
+        static constexpr size_t size{ SIZE };
+        using type = ArrayType;
+    };
+
+    template <size_t BATCH, typename... ArrayTypes>
+    constexpr bool allArraysSameSize_v = and_v<(StdArrayDetails<ArrayTypes>::size == BATCH)...>;
+
 } // namespace fk
+
+#endif

@@ -18,13 +18,13 @@
 #include <fused_kernel/algorithms/basic_ops/cast.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/algorithms/image_processing/resize.cuh>
-#include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 
 // Operation types
 // Read
 using RPerThrFloat = fk::PerThreadRead<fk::_2D, float>;
 // ReadBack
-using RBResize = fk::ResizeRead<fk::InterpolationType::INTER_LINEAR, fk::DF<RPerThrFloat>>;
+using RBResize = fk::ResizeRead<fk::InterpolationType::INTER_LINEAR, fk::AspectRatio::IGNORE_AR, fk::Instantiable<RPerThrFloat>>;
 // Unary
 using UIntFloat = fk::Cast<int, float>;
 using UFloatInt = fk::Cast<float, int>;
@@ -34,7 +34,7 @@ using BAddInt = fk::Add<int>;
 using BAddFloat = fk::Add<float>;
 using Binaries = fk::TypeList<BAddInt, BAddFloat>;
 // Ternary
-using TInterpFloat = fk::Interpolate<fk::InterpolationType::INTER_LINEAR, fk::DF<RPerThrFloat>>;
+using TInterpFloat = fk::Interpolate<fk::InterpolationType::INTER_LINEAR, fk::Instantiable<RPerThrFloat>>;
 // Write
 using WPerThrFloat = fk::PerThreadWrite<fk::_2D, float>;
 // MidWrite

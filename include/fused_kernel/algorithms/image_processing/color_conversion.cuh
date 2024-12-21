@@ -19,7 +19,7 @@
 #include <fused_kernel/algorithms/basic_ops/algebraic.cuh>
 #include <fused_kernel/algorithms/image_processing/saturate.cuh>
 #include <fused_kernel/algorithms/basic_ops/cast.cuh>
-#include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {
@@ -372,6 +372,19 @@ namespace fk {
                 return { pixel.z, pixel.w, pixel.y, pixel.x };
             }
         }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& params) {
+            return params.dims.width;
+        }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const ParamsType& params) {
+            return params.dims.height;
+        }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& params) {
+            return 1;
+        }
+
         using InstantiableType = Read<ReadYUV<PF>>;
         DEFAULT_READ_BUILD
     };

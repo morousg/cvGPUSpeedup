@@ -1,5 +1,5 @@
 /* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
-   Copyright 2023 Oscar Amoros Huguet
+   Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_PARAMETER_PACK_UTILS
+#define FK_PARAMETER_PACK_UTILS
 
 #include <fused_kernel/core/utils/utils.h>
 
@@ -58,3 +59,5 @@ namespace fk { // namespace fused kernel
     template <typename T, T idx, typename ISeq>
     constexpr T get_integer = get_integer_f<T, idx>(ISeq{});
 } // namespace fk
+
+#endif

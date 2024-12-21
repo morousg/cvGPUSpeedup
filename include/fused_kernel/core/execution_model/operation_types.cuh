@@ -12,13 +12,14 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_OPERATION_TYPES
+#define FK_OPERATION_TYPES
 
 #include <fused_kernel/core/data/point.h>
 #include <fused_kernel/core/utils/template_operations.h>
 #include <fused_kernel/core/utils/type_lists.h>
-namespace fk {
 
+namespace fk {
     struct ReadType {};
     struct ReadBackType {};
     struct UnaryType {};
@@ -27,92 +28,94 @@ namespace fk {
     struct MidWriteType {};
     struct WriteType {};
 
-    template <typename OperationORDeviceFunction>
-    constexpr bool isReadType = std::is_same_v<typename OperationORDeviceFunction::InstanceType, ReadType>;
+    template <typename OperationORInstantiableOperation>
+    constexpr bool isReadType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, ReadType>;
 
-    template <typename OperationORDeviceFunction>
-    constexpr bool isReadBackType = std::is_same_v<typename OperationORDeviceFunction::InstanceType, ReadBackType>;
+    template <typename OperationORInstantiableOperation>
+    constexpr bool isReadBackType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, ReadBackType>;
 
     using ReadTypeList = TypeList<ReadType, ReadBackType>;
 
-    template <typename OperationORDeviceFunction>
-    constexpr bool isAnyReadType = one_of_v<typename OperationORDeviceFunction::InstanceType, ReadTypeList>;
+    template <typename OperationORInstantiableOperation>
+    constexpr bool isAnyReadType = one_of_v<typename OperationORInstantiableOperation::InstanceType, ReadTypeList>;
 
-    template <typename OperationORDeviceFunction, typename = void>
+    template <typename OperationORInstantiableOperation, typename = void>
     struct is_any_read_type : std::false_type {};
 
-    template <typename OperationORDeviceFunction>
-    struct is_any_read_type<OperationORDeviceFunction, std::enable_if_t<isAnyReadType<OperationORDeviceFunction>, void>> : std::true_type {};
+    template <typename OperationORInstantiableOperation>
+    struct is_any_read_type<OperationORInstantiableOperation, std::enable_if_t<isAnyReadType<OperationORInstantiableOperation>, void>> : std::true_type {};
 
-    template <typename OperationORDeviceFunction>
-    constexpr bool isUnaryType = std::is_same_v<typename OperationORDeviceFunction::InstanceType, UnaryType>;
+    template <typename OperationORInstantiableOperation>
+    constexpr bool isUnaryType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, UnaryType>;
 
-    template <typename OperationORDeviceFunction>
-    constexpr bool isBinaryType = std::is_same_v<typename OperationORDeviceFunction::InstanceType, BinaryType>;
+    template <typename OperationORInstantiableOperation>
+    constexpr bool isBinaryType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, BinaryType>;
 
-    template <typename OperationORDeviceFunction>
-    constexpr bool isTernaryType = std::is_same_v<typename OperationORDeviceFunction::InstanceType, TernaryType>;
+    template <typename OperationORInstantiableOperation>
+    constexpr bool isTernaryType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, TernaryType>;
 
-    template <typename OperationORDeviceFunction>
-    constexpr bool isWriteType = std::is_same_v<typename OperationORDeviceFunction::InstanceType, WriteType>;
+    template <typename OperationORInstantiableOperation>
+    constexpr bool isWriteType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, WriteType>;
 
-    template <typename OperationORDeviceFunction>
-    constexpr bool isMidWriteType = std::is_same_v<typename OperationORDeviceFunction::InstanceType, MidWriteType>;
+    template <typename OperationORInstantiableOperation>
+    constexpr bool isMidWriteType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, MidWriteType>;
 
     using ComputeTypeList = TypeList<UnaryType, BinaryType, TernaryType>;
 
-    template <typename OperationORDeviceFunction>
-    constexpr bool isComputeType = one_of_v<typename OperationORDeviceFunction::InstanceType, ComputeTypeList>;
+    template <typename OperationORInstantiableOperation>
+    constexpr bool isComputeType = one_of_v<typename OperationORInstantiableOperation::InstanceType, ComputeTypeList>;
 
     using WriteTypeList = TypeList<WriteType, MidWriteType>;
 
-    template <typename OperationORDeviceFunction>
-    constexpr bool isAnyWriteType = one_of_v<typename OperationORDeviceFunction::InstanceType, WriteTypeList>;
+    template <typename OperationORInstantiableOperation>
+    constexpr bool isAnyWriteType = one_of_v<typename OperationORInstantiableOperation::InstanceType, WriteTypeList>;
 
-    template <typename DeviceFunction>
-    using GetInputType_t = typename DeviceFunction::Operation::InputType;
+    template <typename InstantiableOperation>
+    using GetInputType_t = typename InstantiableOperation::Operation::InputType;
 
-    template <typename DeviceFunction>
-    using GetOutputType_t = typename DeviceFunction::Operation::OutputType;
+    template <typename InstantiableOperation>
+    using GetOutputType_t = typename InstantiableOperation::Operation::OutputType;
 
-    template <typename DeviceFunction>
-    FK_HOST_DEVICE_CNST GetOutputType_t<DeviceFunction> read(const Point& thread, const DeviceFunction& deviceFunction) {
-        if constexpr (DeviceFunction::template is<ReadType>) {
-            return DeviceFunction::Operation::exec(thread, deviceFunction.params);
-        } else if constexpr (DeviceFunction::template is<ReadBackType>) {
-            return DeviceFunction::Operation::exec(thread, deviceFunction.params, deviceFunction.back_function);
+    template <typename InstantiableOperation>
+    FK_HOST_DEVICE_CNST GetOutputType_t<InstantiableOperation> read(const Point& thread, const InstantiableOperation& instantiableOperation) {
+        if constexpr (InstantiableOperation::template is<ReadType>) {
+            return InstantiableOperation::Operation::exec(thread, instantiableOperation.params);
+        } else if constexpr (InstantiableOperation::template is<ReadBackType>) {
+            return InstantiableOperation::Operation::exec(thread, instantiableOperation.params, instantiableOperation.back_function);
         }
     }
 
-    template <typename DeviceFunction>
-    FK_HOST_DEVICE_CNST GetOutputType_t<DeviceFunction> compute(const GetInputType_t<DeviceFunction>& input,
-        const DeviceFunction& deviceFunction) {
-        static_assert(isComputeType<DeviceFunction>, "Function compute only works with DeviceFunction InstanceTypes of the group ComputeTypeList");
-        if constexpr (isUnaryType<DeviceFunction>) {
-            return DeviceFunction::Operation::exec(input);
-        } else if constexpr (isBinaryType<DeviceFunction>) {
-            return DeviceFunction::Operation::exec(input, deviceFunction.params);
-        } else if constexpr (isTernaryType<DeviceFunction>) {
-            return DeviceFunction::Operation::exec(input, deviceFunction.params, deviceFunction.back_function);
+    template <typename InstantiableOperation>
+    FK_HOST_DEVICE_CNST GetOutputType_t<InstantiableOperation> compute(const GetInputType_t<InstantiableOperation>& input,
+        const InstantiableOperation& instantiableOperation) {
+        static_assert(isComputeType<InstantiableOperation>, "Function compute only works with InstantiableOperation InstanceTypes of the group ComputeTypeList");
+        if constexpr (isUnaryType<InstantiableOperation>) {
+            return InstantiableOperation::Operation::exec(input);
+        } else if constexpr (isBinaryType<InstantiableOperation>) {
+            return InstantiableOperation::Operation::exec(input, instantiableOperation.params);
+        } else if constexpr (isTernaryType<InstantiableOperation>) {
+            return InstantiableOperation::Operation::exec(input, instantiableOperation.params, instantiableOperation.back_function);
         }
     }
 
-    template <typename... OperationsOrDeviceFunctions>
-    constexpr bool allUnaryTypes = and_v<isUnaryType<OperationsOrDeviceFunctions>...>;
+    template <typename... OperationsOrInstantiableOperations>
+    constexpr bool allUnaryTypes = and_v<isUnaryType<OperationsOrInstantiableOperations>...>;
 
-    template <typename Enabler, typename... OperationsOrDeviceFunctions>
+    template <typename Enabler, typename... OperationsOrInstantiableOperations>
     struct are_all_unary_types : std::false_type {};
 
-    template <typename... OperationsOrDeviceFunctions>
-    struct are_all_unary_types<std::enable_if_t<allUnaryTypes<OperationsOrDeviceFunctions...>>,
-                               OperationsOrDeviceFunctions...> : std::true_type {};
+    template <typename... OperationsOrInstantiableOperations>
+    struct are_all_unary_types<std::enable_if_t<allUnaryTypes<OperationsOrInstantiableOperations...>>,
+                               OperationsOrInstantiableOperations...> : std::true_type {};
 
-    template <typename... OperationORDeviceFunction>
-    constexpr bool noneWriteType = and_v<(!isWriteType<OperationORDeviceFunction>)...>;
+    template <typename... OperationORInstantiableOperation>
+    constexpr bool noneWriteType = and_v<(!isWriteType<OperationORInstantiableOperation>)...>;
 
-    template <typename... OperationORDeviceFunction>
-    constexpr bool noneMidWriteType = and_v<(!isMidWriteType<OperationORDeviceFunction>)...>;
+    template <typename... OperationORInstantiableOperation>
+    constexpr bool noneMidWriteType = and_v<(!isMidWriteType<OperationORInstantiableOperation>)...>;
 
-    template <typename... OperationORDeviceFunction>
-    constexpr bool noneAnyWriteType = and_v<(!isAnyWriteType<OperationORDeviceFunction>)...>;
+    template <typename... OperationORInstantiableOperation>
+    constexpr bool noneAnyWriteType = and_v<(!isAnyWriteType<OperationORInstantiableOperation>)...>;
 } // namespace fk
+
+#endif

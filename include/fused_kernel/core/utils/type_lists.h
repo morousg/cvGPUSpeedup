@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
    Copyright 2023 David Del Rio Astorga
    Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
 
@@ -15,7 +15,8 @@
    limitations under the License.
 */
 
-#pragma once
+#ifndef FK_TYPE_LIST
+#define FK_TYPE_LIST
 
 #include <stddef.h>
 #include <fused_kernel/core/utils/utils.h>
@@ -163,10 +164,10 @@ namespace fk { // namespace fused kernel
     using LastType_t = TypeAt_t<sizeof...(Types)-1, TypeList<Types...>>;
 
     template <typename... Types>
-    using FirstDeviceFunctionInputType_t = typename FirstType_t<Types...>::Operation::InputType;
+    using FirstInstantiableOperationInputType_t = typename FirstType_t<Types...>::Operation::InputType;
 
     template <typename... Types>
-    using LastDeviceFunctionOutputType_t = typename LastType_t<Types...>::Operation::OutputType;
+    using LastInstantiableOperationOutputType_t = typename LastType_t<Types...>::Operation::OutputType;
 
     // Find the index of T in TypeList1 and obtain the tyoe for that index
     // in TypeList2. All this at compile time. This can be used when you want to automatically derive
@@ -251,3 +252,5 @@ namespace fk { // namespace fused kernel
     using filtered_index_sequence_t = typename RestrictedIntegerSequenceBuilder<size_t, TypeRestriction, TypeList, false, 0>::type;
 
 } // namespace fk
+
+#endif

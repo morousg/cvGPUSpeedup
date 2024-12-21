@@ -15,7 +15,7 @@
 #ifndef FK_STATIC_LOOP
 #define FK_STATIC_LOOP
 
-#include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {

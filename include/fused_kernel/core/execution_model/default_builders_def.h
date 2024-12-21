@@ -18,12 +18,21 @@
 #define DEFAULT_READ_BUILD \
 static constexpr __host__ __forceinline__ InstantiableType build(const ParamsType& params) { \
     return InstantiableType{ {params} }; \
+} \
+static constexpr __host__ __forceinline__ InstantiableType build_source(const ParamsType& params) { \
+    return InstantiableType{ {params}, {num_elems_x(Point(), params), num_elems_y(Point(), params), num_elems_z(Point(), params)} }; \
 }
 
 #define DEFAULT_READBACK_BUILD \
 static constexpr __host__ __forceinline__ \
 auto build(const ParamsType& params, const BackFunction_& backFunction) { \
-    return InstantiableType{ {params, backFunction} }; \
+    return InstantiableType{ { params, backFunction } }; \
+} \
+static constexpr __host__ __forceinline__ InstantiableType build_source(const ParamsType& params, const BackFunction_& backFunction) { \
+        return InstantiableType{ { params, backFunction }, \
+        { num_elems_x(Point(), params, backFunction), \
+          num_elems_y(Point(), params, backFunction), \
+          num_elems_z(Point(), params, backFunction) } }; \
 }
 
 #define DEFAULT_UNARY_BUILD \

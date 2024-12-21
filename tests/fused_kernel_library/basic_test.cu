@@ -15,7 +15,7 @@
 #include <iostream>
 
 #include <fused_kernel/core/data/ptr_nd.cuh>
-#include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/algorithms/basic_ops/arithmetic.cuh>
 #include <fused_kernel/algorithms/image_processing/saturate.cuh>
@@ -49,13 +49,13 @@ bool testPtr_2D() {
     dim3 grid2DBig((uint)std::ceil(width / (float)block2D.x),
                    (uint)std::ceil(height / (float)block2D.y));
 
-    dim3 gridActiveThreadsCrop(cropedInput.dims().width, cropedInput.dims().height);
-    dim3 gridActiveThreads(input.dims().width, input.dims().height);
-    fk::SourceReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readCrop{cropedInput, gridActiveThreadsCrop};
-    fk::SourceReadDeviceFunction<fk::PerThreadRead<fk::_2D, T>> readFull{input, gridActiveThreads};
+    fk::ActiveThreads gridActiveThreadsCrop(cropedInput.dims().width, cropedInput.dims().height);
+    fk::ActiveThreads gridActiveThreads(input.dims().width, input.dims().height);
+    fk::SourceReadInstantiableOperation<fk::PerThreadRead<fk::_2D, T>> readCrop{cropedInput, gridActiveThreadsCrop};
+    fk::SourceReadInstantiableOperation<fk::PerThreadRead<fk::_2D, T>> readFull{input, gridActiveThreads};
 
-    fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2D = { output };
-    fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_2D, T>> opFinal_2DBig = { outputBig };
+    fk::WriteInstantiableOperation<fk::PerThreadWrite<fk::_2D, T>> opFinal_2D = { output };
+    fk::WriteInstantiableOperation<fk::PerThreadWrite<fk::_2D, T>> opFinal_2DBig = { outputBig };
 
     for (int i=0; i<100; i++) {
         fk::cuda_transform<<<grid2D, block2D, 0, stream>>>(readCrop, opFinal_2D);
@@ -87,7 +87,7 @@ int launch() {
     fk::Ptr2D<uchar> input(64,64);
     fk::Ptr2D<uint> output(64,64);
     
-    dim3 gridActiveThreads(64, 64);
+    fk::ActiveThreads gridActiveThreads(64, 64);
     fk::SourceRead<fk::PerThreadRead<fk::_2D, uchar>> read{ input, gridActiveThreads };
     fk::Unary<fk::SaturateCast<uchar, uint>> cast = {};
     fk::Write<fk::PerThreadWrite<fk::_2D, uint>> write { output };

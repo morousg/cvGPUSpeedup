@@ -16,7 +16,7 @@
 #define FK_LOGICAL
 
 #include <fused_kernel/core/execution_model/vector_operations.cuh>
-#include <fused_kernel/core/utils/tuple.cuh>
+#include <fused_kernel/core/data/tuple.cuh>
 #include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {

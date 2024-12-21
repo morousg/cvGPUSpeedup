@@ -15,20 +15,28 @@
 
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/algorithms/image_processing/resize.cuh>
+#include <fused_kernel/core/data/array.cuh>
 #include <array>
 
 using namespace fk;
 
 int launch() {
     constexpr int BATCH = 20;
-    std::array<RawPtr<_2D, float>, BATCH> inputs{};
-    std::array<ResizeReadParams<InterpolationType::INTER_LINEAR>, BATCH> resParams{};
-    std::array<ApplyROIParams<float>, BATCH> roiParams{};
+    constexpr RawPtr<_2D, float> data{ nullptr,{16,16,16} };
+    constexpr std::array<RawPtr<_2D, float>, BATCH> inputs = make_set_std_array<RawPtr<_2D, float>, BATCH>(data);
+    constexpr Size oneSize(8,8);
+    constexpr std::array<Size, BATCH> resParams = make_set_std_array<Size, BATCH>(oneSize);
 
-    const auto batchRead =
-        BatchReadBack<BATCH>::build<ApplyROI<ROI::OFFSET_THREADS>,
-                                    ResizeRead<InterpolationType::INTER_LINEAR>,
-                                    PerThreadRead<_2D, float>>(roiParams, resParams, inputs);
+    constexpr float defaultValue = 0;
+    constexpr std::array<float, BATCH> defaultArray = make_set_std_array<float, BATCH>(defaultValue);
+    constexpr int usedPlanes = 15;
+
+    constexpr auto readDFArray = buildParamsArrayToDFArray<PerThreadRead<_2D, float>, BATCH>(inputs);
+
+    constexpr auto oneResizeread = ResizeRead<INTER_LINEAR, IGNORE_AR>::build(readDFArray[0], resParams[0]);
+
+    constexpr auto resizeDFArray = buildParamsArrayToDFArray<ResizeRead<INTER_LINEAR, IGNORE_AR>, BATCH>(readDFArray, resParams);
+    const auto resizeDFArray2 = buildParamsArrayToDFArray<ResizeRead<INTER_LINEAR, PRESERVE_AR>, BATCH>(readDFArray, resParams, defaultArray);
 
     return 0;
 }

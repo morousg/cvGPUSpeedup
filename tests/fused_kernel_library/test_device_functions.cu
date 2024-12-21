@@ -18,14 +18,14 @@
 #include <fused_kernel/algorithms/basic_ops/cast.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/algorithms/image_processing/resize.cuh>
-#include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/core/utils/type_lists.h>
 
 // Operation types
 // Read
 using RPerThrFloat = fk::PerThreadRead<fk::_2D, float>;
 // ReadBack
-using RBResize = fk::ResizeRead<fk::InterpolationType::INTER_LINEAR, fk::DF<RPerThrFloat>>;
+using RBResize = fk::ResizeRead<fk::InterpolationType::INTER_LINEAR, fk::AspectRatio::IGNORE_AR, fk::Instantiable<RPerThrFloat>>;
 // Unary
 using UIntFloat = fk::Cast<int, float>;
 using UFloatInt = fk::Cast<float, int>;
@@ -33,19 +33,19 @@ using UFloatInt = fk::Cast<float, int>;
 using BAddInt = fk::Add<int>;
 using BAddFloat = fk::Add<float>;
 // Ternary
-using TInterpFloat = fk::Interpolate<fk::InterpolationType::INTER_LINEAR, fk::DF<RPerThrFloat>>;
+using TInterpFloat = fk::Interpolate<fk::InterpolationType::INTER_LINEAR, fk::Instantiable<RPerThrFloat>>;
 // Write
 using WPerThrFloat = fk::PerThreadWrite<fk::_2D, float>;
 // MidWrite
 using MWPerThrFloat = fk::FusedOperation<WPerThrFloat, BAddFloat>;
 
 int launch() {
-    constexpr fk::DF<RPerThrFloat> func1{};
+    constexpr fk::Instantiable<RPerThrFloat> func1{};
     constexpr auto func2 =
-        func1.then(fk::DF<UFloatInt>{}).
-        then(fk::DF<BAddInt>{4}).
-        then(fk::DF<UIntFloat>{}).
-        then(fk::DF<BAddFloat>{5.3});
+        func1.then(fk::Instantiable<UFloatInt>{}).
+        then(fk::Instantiable<BAddInt>{4}).
+        then(fk::Instantiable<UIntFloat>{}).
+        then(fk::Instantiable<BAddFloat>{5.3});
 
     static_assert(func2.isSource == false);
     static_assert(func2.is<fk::ReadType>);
@@ -62,7 +62,7 @@ int launch() {
     static_assert(noIntermediateFusedOperation);
 
     // All Unary
-    constexpr auto func = fk::DF<UFloatInt>{}.then(fk::DF<UIntFloat>{}).then(fk::DF<UFloatInt>{});
+    constexpr auto func = fk::Instantiable<UFloatInt>{}.then(fk::Instantiable<UIntFloat>{}).then(fk::Instantiable<UFloatInt>{});
 
     using Operations = decltype(func)::Operation::Operations;
     static_assert(Operations::size == 3);

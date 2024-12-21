@@ -12,9 +12,10 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_SATURATE
+#define FK_SATURATE
 
-#include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/algorithms/basic_ops/logical.cuh>
 #include <fused_kernel/core/execution_model/vector_operations.cuh>
 
@@ -35,14 +36,14 @@ struct SaturateCastBase<IT, O> { \
 };
 
     SATURATE_CAST_BASE(uchar)
-        SATURATE_CAST_BASE(char)
-        SATURATE_CAST_BASE(schar)
-        SATURATE_CAST_BASE(ushort)
-        SATURATE_CAST_BASE(short)
-        SATURATE_CAST_BASE(uint)
-        SATURATE_CAST_BASE(int)
-        SATURATE_CAST_BASE(float)
-        SATURATE_CAST_BASE(double)
+    SATURATE_CAST_BASE(char)
+    SATURATE_CAST_BASE(schar)
+    SATURATE_CAST_BASE(ushort)
+    SATURATE_CAST_BASE(short)
+    SATURATE_CAST_BASE(uint)
+    SATURATE_CAST_BASE(int)
+    SATURATE_CAST_BASE(float)
+    SATURATE_CAST_BASE(double)
 
 #undef SATURATE_CAST_BASE
 
@@ -613,3 +614,5 @@ SATURATE_CAST_BASE(double, uint)
 } // namespace fk
 
 #undef DEFAULT_UNARY_BUILD
+
+#endif

@@ -12,11 +12,12 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_OPERATION_TUPLE
+#define FK_OPERATION_TUPLE
 
 #include <type_traits>
 
-#include <fused_kernel/core/utils/tuple.cuh>
+#include <fused_kernel/core/data/tuple.cuh>
 #include <fused_kernel/core/execution_model/operation_types.cuh>
 
 namespace fk {
@@ -320,7 +321,7 @@ namespace fk {
     template <typename Type>
     struct HasOperation<Type, std::void_t<typename Type::Operation>> : std::true_type {};
 
-    struct IsDeviceFunction {
+    struct IsInstantiableOperation {
         template <typename Type>
         FK_HOST_DEVICE_FUSE bool complies() {
             return HasOperation<Type>::value;
@@ -330,16 +331,16 @@ namespace fk {
     template <typename FirstOperation, typename... Operations, typename Param, typename BackFunction, typename... Params>
     FK_HOST_DEVICE_CNST std::enable_if_t<hasParamsAndBackFunction_v<FirstOperation>,OperationTuple<FirstOperation, Operations...>> 
         make_operation_tuple(const Param& param, const BackFunction& back_function, const Params&... params) {
-        static_assert(IsDeviceFunction::complies<BackFunction>(), "Expected a Device Funtion");
+        static_assert(IsInstantiableOperation::complies<BackFunction>(), "Expected a Device Funtion");
         return { {param, back_function}, make_operation_tuple<Operations...>(params...) };
     }
 
     template <typename Operation, typename Param, typename BackFunction>
     FK_HOST_DEVICE_CNST std::enable_if_t<hasParamsAndBackFunction_v<Operation>, OperationTuple<Operation>>
         make_operation_tuple(const Param& param, const BackFunction& back_function) {
-        static_assert(IsDeviceFunction::complies<BackFunction>(), "Expected a Device Funtion");
+        static_assert(IsInstantiableOperation::complies<BackFunction>(), "Expected a Device Funtion");
         return { {param, back_function} };
     }
-
-
 } // namespace fk
+
+#endif

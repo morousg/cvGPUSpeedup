@@ -12,7 +12,8 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_TUPLE
+#define FK_TUPLE
 
 #include <fused_kernel/core/utils/type_lists.h>
 
@@ -168,22 +169,22 @@ namespace fk {
     }
 
     // Struct to hold a parameter pack, and be able to pass it arround
-    template <typename... DeviceFunctionTypes>
-    struct DeviceFunctionSequence {
-        Tuple<DeviceFunctionTypes...> deviceFunctions;
+    template <typename... InstantiableOperationTypes>
+    struct InstantiableOperationSequence {
+        Tuple<InstantiableOperationTypes...> instantiableOperations;
     };
 
     // Function that fills the OperationSequence struct, from a parameter pack
-    template <typename... DeviceFunctionTypes>
-    FK_HOST_DEVICE_CNST auto buildOperationSequence(const DeviceFunctionTypes&... deviceFunctionInstances) {
-        return DeviceFunctionSequence<DeviceFunctionTypes...> {{deviceFunctionInstances...}};
+    template <typename... InstantiableOperationTypes>
+    FK_HOST_DEVICE_CNST auto buildOperationSequence(const InstantiableOperationTypes&... instantiableOperationInstances) {
+        return InstantiableOperationSequence<InstantiableOperationTypes...> {{instantiableOperationInstances...}};
     }
 
-    template <typename... DeviceFunctionTypes>
-    FK_HOST_DEVICE_CNST auto buildOperationSequence_tup(const Tuple<DeviceFunctionTypes...>& deviceFunctionInstances) {
+    template <typename... InstantiableOperationTypes>
+    FK_HOST_DEVICE_CNST auto buildOperationSequence_tup(const Tuple<InstantiableOperationTypes...>& instantiableOperationInstances) {
         return fk::apply([](const auto&... args) {
             return buildOperationSequence(args...);
-            }, deviceFunctionInstances);
+            }, instantiableOperationInstances);
     }
 
     // Util to insert an element before the last element of a tuple
@@ -242,3 +243,5 @@ namespace fk {
         return static_translate_helper<GetSecond<FT, ST>>(NElems, srcArray, std::make_integer_sequence<int, NElems>{});
     }
 } // namespace fk
+
+#endif

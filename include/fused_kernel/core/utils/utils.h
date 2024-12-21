@@ -1,7 +1,4 @@
-/*
-   Some functions in this file are subject to other licenses
-
-   Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -27,8 +24,9 @@
 #define FK_DEVICE_CNST constexpr __device__ __forceinline__
 #define FK_HOST_DEVICE_FUSE FK_DEVICE_FUSE __host__
 #define FK_HOST_DEVICE_CNST FK_DEVICE_CNST __host__
-#define FK_HOST_FUSE static inline __host__
-#define FK_HOST_CNST inline constexpr __host__
+#define FK_HOST_FUSE static constexpr __forceinline__ __host__
+#define FK_HOST_CNST constexpr __forceinline__ __host__
+#define FK_HOST_STATIC static __forceinline__ __host__
 
 #define CUDART_MAJOR_VERSION CUDART_VERSION/1000
 

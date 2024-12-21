@@ -16,22 +16,22 @@
 
 #include <tests/fkTestsCommon.h>
 #include <fused_kernel/core/utils/type_lists.h>
-#include <fused_kernel/core/utils/operation_tuple.cuh>
+#include <fused_kernel/core/execution_model/operation_tuple.cuh>
 #include <fused_kernel/core/execution_model/operation_types.cuh>
 #include <fused_kernel/core/utils/parameter_pack_utils.cuh>
-#include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/algorithms/image_processing/resize.cuh>
 #include <fused_kernel/algorithms/basic_ops/arithmetic.cuh>
 
 template <typename Restriction, typename... ListTypes>
-constexpr bool allDeviceFunctionsComplieWith(const fk::TypeList<ListTypes...>& tl) {
+constexpr bool allInstantiableOperationsComplieWith(const fk::TypeList<ListTypes...>& tl) {
     return fk::and_v<(Restriction::template complies<typename ListTypes::InstanceType>())...>;
 }
 
 int launch() {
     using ReadDummy = fk::PerThreadRead<fk::_2D, int>;
-    using ReadBackDummy = fk::ResizeRead<fk::InterpolationType::INTER_LINEAR, fk::Read<ReadDummy>>;
+    using ReadBackDummy = fk::ResizeRead<fk::InterpolationType::INTER_LINEAR, fk::AspectRatio::IGNORE_AR, fk::Read<ReadDummy>>;
     using BinaryDummy = fk::Add<int>;
     using TernaryDummy = fk::Interpolate<fk::InterpolationType::INTER_LINEAR, fk::Read<ReadDummy>>;
     using WriteDummy = fk::PerThreadWrite<fk::_2D, int>;
@@ -41,7 +41,7 @@ int launch() {
                    fk::Binary<BinaryDummy>, fk::Ternary<TernaryDummy>,
                    fk::MidWrite<WriteDummy>, fk::Write<WriteDummy>>;
 
-    constexpr bool correctDFRestrict = allDeviceFunctionsComplieWith<fk::NotUnaryRestriction>(DFList{});
+    constexpr bool correctDFRestrict = allInstantiableOperationsComplieWith<fk::NotUnaryRestriction>(DFList{});
 
     using ListToCheck =
         fk::TypeList<fk::ReadType, fk::BinaryType, fk::UnaryType, fk::TernaryType,

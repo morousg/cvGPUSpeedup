@@ -15,8 +15,8 @@
 #include "tests/main.h"
 
 #include <fused_kernel/core/data/ptr_nd.cuh>
-#include <fused_kernel/core/utils/operation_tuple.cuh>
-#include <fused_kernel/core/execution_model/device_functions.cuh>
+#include <fused_kernel/core/execution_model/operation_tuple.cuh>
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/algorithms/basic_ops/arithmetic.cuh>
 #include <fused_kernel/algorithms/basic_ops/cast.cuh>
@@ -27,10 +27,13 @@ bool test_OTInitialization() {
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
 
-    fk::Ptr2D<uchar> input(64, 64);
-    dim3 gridActiveThreads(input.dims().width, input.dims().height);
+    constexpr uint X = 64;
+    constexpr uint Y = 64;
+
+    const fk::Ptr2D<uchar> input(64, 64);
+    constexpr fk::ActiveThreads gridActiveThreads(X, Y);
     using Op = fk::PerThreadRead<fk::_2D, uchar>;
-    fk::SourceRead<Op> read{ input, gridActiveThreads };
+    const fk::SourceRead<Op> read{ input, gridActiveThreads };
 
     const fk::OperationTuple<Op> testing{ {read.params} };
 
@@ -38,10 +41,10 @@ bool test_OTInitialization() {
     const fk::SourceRead<fk::FusedOperation<Op>> test3 = fk::fuseDF(read);
 
     using Op2 = fk::SaturateCast<uchar, uint>;
-    const fk::Unary<Op2> cast = {};
+    constexpr fk::Unary<Op2> cast = {};
 
     const auto ot1 = fk::devicefunctions_to_operationtuple(read);
-    const auto ot2 = fk::devicefunctions_to_operationtuple(cast);
+    constexpr auto ot2 = fk::devicefunctions_to_operationtuple(cast);
 
     const auto test4 = fk::make_operation_tuple_<Op, Op2>(ot1.instance);
     const auto test5 = fk::make_operation_tuple_<Op, Op2>(fk::get<0>(ot1));
@@ -55,7 +58,7 @@ bool test_OTInitialization() {
 
     const auto test8 = fk::fuseDF(read, cast);
 
-    const auto test9 = fk::make_source(fk::DF<fk::FusedOperation<typename decltype(read)::Operation,
+    const auto test9 = fk::make_source(fk::Instantiable<fk::FusedOperation<typename decltype(read)::Operation,
                                                                    typename decltype(cast)::Operation>>
     { fk::devicefunctions_to_operationtuple(read, cast) }, read.activeThreads);
 

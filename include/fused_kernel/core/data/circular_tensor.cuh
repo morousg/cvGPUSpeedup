@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -87,11 +87,11 @@ namespace fk {
 
         using StoreT = typename CircularTensorStoreType<T, COLOR_PLANES>::type;
 
-        using WriteDeviceFunctions = TypeList<Write<TensorWrite<StoreT>>,
+        using WriteInstantiableOperations = TypeList<Write<TensorWrite<StoreT>>,
             Write<TensorSplit<StoreT>>,
             Write<TensorTSplit<StoreT>>>;
 
-        using ReadDeviceFunctions = TypeList<SourceRead<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorRead<StoreT>, BATCH>>,
+        using ReadInstantiableOperations = TypeList<SourceRead<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorRead<StoreT>, BATCH>>,
             SourceRead<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorPack<StoreT>, BATCH>>,
             SourceRead<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorTPack<StoreT>, BATCH>>>;
 
@@ -107,23 +107,23 @@ namespace fk {
             m_tempTensor.allocTensor(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_);
         }
 
-        template <typename... DeviceFunctionTypes>
+        template <typename... InstantiableOperationTypes>
         __host__ inline constexpr void update(const cudaStream_t& stream,
-            const DeviceFunctionTypes&... deviceFunctionInstances) {
-            const auto writeDeviceFunction = ppLast(deviceFunctionInstances...);
-            using writeDFType = std::decay_t<decltype(writeDeviceFunction)>;
+            const InstantiableOperationTypes&... instantiableOperationInstances) {
+            const auto writeInstantiableOperation = ppLast(instantiableOperationInstances...);
+            using writeDFType = std::decay_t<decltype(writeInstantiableOperation)>;
             using writeOpType = typename writeDFType::Operation;
             if constexpr (CP_MODE == ColorPlanes::Transposed) {
                 static_assert(std::is_same_v<writeDFType, Write<TensorTSplit<StoreT>>>,
                     "Need to use TensorTSplitWrite as write function because you are using a transposed CircularTensor (CP_MODE = Transposed)");
             }
-            using equivalentReadDFType = EquivalentType_t<writeDFType, WriteDeviceFunctions, ReadDeviceFunctions>;
+            using equivalentReadDFType = EquivalentType_t<writeDFType, WriteInstantiableOperations, ReadInstantiableOperations>;
 
             MidWrite<CircularTensorWrite<CircularDirection::Ascendent, writeOpType, BATCH>> updateWriteToTemp;
             updateWriteToTemp.params.first = m_nextUpdateIdx;
             updateWriteToTemp.params.params = m_tempTensor.ptr();
 
-            const auto updateOps = buildOperationSequence_tup(insert_before_last(updateWriteToTemp, deviceFunctionInstances...));
+            const auto updateOps = buildOperationSequence_tup(insert_before_last(updateWriteToTemp, instantiableOperationInstances...));
 
             // Build copy pipeline
             equivalentReadDFType nonUpdateRead;
@@ -133,7 +133,7 @@ namespace fk {
             nonUpdateRead.activeThreads.y = this->ptr_a.dims.height;
             nonUpdateRead.activeThreads.z = BATCH;
 
-            const auto copyOps = buildOperationSequence(nonUpdateRead, writeDeviceFunction);
+            const auto copyOps = buildOperationSequence(nonUpdateRead, writeInstantiableOperation);
 
             dim3 grid((uint)ceil((float)this->ptr_a.dims.width / (float)this->adjusted_blockSize.x),
                 (uint)ceil((float)this->ptr_a.dims.height / (float)this->adjusted_blockSize.y),

@@ -38,13 +38,13 @@ __global__ void init_values(const T val, fk::RawPtr<fk::_1D, T> pointer_to_init)
     }
 }
 
-template <typename InputType, typename OutputType, size_t NumOps, typename DeviceFunction>
+template <typename InputType, typename OutputType, size_t NumOps, typename InstantiableOperation>
 struct VerticalFusion {
     static inline void execute(const fk::Ptr1D<InputType>& input, const cudaStream_t& stream,
-                               const fk::Ptr1D<OutputType>& output, const DeviceFunction& dFunc) {
+                               const fk::Ptr1D<OutputType>& output, const InstantiableOperation& dFunc) {
         const dim3 activeThreads{ output.ptr().dims.width };
         fk::SourceRead<fk::PerThreadRead<fk::_1D, InputType>> readDF{ input.ptr(), activeThreads};
-        using Loop = fk::Binary<fk::StaticLoop<fk::StaticLoop<typename DeviceFunction::Operation, INCREMENT>, NumOps/INCREMENT>>;
+        using Loop = fk::Binary<fk::StaticLoop<fk::StaticLoop<typename InstantiableOperation::Operation, INCREMENT>, NumOps/INCREMENT>>;
         Loop loop;
         loop.params = dFunc.params;
 
@@ -66,15 +66,15 @@ inline int testLatencyHiding(cudaStream_t stream) {
     dim3 grid(ceil(NUM_ELEMENTS / (float)block.x));
     init_values<<<grid, block, 0, stream>>>(init_val, input.ptr());
 
-    using DeviceFunction = fk::Binary<fk::Add<float3>>;
-    DeviceFunction df{ fk::make_set<float3>(2) };
+    using InstantiableOperation = fk::Binary<fk::Add<float3>>;
+    InstantiableOperation df{ fk::make_set<float3>(2) };
 
     // Warmup
-    VerticalFusion<float3, float3, 1, DeviceFunction>::execute(input, stream, output, df);
+    VerticalFusion<float3, float3, 1, InstantiableOperation>::execute(input, stream, output, df);
 
     START_CVGS_BENCHMARK
 
-        VerticalFusion<float3, float3, VARIABLE_DIMENSION, DeviceFunction>::execute(input, stream, output, df);
+        VerticalFusion<float3, float3, VARIABLE_DIMENSION, InstantiableOperation>::execute(input, stream, output, df);
 
     STOP_CVGS_BENCHMARK
 

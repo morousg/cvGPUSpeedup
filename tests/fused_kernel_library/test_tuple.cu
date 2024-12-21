@@ -16,7 +16,7 @@
 
 #include <iostream>
 
-#include <fused_kernel/core/utils/operation_tuple.cuh>
+#include <fused_kernel/core/execution_model/operation_tuple.cuh>
 #include <fused_kernel/algorithms/basic_ops/cuda_vector.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
 
