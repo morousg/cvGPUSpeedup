@@ -156,7 +156,8 @@ namespace fk {
     struct OperationTuple_;
 
     template <typename Operation_t, typename... Operations>
-    struct OperationTuple_<std::enable_if_t<!isUnaryType<Operation_t>, void>, Operation_t, Operations...> {
+    struct OperationTuple_<std::enable_if_t<!isUnaryType<Operation_t> &&
+                                            (sizeof...(Operations) > 0), void>, Operation_t, Operations...> {
         using Operation = Operation_t;
         using Next = OperationTuple_<void, Operations...>;
         OperationData<Operation> instance;
@@ -165,7 +166,9 @@ namespace fk {
     };
 
     template <typename Operation_t, typename... Operations>
-    struct OperationTuple_<std::enable_if_t<isUnaryType<Operation_t> && !allUnaryTypes<Operations...>, void>, Operation_t, Operations...> {
+    struct OperationTuple_<std::enable_if_t<isUnaryType<Operation_t> &&
+                                            !allUnaryTypes<Operations...> &&
+                                            (sizeof...(Operations) > 0), void>, Operation_t, Operations...> {
         using Operation = Operation_t;
         using Next = OperationTuple_<void, Operations...>;
         OperationTuple_<void, Operations...> next;
@@ -173,7 +176,8 @@ namespace fk {
     };
 
     template <typename Operation_t, typename... Operations>
-    struct OperationTuple_<std::enable_if_t<allUnaryTypes<Operation_t, Operations...>, void>, Operation_t, Operations...> {
+    struct OperationTuple_<std::enable_if_t<allUnaryTypes<Operation_t, Operations...> &&
+                                            (sizeof...(Operations) > 0), void>, Operation_t, Operations...> {
         using Operation = Operation_t;
         using Next = OperationTuple_<void, Operations...>;
         enum { size = sizeof...(Operations) + 1 };

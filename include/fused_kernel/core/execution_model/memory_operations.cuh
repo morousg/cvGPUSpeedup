@@ -525,7 +525,7 @@ namespace fk {
         std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
         build(const std::array<typename Operation::ParamsType, BATCH>& params,
               const int& usedPlanes, const OutputType& defaultValue) {
-            return build_helper(params, output_size, usedPlanes, defaultValue, std::make_integer_sequence<int, BATCH>{});
+            return build_helper(params, usedPlanes, defaultValue, std::make_integer_sequence<int, BATCH>{});
         }
 
         /// @brief build(): host function to create a Read instance of BatchRead(BATCH, Operation, PROCESS_ALL)
@@ -535,7 +535,7 @@ namespace fk {
         FK_HOST_FUSE
         std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
         build(const std::array<typename Operation::ParamsType, BATCH>& params) {
-            return build_helper(params, output_size, std::make_integer_sequence<int, BATCH>{});
+            return build_helper(params, std::make_integer_sequence<int, BATCH>{});
         }
         /// @brief build_source(): host function to create a ReadSource instance of
         /// BatchRead(BATCH, Operation, CONDITIONAL_WITH_DEFAULT)

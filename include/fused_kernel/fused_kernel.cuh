@@ -57,7 +57,7 @@ namespace fk {
     template <bool THREAD_FUSION, typename I, typename... InstantiableOperationTypes>
     inline constexpr void executeOperations(const Ptr2D<I>& input, const cudaStream_t& stream, const InstantiableOperationTypes&... instantiableOperations) {
         using ReadInstantiableOperation = SourceRead<PerThreadRead<_2D, I>>;
-        ReadInstantiableOperation readInstantiableOperation{ input };
+        ReadInstantiableOperation readInstantiableOperation{ {input} };
         constexpr bool THREAD_FUSION_ENABLED = isThreadFusionEnabled<THREAD_FUSION, ReadInstantiableOperation, InstantiableOperationTypes...>();
         const uint elems_per_thread = computeElementsPerThread<THREAD_FUSION_ENABLED>(readInstantiableOperation, instantiableOperations...);
 
@@ -88,11 +88,10 @@ namespace fk {
 
     template <bool THREAD_FUSION, typename I, typename O, typename... InstantiableOperationTypes>
     inline constexpr void executeOperations(const Ptr2D<I>& input, const Ptr2D<O>& output, const cudaStream_t& stream, const InstantiableOperationTypes&... instantiableOperations) {
-        using ReadInstantiableOperation = SourceReadInstantiableOperation<PerThreadRead<_2D, I>>;
-        ReadInstantiableOperation firstOp{ input };
-        using WriteInstantiableOperation = WriteInstantiableOperation<PerThreadWrite<_2D, O>>;
-        const WriteInstantiableOperation opFinal{ output };
-        constexpr bool THREAD_FUSION_ENABLED = isThreadFusionEnabled<THREAD_FUSION, ReadInstantiableOperation, InstantiableOperationTypes..., WriteInstantiableOperation>();
+        auto firstOp = PerThreadRead<_2D, I>::build_source(input);
+        const auto opFinal = PerThreadWrite<_2D, O>::build(output);
+        
+        constexpr bool THREAD_FUSION_ENABLED = isThreadFusionEnabled<THREAD_FUSION, decltype(firstOp), InstantiableOperationTypes..., decltype(opFinal)>();
         const uint elems_per_thread = computeElementsPerThread<THREAD_FUSION_ENABLED>(firstOp, instantiableOperations..., opFinal);
 
         const dim3 block = input.getBlockSize();

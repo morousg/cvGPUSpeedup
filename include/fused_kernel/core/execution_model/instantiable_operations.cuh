@@ -298,7 +298,7 @@ namespace fk { // namespace FusedKernel
 
         template <typename FirstOp, typename... RemOps>
         FK_HOST_DEVICE_CNST auto tuple_operate(const typename FirstOp::InputType& i_data,
-            const OperationTuple<FirstOp, RemOps...>& tuple) {
+                                               const OperationTuple<FirstOp, RemOps...>& tuple) {
             const auto result = exec_operate(i_data, tuple);
             if constexpr (sizeof...(RemOps) > 0) {
                 if constexpr (has_next_v<OperationTuple<FirstOp, RemOps...>>) {
@@ -312,8 +312,9 @@ namespace fk { // namespace FusedKernel
         }
         template <typename FirstOp, typename... RemOps>
         FK_HOST_DEVICE_CNST auto tuple_operate(const Point& thread,
-            const OperationTuple<FirstOp, RemOps...>& tuple) {
-            const auto result = exec_operate(thread, tuple);
+                                               const typename FirstOp::InputType& input,
+                                               const OperationTuple<FirstOp, RemOps...>& tuple) {
+            const auto result = exec_operate(thread, input, tuple);
             if constexpr (sizeof...(RemOps) > 0) {
                 if constexpr (has_next_v<OperationTuple<FirstOp, RemOps...>>) {
                     return tuple_operate(thread, result, tuple.next);
@@ -326,9 +327,8 @@ namespace fk { // namespace FusedKernel
         }
         template <typename FirstOp, typename... RemOps>
         FK_HOST_DEVICE_CNST auto tuple_operate(const Point& thread,
-            const typename FirstOp::InputType& input,
-            const OperationTuple<FirstOp, RemOps...>& tuple) {
-            const auto result = exec_operate(thread, input, tuple);
+                                               const OperationTuple<FirstOp, RemOps...>& tuple) {
+            const auto result = exec_operate(thread, tuple);
             if constexpr (sizeof...(RemOps) > 0) {
                 if constexpr (has_next_v<OperationTuple<FirstOp, RemOps...>>) {
                     return tuple_operate(thread, result, tuple.next);
@@ -355,7 +355,7 @@ namespace fk { // namespace FusedKernel
     };
 
     template <typename... Operations>
-    using FOOT = FusedOperationOutputType<void, Operations...>::type;
+    using FOOT = typename FusedOperationOutputType<void, Operations...>::type;
 
 #include <fused_kernel/core/execution_model/default_builders_def.h>
 

@@ -16,6 +16,7 @@
 #define FK_TUPLE
 
 #include <fused_kernel/core/utils/type_lists.h>
+#include <array>
 
 namespace fk {
     // Generic Tuple

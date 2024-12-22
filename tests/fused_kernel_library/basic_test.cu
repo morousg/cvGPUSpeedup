@@ -51,11 +51,11 @@ bool testPtr_2D() {
 
     fk::ActiveThreads gridActiveThreadsCrop(cropedInput.dims().width, cropedInput.dims().height);
     fk::ActiveThreads gridActiveThreads(input.dims().width, input.dims().height);
-    fk::SourceReadInstantiableOperation<fk::PerThreadRead<fk::_2D, T>> readCrop{cropedInput, gridActiveThreadsCrop};
-    fk::SourceReadInstantiableOperation<fk::PerThreadRead<fk::_2D, T>> readFull{input, gridActiveThreads};
+    fk::SourceReadInstantiableOperation<fk::PerThreadRead<fk::_2D, T>> readCrop{{cropedInput}, gridActiveThreadsCrop};
+    fk::SourceReadInstantiableOperation<fk::PerThreadRead<fk::_2D, T>> readFull{{input}, gridActiveThreads};
 
-    fk::WriteInstantiableOperation<fk::PerThreadWrite<fk::_2D, T>> opFinal_2D = { output };
-    fk::WriteInstantiableOperation<fk::PerThreadWrite<fk::_2D, T>> opFinal_2DBig = { outputBig };
+    fk::WriteInstantiableOperation<fk::PerThreadWrite<fk::_2D, T>> opFinal_2D = { {output} };
+    fk::WriteInstantiableOperation<fk::PerThreadWrite<fk::_2D, T>> opFinal_2DBig = { {outputBig} };
 
     for (int i=0; i<100; i++) {
         fk::cuda_transform<<<grid2D, block2D, 0, stream>>>(readCrop, opFinal_2D);
@@ -88,9 +88,9 @@ int launch() {
     fk::Ptr2D<uint> output(64,64);
     
     fk::ActiveThreads gridActiveThreads(64, 64);
-    fk::SourceRead<fk::PerThreadRead<fk::_2D, uchar>> read{ input, gridActiveThreads };
+    fk::SourceRead<fk::PerThreadRead<fk::_2D, uchar>> read{ {input}, gridActiveThreads };
     fk::Unary<fk::SaturateCast<uchar, uint>> cast = {};
-    fk::Write<fk::PerThreadWrite<fk::_2D, uint>> write { output };
+    fk::Write<fk::PerThreadWrite<fk::_2D, uint>> write { {output} };
 
     auto fusedDF = fk::fuseDF(read, cast, fk::Binary<fk::Mul<uint>>{4});
     fusedDF.params.instance.params;

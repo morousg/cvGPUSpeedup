@@ -58,7 +58,7 @@ bool testCircularBatchRead() {
     for (int i = 0; i < BATCH; i++) {
         circularBatchRead.params.params[i] = input[i];
     }
-    fk::WriteInstantiableOperation<fk::PerThreadWrite<fk::_3D, uchar3>> write3D{output};
+    fk::WriteInstantiableOperation<fk::PerThreadWrite<fk::_3D, uchar3>> write3D{ {output} };
 
     dim3 block = inputAllocations[0].getBlockSize();
     dim3 grid{ (uint)ceil((float)WIDTH / (float)block.x), (uint)ceil((float)HEIGHT / (float)block.y), BATCH };

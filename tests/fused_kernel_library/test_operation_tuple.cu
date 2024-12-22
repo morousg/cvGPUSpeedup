@@ -33,7 +33,7 @@ bool test_OTInitialization() {
     const fk::Ptr2D<uchar> input(64, 64);
     constexpr fk::ActiveThreads gridActiveThreads(X, Y);
     using Op = fk::PerThreadRead<fk::_2D, uchar>;
-    const fk::SourceRead<Op> read{ input, gridActiveThreads };
+    const fk::SourceRead<Op> read{ {input}, gridActiveThreads };
 
     const fk::OperationTuple<Op> testing{ {read.params} };
 
