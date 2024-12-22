@@ -16,7 +16,7 @@
 #define BUILDERS
 
 #define DEFAULT_READ_BUILD \
-static constexpr __host__ __forceinline__ InstantiableType build(const ParamsType& params) { \
+static constexpr __host__ __forceinline__ auto build(const ParamsType& params) { \
     return InstantiableType{ {params} }; \
 } \
 static constexpr __host__ __forceinline__ \
