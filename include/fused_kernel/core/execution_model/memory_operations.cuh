@@ -577,7 +577,7 @@ namespace fk {
 
         // DEVICE FUNCTION BASED BUILDERS
 
-        /// @brief build(): PROCESS_ALL
+        /// @brief build(): host function to create a Read instance PROCESS_ALL
         /// @param instantiableOperations 
         /// @return 
         template <enum PlanePolicy PP_ = PP>
@@ -586,7 +586,7 @@ namespace fk {
             return build_helper(instantiableOperations, std::make_integer_sequence<int, BATCH>{});
         }
 
-        /// @brief build(): CONDITIONAL_WITH_DEFAULT
+        /// @brief build(): host function to create a Read instance CONDITIONAL_WITH_DEFAULT
         /// @param instantiableOperations 
         /// @param usedPlanes 
         /// @param defaultValue 
@@ -598,7 +598,7 @@ namespace fk {
             return build_helper(instantiableOperations, usedPlanes, defaultValue, std::make_integer_sequence<int, BATCH>{});
         }
 
-        /// @brief build_source(): PROCESS_ALL
+        /// @brief build_source(): host function to create a SourceRead instance PROCESS_ALL
         /// @param instantiableOperations 
         /// @return 
         template <enum PlanePolicy PP_ = PP>
@@ -610,7 +610,7 @@ namespace fk {
             return make_source(instOperation, activeThreads);
         }
 
-        /// @brief build_source(): CONDITIONAL_WITH_DEFAULT
+        /// @brief build_source(): host function to create a SourceRead instance CONDITIONAL_WITH_DEFAULT
         /// @param instantiableOperations 
         /// @param usedPlanes 
         /// @param defaultValue 
@@ -701,7 +701,7 @@ namespace fk {
 
         using InstantiableType = ReadBack<BatchReadBack<BATCH, PP, Operation>>;
 
-        /// @brief 
+        /// @brief build(): host function to create a Read instance
         /// @param params 
         /// @param backFunction 
         /// @return 
@@ -754,7 +754,7 @@ namespace fk {
     public:
         // STANDARD BUILDERS WITH PARAMS
 
-        /// @brief build():
+        /// @brief build(): host function to create a Read instance
         /// @param params
         /// @param back_functions
         /// @return
@@ -765,7 +765,7 @@ namespace fk {
             return build_helper(params, back_functions, std::make_integer_sequence<int, BATCH>{});
         }
 
-        /// @brief
+        /// @brief build(): host function to create a Read instance
         /// @param params
         /// @param back_functions
         /// @param usedPlanes
@@ -779,7 +779,7 @@ namespace fk {
             return build_helper(params, back_functions, usedPlanes, defaultValue, std::make_integer_sequence<int, BATCH>{});
         }
 
-        /// @brief 
+        /// @brief build_source(): host function to create a SourceRead instance
         /// @param params 
         /// @param back_functions 
         /// @return 
@@ -793,7 +793,7 @@ namespace fk {
             return make_source(instOperation, activeThreads);
         }
 
-        /// @brief 
+        /// @brief build_source(): host function to create a SourceRead instance
         /// @param params 
         /// @param back_functions 
         /// @param usedPlanes 
@@ -814,7 +814,7 @@ namespace fk {
 
         // DEVICE FUNCTION BASED BUILDERS
 
-        /// @brief build(): PROCESS_ALL
+        /// @brief build(): host function to create a Read instance PROCESS_ALL
         /// @param instantiableOperations 
         /// @return 
         template <enum PlanePolicy PP_ = PP>
@@ -823,7 +823,7 @@ namespace fk {
             return build_helper(instantiableOperations, std::make_integer_sequence<int, BATCH>{});
         }
 
-        /// @brief build(): CONDITIONAL_WITH_DEFAULT
+        /// @brief build(): host function to create a Read instance CONDITIONAL_WITH_DEFAULT
         /// @param instantiableOperations 
         /// @param usedPlanes 
         /// @param defaultValue 
@@ -835,7 +835,7 @@ namespace fk {
             return build_helper(instantiableOperations, usedPlanes, defaultValue, std::make_integer_sequence<int, BATCH>{});
         }
 
-        /// @brief build_source(): PROCESS_ALL
+        /// @brief build_source(): host function to create a SourceRead instance PROCESS_ALL
         /// @param instantiableOperations 
         /// @return 
         template <enum PlanePolicy PP_ = PP>
@@ -847,7 +847,7 @@ namespace fk {
             return make_source(instOperation, activeThreads);
         }
 
-        /// @brief build_source(): CONDITIONAL_WITH_DEFAULT
+        /// @brief build_source(): host function to create a SourceRead instance CONDITIONAL_WITH_DEFAULT
         /// @param instantiableOperations 
         /// @param usedPlanes 
         /// @param defaultValue 
@@ -878,7 +878,12 @@ namespace fk {
             return build(dfArray);
         }
 
-        
+        /// @brief 
+        /// @tparam ...ArrayTypes 
+        /// @param usedPlanes 
+        /// @param defaultValue 
+        /// @param ...arrays 
+        /// @return 
         template <typename... ArrayTypes, enum PlanePolicy PP_ = PP>
         FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
         build_batch(const int& usedPlanes, const OutputType& defaultValue, const ArrayTypes&... arrays) {
@@ -894,6 +899,10 @@ namespace fk {
     struct BatchReadBack<BATCH, PP, void> {
         // DEVICE FUNCTION BASED BUILDERS
 
+        /// @brief build(): host function to create a Read instance
+        /// @tparam Operation 
+        /// @param instantiableOperations 
+        /// @return 
         template <typename Operation, enum PlanePolicy PP_ = PP>
         FK_HOST_FUSE
         std::enable_if_t<PP_ == PROCESS_ALL, ReadBack<BatchReadBack<BATCH, PP_, Operation>>>
@@ -901,6 +910,12 @@ namespace fk {
             return BatchReadBack<BATCH, PP, Operation>::build(instantiableOperations);
         }
 
+        /// @brief build(): host function to create a Read instance
+        /// @tparam Operation 
+        /// @param instantiableOperations 
+        /// @param usedPlanes 
+        /// @param defaultValue 
+        /// @return 
         template <typename Operation, enum PlanePolicy PP_ = PP>
         FK_HOST_FUSE
         std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, ReadBack<BatchReadBack<BATCH, PP_, Operation>>>
@@ -909,6 +924,10 @@ namespace fk {
             return BatchReadBack<BATCH, PP, Operation>::build(instantiableOperations, usedPlanes, defaultValue);
         }
 
+        /// @brief build_source(): host function to create a SourceRead instance
+        /// @tparam Operation 
+        /// @param instantiableOperations 
+        /// @return 
         template <typename Operation, enum PlanePolicy PP_ = PP>
         FK_HOST_FUSE 
         std::enable_if_t<PP_ == PROCESS_ALL, SourceReadBack<BatchReadBack<BATCH, PP_, Operation>>>
@@ -916,6 +935,12 @@ namespace fk {
             return BatchReadBack<BATCH, PP, Operation>::build_source(instantiableOperations);
         }
 
+        /// @brief build_source(): host function to create a SourceRead instance
+        /// @tparam Operation 
+        /// @param instantiableOperations 
+        /// @param usedPlanes 
+        /// @param defaultValue 
+        /// @return 
         template <typename Operation, enum PlanePolicy PP_ = PP>
         FK_HOST_FUSE
         std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, SourceReadBack<BatchReadBack<BATCH, PP_, Operation>>>
