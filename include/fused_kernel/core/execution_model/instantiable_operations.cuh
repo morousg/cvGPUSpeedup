@@ -611,8 +611,8 @@ namespace fk { // namespace FusedKernel
         return OperationTupleToInstantiableOperation<OperationTuple>::value(opTuple);
     }
 
-    /** @brief fuseDF: function that creates either a Read or a Binary InstantiableOperation, composed of an
-    * OpertationTupleOperation (OTO), where the operations are the ones found in the InstantiableOperations in the
+    /** @brief fuseDF: function that creates either a Read or a Binary InstantiableOperation, composed of a
+    * FusedOperation, where the operations are the ones found in the InstantiableOperations in the
     * instantiableOperations parameter pack.
     * This is a convenience function to simplify the implementation of ReadBack and Ternary InstantiableOperations
     * and Operations.
