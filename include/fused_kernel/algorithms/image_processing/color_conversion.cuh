@@ -387,6 +387,7 @@ namespace fk {
 
         using InstantiableType = Read<ReadYUV<PF>>;
         DEFAULT_READ_BUILD
+        DEFAULT_READ_BATCH_BUILD
     };
 
     enum ColorConversionCodes {

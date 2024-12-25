@@ -32,6 +32,7 @@ namespace fk {
         }
         using InstantiableType = Read<ReadSet<T>>;
         DEFAULT_READ_BUILD
+        DEFAULT_READ_BATCH_BUILD
     };
 } // namespace fk
 

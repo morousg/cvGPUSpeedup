@@ -20,6 +20,7 @@
 #include <fused_kernel/core/utils/parameter_pack_utils.cuh>
 #include <fused_kernel/core/data/ptr_nd.cuh>
 #include <fused_kernel/core/data/size.h>
+#include <fused_kernel/core/data/array.cuh>
 
 namespace fk { // namespace FusedKernel
 
@@ -431,6 +432,7 @@ namespace fk { // namespace FusedKernel
 
         using InstantiableType = Read<FusedOperation_<void, Operations...>>;
         DEFAULT_READ_BUILD
+        DEFAULT_READ_BATCH_BUILD
     };
 
     template <typename... Operations>
@@ -459,6 +461,7 @@ namespace fk { // namespace FusedKernel
 
         using InstantiableType = Read<FusedOperation_<void, Operations...>>;
         DEFAULT_READ_BUILD
+        DEFAULT_READ_BATCH_BUILD
     };
 
     template <typename... Operations>
@@ -646,7 +649,6 @@ namespace fk { // namespace FusedKernel
         return buildParamsArrayToDFArray_helper<Operation, NPtr>(std::make_index_sequence<NPtr>{},
                                                                  buildParamsArrays...);
     }
-
 } // namespace fk
 
 #endif

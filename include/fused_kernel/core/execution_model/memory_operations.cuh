@@ -98,8 +98,10 @@ namespace fk {
         FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
             return ptr.dims.pitch;
         }
+
         using InstantiableType = Read<PerThreadRead<D, T>>;
         DEFAULT_READ_BUILD
+        DEFAULT_READ_BATCH_BUILD
     };
 
     template <enum ND D, typename T>
@@ -153,6 +155,7 @@ namespace fk {
         }
         using InstantiableType = Read<TensorRead<T>>;
         DEFAULT_READ_BUILD
+        DEFAULT_READ_BATCH_BUILD
     };
 
     template <typename T>
@@ -283,6 +286,7 @@ namespace fk {
         }
         using InstantiableType = Read<TensorPack<T>>;
         DEFAULT_READ_BUILD
+        DEFAULT_READ_BATCH_BUILD
     };
 
     template <typename T>
@@ -325,6 +329,7 @@ namespace fk {
         }
         using InstantiableType = Read<TensorTPack<T>>;
         DEFAULT_READ_BUILD
+        DEFAULT_READ_BATCH_BUILD
     };
 
     template <ND D, typename T, typename Enabler = void>

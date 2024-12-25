@@ -144,6 +144,7 @@ namespace fk {
  
         using InstantiableType = ReadBack<ResizeRead<IType, AR, BackFunction_>>;
         DEFAULT_READBACK_BUILD
+        DEFAULT_READ_BATCH_BUILD
 
         template <enum AspectRatio AR_ = AR>
         FK_HOST_FUSE
