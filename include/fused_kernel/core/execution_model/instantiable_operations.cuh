@@ -642,7 +642,7 @@ namespace fk { // namespace FusedKernel
     }
 
     template <typename Operation, size_t NPtr, typename... Arrays>
-    FK_HOST_CNST auto buildParamsArrayToDFArray(const Arrays&... buildParamsArrays) {
+    FK_HOST_CNST auto buildInstantiableArray(const Arrays&... buildParamsArrays) {
         return buildParamsArrayToDFArray_helper<Operation, NPtr>(std::make_index_sequence<NPtr>{},
                                                                  buildParamsArrays...);
     }

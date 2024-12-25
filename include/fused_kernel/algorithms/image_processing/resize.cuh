@@ -18,8 +18,10 @@
 #include <fused_kernel/algorithms/image_processing/interpolation.cuh>
 #include <fused_kernel/algorithms/image_processing/saturate.cuh>
 #include <fused_kernel/core/execution_model/instantiable_operations.cuh>
-#include <fused_kernel/core/execution_model/default_builders_def.h>
 #include <fused_kernel/core/data/array.cuh>
+#include <fused_kernel/core/execution_model/memory_operations.cuh>
+
+#include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {
     struct ComputeResizePoint {
@@ -187,6 +189,38 @@ namespace fk {
             return { {resizeParams, backFunction} };
         }
 
+        template <int... Idx, int BATCH, enum AspectRatio AR_ = AR>
+        FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, std::array<InstantiableType, BATCH>>
+        build_batch_helper(const std::array<BackFunction, BATCH>& backFunction,
+                           const std::array<Size, BATCH>& dstSize,
+                           const std::array<OutputType, BATCH>& backgroundValue,
+                           const std::integer_sequence<int, Idx...>&) {
+            return { build(backFunction[Idx], dstSize[Idx], backgroundValue[Idx])... };
+        }
+
+        template <int BATCH, enum AspectRatio AR_ = AR>
+        FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, std::array<InstantiableType, BATCH>>
+        build_batch(const std::array<BackFunction, BATCH>& backFunction,
+                    const std::array<Size, BATCH>& dstSize,
+                    const std::array<OutputType, BATCH>& backgroundValue) {
+            return build_batch_helper(backFunction, dstSize, backgroundValue, std::make_integer_sequence<int, BATCH>());
+        }
+
+        template <int... Idx, int BATCH, enum AspectRatio AR_ = AR>
+        FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR, std::array<InstantiableType, BATCH>>
+        build_batch_helper(const std::array<BackFunction, BATCH>& backFunction,
+                           const std::array<Size, BATCH>& dstSize,
+                           const std::integer_sequence<int, Idx...>&) {
+            return { build(backFunction[Idx], dstSize[Idx])... };
+        }
+
+        template <int BATCH, enum AspectRatio AR_ = AR>
+        FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR, std::array<InstantiableType, BATCH>>
+        build_batch(const std::array<BackFunction, BATCH>& backFunction,
+                    const std::array<Size, BATCH>& dstSize) {
+            return build_batch_helper(backFunction, dstSize, std::make_integer_sequence<int, BATCH>());
+        }
+
         template <typename BF = BackFunction_>
         FK_HOST_FUSE
         std::enable_if_t<std::is_same_v<BF, Read<PerThreadRead<_2D, ReadDataType>>>, InstantiableType>
@@ -202,6 +236,7 @@ namespace fk {
         }
 
         using InstantiableSourceType = SourceReadBack<ResizeRead<IType, AR, BackFunction_>>;
+
         template <enum AspectRatio AR_ = AR>
         FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR, InstantiableSourceType>
         build_source(const BackFunction_& backFunction, const Size& dstSize) {
@@ -214,6 +249,23 @@ namespace fk {
         build_source(const BackFunction_& backFunction, const Size& dstSize, const OutputType& backgroundValue) {
             const ActiveThreads activeThreads{ static_cast<uint>(dstSize.width), static_cast<uint>(dstSize.height) };
             return make_source(build(backFunction, dstSize, backgroundValue), activeThreads);
+        }
+
+        template <int BATCH, enum AspectRatio AR_ = AR>
+        FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR, InstantiableSourceType>
+        build_source_batch(const std::array<BackFunction, BATCH>& backFunction,
+                           const std::array<Size, BATCH>& dstSize) {
+            const ActiveThreads activeThreads{ static_cast<uint>(dstSize.width), static_cast<uint>(dstSize.height) };
+            return make_source(build_batch(backFunction, dstSize), activeThreads);
+        }
+
+        template <int BATCH, enum AspectRatio AR_ = AR>
+        FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, InstantiableSourceType>
+        build_source_batch(const std::array<BackFunction, BATCH>& backFunction,
+                           const std::array<Size, BATCH>& dstSize,
+                           const std::array<OutputType, BATCH>& backgroundValue) {
+            const ActiveThreads activeThreads{ static_cast<uint>(dstSize.width), static_cast<uint>(dstSize.height) };
+            return make_source(build_batch(backFunction, dstSize, backgroundValue), activeThreads);
         }
 
         template <typename BF = BackFunction_>

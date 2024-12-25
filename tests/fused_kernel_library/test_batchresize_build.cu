@@ -31,12 +31,12 @@ int launch() {
     constexpr std::array<float, BATCH> defaultArray = make_set_std_array<float, BATCH>(defaultValue);
     constexpr int usedPlanes = 15;
 
-    constexpr auto readDFArray = buildParamsArrayToDFArray<PerThreadRead<_2D, float>, BATCH>(inputs);
+    constexpr auto readDFArray = buildInstantiableArray<PerThreadRead<_2D, float>, BATCH>(inputs);
 
     constexpr auto oneResizeread = ResizeRead<INTER_LINEAR, IGNORE_AR>::build(readDFArray[0], resParams[0]);
 
-    constexpr auto resizeDFArray = buildParamsArrayToDFArray<ResizeRead<INTER_LINEAR, IGNORE_AR>, BATCH>(readDFArray, resParams);
-    const auto resizeDFArray2 = buildParamsArrayToDFArray<ResizeRead<INTER_LINEAR, PRESERVE_AR>, BATCH>(readDFArray, resParams, defaultArray);
+    constexpr auto resizeDFArray = buildInstantiableArray<ResizeRead<INTER_LINEAR, IGNORE_AR>, BATCH>(readDFArray, resParams);
+    const auto resizeDFArray2 = buildInstantiableArray<ResizeRead<INTER_LINEAR, PRESERVE_AR>, BATCH>(readDFArray, resParams, defaultArray);
 
     return 0;
 }

@@ -418,9 +418,6 @@ namespace fk {
         // END BUILDERS THAT CAN USE ANY BUILDER FROM OPERATION
     };
 
-    /*template <int BATCH>
-    struct BatchReadCommon<BATCH, void> {};*/
-
     /// @brief struct BatchRead
     /// @tparam BATCH: number of thread planes and number of data planes to process
     /// @tparam Operation: the read Operation to perform on the data
@@ -553,7 +550,7 @@ namespace fk {
             const InstantiableType instOperation = build(params, usedPlanes, defaultValue);
             // Assuming all the back functions have the same output size
             const Size output_size = Num_elems<InstantiableType>::size(Point(0, 0, 0), instOperation);
-            const dim3 activeThreads{ static_cast<uint>(output_size.width),
+            const ActiveThreads activeThreads{ static_cast<uint>(output_size.width),
                                       static_cast<uint>(output_size.height),
                                       static_cast<uint>(BATCH) };
             return make_source(instOperation, activeThreads);
@@ -606,7 +603,7 @@ namespace fk {
             build_source(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations) {
             const InstantiableType instOperation = build(instantiableOperations);
             const Size output_size = Num_elems<InstantiableType>::size(Point(), instOperation);
-            const dim3 activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH) };
+            const ActiveThreads activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH) };
             return make_source(instOperation, activeThreads);
         }
 
@@ -621,7 +618,7 @@ namespace fk {
                 const int& usedPlanes, const OutputType& defaultValue) {
             const InstantiableType instOperation = build(instantiableOperations, usedPlanes, defaultValue);
             const Size output_size = Num_elems<InstantiableType>::size(Point(), instOperation);
-            const dim3 activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH) };
+            const ActiveThreads activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH) };
             return make_source(instOperation, activeThreads);
         }
 
@@ -789,7 +786,7 @@ namespace fk {
                      const std::array<typename Operation::BackFunction, BATCH>& back_functions) {
             const InstantiableType instOperation = build(params, back_functions);
             const Size output_size = Num_elems<InstantiableType>::size(Point(), instOperation);
-            const dim3 activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH) };
+            const ActiveThreads activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH) };
             return make_source(instOperation, activeThreads);
         }
 
@@ -843,7 +840,7 @@ namespace fk {
         build_source(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations) {
             const InstantiableType instOperation = build(instantiableOperations);
             const Size output_size = Num_elems<InstantiableType>::size(Point(), instOperation);
-            const dim3 activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH)};
+            const ActiveThreads activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH)};
             return make_source(instOperation, activeThreads);
         }
 

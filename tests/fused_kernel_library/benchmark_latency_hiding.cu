@@ -42,7 +42,7 @@ template <typename InputType, typename OutputType, size_t NumOps, typename Insta
 struct VerticalFusion {
     static inline void execute(const fk::Ptr1D<InputType>& input, const cudaStream_t& stream,
                                const fk::Ptr1D<OutputType>& output, const InstantiableOperation& dFunc) {
-        const dim3 activeThreads{ output.ptr().dims.width };
+        const fk::ActiveThreads activeThreads{ output.ptr().dims.width };
         fk::SourceRead<fk::PerThreadRead<fk::_1D, InputType>> readDF{ input.ptr(), activeThreads};
         using Loop = fk::Binary<fk::StaticLoop<fk::StaticLoop<typename InstantiableOperation::Operation, INCREMENT>, NumOps/INCREMENT>>;
         Loop loop;

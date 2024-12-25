@@ -171,14 +171,14 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input,
     const O backgroundValue = cvScalar2CUDAV<defaultType>::get(backgroundValue_);
     constexpr fk::InterpolationType IType = static_cast<fk::InterpolationType>(INTER_F);
     constexpr fk::AspectRatio AR = static_cast<fk::AspectRatio>(AR_);
-    const auto readOP = fk::buildParamsArrayToDFArray<PixelReadOp, NPtr>(fk_input);
+    const auto readOP = fk::buildInstantiableArray<PixelReadOp, NPtr>(fk_input);
     const auto sizeArr = fk::make_set_std_array<fk::Size, NPtr>({ dsize.width, dsize.height });
     using Resize = fk::ResizeRead<IType, AR, fk::Read<PixelReadOp>>;
     if constexpr (AR != fk::IGNORE_AR) {
-        const auto resizeDFs = fk::buildParamsArrayToDFArray<Resize, NPtr>(readOP, sizeArr, fk::make_set_std_array<O, NPtr>(backgroundValue));
+        const auto resizeDFs = fk::buildInstantiableArray<Resize, NPtr>(readOP, sizeArr, fk::make_set_std_array<O, NPtr>(backgroundValue));
         return fk::BatchReadBack<NPtr, fk::CONDITIONAL_WITH_DEFAULT>::build_source(resizeDFs, usedPlanes, backgroundValue);
     } else {
-        const auto resizeDFs = fk::buildParamsArrayToDFArray<Resize, NPtr>(readOP, sizeArr);
+        const auto resizeDFs = fk::buildInstantiableArray<Resize, NPtr>(readOP, sizeArr);
         return fk::BatchReadBack<NPtr, fk::CONDITIONAL_WITH_DEFAULT>::build_source(resizeDFs, usedPlanes, backgroundValue);
     }
 }
