@@ -29,6 +29,7 @@
 #include <numeric>
 #include <sstream>
 #include <iostream>
+#include <vector>
  
 #include "tests/testsNppCommon.cuh"
 constexpr char VARIABLE_DIMENSION[]{"Batch size"};
