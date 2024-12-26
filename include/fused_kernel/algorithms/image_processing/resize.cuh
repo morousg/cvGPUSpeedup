@@ -190,38 +190,6 @@ namespace fk {
             return { {resizeParams, backFunction} };
         }
 
-        template <int... Idx, int BATCH, enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, std::array<InstantiableType, BATCH>>
-        build_batch_helper(const std::array<BackFunction, BATCH>& backFunction,
-                           const std::array<Size, BATCH>& dstSize,
-                           const std::array<OutputType, BATCH>& backgroundValue,
-                           const std::integer_sequence<int, Idx...>&) {
-            return { build(backFunction[Idx], dstSize[Idx], backgroundValue[Idx])... };
-        }
-
-        template <int BATCH, enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, std::array<InstantiableType, BATCH>>
-        build_batch(const std::array<BackFunction, BATCH>& backFunction,
-                    const std::array<Size, BATCH>& dstSize,
-                    const std::array<OutputType, BATCH>& backgroundValue) {
-            return build_batch_helper(backFunction, dstSize, backgroundValue, std::make_integer_sequence<int, BATCH>());
-        }
-
-        template <int... Idx, int BATCH, enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR, std::array<InstantiableType, BATCH>>
-        build_batch_helper(const std::array<BackFunction, BATCH>& backFunction,
-                           const std::array<Size, BATCH>& dstSize,
-                           const std::integer_sequence<int, Idx...>&) {
-            return { build(backFunction[Idx], dstSize[Idx])... };
-        }
-
-        template <int BATCH, enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR, std::array<InstantiableType, BATCH>>
-        build_batch(const std::array<BackFunction, BATCH>& backFunction,
-                    const std::array<Size, BATCH>& dstSize) {
-            return build_batch_helper(backFunction, dstSize, std::make_integer_sequence<int, BATCH>());
-        }
-
         template <typename BF = BackFunction_>
         FK_HOST_FUSE
         std::enable_if_t<std::is_same_v<BF, Read<PerThreadRead<_2D, ReadDataType>>>, InstantiableType>
@@ -334,7 +302,7 @@ namespace fk {
         }
         template <typename T>
         FK_HOST_FUSE
-            auto build_source(const RawPtr<_2D, T>& input, const Size& dSize, const double& fx, const double& fy) {
+        auto build_source(const RawPtr<_2D, T>& input, const Size& dSize, const double& fx, const double& fy) {
             return ResizeRead<IType, AR, Instantiable<PerThreadRead<_2D, T>>>::build_source(input, dSize, fx, fy);
         }
     };
