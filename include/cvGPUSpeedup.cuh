@@ -17,7 +17,7 @@
 #include <cvGPUSpeedupHelpers.cuh>
 #include <fused_kernel/fused_kernel.cuh>
 #include <fused_kernel/core/data/circular_tensor.cuh>
-#include <fused_kernel/algorithms/image_processing/resize_builders.cuh>
+#include <fused_kernel/algorithms/image_processing/resize.cuh>
 #include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
 
 #include <opencv2/core.hpp>
@@ -74,7 +74,7 @@ inline constexpr auto convertTo(float alpha) {
 
     using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
     using SecondOp = fk::Mul<CUDA_T(O)>;
-    return fk::Binary<FirstOp, SecondOp>(fk::make_set<CUDA_T(O)>(alpha));
+    return FirstOp::build().then(SecondOp::build(fk::make_set<CUDA_T(O)>(alpha)));
 }
 
 template <int I, int O>
@@ -85,7 +85,7 @@ inline constexpr auto convertTo(float alpha, float beta) {
     using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
     using SecondOp = fk::Mul<CUDA_T(O)>;
     using ThirdOp = fk::Add<CUDA_T(O)>;
-    return fk::Binary<FirstOp, SecondOp, ThirdOp>{{{fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }}}};
+    return fk::FusedOperation<FirstOp, SecondOp, ThirdOp>::build({ {fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }} });
 }
 
 template <int I>
@@ -154,17 +154,34 @@ inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, d
 
     const fk::RawPtr<fk::_2D, CUDA_T(T)> fk_input = gpuMat2Ptr2D<CUDA_T(T)>(input);
     const fk::Size dSize{ dsize.width, dsize.height };
-    return fk::resize<CUDA_T(T), (fk::InterpolationType)INTER_F>(fk_input, dSize, fx, fy);
+    return fk::ResizeRead<(fk::InterpolationType)INTER_F>::build_source(fk_input, dSize, fx, fy);
 }
 
-template <int T, int INTER_F, int NPtr, AspectRatio AR = IGNORE_AR>
-inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input, const cv::Size& dsize, const int& usedPlanes, const cv::Scalar& backgroundValue = cvScalar_set<CV_MAKETYPE(CV_32F, CV_MAT_CN(T))>(0)) {
+template <int T, int INTER_F, int NPtr, AspectRatio AR_ = IGNORE_AR>
+inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input,
+                         const cv::Size& dsize, const int& usedPlanes,
+                         const cv::Scalar& backgroundValue_ = cvScalar_set<CV_MAKETYPE(CV_32F, CV_MAT_CN(T))>(0)) {
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
     const std::array<fk::RawPtr<fk::_2D, CUDA_T(T)>, NPtr> fk_input{ gpuMat2RawPtr2D_arr<CUDA_T(T), NPtr>(input) };
     const fk::Size dSize{ dsize.width, dsize.height };
     constexpr int defaultType = CV_MAKETYPE(CV_32F, CV_MAT_CN(T));
-    return fk::resize<fk::PerThreadRead<fk::_2D, CUDA_T(T)>, CUDA_T(defaultType), (fk::InterpolationType)INTER_F, NPtr, (fk::AspectRatio)AR>(fk_input, dSize, usedPlanes, cvScalar2CUDAV<defaultType>::get(backgroundValue));
+    using PixelReadOp = fk::PerThreadRead<fk::_2D, CUDA_T(T)>;
+    using O = CUDA_T(defaultType);
+    const O backgroundValue = cvScalar2CUDAV<defaultType>::get(backgroundValue_);
+    constexpr fk::InterpolationType IType = static_cast<fk::InterpolationType>(INTER_F);
+    constexpr fk::AspectRatio AR = static_cast<fk::AspectRatio>(AR_);
+    const auto readOP = PixelReadOp::build_batch(fk_input);
+    const auto sizeArr = fk::make_set_std_array<fk::Size, NPtr>({ dsize.width, dsize.height });
+    const auto backgroundArr = fk::make_set_std_array<O, NPtr>(backgroundValue);
+    using Resize = fk::ResizeRead<IType, AR, fk::Read<PixelReadOp>>;
+    if constexpr (AR != fk::IGNORE_AR) {
+        const auto resizeDFs = Resize::build_batch(readOP, sizeArr, backgroundArr);
+        return fk::BatchReadBack<NPtr, fk::CONDITIONAL_WITH_DEFAULT>::build_source(resizeDFs, usedPlanes, backgroundValue);
+    } else {
+        const auto resizeDFs = Resize::build_batch(readOP, sizeArr);
+        return fk::BatchReadBack<NPtr, fk::CONDITIONAL_WITH_DEFAULT>::build_source(resizeDFs, usedPlanes, backgroundValue);
+    }
 }
 
 template <int O>
@@ -179,75 +196,75 @@ inline constexpr auto write(const cv::cuda::GpuMat& output, const cv::Size& plan
 
 template <typename T>
 inline constexpr auto write(const fk::Tensor<T>& output) {
-    return fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, T>>{ output };
+    return fk::WriteInstantiableOperation<fk::PerThreadWrite<fk::_3D, T>>{ output };
 }
 
-template <bool ENABLE_THREAD_FUSION, typename... DeviceFunctionTypes>
-inline constexpr void executeOperations(const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
+template <bool ENABLE_THREAD_FUSION, typename... InstantiableOperationTypes>
+inline constexpr void executeOperations(const cv::cuda::Stream& stream, const InstantiableOperationTypes&... instantiableOperations) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-    fk::executeOperations<ENABLE_THREAD_FUSION>(cu_stream, deviceFunctions...);
+    fk::executeOperations<ENABLE_THREAD_FUSION>(cu_stream, instantiableOperations...);
 }
 
-template <typename... DeviceFunctionTypes>
-inline constexpr void executeOperations(const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
-    executeOperations<true>(stream, deviceFunctions...);
+template <typename... InstantiableOperationTypes>
+inline constexpr void executeOperations(const cv::cuda::Stream& stream, const InstantiableOperationTypes&... instantiableOperations) {
+    executeOperations<true>(stream, instantiableOperations...);
 }
 
-template <bool ENABLE_THREAD_FUSION, typename... DeviceFunctionTypes>
-inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
+template <bool ENABLE_THREAD_FUSION, typename... InstantiableOperationTypes>
+inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, const InstantiableOperationTypes&... instantiableOperations) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-    using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
-    fk::executeOperations<ENABLE_THREAD_FUSION>(gpuMat2Ptr2D<InputType>(input), cu_stream, deviceFunctions...);
+    using InputType = fk::FirstInstantiableOperationInputType_t<InstantiableOperationTypes...>;
+    fk::executeOperations<ENABLE_THREAD_FUSION>(gpuMat2Ptr2D<InputType>(input), cu_stream, instantiableOperations...);
 }
 
-template <typename... DeviceFunctionTypes>
-inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
-    executeOperations<true>(input, stream, deviceFunctions...);
+template <typename... InstantiableOperationTypes>
+inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::Stream& stream, const InstantiableOperationTypes&... instantiableOperations) {
+    executeOperations<true>(input, stream, instantiableOperations...);
 }
 
-template <bool ENABLE_THREAD_FUSION, typename... DeviceFunctionTypes>
-inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
+template <bool ENABLE_THREAD_FUSION, typename... InstantiableOperationTypes>
+inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const InstantiableOperationTypes&... instantiableOperations) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-    using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
-    using OutputType = fk::LastDeviceFunctionOutputType_t<DeviceFunctionTypes...>;
-    fk::executeOperations<ENABLE_THREAD_FUSION>(gpuMat2Ptr2D<InputType>(input), gpuMat2Ptr2D<OutputType>(output), cu_stream, deviceFunctions...);
+    using InputType = fk::FirstInstantiableOperationInputType_t<InstantiableOperationTypes...>;
+    using OutputType = fk::LastInstantiableOperationOutputType_t<InstantiableOperationTypes...>;
+    fk::executeOperations<ENABLE_THREAD_FUSION>(gpuMat2Ptr2D<InputType>(input), gpuMat2Ptr2D<OutputType>(output), cu_stream, instantiableOperations...);
 }
 
-template <typename... DeviceFunctionTypes>
-inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
-    executeOperations<true>(input, output, stream, deviceFunctions...);
+template <typename... InstantiableOperationTypes>
+inline constexpr void executeOperations(const cv::cuda::GpuMat& input, cv::cuda::GpuMat& output, cv::cuda::Stream& stream, const InstantiableOperationTypes&... instantiableOperations) {
+    executeOperations<true>(input, output, stream, instantiableOperations...);
 }
 
 // Batch reads
-template <bool ENABLE_THREAD_FUSION, size_t Batch, typename... DeviceFunctionTypes>
-inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const size_t& activeBatch, const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
+template <bool ENABLE_THREAD_FUSION, size_t Batch, typename... InstantiableOperationTypes>
+inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const size_t& activeBatch, const cv::cuda::Stream& stream, const InstantiableOperationTypes&... instantiableOperations) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-    using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
+    using InputType = fk::FirstInstantiableOperationInputType_t<InstantiableOperationTypes...>;
     // On Linux (gcc 11.4) it is necessary to pass the InputType and Batch as a template parameter
     // On Windows (VS2022 Community) it is not needed, it is deduced from the parameters being passed
-    fk::executeOperations<ENABLE_THREAD_FUSION, InputType, Batch>(gpuMat2Ptr2D_arr<InputType, Batch>(input), activeBatch, cu_stream, deviceFunctions...);
+    fk::executeOperations<ENABLE_THREAD_FUSION, InputType, Batch>(gpuMat2Ptr2D_arr<InputType, Batch>(input), activeBatch, cu_stream, instantiableOperations...);
 }
 
-template <size_t Batch, typename... DeviceFunctionTypes>
-inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const size_t& activeBatch, const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
-    executeOperations<true>(input, activeBatch, stream, deviceFunctions...);
+template <size_t Batch, typename... InstantiableOperationTypes>
+inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const size_t& activeBatch, const cv::cuda::Stream& stream, const InstantiableOperationTypes&... instantiableOperations) {
+    executeOperations<true>(input, activeBatch, stream, instantiableOperations...);
 }
 
-template <bool ENABLE_THREAD_FUSION, size_t Batch, typename... DeviceFunctionTypes>
+template <bool ENABLE_THREAD_FUSION, size_t Batch, typename... InstantiableOperationTypes>
 inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const size_t& activeBatch,
                                         const cv::cuda::GpuMat& output, const cv::Size& outputPlane,
-                                        const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
+                                        const cv::cuda::Stream& stream, const InstantiableOperationTypes&... instantiableOperations) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
-    using InputType = fk::FirstDeviceFunctionInputType_t<DeviceFunctionTypes...>;
-    using OutputType = fk::LastDeviceFunctionOutputType_t<DeviceFunctionTypes...>;
-    fk::executeOperations<ENABLE_THREAD_FUSION>(gpuMat2Ptr2D_arr<InputType>(input), activeBatch, gpuMat2Tensor<OutputType>(output, outputPlane, 1), cu_stream, deviceFunctions...);
+    using InputType = fk::FirstInstantiableOperationInputType_t<InstantiableOperationTypes...>;
+    using OutputType = fk::LastInstantiableOperationOutputType_t<InstantiableOperationTypes...>;
+    fk::executeOperations<ENABLE_THREAD_FUSION>(gpuMat2Ptr2D_arr<InputType>(input), activeBatch, gpuMat2Tensor<OutputType>(output, outputPlane, 1), cu_stream, instantiableOperations...);
 }
 
-template <size_t Batch, typename... DeviceFunctionTypes>
+template <size_t Batch, typename... InstantiableOperationTypes>
 inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch>& input, const size_t& activeBatch,
                                         const cv::cuda::GpuMat& output, const cv::Size& outputPlane,
-                                        const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctions) {
-    executeOperations<true>(input, activeBatch, output, outputPlane, stream, deviceFunctions...);
+                                        const cv::cuda::Stream& stream, const InstantiableOperationTypes&... instantiableOperations) {
+    executeOperations<true>(input, activeBatch, output, outputPlane, stream, instantiableOperations...);
 }
 
 /* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
@@ -276,18 +293,18 @@ public:
         fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>::Alloc(width_, height_, deviceID_);
     }
 
-    template <typename... DeviceFunctionTypes>
-    inline constexpr void update(const cv::cuda::Stream& stream, const cv::cuda::GpuMat& input, const DeviceFunctionTypes&... deviceFunctionInstances) {
-        const fk::SourceRead<fk::PerThreadRead<fk::_2D, CUDA_T(I)>> readDeviceFunction{
-            { (CUDA_T(I)*)input.data, { static_cast<uint>(input.cols), static_cast<uint>(input.rows), static_cast<uint>(input.step) } },
+    template <typename... InstantiableOperationTypes>
+    inline constexpr void update(const cv::cuda::Stream& stream, const cv::cuda::GpuMat& input, const InstantiableOperationTypes&... instantiableOperationInstances) {
+        const fk::SourceRead<fk::PerThreadRead<fk::_2D, CUDA_T(I)>> readInstantiableOperation{
+            {{(CUDA_T(I)*)input.data, { static_cast<uint>(input.cols), static_cast<uint>(input.rows), static_cast<uint>(input.step) }}},
             { static_cast<uint>(input.cols), static_cast<uint>(input.rows), 1 }
         };
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>::update(cv::cuda::StreamAccessor::getStream(stream), readDeviceFunction, deviceFunctionInstances...);
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>::update(cv::cuda::StreamAccessor::getStream(stream), readInstantiableOperation, instantiableOperationInstances...);
     }
 
-    template <typename... DeviceFunctionTypes>
-    inline constexpr void update(const cv::cuda::Stream& stream, const DeviceFunctionTypes&... deviceFunctionInstances) {
-        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>::update(cv::cuda::StreamAccessor::getStream(stream), deviceFunctionInstances...);
+    template <typename... InstantiableOperationTypes>
+    inline constexpr void update(const cv::cuda::Stream& stream, const InstantiableOperationTypes&... instantiableOperationInstances) {
+        fk::CircularTensor<CUDA_T(O), COLOR_PLANES, BATCH, CT_ORDER, CP_MODE>::update(cv::cuda::StreamAccessor::getStream(stream), instantiableOperationInstances...);
     }
 
     inline constexpr CUDA_T(O)* data() {

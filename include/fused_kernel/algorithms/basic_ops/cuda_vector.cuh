@@ -12,9 +12,12 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_CUDA_VECTOR
+#define FK_CUDA_VECTOR
 
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/algorithms/basic_ops/logical.cuh>
+#include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {
     template <typename I, typename O>
@@ -22,7 +25,7 @@ namespace fk {
         using InputType = I;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             static_assert(cn<I> > cn<O>, "Output type should at least have one channel less");
             static_assert(std::is_same_v<typename VectorTraits<I>::base,
                 typename VectorTraits<O>::base>,
@@ -39,6 +42,8 @@ namespace fk {
                 return { input.x, input.y, input.z };
             }
         }
+        using InstantiableType = Unary<Discard<I, O>>;
+        DEFAULT_UNARY_BUILD
     };
 
     template <typename T, int... idxs>
@@ -46,11 +51,13 @@ namespace fk {
         using InputType = T;
         using OutputType = T;
         using InstanceType = UnaryType;
-        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnaryVectorReorder");
             static_assert(cn<InputType> >= 2, "Minimum number of channels is 2: UnaryVectorReorder");
             return VReorder<idxs...>::exec(input);
         }
+        using InstantiableType = Unary<VectorReorder<T, idxs...>>;
+        DEFAULT_UNARY_BUILD
     };
 
     template <typename T, typename Operation>
@@ -58,7 +65,7 @@ namespace fk {
         using InputType = T;
         using OutputType = VBase<T>;
         using InstanceType = UnaryType;
-        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             if constexpr (std::is_same_v<typename Operation::InstanceType, UnaryType>) {
                 if constexpr (cn<T> == 1) {
                     if constexpr (validCUDAVec<T>) {
@@ -89,6 +96,8 @@ namespace fk {
                 }
             }
         }
+        using InstantiableType = Unary<VectorReduce<T, Operation>>;
+        DEFAULT_UNARY_BUILD
     };
 
     template <typename I, typename O>
@@ -97,7 +106,7 @@ namespace fk {
         using OutputType = O;
         using ParamsType = typename VectorTraits<I>::base;
         using InstanceType = BinaryType;
-        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(cn<InputType> == cn<OutputType> -1, "Output type should have one channel more");
             static_assert(std::is_same_v<typename VectorTraits<InputType>::base, typename VectorTraits<OutputType>::base>,
                 "Base types should be the same");
@@ -114,15 +123,9 @@ namespace fk {
                 return { input.x, input.y, input.z, newElem };
             }
         }
+        using InstantiableType = Binary<AddLast<I, O>>;
+        DEFAULT_BINARY_BUILD
     };
-
-    template <typename I>
-    using VOneLess = VectorType_t<VBase<I>, (cn<I> -1)>;
-
-    template <typename I>
-    constexpr __device__ __host__ __forceinline__ VOneLess<I> discard_last(const I& input) {
-        return Discard<I, VOneLess<I>>::exec(input);
-    }
 
     template <typename T>
     struct VectorAnd {
@@ -130,8 +133,14 @@ namespace fk {
         using InputType = T;
         using OutputType = bool;
         using InstanceType = UnaryType;
-        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             return VectorReduce<T, Equal<bool, bool>>::exec(input);
         }
+        using InstantiableType = Unary<VectorAnd<T>>;
+        DEFAULT_UNARY_BUILD
     };
 } // namespace fk
+
+#include <fused_kernel/core/execution_model/default_builders_undef.h>
+
+#endif

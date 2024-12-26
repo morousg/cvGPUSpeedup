@@ -52,13 +52,13 @@ bool testCircularBatchRead() {
     output.allocTensor(WIDTH, HEIGHT, BATCH);
     h_output.allocTensor(WIDTH, HEIGHT, BATCH, 1, fk::MemType::HostPinned);
 
-    fk::SourceReadDeviceFunction<fk::CircularBatchRead<fk::CircularDirection::Ascendent, fk::PerThreadRead<fk::_2D, uchar3>, BATCH>> circularBatchRead;
+    fk::SourceReadInstantiableOperation<fk::CircularBatchRead<fk::CircularDirection::Ascendent, fk::PerThreadRead<fk::_2D, uchar3>, BATCH>> circularBatchRead;
     circularBatchRead.activeThreads = {WIDTH, HEIGHT, BATCH};
     circularBatchRead.params.first = FIRST;
     for (int i = 0; i < BATCH; i++) {
         circularBatchRead.params.params[i] = input[i];
     }
-    fk::WriteDeviceFunction<fk::PerThreadWrite<fk::_3D, uchar3>> write3D{output};
+    fk::WriteInstantiableOperation<fk::PerThreadWrite<fk::_3D, uchar3>> write3D{ {output} };
 
     dim3 block = inputAllocations[0].getBlockSize();
     dim3 grid{ (uint)ceil((float)WIDTH / (float)block.x), (uint)ceil((float)HEIGHT / (float)block.y), BATCH };

@@ -12,7 +12,8 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_TEMPLATE_OPERATIONS
+#define FK_TEMPLATE_OPERATIONS
 
 #include <utility>
 
@@ -63,3 +64,5 @@ namespace fk {
         return std::integer_sequence<T, (Start + Ints)...>{};
     }
 } // namespace fk
+
+#endif

@@ -22,9 +22,11 @@
 
 #include <type_traits>
 
-constexpr size_t NUM_EXPERIMENTS = 5;
 #ifdef ENABLE_BENCHMARK
+constexpr size_t NUM_EXPERIMENTS = 5;
 constexpr char VARIABLE_DIMENSION[]{ "Pixels per side" };
+#else
+constexpr size_t NUM_EXPERIMENTS = 1;
 #endif
 constexpr size_t FIRST_VALUE = 1024;
 constexpr size_t INCREMENT = 1024;

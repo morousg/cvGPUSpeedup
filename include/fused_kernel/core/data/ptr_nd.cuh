@@ -12,7 +12,8 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_PTR_ND_CUH
+#define FK_PTR_ND_CUH
 
 #include <fused_kernel/core/data/point.h>
 #include <fused_kernel/core/data/ptr_nd.h>
@@ -92,7 +93,7 @@ namespace fk {
         FK_HOST_FUSE void h_malloc_init(PtrDims<_1D>& dims) {
             dims.pitch = sizeof(T) * dims.width;
         }
-        FK_HOST_FUSE dim3 getBlockSize(const PtrDims<_1D>& dims) {
+        FK_HOST_STATIC dim3 getBlockSize(const PtrDims<_1D>& dims) {
             return fk::getBlockSize(dims.width, 1);
         }
     };
@@ -117,7 +118,7 @@ namespace fk {
         FK_HOST_FUSE void h_malloc_init(PtrDims<_2D>& dims) {
             dims.pitch = sizeof(T) * dims.width;
         }
-        FK_HOST_FUSE dim3 getBlockSize(const PtrDims<_2D>& dims) {
+        FK_HOST_STATIC dim3 getBlockSize(const PtrDims<_2D>& dims) {
             return fk::getBlockSize(dims.width, dims.height);
         }
     };
@@ -142,7 +143,7 @@ namespace fk {
             dims.pitch = sizeof(T) * dims.width;
             dims.plane_pitch = dims.pitch * dims.height;
         }
-        FK_HOST_FUSE dim3 getBlockSize(const PtrDims<_3D>& dims) {
+        FK_HOST_STATIC dim3 getBlockSize(const PtrDims<_3D>& dims) {
             return fk::getBlockSize(dims.width, dims.height);
         }
     };
@@ -164,7 +165,7 @@ namespace fk {
             dims.plane_pitch = dims.pitch * dims.height;
             dims.color_planes_pitch = dims.plane_pitch * dims.planes;
         }
-        FK_HOST_FUSE dim3 getBlockSize(const PtrDims<T3D>& dims) {
+        FK_HOST_STATIC dim3 getBlockSize(const PtrDims<T3D>& dims) {
             return fk::getBlockSize(dims.width, dims.height);
         }
     };
@@ -430,3 +431,5 @@ namespace fk {
     };
 
 } // namespace fk
+
+#endif

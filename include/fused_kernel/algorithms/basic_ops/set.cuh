@@ -12,8 +12,12 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
+#ifndef FK_SET
+#define FK_SET
+
 #include <fused_kernel/core/data/ptr_nd.h>
 #include <fused_kernel/core/execution_model/operation_types.cuh>
+#include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {
     template <typename T>
@@ -23,8 +27,15 @@ namespace fk {
         using ParamsType = T;
         using ReadDataType = T;
         static constexpr bool THREAD_FUSION{ false };
-        static constexpr __device__ __forceinline__ OutputType exec(const Point& thread, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const ParamsType& params) {
             return params;
         }
+        using InstantiableType = Read<ReadSet<T>>;
+        DEFAULT_READ_BUILD
+        DEFAULT_READ_BATCH_BUILD
     };
 } // namespace fk
+
+#include <fused_kernel/core/execution_model/default_builders_undef.h>
+
+#endif

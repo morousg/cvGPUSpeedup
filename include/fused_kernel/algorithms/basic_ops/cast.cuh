@@ -12,9 +12,12 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_CAST
+#define FK_CAST
 
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/core/execution_model/vector_operations.cuh>
+#include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {
     template <typename I, typename O>
@@ -22,7 +25,7 @@ namespace fk {
         using InputType = I;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             return static_cast<O>(input);
         }
     };
@@ -32,8 +35,14 @@ namespace fk {
         using InputType = I;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             return UnaryV<I, O, CastBase<VBase<I>, VBase<O>>>::exec(input);
         }
+        using InstantiableType = Unary<Cast<I, O>>;
+        DEFAULT_UNARY_BUILD
     };
 } // namespace fk
+
+#include <fused_kernel/core/execution_model/default_builders_undef.h>
+
+#endif

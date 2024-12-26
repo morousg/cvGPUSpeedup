@@ -47,11 +47,11 @@ struct VerticalFusionMAD {
         const cv::Size& cropSize) {
         using InputType = CUDA_T(CV_TYPE_I);
         using OutputType = CUDA_T(CV_TYPE_O);
-        using Loop = fk::Binary<fk::StaticLoop<fk::OperationTupleOperation<fk::Mul<OutputType>, fk::Add<OutputType>>, 200/2>>;
+        using Loop = fk::Binary<fk::StaticLoop<fk::FusedOperation<fk::Mul<OutputType>, fk::Add<OutputType>>, 200/2>>;
         
         Loop loop;
-        fk::get_params<0>(loop.params) = cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul);
-        fk::get_params<1>(loop.params) = cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_add);
+        fk::get<0>(loop.params) = cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul);
+        fk::get<1>(loop.params) = cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_add);
 
         cvGS::executeOperations(crops, BATCH, cv_stream,
             cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),

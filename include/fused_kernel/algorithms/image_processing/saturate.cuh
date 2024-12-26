@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -12,339 +12,562 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_SATURATE
+#define FK_SATURATE
 
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/algorithms/basic_ops/logical.cuh>
+#include <fused_kernel/core/execution_model/vector_operations.cuh>
 
 namespace fk {
-    // Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
-    // Copyright (C) 2009, Willow Garage Inc., all rights reserved.
-    // Copyright (C) 2013, OpenCV Foundation, all rights reserved.
-    // Third party copyrights are property of their respective owners.
-    //
-    // Redistribution and use in source and binary forms, with or without modification,
-    // are permitted provided that the following conditions are met:
-    //
-    //   * Redistribution's of source code must retain the above copyright notice,
-    //     this list of conditions and the following disclaimer.
-    //
-    //   * Redistribution's in binary form must reproduce the above copyright notice,
-    //     this list of conditions and the following disclaimer in the documentation
-    //     and/or other materials provided with the distribution.
-    //
-    //   * The name of the copyright holders may not be used to endorse or promote products
-    //     derived from this software without specific prior written permission.
-    //
-    // This software is provided by the copyright holders and contributors "as is" and
-    // any express or implied warranties, including, but not limited to, the implied
-    // warranties of merchantability and fitness for a particular purpose are disclaimed.
-    // In no event shall the Intel Corporation or contributors be liable for any direct,
-    // indirect, incidental, special, exemplary, or consequential damages
-    // (including, but not limited to, procurement of substitute goods or services;
-    // loss of use, data, or profits; or business interruption) however caused
-    // and on any theory of liability, whether in contract, strict liability,
-    // or tort (including negligence or otherwise) arising in any way out of
-    // the use of this software, even if advised of the possibility of such damage.
 
-    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(uchar v) { return T(v); }
-    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(schar v) { return T(v); }
-    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(ushort v) { return T(v); }
-    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(short v) { return T(v); }
-    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(uint v) { return T(v); }
-    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(int v) { return T(v); }
-    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(float v) { return T(v); }
-    template <typename T> constexpr __device__ __forceinline__ T saturate_cast(double v) { return T(v); }
+    template <typename I, typename O>
+    struct SaturateCastBase {};
 
-    template <> __device__ __forceinline__ uchar saturate_cast<uchar>(schar v)
-    {
-        uint res = 0;
-        int vi = v;
-        asm("cvt.sat.u8.s8 %0, %1;" : "=r"(res) : "r"(vi));
-        return res;
-    }
-    template <> __device__ __forceinline__ uchar saturate_cast<uchar>(short v)
-    {
-        uint res = 0;
-        asm("cvt.sat.u8.s16 %0, %1;" : "=r"(res) : "h"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ uchar saturate_cast<uchar>(ushort v)
-    {
-        uint res = 0;
-        asm("cvt.sat.u8.u16 %0, %1;" : "=r"(res) : "h"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ uchar saturate_cast<uchar>(int v)
-    {
-        uint res = 0;
-        asm("cvt.sat.u8.s32 %0, %1;" : "=r"(res) : "r"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ uchar saturate_cast<uchar>(uint v)
-    {
-        uint res = 0;
-        asm("cvt.sat.u8.u32 %0, %1;" : "=r"(res) : "r"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ uchar saturate_cast<uchar>(float v)
-    {
-        uint res = 0;
-        asm("cvt.rni.sat.u8.f32 %0, %1;" : "=r"(res) : "f"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ uchar saturate_cast<uchar>(double v)
-    {
-        uint res = 0;
-        asm("cvt.rni.sat.u8.f64 %0, %1;" : "=r"(res) : "d"(v));
-        return res;
-    }
+#define SATURATE_CAST_BASE(IT) \
+template <typename O> \
+struct SaturateCastBase<IT, O> { \
+    using InputType = IT; \
+    using OutputType = O; \
+    using InstanceType = UnaryType; \
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) { \
+        return static_cast<O>(input); \
+    } \
+};
 
-    template <> __device__ __forceinline__ schar saturate_cast<schar>(uchar v)
-    {
-        uint res = 0;
-        uint vi = v;
-        asm("cvt.sat.s8.u8 %0, %1;" : "=r"(res) : "r"(vi));
-        return res;
-    }
-    template <> __device__ __forceinline__ schar saturate_cast<schar>(short v)
-    {
-        uint res = 0;
-        asm("cvt.sat.s8.s16 %0, %1;" : "=r"(res) : "h"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ schar saturate_cast<schar>(ushort v)
-    {
-        uint res = 0;
-        asm("cvt.sat.s8.u16 %0, %1;" : "=r"(res) : "h"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ schar saturate_cast<schar>(int v)
-    {
-        uint res = 0;
-        asm("cvt.sat.s8.s32 %0, %1;" : "=r"(res) : "r"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ schar saturate_cast<schar>(uint v)
-    {
-        uint res = 0;
-        asm("cvt.sat.s8.u32 %0, %1;" : "=r"(res) : "r"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ schar saturate_cast<schar>(float v)
-    {
-        uint res = 0;
-        asm("cvt.rni.sat.s8.f32 %0, %1;" : "=r"(res) : "f"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ schar saturate_cast<schar>(double v)
-    {
-        uint res = 0;
-        asm("cvt.rni.sat.s8.f64 %0, %1;" : "=r"(res) : "d"(v));
-        return res;
-    }
+    SATURATE_CAST_BASE(uchar)
+    SATURATE_CAST_BASE(char)
+    SATURATE_CAST_BASE(schar)
+    SATURATE_CAST_BASE(ushort)
+    SATURATE_CAST_BASE(short)
+    SATURATE_CAST_BASE(uint)
+    SATURATE_CAST_BASE(int)
+    SATURATE_CAST_BASE(float)
+    SATURATE_CAST_BASE(double)
 
-    template <> __device__ __forceinline__ ushort saturate_cast<ushort>(schar v)
-    {
-        ushort res = 0;
-        int vi = v;
-        asm("cvt.sat.u16.s8 %0, %1;" : "=h"(res) : "r"(vi));
-        return res;
-    }
-    template <> __device__ __forceinline__ ushort saturate_cast<ushort>(short v)
-    {
-        ushort res = 0;
-        asm("cvt.sat.u16.s16 %0, %1;" : "=h"(res) : "h"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ ushort saturate_cast<ushort>(int v)
-    {
-        ushort res = 0;
-        asm("cvt.sat.u16.s32 %0, %1;" : "=h"(res) : "r"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ ushort saturate_cast<ushort>(uint v)
-    {
-        ushort res = 0;
-        asm("cvt.sat.u16.u32 %0, %1;" : "=h"(res) : "r"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ ushort saturate_cast<ushort>(float v)
-    {
-        ushort res = 0;
-        asm("cvt.rni.sat.u16.f32 %0, %1;" : "=h"(res) : "f"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ ushort saturate_cast<ushort>(double v)
-    {
-        ushort res = 0;
-        asm("cvt.rni.sat.u16.f64 %0, %1;" : "=h"(res) : "d"(v));
-        return res;
-    }
+#undef SATURATE_CAST_BASE
 
-    template <> __device__ __forceinline__ short saturate_cast<short>(ushort v)
-    {
-        short res = 0;
-        asm("cvt.sat.s16.u16 %0, %1;" : "=h"(res) : "h"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ short saturate_cast<short>(int v)
-    {
-        short res = 0;
-        asm("cvt.sat.s16.s32 %0, %1;" : "=h"(res) : "r"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ short saturate_cast<short>(uint v)
-    {
-        short res = 0;
-        asm("cvt.sat.s16.u32 %0, %1;" : "=h"(res) : "r"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ short saturate_cast<short>(float v)
-    {
-        short res = 0;
-        asm("cvt.rni.sat.s16.f32 %0, %1;" : "=h"(res) : "f"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ short saturate_cast<short>(double v)
-    {
-        short res = 0;
-        asm("cvt.rni.sat.s16.f64 %0, %1;" : "=h"(res) : "d"(v));
-        return res;
-    }
+#define SATURATE_CAST_BASE(IT, OT) \
+template <> \
+struct SaturateCastBase<IT, OT> { \
+    using InputType = IT; \
+    using OutputType = OT; \
+    using InstanceType = UnaryType;
 
-    template <> __device__ __forceinline__ int saturate_cast<int>(uint v)
-    {
-        int res = 0;
-        asm("cvt.sat.s32.u32 %0, %1;" : "=r"(res) : "r"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ int saturate_cast<int>(float v)
-    {
-        return __float2int_rn(v);
-    }
-    template <> __device__ __forceinline__ int saturate_cast<int>(double v)
-    {
-        return __double2int_rn(v);
-    }
-
-    template <> __device__ __forceinline__ uint saturate_cast<uint>(schar v)
-    {
-        uint res = 0;
-        int vi = v;
-        asm("cvt.sat.u32.s8 %0, %1;" : "=r"(res) : "r"(vi));
-        return res;
-    }
-    template <> __device__ __forceinline__ uint saturate_cast<uint>(short v)
-    {
-        uint res = 0;
-        asm("cvt.sat.u32.s16 %0, %1;" : "=r"(res) : "h"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ uint saturate_cast<uint>(int v)
-    {
-        uint res = 0;
-        asm("cvt.sat.u32.s32 %0, %1;" : "=r"(res) : "r"(v));
-        return res;
-    }
-    template <> __device__ __forceinline__ uint saturate_cast<uint>(float v)
-    {
-        return __float2uint_rn(v);
-    }
-    template <> __device__ __forceinline__ uint saturate_cast<uint>(double v)
-    {
-        return __double2uint_rn(v);
-    }
-
-    // End of the following copyrights
-    // Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
-    // Copyright (C) 2009, Willow Garage Inc., all rights reserved.
-    // Copyright (C) 2013, OpenCV Foundation, all rights reserved.
-
-    namespace vec_math_detail
-    {
-        template <int cn, typename VecD> struct SatCastHelper;
-        template <typename VecD> struct SatCastHelper<1, VecD>
-        {
-            template <typename VecS> static __device__ __forceinline__ constexpr VecD cast(const VecS& v)
-            {
-                using D = typename VectorTraits<VecD>::base;
-                return make::type<VecD>(saturate_cast<D>(v.x));
-            }
-        };
-        template <typename VecD> struct SatCastHelper<2, VecD>
-        {
-            template <typename VecS> static __device__ __forceinline__ constexpr VecD cast(const VecS& v)
-            {
-                using D = typename VectorTraits<VecD>::base;
-                return make::type<VecD>(saturate_cast<D>(v.x), saturate_cast<D>(v.y));
-            }
-        };
-        template <typename VecD> struct SatCastHelper<3, VecD>
-        {
-            template <typename VecS> static __device__ __forceinline__ constexpr VecD cast(const VecS& v)
-            {
-                using D = typename VectorTraits<VecD>::base;
-                return make::type<VecD>(saturate_cast<D>(v.x), saturate_cast<D>(v.y), saturate_cast<D>(v.z));
-            }
-        };
-        template <typename VecD> struct SatCastHelper<4, VecD>
-        {
-            template <typename VecS> static __device__ __forceinline__ constexpr VecD cast(const VecS& v)
-            {
-                using D = typename VectorTraits<VecD>::base;
-                return make::type<VecD>(saturate_cast<D>(v.x), saturate_cast<D>(v.y), saturate_cast<D>(v.z), saturate_cast<D>(v.w));
-            }
-        };
-
-        template <typename VecD, typename VecS> static __device__ __forceinline__ constexpr VecD saturate_cast_helper(const VecS& v)
-        {
-            return SatCastHelper<cn<VecD>, VecD>::cast(v);
+SATURATE_CAST_BASE(schar, uchar)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        const int vi = static_cast<int>(input);
+        if (vi < 0) {
+            return 0;
+        } else if (vi > 255) {
+            return 255;
+        } else {
+            return static_cast<uchar>(vi);
         }
     }
+};
 
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uchar1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const char1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const ushort1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const short1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uint1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const int1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const float1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const double1& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+SATURATE_CAST_BASE(char, uchar)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        const int vi = static_cast<int>(input);
+        if (vi < 0) {
+            return 0;
+        } else if (vi > 255) {
+            return 255;
+        } else {
+            return static_cast<uchar>(vi);
+        }
+    }
+};
 
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uchar2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const char2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const ushort2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const short2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uint2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const int2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const float2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const double2& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+SATURATE_CAST_BASE(short, uchar)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        const int vi = static_cast<int>(input);
+        if (vi < 0) {
+            return 0;
+        } else if (vi > 255) {
+            return 255;
+        } else {
+            return static_cast<uchar>(vi);
+        }
+    }
+};
 
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uchar3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const char3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const ushort3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const short3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uint3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const int3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const float3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const double3& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+SATURATE_CAST_BASE(ushort, uchar)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input > 255) {
+            return 255;
+        } else {
+            return static_cast<uchar>(input);
+        }
+    }
+};
 
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uchar4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const char4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const ushort4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const short4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const uint4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const int4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const float4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
-    template<typename T> static __device__ __forceinline__ constexpr T saturate_cast(const double4& v) { return vec_math_detail::saturate_cast_helper<T>(v); }
+SATURATE_CAST_BASE(int, uchar)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input < 0) {
+            return 0;
+        } else if (input > 255) {
+            return 255;
+        } else {
+            return static_cast<uchar>(input);
+        }
+    }
+};
+SATURATE_CAST_BASE(uint, uchar)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input > 255) {
+            return 255;
+        } else {
+            return static_cast<uchar>(input);
+        }
+    }
+};
+SATURATE_CAST_BASE(float, uchar)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        const int vi = __float2uint_rn(input);
+        if (vi > 255) {
+            return 255;
+        } else {
+            return static_cast<uchar>(vi);
+        }
+#else
+        const int vi = static_cast<int>(std::nearbyint(input));
+        if (vi < 0) {
+            return 0;
+        } else if (vi > 255) {
+            return 255;
+        } else {
+            return static_cast<uchar>(vi);
+        }
+#endif
+    }
+};
+SATURATE_CAST_BASE(double, uchar)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        const uint vi = __double2uint_rn(input);
+        if (vi > 255) {
+            return 255;
+        } else {
+            return static_cast<uchar>(vi);
+        }
+#else
+        const int vi = static_cast<int>(std::nearbyint(input));
+        if (vi < 0) {
+            return 0;
+        } else if (vi > 255) {
+            return 255;
+        } else {
+            return static_cast<uchar>(vi);
+        }
+#endif
+    }
+};
+SATURATE_CAST_BASE(uchar, schar)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input > 127) {
+            return 127;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+    }
+};
+SATURATE_CAST_BASE(uchar, char)
+FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+    if (input > 127) {
+        return 127;
+    } else {
+        return static_cast<OutputType>(input);
+    }
+}
+};
+SATURATE_CAST_BASE(short, schar)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input < -128) {
+            return -128;
+        } else if (input > 127) {
+            return 127;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+    }
+};
+SATURATE_CAST_BASE(short, char)
+FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+    if (input < -128) {
+        return -128;
+    } else if (input > 127) {
+        return 127;
+    } else {
+        return static_cast<OutputType>(input);
+    }
+}
+};
+SATURATE_CAST_BASE(ushort, schar)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input > 127) {
+            return 127;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+    }
+};
+SATURATE_CAST_BASE(ushort, char)
+FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+    if (input > 127) {
+        return 127;
+    } else {
+        return static_cast<OutputType>(input);
+    }
+}
+};
+SATURATE_CAST_BASE(int, schar)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input < -128) {
+            return -128;
+        } else if (input > 127) {
+            return 127;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+    }
+};
+SATURATE_CAST_BASE(int, char)
+FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+    if (input < -128) {
+        return -128;
+    } else if (input > 127) {
+        return 127;
+    } else {
+        return static_cast<OutputType>(input);
+    }
+}
+};
+SATURATE_CAST_BASE(uint, schar)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input > 127) {
+            return 127;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+    }
+};
+SATURATE_CAST_BASE(uint, char)
+FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+    if (input > 127) {
+        return 127;
+} else {
+        return static_cast<OutputType>(input);
+    }
+    }
+};
+SATURATE_CAST_BASE(float, schar)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        const int vi = __float2int_rn(input);
+#else
+        const int vi = static_cast<int>(std::nearbyint(input));
+#endif
+        if (vi < -128) {
+            return -128;
+        } else if (vi > 127) {
+            return 127;
+        } else {
+            return static_cast<OutputType>(vi);
+        }
+    }
+};
+SATURATE_CAST_BASE(float, char)
+static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+    const int vi = __float2int_rn(input);
+#else
+    const int vi = static_cast<int>(std::nearbyint(input));
+#endif
+    if (vi < -128) {
+        return -128;
+    } else if (vi > 127) {
+        return 127;
+    } else {
+        return static_cast<OutputType>(vi);
+    }
+}
+};
+SATURATE_CAST_BASE(schar, ushort)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        return __float2uint_rn(static_cast<float>(input));
+#else
+        if (input < 0) {
+            return 0;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+#endif
+    }
+};
+SATURATE_CAST_BASE(char, ushort)
+static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+    return __float2uint_rn(static_cast<float>(input));
+#else
+    if (input < 0) {
+        return 0;
+    } else {
+        return static_cast<OutputType>(input);
+    }
+#endif
+}
+};
+SATURATE_CAST_BASE(short, ushort)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        return __float2uint_rn(static_cast<float>(input));
+#else
+        if (input < 0) {
+            return 0;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+#endif
+    }
+};
+SATURATE_CAST_BASE(int, ushort)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input < 0) {
+            return 0;
+        } else if (input > 65535) {
+            return 65535;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+    }
+};
+SATURATE_CAST_BASE(uint, ushort)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input > 65535) {
+            return 65535;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+    }
+};
+SATURATE_CAST_BASE(float, ushort)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        const int vi = __float2uint_rn(input);
+        if (vi > 65535) {
+            return 65535;
+        } else {
+            return static_cast<OutputType>(vi);
+        }
+#else
+        const int vi = static_cast<int>(std::nearbyint(input));
+        if (vi < 0) {
+            return 0;
+        } else if (vi > 65535) {
+            return 65535;
+        } else {
+            return static_cast<OutputType>(vi);
+        }
+#endif
+    }
+};
+SATURATE_CAST_BASE(double, ushort)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        const int vi = __double2uint_rn(input);
+        if (vi > 65535) {
+            return 65535;
+        } else {
+            return static_cast<OutputType>(vi);
+        }
+#else
+        const int vi = static_cast<int>(std::nearbyint(input));
+        if (vi < 0) {
+            return 0;
+        } else if (vi > 65535) {
+            return 65535;
+        } else {
+            return static_cast<OutputType>(vi);
+        }
+#endif
+    }
+};
+SATURATE_CAST_BASE(ushort, short)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input > 32767) {
+            return 32767;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+    }
+};
+SATURATE_CAST_BASE(int, short)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input < -32768) {
+            return -32768;
+        } else if (input > 32767) {
+            return 32767;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+    }
+};
+SATURATE_CAST_BASE(uint, short)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input > 32767) {
+            return 32767;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+    }
+};
+SATURATE_CAST_BASE(float, short)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        const int vi = __float2int_rn(input);
+#else
+        const int vi = static_cast<int>(std::nearbyint(input));
+#endif
+        if (vi < -32768) {
+            return -32768;
+        } else if (vi > 32767) {
+            return 32767;
+        } else {
+            return static_cast<OutputType>(vi);
+        }
+    }
+};
+SATURATE_CAST_BASE(double, short)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        const int vi = __double2int_rn(input);
+#else
+        const int vi = static_cast<int>(std::nearbyint(input));
+#endif
+        if (vi < -32768) {
+            return -32768;
+        } else if (vi > 32767) {
+            return 32767;
+        } else {
+            return static_cast<OutputType>(vi);
+        }
+    }
+};
+SATURATE_CAST_BASE(uint, int)
+    FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+        if (input > 2147483647) {
+            return 2147483647;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+    }
+};
+SATURATE_CAST_BASE(float, int)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        return __float2int_rn(input);
+#else
+        return static_cast<OutputType>(std::nearbyint(input));
+#endif
+    }
+};
+SATURATE_CAST_BASE(double, int)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        return __double2int_rn(input);
+#else
+        return static_cast<OutputType>(std::nearbyint(input));
+#endif
+    }
+};
+SATURATE_CAST_BASE(schar, uint)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        return __float2uint_rn(static_cast<float>(input));
+#else
+        if (input < 0) {
+            return 0;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+#endif
+    }
+};
+SATURATE_CAST_BASE(char, uint)
+static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+    return __float2uint_rn(static_cast<float>(input));
+#else
+    if (input < 0) {
+        return 0;
+    } else {
+        return static_cast<OutputType>(input);
+    }
+#endif
+}
+};
+SATURATE_CAST_BASE(short, uint)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        return __float2uint_rn(static_cast<float>(input));
+#else
+        if (input < 0) {
+            return 0;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+#endif
+    }
+};
+SATURATE_CAST_BASE(int, uint)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        return __float2uint_rn(static_cast<float>(input));
+#else
+        if (input < 0) {
+            return 0;
+        } else {
+            return static_cast<OutputType>(input);
+        }
+#endif
+    }
+};
+SATURATE_CAST_BASE(float, uint)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        return __float2uint_rn(input);
+#else
+        return static_cast<OutputType>(std::nearbyint(input));
+#endif
+    }
+};
+SATURATE_CAST_BASE(double, uint)
+    static __host__ __device__ __forceinline__ OutputType exec(const InputType& input) {
+#ifdef __CUDA_ARCH__
+        return __double2uint_rn(input);
+#else
+        return static_cast<OutputType>(std::nearbyint(input));
+#endif
+    }
+};
+
+#undef SATURATE_CAST_BASE
 
     template <typename I, typename O>
     struct SaturateCast {
         using InputType = I;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
-            return saturate_cast<OutputType>(input);
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+            return UnaryV<I, O, SaturateCastBase<VBase<I>, VBase<O>>>::exec(input);
+        }
+        using InstantiableType = Unary<SaturateCast<I, O>>;
+        FK_HOST_FUSE InstantiableType build() {
+                return InstantiableType{};
         }
     };
 
@@ -352,7 +575,7 @@ namespace fk {
         using InputType = float;
         using OutputType = float;
         using InstanceType = UnaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             return Max<float>::exec(0.f, Min<float>::exec(input, 1.f));
         }
     };
@@ -364,9 +587,13 @@ namespace fk {
         using ParamsType = VectorType_t<VBase<T>, 2>;
         using Base = typename VectorTraits<T>::base;
         using InstanceType = BinaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
             static_assert(!validCUDAVec<T>, "Saturate only works with non cuda vector types");
             return Max<Base>::exec(params.x, Min<Base>::exec(input, params.y));
+        }
+        using InstantiableType = Binary<Saturate<T>>;
+        FK_HOST_FUSE InstantiableType build(const ParamsType& params) {
+            return InstantiableType{ params };
         }
     };
 
@@ -375,9 +602,17 @@ namespace fk {
         using InputType = T;
         using OutputType = T;
         using InstanceType = UnaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             static_assert(std::is_same_v<VBase<T>, float>, "Satureate float only works with float base types.");
             return UnaryV<T,T,SaturateFloatBase>::exec(input);
         }
+        using InstantiableType = Unary<SaturateFloat<T>>;
+        FK_HOST_FUSE InstantiableType build() {
+            return InstantiableType{};
+        }
     };
 } // namespace fk
+
+#undef DEFAULT_UNARY_BUILD
+
+#endif

@@ -12,19 +12,21 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_SIZE
+#define FK_SIZE
 
 #include <fused_kernel/core/utils/utils.h>
 
 namespace fk {
     template <typename T>
     struct Size_ {
-        constexpr Size_(T width_, T height_) : width(width_),
-            height(height_) {};
-        constexpr Size_() {};
+        FK_HOST_DEVICE_CNST Size_(T width_, T height_) : width(width_), height(height_) {};
+        FK_HOST_DEVICE_CNST Size_() {};
         T width{ 0 };
         T height{ 0 };
     };
 
     using Size = Size_<int>;
 } // namespace fk
+
+#endif

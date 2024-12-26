@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -12,13 +12,15 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_COLOR_CONVERSION
+#define FK_COLOR_CONVERSION
 
 #include <fused_kernel/core/data/ptr_nd.cuh>
-#include <fused_kernel/core/execution_model/unary_operation_sequence.cuh>
 #include <fused_kernel/algorithms/basic_ops/algebraic.cuh>
 #include <fused_kernel/algorithms/image_processing/saturate.cuh>
 #include <fused_kernel/algorithms/basic_ops/cast.cuh>
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
+#include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {
     template <typename I>
@@ -32,6 +34,8 @@ namespace fk {
         FK_DEVICE_FUSE OutputType exec(const InputType& input) {
             return AddLast<InputType, OutputType>::exec(input, alpha);
         }
+        using InstantiableType = Unary<StaticAddAlpha<I, alpha>>;
+        DEFAULT_UNARY_BUILD
     };
 
     enum GrayFormula { CCIR_601 };
@@ -45,12 +49,20 @@ namespace fk {
         using InputType = I;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             // 0.299*R + 0.587*G + 0.114*B
             if constexpr (std::is_unsigned_v<OutputType>) {
+#ifdef __CUDA_ARCH__
                 return __float2uint_rn(compute_luminance(input));
+#else
+                return static_cast<OutputType>(std::nearbyint(compute_luminance(input)));
+#endif
             } else if constexpr (std::is_signed_v<OutputType>) {
+#ifdef __CUDA_ARCH__
                 return __float2int_rn(compute_luminance(input));
+#else
+                return static_cast<OutputType>(std::nearbyint(compute_luminance(input)));
+#endif
             } else if constexpr (std::is_floating_point_v<OutputType>) {
                 return compute_luminance(input);
             }
@@ -59,6 +71,8 @@ namespace fk {
         FK_HOST_DEVICE_FUSE float compute_luminance(const InputType& input) {
             return (input.x * 0.299f) + (input.y * 0.587f) + (input.z * 0.114f);
         }
+        using InstantiableType = Unary<RGB2Gray<I, O, CCIR_601>>;
+        DEFAULT_UNARY_BUILD
     };
 
     enum ColorSpace { YUV420, YUV422, YUV444 };
@@ -117,10 +131,12 @@ namespace fk {
         using InputType = I;
         using OutputType = VOneMore<I>;
         using InstanceType = UnaryType;
-        FK_DEVICE_FUSE OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             constexpr auto alpha = maxDepthValue<CD>;
             return AddLast<InputType, OutputType>::exec(input, alpha);
         }
+        using InstantiableType = Unary<AddOpaqueAlpha<I, CD>>;
+        DEFAULT_UNARY_BUILD
     };
 
     template <typename T, ColorDepth CD>
@@ -130,9 +146,11 @@ namespace fk {
         using InstanceType = UnaryType;
         using Base = typename VectorTraits<T>::base;
 
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             return Saturate<float>::exec(input, { 0.f, static_cast<float>(maxDepthValue<CD>) });
         }
+        using InstantiableType = Unary<SaturateDepth<T, CD>>;
+        DEFAULT_UNARY_BUILD
     };
 
     enum ColorConversionDir { YCbCr2RGB, RGB2YCbCr };
@@ -195,9 +213,11 @@ namespace fk {
         using InputType = VectorType_t<float, cn<O>>;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             return Cast<InputType, OutputType>::exec(input * static_cast<float>(maxDepthValue<CD>));
         }
+        using InstantiableType = Unary<DenormalizePixel<O, CD>>;
+        DEFAULT_UNARY_BUILD
     };
 
     template <typename I, ColorDepth CD>
@@ -205,9 +225,11 @@ namespace fk {
         using InputType = I;
         using OutputType = VectorType_t<float, cn<I>>;
         using InstanceType = UnaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             return input / static_cast<float>(maxDepthValue<CD>);
         }
+        using InstantiableType = Unary<NormalizePixel<I, CD>>;
+        DEFAULT_UNARY_BUILD
     };
 
     template <typename I, typename O, ColorDepth CD>
@@ -215,11 +237,13 @@ namespace fk {
         using InputType = I;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             static_assert(std::is_same_v<VBase<I>, float>, "SaturateDenormalizePixel only works with float base types.");
             const InputType saturatedFloat = SaturateFloat<InputType>::exec(input);
             return DenormalizePixel<OutputType, CD>::exec(saturatedFloat);
         }
+        using InstantiableType = Unary<SaturateDenormalizePixel<I, O, CD>>;
+        DEFAULT_UNARY_BUILD
     };
 
     template <typename T, ColorDepth CD>
@@ -228,10 +252,12 @@ namespace fk {
         using OutputType = T;
         using InstanceType = UnaryType;
         using Base = typename VectorTraits<T>::base;
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             static_assert(std::is_floating_point_v<VBase<T>>, "NormalizeColorRangeDepth only works for floating point values");
             return input * floatShiftFactor<CD>;
         }
+        using InstantiableType = Unary<NormalizeColorRangeDepth<T, CD>>;
+        DEFAULT_UNARY_BUILD
     };
 
     template <PixelFormat PF, ColorRange CR, ColorPrimitives CP, bool ALPHA, typename ReturnType = YUVOutputPixelType<PF, ALPHA>>
@@ -241,12 +267,11 @@ namespace fk {
         using OutputType = ReturnType;
         using InstanceType = UnaryType;
 
-    private:
-
+        private:
         // Y     -> input.x
         // Cb(U) -> input.y
         // Cr(V) -> input.z
-        static constexpr __device__ __forceinline__ float3 computeRGB(const InputType& pixel) {
+        FK_HOST_DEVICE_FUSE float3 computeRGB(const InputType& pixel) {
             const M3x3Float coefficients = ccMatrix<CR, CP, YCbCr2RGB>;
             const float CSub = subCoefficients<CD>.chroma;
             if constexpr (CP == bt601) {
@@ -257,7 +282,7 @@ namespace fk {
             }
         }
 
-        static constexpr __device__ __forceinline__ OutputType computePixel(const InputType& pixel) {
+        FK_HOST_DEVICE_FUSE OutputType computePixel(const InputType& pixel) {
             const float3 pixelRGBFloat = computeRGB(pixel);
             if constexpr (std::is_same_v<VBase<OutputType>, float>) {
                 if constexpr (ALPHA) {
@@ -276,8 +301,8 @@ namespace fk {
 
         }
 
-    public:
-        static constexpr __device__ __forceinline__ OutputType exec(const InputType& input) {
+        public:
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             // Pixel data shifted to the right to it's color depth numerical range
             const InputType shiftedPixel = ShiftRight<InputType>::exec(input, shiftFactor<CD>);
 
@@ -291,6 +316,8 @@ namespace fk {
                 return ShiftLeft<OutputType>::exec(computedPixel, shiftFactor<CD>);
             }
         }
+        using InstantiableType = Unary<ConvertYUVToRGB<PF, CR, CP, ALPHA, ReturnType>>;
+        DEFAULT_UNARY_BUILD
     };
 
     template <PixelFormat PF>
@@ -301,7 +328,7 @@ namespace fk {
         using InstanceType = ReadType;
         using ReadDataType = PixelBaseType;
         static constexpr bool THREAD_FUSION{ false };
-        static __device__ __forceinline__ const OutputType exec(const Point& thread, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const ParamsType& params) {
             if constexpr (PF == NV12 || PF == P010 || PF == P016 || PF == P210 || PF == P216) {
                 // Planar luma
                 const PixelBaseType Y = *PtrAccessor<_2D>::cr_point(thread, params);
@@ -345,6 +372,22 @@ namespace fk {
                 return { pixel.z, pixel.w, pixel.y, pixel.x };
             }
         }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& params) {
+            return params.dims.width;
+        }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const ParamsType& params) {
+            return params.dims.height;
+        }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& params) {
+            return 1;
+        }
+
+        using InstantiableType = Read<ReadYUV<PF>>;
+        DEFAULT_READ_BUILD
+        DEFAULT_READ_BATCH_BUILD
     };
 
     enum ColorConversionCodes {
@@ -401,13 +444,13 @@ namespace fk {
     // Will work for COLOR_RGB2BGRA too
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGR2RGBA, I, O, CD> {
-        using type = UnaryOperationSequence<VectorReorder<I, 2, 1, 0>, AddOpaqueAlpha<I, CD>>;
+        using type = FusedOperation<VectorReorder<I, 2, 1, 0>, AddOpaqueAlpha<I, CD>>;
     };
 
     // Will work for COLOR_RGBA2BGR too
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGRA2RGB, I, O, CD> {
-        using type = UnaryOperationSequence<VectorReorder<I, 2, 1, 0, 3>,
+        using type = FusedOperation<VectorReorder<I, 2, 1, 0, 3>,
                            Discard<I, VectorType_t<VBase<I>, 3>>>;
     };
 
@@ -430,7 +473,7 @@ namespace fk {
 
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGR2GRAY, I, O, CD> {
-        using type = UnaryOperationSequence<VectorReorder<I, 2, 1, 0>, RGB2Gray<I, O>>;
+        using type = FusedOperation<VectorReorder<I, 2, 1, 0>, RGB2Gray<I, O>>;
     };
 
     template <typename I, typename O, ColorDepth CD>
@@ -440,10 +483,14 @@ namespace fk {
 
     template <typename I, typename O, ColorDepth CD>
     struct ColorConversionType<COLOR_BGRA2GRAY, I, O, CD> {
-        using type = UnaryOperationSequence<VectorReorder<I, 2, 1, 0, 3>, RGB2Gray<I, O>>;
+        using type = FusedOperation<VectorReorder<I, 2, 1, 0, 3>, RGB2Gray<I, O>>;
     };
 
     template <ColorConversionCodes code, typename I, typename O, ColorDepth CD = ColorDepth::p8bit>
     using ColorConversion = typename ColorConversionType<code, I, O, CD>::type;
 
 } // namespace fk
+
+#include <fused_kernel/core/execution_model/default_builders_undef.h>
+
+#endif

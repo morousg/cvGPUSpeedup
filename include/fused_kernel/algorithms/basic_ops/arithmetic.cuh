@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -12,11 +12,12 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_ARITHMETIC
+#define FK_ARITHMETIC
 
-#include <fused_kernel/core/utils/tuple.cuh>
-#include <fused_kernel/core/execution_model/operation_types.cuh>
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/core/utils/cuda_vector_utils.h>
+#include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {
     template <typename I1, typename I2 = I1, typename O = I1, typename IT = BinaryType>
@@ -28,9 +29,11 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        static constexpr  __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
             return input + params;
         }
+        using InstantiableType = Binary<Add<I, P, O, BinaryType>>;
+        DEFAULT_BINARY_BUILD
     };
 
     template <typename I1, typename I2, typename O>
@@ -38,9 +41,11 @@ namespace fk {
         using InputType = Tuple<I1, I2>;
         using OutputType = O;
         using InstanceType = UnaryType;
-        static constexpr  __device__ __host__ __forceinline__ OutputType exec(const InputType& input) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             return get_v<0>(input) + get_v<1>(input);
         }
+        using InstantiableType = Unary<Add<I1, I2, O, UnaryType>>;
+        DEFAULT_UNARY_BUILD
     };
 
     template <typename I, typename P = I, typename O = I>
@@ -49,9 +54,11 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        static constexpr  __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
             return input - params;
         }
+        using InstantiableType = Binary<Sub<I, P, O>>;
+        DEFAULT_BINARY_BUILD
     };
 
     template <typename I, typename P = I, typename O = I>
@@ -60,9 +67,11 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        static constexpr  __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
             return input * params;
         }
+        using InstantiableType = Binary<Mul<I, P, O>>;
+        DEFAULT_BINARY_BUILD
     };
 
     template <typename I, typename P = I, typename O = I>
@@ -71,9 +80,14 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        static constexpr  __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
             return input / params;
         }
+        using InstantiableType = Binary<Div<I, P, O>>;
+        DEFAULT_BINARY_BUILD
     };
 } // namespace fk
 
+#include <fused_kernel/core/execution_model/default_builders_undef.h>
+
+#endif

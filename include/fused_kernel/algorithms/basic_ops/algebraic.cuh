@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -12,10 +12,13 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_ALGEBRAIC
+#define FK_ALGEBRAIC
 
 #include <fused_kernel/algorithms/basic_ops/arithmetic.cuh>
 #include <fused_kernel/algorithms/basic_ops/cuda_vector.cuh>
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
+#include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {
 
@@ -30,13 +33,18 @@ namespace fk {
         using InputType = float3;
         using ParamsType = M3x3Float; 
         using InstanceType = BinaryType; 
-        static constexpr  __device__ __host__ __forceinline__ OutputType exec(const InputType& input, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
             const float3 xOut = input * params.x;
             const float3 yOut = input * params.y;
             const float3 zOut = input * params.z;
             using Reduce = VectorReduce<float3, Add<float>>;
             return { Reduce::exec(xOut), Reduce::exec(yOut), Reduce::exec(zOut) };
         }
+        using InstantiableType = Binary<MxVFloat3>;
+        DEFAULT_BINARY_BUILD
     };
-
 } //namespace fk
+
+#include <fused_kernel/core/execution_model/default_builders_undef.h>
+
+#endif

@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2024 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
    limitations under the License.
 */
 
-#pragma once
+#ifndef FK_VLIMITS
+#define FK_VLIMITS
 
 #include <fused_kernel/core/utils/cuda_vector_utils.h>
 #include <limits>
@@ -35,3 +36,5 @@ namespace fk {
     constexpr T minValue <T, std::enable_if_t<validCUDAVec<T>>> = make_set<T>(minValue<VBase<T>>);
 
 } // namespace fk
+
+#endif

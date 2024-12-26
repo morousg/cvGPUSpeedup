@@ -12,9 +12,11 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#pragma once
+#ifndef FK_STATIC_LOOP
+#define FK_STATIC_LOOP
 
-#include <fused_kernel/core/execution_model/operation_types.cuh>
+#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
+#include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {
     template <typename Operation, int ITERATIONS>
@@ -24,7 +26,7 @@ namespace fk {
         using ParamsType = typename Operation::ParamsType;
         using InstanceType = BinaryType;
 
-    private:
+        private:
         template <int ITERATION>
         FK_DEVICE_FUSE OutputType helper_exec(const InputType& input, const ParamsType& params) {
             if constexpr (ITERATION + 1 < ITERATIONS) {
@@ -34,9 +36,15 @@ namespace fk {
             }
         }
 
-    public:
+        public:
         FK_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
             return helper_exec<0>(Operation::exec(input, params), params);
         }
+        using InstantiableType = Binary<StaticLoop<Operation, ITERATIONS>>;
+        DEFAULT_BINARY_BUILD
     };
 } // namespace fk
+
+#include <fused_kernel/core/execution_model/default_builders_undef.h>
+
+#endif

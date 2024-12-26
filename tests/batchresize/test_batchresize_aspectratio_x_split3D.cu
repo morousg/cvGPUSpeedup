@@ -25,18 +25,22 @@
 
 #ifdef ENABLE_BENCHMARK
 constexpr char VARIABLE_DIMENSION[]{ "Batch size" };
+#define BENCHMARK_ENABLED true
+#else
+#define BENCHMARK_ENABLED false
 #endif
+
+constexpr size_t FIRST_VALUE = 10;
+constexpr size_t INCREMENT = 10;
 
 #ifndef CUDART_MAJOR_VERSION
 #error CUDART_MAJOR_VERSION Undefined!
 #elif (CUDART_MAJOR_VERSION == 11)
 constexpr size_t NUM_EXPERIMENTS = 5;
-constexpr size_t FIRST_VALUE = 10;
-constexpr size_t INCREMENT = 10;
-#elif (CUDART_MAJOR_VERSION == 12)
+#elif (CUDART_MAJOR_VERSION == 12 && BENCHMARK_ENABLED)
 constexpr size_t NUM_EXPERIMENTS = 30;
-constexpr size_t FIRST_VALUE = 10;
-constexpr size_t INCREMENT = 10;
+#elif (CUDART_MAJOR_VERSION == 12)
+constexpr size_t NUM_EXPERIMENTS = 5;
 #endif // CUDART_MAJOR_VERSION
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 

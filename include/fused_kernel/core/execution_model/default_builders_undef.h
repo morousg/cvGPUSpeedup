@@ -12,22 +12,9 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#ifndef FK_POINT
-#define FK_POINT
-
-#include <fused_kernel/core/utils/utils.h>
-
-namespace fk {
-
-    template <typename T>
-    struct Point_ {
-        T x;
-        T y;
-        T z;
-        FK_HOST_DEVICE_CNST Point_(const T x_ = 0, const T y_ = 0, const T z_ = 0) : x(x_), y(y_), z(z_) {}
-    };
-
-    using Point = Point_<uint>;
-} // namespace fk
-
-#endif
+#undef DEFAULT_READ_BUILD
+#undef DEFAULT_UNARY_BUILD
+#undef DEFAULT_BINARY_BUILD
+#undef DEFAULT_TERNARY_BUILD
+#undef DEFAULT_WRITE_BUILD
+#undef BUILDERS
