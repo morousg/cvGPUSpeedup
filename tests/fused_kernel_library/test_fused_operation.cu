@@ -36,8 +36,8 @@ bool test_fuseDFResultingTypes() {
 
     constexpr auto fused1 = fuseDF(readOp, addOp, castOp);
 
-    constexpr auto read = Read<PerThreadRead<_2D, float>>{{ fk::RawPtr<_2D, float>{} }};
-    constexpr auto sourceRead = make_source(read, ActiveThreads(128, 4));
+    constexpr auto read = Read<PerThreadRead<_2D, float>>{ { fk::RawPtr<_2D, float>{nullptr, {128, 4}} } };
+    constexpr auto sourceRead = make_source(read);
 
     constexpr auto readOp2 = PerThreadRead<_2D, uchar3>::build(RawPtr<_2D, uchar3>{nullptr, PtrDims<_2D>(128,128)});
 

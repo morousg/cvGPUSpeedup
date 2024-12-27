@@ -469,7 +469,7 @@ namespace fk {
             return Operation::num_elems_y(thread, ptr.op_params[thread.z]);
         }
         FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& ptr) {
-            return Operation::num_elems_z(thread, ptr.op_params[thread.z]);
+            return BATCH;
         }
         FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
             return Operation::pitch(thread, ptr.op_params[thread.z]);
@@ -698,7 +698,7 @@ namespace fk {
         }
 
         FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& params, const BackFunction& back_function) {
-            return Operation::num_elems_z(thread, params.op_params[thread.z], back_function[thread.z]);
+            return BATCH;
         }
 
         using InstantiableType = ReadBack<BatchReadBack<BATCH, PP, Operation>>;
@@ -858,10 +858,7 @@ namespace fk {
         FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableSourceType>
         build_source(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
                      const int& usedPlanes, const OutputType& defaultValue) {
-            const InstantiableType instOperation = build(instantiableOperations, usedPlanes, defaultValue);
-            const Size output_size = Num_elems<InstantiableType>::size(Point(), instOperation);
-            const ActiveThreads activeThreads{ static_cast<uint>(output_size.width), static_cast<uint>(output_size.height), static_cast<uint>(BATCH) };
-            return make_source(instOperation, activeThreads);
+            return make_source(build(instantiableOperations, usedPlanes, defaultValue));
         }
 
         // END DEVICE FUNCTION BASED BUILDERS

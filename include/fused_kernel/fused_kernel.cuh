@@ -197,13 +197,13 @@ namespace fk {
         if (outputPtr.getMemType() == MemType::Device) {
             if constexpr (D == _1D) {
                 const ActiveThreads activeThreads(output.dims.width);
-                executeOperations(stream, SourceRead<ReadSet<T>>{value, activeThreads}, Write<PerThreadWrite<D, T>>{output});
+                executeOperations(stream, ReadSet<T>::build_source({ value, activeThreads }), Write<PerThreadWrite<D, T>>{output});
             } else if constexpr (D == _2D) {
                 const ActiveThreads activeThreads(output.dims.width, output.dims.height);
-                executeOperations(stream, SourceRead<ReadSet<T>>{value, activeThreads}, Write<PerThreadWrite<D, T>>{output});
+                executeOperations(stream, ReadSet<T>::build_source({value, activeThreads}), Write<PerThreadWrite<D, T>>{output});
             } else if constexpr (D == _3D) {
                 const ActiveThreads activeThreads(output.dims.width, output.dims.height, output.dims.planes);
-                executeOperations(stream, SourceRead<ReadSet<T>>{value, activeThreads}, Write<PerThreadWrite<D, T>>{output});
+                executeOperations(stream, ReadSet<T>::build_source({ value, activeThreads }), Write<PerThreadWrite<D, T>>{output});
             }
         } else {
             for (int i = 0; i < (int)outputPtr.getNumElements(); i++) {

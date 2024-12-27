@@ -60,7 +60,7 @@ bool test_OTInitialization() {
 
     const auto test9 = fk::make_source(fk::Instantiable<fk::FusedOperation<typename decltype(read)::Operation,
                                                                    typename decltype(cast)::Operation>>
-    { fk::devicefunctions_to_operationtuple(read, cast) }, read.activeThreads);
+    { fk::devicefunctions_to_operationtuple(read, cast) });
 
     return true;
 }

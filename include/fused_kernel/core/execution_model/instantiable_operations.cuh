@@ -59,9 +59,26 @@ namespace fk { // namespace FusedKernel
     struct ReadInstantiableOperation final : public OperationData<Operation_t> {
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadType)
         static constexpr bool isSource{false};
-        template <typename... ContinuationsDF>
-        FK_HOST_CNST auto then(const ContinuationsDF&... cDFs) const {
-            return fuseDF(*this, cDFs...);
+
+        template <typename ContinuationIOp>
+        FK_HOST_CNST auto then(const ContinuationIOp& cIOp) const {
+            if constexpr (isReadBackType<ContinuationIOp>) {
+                return ContinuationIOp::Operation::build(*this, cIOp);
+            } else {
+                return fuseDF(*this, cIOp);
+            }
+        }
+
+        template <typename ContinuationIOp, typename... ContinuationIOps>
+        FK_HOST_CNST auto then(const ContinuationIOp& cIOp, const ContinuationIOps&... cIOps) const {
+            return then(cIOp).then(cIOps...);
+        }
+
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const ReadInstantiableOperation<Operation>& mySelf) {
+            return { Operation::num_elems_x(Point(), mySelf.params),
+                     Operation::num_elems_y(Point(), mySelf.params),
+                     Operation::num_elems_z(Point(), mySelf.params)
+                   };
         }
     };
 
@@ -81,15 +98,35 @@ namespace fk { // namespace FusedKernel
         FK_HOST_CNST auto then(const ContinuationsDF&... cDFs) const {
             return fuseDF(*this, cDFs...);
         }
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const SourceReadInstantiableOperation<Operation>& mySelf) {
+            return mySelf.activeThreads;
+        }
     };
 
     template <typename Operation_t>
     struct ReadBackInstantiableOperation final : public OperationData<Operation_t> {
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadBackType)
         static constexpr bool isSource{ false };
-        template <typename... ContinuationsDF>
-        FK_HOST_CNST auto then(const ContinuationsDF&... cDFs) const {
-            return fuseDF(*this, cDFs...);
+
+        template <typename ContinuationIOp>
+        FK_HOST_CNST auto then(const ContinuationIOp& cIOp) const {
+            if constexpr (isReadBackType<ContinuationIOp>) {
+                return ContinuationIOp::Operation::build(*this, cIOp);
+            } else {
+                return fuseDF(*this, cIOp);
+            }
+        }
+
+        template <typename ContinuationIOp, typename... ContinuationIOps>
+        FK_HOST_CNST auto then(const ContinuationIOp& cIOp, const ContinuationIOps&... cIOps) const {
+            return then(cIOp).then(cIOps...);
+        }
+
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const ReadBackInstantiableOperation<Operation>& mySelf) {
+            return { Operation::num_elems_x(Point(), mySelf.params, mySelf.back_function),
+                     Operation::num_elems_y(Point(), mySelf.params, mySelf.back_function),
+                     Operation::num_elems_z(Point(), mySelf.params, mySelf.back_function)
+                   };
         }
     };
 
@@ -109,6 +146,9 @@ namespace fk { // namespace FusedKernel
         template <typename... ContinuationsDF>
         FK_HOST_CNST auto then(const ContinuationsDF&... cDFs) const {
             return fuseDF(*this, cDFs...);
+        }
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const SourceReadBackInstantiableOperation<Operation>& mySelf) {
+            return mySelf.activeThreads;
         }
     };
 
@@ -230,10 +270,11 @@ namespace fk { // namespace FusedKernel
     template <typename Operation>
     using Write = WriteInstantiableOperation<Operation>;
 
-    template <typename InstantiableOperation>
-    FK_HOST_CNST auto make_source(const InstantiableOperation& readDF, const ActiveThreads& activeThreads) {
-        using Op = typename InstantiableOperation::Operation;
-        if constexpr (InstantiableOperation::template is<ReadBackType>) {
+    template <typename IOp>
+    FK_HOST_CNST auto make_source(const IOp& readDF) {
+        const ActiveThreads activeThreads = IOp::getActiveThreads(readDF);
+        using Op = typename IOp::Operation;
+        if constexpr (IOp::template is<ReadBackType>) {
             return SourceReadBack<Op>{{readDF.params, readDF.back_function}, activeThreads};
         } else {
             return SourceRead<Op>{{readDF.params}, activeThreads};
@@ -622,8 +663,7 @@ namespace fk { // namespace FusedKernel
         using FirstDF = FirstType_t<InstantiableOperations...>;
         if constexpr (is_any_read_type<FirstDF>::value) {
             if constexpr (FirstDF::isSource) {
-                return make_source(operationTuple_to_InstantiableOperation(devicefunctions_to_operationtuple(instantiableOperations...)),
-                    ppFirst(instantiableOperations...).activeThreads);
+                return make_source(operationTuple_to_InstantiableOperation(devicefunctions_to_operationtuple(instantiableOperations...)));
             } else {
                 return operationTuple_to_InstantiableOperation(devicefunctions_to_operationtuple(instantiableOperations...));
             }
