@@ -94,7 +94,7 @@ namespace fk {
             dims.pitch = sizeof(T) * dims.width;
         }
         FK_HOST_STATIC dim3 getBlockSize(const PtrDims<_1D>& dims) {
-            return fk::getBlockSize(dims.width, 1);
+            return getDefaultBlockSize(dims.width, 1);
         }
     };
 
@@ -119,7 +119,7 @@ namespace fk {
             dims.pitch = sizeof(T) * dims.width;
         }
         FK_HOST_STATIC dim3 getBlockSize(const PtrDims<_2D>& dims) {
-            return fk::getBlockSize(dims.width, dims.height);
+            return getDefaultBlockSize(dims.width, dims.height);
         }
     };
 
@@ -144,7 +144,7 @@ namespace fk {
             dims.plane_pitch = dims.pitch * dims.height;
         }
         FK_HOST_STATIC dim3 getBlockSize(const PtrDims<_3D>& dims) {
-            return fk::getBlockSize(dims.width, dims.height);
+            return getDefaultBlockSize(dims.width, dims.height);
         }
     };
 
@@ -166,7 +166,7 @@ namespace fk {
             dims.color_planes_pitch = dims.plane_pitch * dims.planes;
         }
         FK_HOST_STATIC dim3 getBlockSize(const PtrDims<T3D>& dims) {
-            return fk::getBlockSize(dims.width, dims.height);
+            return getDefaultBlockSize(dims.width, dims.height);
         }
     };
 

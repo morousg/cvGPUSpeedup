@@ -49,7 +49,7 @@ namespace fk {
     struct Interpolate<InterpolationType::INTER_LINEAR, BackFunction_> {
         using BackFunction = BackFunction_;
         using ReadOutputType = typename BackFunction_::Operation::OutputType;
-        using OutputType = fk::VectorType_t<float, cn<ReadOutputType>>;
+        using OutputType = VectorType_t<float, cn<ReadOutputType>>;
         using InputType = float2;
         using ParamsType = InterpolationParameters<InterpolationType::INTER_LINEAR>;
         using InstanceType = TernaryType;

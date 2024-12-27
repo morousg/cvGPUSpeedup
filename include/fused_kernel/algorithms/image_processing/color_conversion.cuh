@@ -291,7 +291,7 @@ namespace fk {
                     return pixelRGBFloat;
                 }
             } else {
-                const InputType pixelRGB = fk::SaturateCast<float3, InputType>::exec(pixelRGBFloat);
+                const InputType pixelRGB = SaturateCast<float3, InputType>::exec(pixelRGBFloat);
                 if constexpr (ALPHA) {
                     return { pixelRGB.x, pixelRGB.y, pixelRGB.z, maxDepthValue<CD> };
                 } else {

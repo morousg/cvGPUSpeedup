@@ -28,7 +28,7 @@ namespace fk {
     template <bool THREAD_FUSION, typename ReadInstantiableOperation, typename... InstantiableOperationTypes>
     inline constexpr void executeOperations(const cudaStream_t& stream, const ReadInstantiableOperation& readDF, const InstantiableOperationTypes&... instantiableOperations) {
         const ActiveThreads dataDims = readDF.activeThreads;
-        const dim3 block{ getBlockSize(dataDims.x, dataDims.y) };
+        const dim3 block{ getDefaultBlockSize(dataDims.x, dataDims.y) };
         constexpr bool THREAD_FUSION_ENABLED = isThreadFusionEnabled<THREAD_FUSION, ReadInstantiableOperation, InstantiableOperationTypes...>();
         const uint elems_per_thread = computeElementsPerThread<THREAD_FUSION_ENABLED>(readDF, instantiableOperations...);
         const dim3 grid{ (unsigned int)ceil((dataDims.x/ (float)elems_per_thread) / (float)block.x),

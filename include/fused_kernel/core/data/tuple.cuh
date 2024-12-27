@@ -114,34 +114,34 @@ namespace fk {
         }
     };
 
-    template <int INDEX, typename TupleLike>
-    FK_HOST_DEVICE_CNST auto get_v(const TupleLike& tuple) {
-        return fk::TupleUtil::get<INDEX>(tuple);
+    template <int INDEX, typename... Types>
+    FK_HOST_DEVICE_CNST auto get(const Tuple<Types...>& tuple) {
+        return TupleUtil::get<INDEX>(tuple);
     }
 
-    template <int INDEX, typename TupleLike>
-    FK_HOST_DEVICE_CNST auto& get_v(TupleLike& tuple) {
-        return fk::TupleUtil::get<INDEX>(tuple);
+    template <int INDEX, typename... Types>
+    FK_HOST_DEVICE_CNST auto& get(Tuple<Types...>& tuple) {
+        return TupleUtil::get<INDEX>(tuple);
     }
 
     template <int INDEX, typename T, typename TupleLike>
     FK_HOST_DEVICE_CNST auto tuple_insert(const T& element, const TupleLike& tuple) {
-        return fk::TupleUtil::tuple_insert<INDEX,T>(element, tuple);
+        return TupleUtil::tuple_insert<INDEX,T>(element, tuple);
     }
 
     template <typename T, typename TupleLike>
     FK_HOST_DEVICE_CNST auto tuple_insert_back(const TupleLike& tuple, const T& element) {
-        return fk::TupleUtil::tuple_insert<TupleLike::size, T>(element, tuple);
+        return TupleUtil::tuple_insert<TupleLike::size, T>(element, tuple);
     }
 
     template <typename Tuple1, typename Tuple2>
     FK_HOST_DEVICE_CNST auto cat(const Tuple1& t1, const Tuple2& t2) {
-        return fk::TupleUtil::cat(t1, t2);
+        return TupleUtil::cat(t1, t2);
     }
 
     template <typename... Types>
     FK_HOST_DEVICE_CNST auto make_tuple(const Types&... instances) {
-        return fk::TupleUtil::make_tuple(instances...);
+        return TupleUtil::make_tuple(instances...);
     }
 
     template <int INDEX, typename TupleLike>
@@ -157,8 +157,8 @@ namespace fk {
 
     template <typename F, typename Tuple, size_t... I>
     FK_HOST_DEVICE_CNST auto apply_impl(F&& f, Tuple& t, std::index_sequence<I...>)
-        -> decltype(std::forward<F>(f)(get_v<I>(std::forward<Tuple>(t))...)) {
-        return std::forward<F>(f)(get_v<I>(std::forward<Tuple>(t))...);
+        -> decltype(std::forward<F>(f)(get<I>(std::forward<Tuple>(t))...)) {
+        return std::forward<F>(f)(get<I>(std::forward<Tuple>(t))...);
     }
 
     template <typename F, typename Tuple>
@@ -183,7 +183,7 @@ namespace fk {
 
     template <typename... InstantiableOperationTypes>
     FK_HOST_DEVICE_CNST auto buildOperationSequence_tup(const Tuple<InstantiableOperationTypes...>& instantiableOperationInstances) {
-        return fk::apply([](const auto&... args) {
+        return apply([](const auto&... args) {
             return buildOperationSequence(args...);
             }, instantiableOperationInstances);
     }

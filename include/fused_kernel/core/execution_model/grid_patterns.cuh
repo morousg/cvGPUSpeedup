@@ -153,7 +153,7 @@ namespace fk { // namespace FusedKernel
             FK_DEVICE_FUSE void divergent_operate(const uint& z, const InstantiableOperationSequence<InstantiableOperationTypes...>& dfSeq,
                                                   const InstantiableOperationSequenceTypes&... dfSequenceInstances) {
                 if (OpSequenceNumber == SequenceSelector::at(z)) {
-                    fk::apply(TransformGridPattern<true, false>::exec<InstantiableOperationTypes...>, dfSeq.instantiableOperations);
+                    apply(TransformGridPattern<true, false>::exec<InstantiableOperationTypes...>, dfSeq.instantiableOperations);
                 } else if constexpr (sizeof...(dfSequenceInstances) > 0) {
                     divergent_operate<OpSequenceNumber + 1>(z, dfSequenceInstances...);
                 }
@@ -174,7 +174,7 @@ namespace fk { // namespace FusedKernel
 
     template <bool THREAD_DIVISIBLE, bool THREAD_FUSION, typename... InstantiableOperationTypes>
     __global__ void cuda_transform_sequence(const InstantiableOperationSequence<InstantiableOperationTypes...> instantiableOperationInstances) {
-        fk::apply(TransformGridPattern<THREAD_DIVISIBLE, THREAD_FUSION>::template exec<InstantiableOperationTypes...>,
+        apply(TransformGridPattern<THREAD_DIVISIBLE, THREAD_FUSION>::template exec<InstantiableOperationTypes...>,
             instantiableOperationInstances.instantiableOperations);
     }
 
@@ -185,7 +185,7 @@ namespace fk { // namespace FusedKernel
 
     template <typename... InstantiableOperationTypes>
     __global__ void cuda_transform_sequence(const InstantiableOperationSequence<InstantiableOperationTypes...> instantiableOperationInstances) {
-        fk::apply(TransformGridPattern<true, false>::template exec<InstantiableOperationTypes...>,
+        apply(TransformGridPattern<true, false>::template exec<InstantiableOperationTypes...>,
             instantiableOperationInstances.instantiableOperations);
     }
 
@@ -196,7 +196,7 @@ namespace fk { // namespace FusedKernel
 
     template <typename... InstantiableOperationTypes>
     __global__ void cuda_transform_grid_const(const __grid_constant__ InstantiableOperationSequence<InstantiableOperationTypes...> instantiableOperationInstances) {
-        fk::apply(TransformGridPattern<true, false>::template exec<InstantiableOperationTypes...>,
+        apply(TransformGridPattern<true, false>::template exec<InstantiableOperationTypes...>,
             instantiableOperationInstances.instantiableOperations);
     }
 
@@ -214,7 +214,7 @@ namespace fk { // namespace FusedKernel
     template <int MAX_THREADS_PER_BLOCK, int MIN_BLOCKS_PER_MP, typename... InstantiableOperationTypes>
     __global__ void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_MP)
     cuda_transform_bounds(const InstantiableOperationSequence<InstantiableOperationTypes...> instantiableOperationInstances) {
-        fk::apply(TransformGridPattern<true, false>::template exec<InstantiableOperationTypes...>,
+        apply(TransformGridPattern<true, false>::template exec<InstantiableOperationTypes...>,
             instantiableOperationInstances.instantiableOperations);
     }
 
@@ -227,7 +227,7 @@ namespace fk { // namespace FusedKernel
     template <int MAX_THREADS_PER_BLOCK, int MIN_BLOCKS_PER_MP, typename... InstantiableOperationTypes>
     __global__ void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_MP)
     cuda_transform_grid_const_bounds(const __grid_constant__ InstantiableOperationSequence<InstantiableOperationTypes...> instantiableOperationInstances) {
-        fk::apply(TransformGridPattern<true, false>::template exec<InstantiableOperationTypes...>,
+        apply(TransformGridPattern<true, false>::template exec<InstantiableOperationTypes...>,
             instantiableOperationInstances.instantiableOperations);
     }
 

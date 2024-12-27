@@ -42,7 +42,7 @@ namespace fk {
         using OutputType = O;
         using InstanceType = UnaryType;
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
-            return get_v<0>(input) + get_v<1>(input);
+            return get<0>(input) + get<1>(input);
         }
         using InstantiableType = Unary<Add<I1, I2, O, UnaryType>>;
         DEFAULT_UNARY_BUILD

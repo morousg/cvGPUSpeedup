@@ -54,30 +54,30 @@ constexpr bool tupleCat() {
 
     constexpr auto myTuple = fk::cat(tuple1, tuple2);
 
-    return fk::and_v<fk::get_v<0>(myTuple) == 1,
-                     fk::get_v<1>(myTuple) == 1.f,
-                     fk::get_v<2>(myTuple) == 1u,
-                     fk::get_v<3>(myTuple) == 1.0>;
+    return fk::and_v<fk::get<0>(myTuple) == 1,
+                     fk::get<1>(myTuple) == 1.f,
+                     fk::get<2>(myTuple) == 1u,
+                     fk::get<3>(myTuple) == 1.0>;
 }
 
 constexpr bool tupleInsert() {
     constexpr auto myTuple = fk::TupleUtil::cat(fk::Tuple<int>{1}, fk::Tuple<char>{1u});
 
-    return fk::and_v<fk::get_v<0>(fk::tuple_insert<0, float>(2.f, myTuple)) == 2.f,
-                     fk::get_v<1>(fk::tuple_insert<1, uchar>(240u, myTuple)) == 240u,
-                     fk::get_v<2>(fk::tuple_insert<2, double>(23.0, myTuple)) == 23.0>;
+    return fk::and_v<fk::get<0>(fk::tuple_insert<0, float>(2.f, myTuple)) == 2.f,
+                     fk::get<1>(fk::tuple_insert<1, uchar>(240u, myTuple)) == 240u,
+                     fk::get<2>(fk::tuple_insert<2, double>(23.0, myTuple)) == 23.0>;
 }
 
 bool modifyTupleElement() {
     fk::Tuple<int, float, double> myTuple{1, 1.f, 1.0};
 
-    fk::get_v<0>(myTuple) += 1;
-    fk::get_v<1>(myTuple) -= 0.5f;
-    fk::get_v<2>(myTuple) += 2.0;
+    fk::get<0>(myTuple) += 1;
+    fk::get<1>(myTuple) -= 0.5f;
+    fk::get<2>(myTuple) += 2.0;
 
-    return (fk::get_v<0>(myTuple) == 2) &&
-           (fk::get_v<1>(myTuple) == 0.5f) &&
-           (fk::get_v<2>(myTuple) == 3.0);
+    return (fk::get<0>(myTuple) == 2) &&
+           (fk::get<1>(myTuple) == 0.5f) &&
+           (fk::get<2>(myTuple) == 3.0);
 }
 
 int launch() {

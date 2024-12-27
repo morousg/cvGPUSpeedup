@@ -71,7 +71,7 @@ namespace fk {
     };
 
 
-    inline dim3 getBlockSize(const uint& width, const uint& height) {
+    inline dim3 getDefaultBlockSize(const uint& width, const uint& height) {
         constexpr uint blockDimX[4] = { 32, 64, 128, 256 };  // Possible block sizes in the x axis
         constexpr uint blockDimY[2][4] = { { 8,  4,   2,   1},
                                           { 6,  3,   3,   2} };  // Possible block sizes in the y axis according to blockDim.x

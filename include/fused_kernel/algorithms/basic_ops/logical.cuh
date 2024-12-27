@@ -123,10 +123,10 @@ namespace fk {
     template <typename I1, typename I2=I1>
     struct Equal {
         using OutputType = bool;
-        using InputType = fk::Tuple<I1,I2>;
+        using InputType = Tuple<I1,I2>;
         using InstanceType = UnaryType;
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
-            return fk::get_v<0>(input) == fk::get_v<1>(input);
+            return get<0>(input) == get<1>(input);
         }
         using InstantiableType = Unary<Equal<I1, I2>>;
         DEFAULT_UNARY_BUILD
