@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -46,19 +46,19 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer, const uint& NUM_ELE
     constexpr int CAMERAS = 4;
     constexpr int OUTPUTS = 1;
     for (int i = 0; i < CAMERAS; i++) {
-        fk::SourceRead<fk::ReadYUV<fk::NV12>> read{ {d_nv12Image}, {NUM_ELEMS_X, NUM_ELEMS_Y} };
+        fk::Read<fk::ReadYUV<fk::NV12>> read{ {d_nv12Image}};
         fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt601, true>> cvtColor{};
         fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>> write{ d_rgbaImageBig.ptr() };
         fk::executeOperations(stream, read, cvtColor, write);
 
-        fk::SourceRead<fk::PerThreadRead<fk::_2D, uchar4>> read2{ {d_rgbaImageBig.ptr()}, {NUM_ELEMS_X, NUM_ELEMS_Y} };
+        fk::Read<fk::PerThreadRead<fk::_2D, uchar4>> read2{ {d_rgbaImageBig.ptr()}};
         fk::Unary<fk::VectorReorder<uchar4, 2, 1, 0, 3>> cvtColor2{};
         fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>> write2{ d_rgbaImageBig.ptr() };
         fk::executeOperations(stream, read2, cvtColor2, write2);
     }
 
     for (int i = 0; i < OUTPUTS; i++) {
-        auto read3 = fk::ResizeRead<fk::INTER_LINEAR>::build_source(d_rgbaImageBig.ptr(), down, 0., 0.);
+        auto read3 = fk::ResizeRead<fk::INTER_LINEAR>::build(d_rgbaImageBig.ptr(), down, 0., 0.);
         fk::Unary<fk::SaturateCast<float4, uchar4>> convertTo3{};
         fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>> write3{ d_rgbaImage.ptr() };
         fk::executeOperations(stream, read3, convertTo3, write3);
@@ -69,11 +69,11 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer, const uint& NUM_ELE
         down.width * sizeof(uchar4), down.height, cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaStreamSynchronize(stream));
 
-    const auto readBackOp = fk::fuseDF(fk::SourceRead<fk::ReadYUV<fk::NV12>>{d_nv12Image},
+    const auto readBackOp = fk::fuseDF(fk::Read<fk::ReadYUV<fk::NV12>>{d_nv12Image},
                                        fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>{});
     const fk::Size srcSize(NUM_ELEMS_X, NUM_ELEMS_Y);
     const auto readOp =
-        fk::ResizeRead<fk::InterpolationType::INTER_LINEAR>::build_source(readBackOp, down);
+        fk::ResizeRead<fk::InterpolationType::INTER_LINEAR>::build(readBackOp, down);
     auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
     auto colorConvert = fk::Unary<fk::VectorReorder<uchar4, 2, 1, 0, 3>>{};
 
@@ -88,7 +88,9 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer, const uint& NUM_ELE
               (uint)ceil((float)down.height / (float)block.y),
               (uint)OUTPUTS);
 
-    fk::cuda_transform_divergent_batch<PerPlaneSequenceSelector><<<grid, block, 0, stream>>>(OpSeqTensor);
+    const auto iDBTDPP = fk::DivergentBatchTransformDPP<PerPlaneSequenceSelector>::build(OpSeqTensor);
+    fk::launchDPPs_Kernel << <grid, block, 0, stream >> > (iDBTDPP);
+    //fk::cuda_transform_divergent_batch<PerPlaneSequenceSelector><<<grid, block, 0, stream>>>(OpSeqTensor);
    
     gpuErrchk(cudaStreamSynchronize(stream));
 
@@ -117,17 +119,17 @@ void testComputeWhatYouSee(char* buffer, const uint& NUM_ELEMS_X, const uint& NU
         nv12Image.data, nv12Image.step,
         NUM_ELEMS_X, NUM_ELEMS_Y + (NUM_ELEMS_Y / 2), cudaMemcpyHostToDevice, stream));
 
-    fk::SourceRead<fk::ReadYUV<fk::NV12>> read{ d_nv12Image, {NUM_ELEMS_X, NUM_ELEMS_Y} };
+    fk::Read<fk::ReadYUV<fk::NV12>> read{ d_nv12Image };
     fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt601, true>> cvtColor{};
     fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>> write{ d_rgbaImageBig.ptr() };
     fk::executeOperations(stream, read, cvtColor, write);
 
-    fk::SourceRead<fk::PerThreadRead<fk::_2D, uchar4>> read2{ d_rgbaImageBig.ptr(), {NUM_ELEMS_X, NUM_ELEMS_Y} };
+    fk::Read<fk::PerThreadRead<fk::_2D, uchar4>> read2{ d_rgbaImageBig.ptr() };
     fk::Unary<fk::VectorReorder<uchar4, 2, 1, 0, 3>> cvtColor2{};
     fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>> write2{ d_rgbaImageBig.ptr() };
     fk::executeOperations(stream, read2, cvtColor2, write2);
 
-    auto read3 = fk::ResizeRead<fk::INTER_LINEAR>::build_source(d_rgbaImageBig.ptr(), down, 0., 0.);
+    auto read3 = fk::ResizeRead<fk::INTER_LINEAR>::build(d_rgbaImageBig.ptr(), down, 0., 0.);
     fk::Unary<fk::SaturateCast<float4, uchar4>> convertTo3{};
     fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>> write3{ d_rgbaImage.ptr() };
     fk::executeOperations(stream, read3, convertTo3, write3);
@@ -140,7 +142,7 @@ void testComputeWhatYouSee(char* buffer, const uint& NUM_ELEMS_X, const uint& NU
     const auto readOpInstance = fk::fuseDF(fk::Read<fk::ReadYUV<fk::NV12>>{d_nv12Image},
                                            fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>{});
     const auto imgSize = d_nv12Image.dims;
-    const auto readOp = fk::ResizeRead<fk::InterpolationType::INTER_LINEAR>::build_source(readOpInstance, down);
+    const auto readOp = fk::ResizeRead<fk::InterpolationType::INTER_LINEAR>::build(readOpInstance, down);
     auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
     auto colorConvert = fk::Unary<fk::VectorReorder<uchar4, 2, 1, 0, 3>>{};
     auto writeOp = fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>>{ d_rgbaImage.ptr() };

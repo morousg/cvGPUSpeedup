@@ -1,5 +1,5 @@
 /* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
-   Copyright 2023-2024 Oscar Amoros Huguet
+   Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,32 +20,45 @@
 
 namespace fk { // namespace fused kernel
 
+    template <size_t N>
+    constexpr auto indexSequence = std::make_index_sequence<N>{};
+
     // Util to get the parameters of a parameter pack
     template <int Index, typename T, typename... Args>
-    FK_HOST_DEVICE_CNST auto ppGet(const T& current, const Args&... args) {
+    FK_HOST_DEVICE_CNST auto get(const T& current, const Args&... args) {
         static_assert(sizeof...(args) + 1 > Index, "Index out of range when looking for a parameter in a parameter pack.");
         if constexpr (Index == 0) {
             return current;
         } else {
-            return ppGet<Index - 1>(args...);
+            return get<Index - 1>(args...);
+        }
+    }
+
+    template <int Index, typename T, typename... Args>
+    FK_HOST_DEVICE_CNST auto& get(T& current, Args&... args) {
+        static_assert(sizeof...(args) + 1 > Index, "Index out of range when looking for a parameter in a parameter pack.");
+        if constexpr (Index == 0) {
+            return current;
+        } else {
+            return get<Index - 1>(args...);
         }
     }
 
     // Util to get the last parameter of a parameter pack
     template <typename... Args>
     FK_HOST_DEVICE_CNST auto ppLast(const Args&... args) {
-        return ppGet<sizeof...(args) - 1>(args...);
+        return get<sizeof...(args) - 1>(args...);
     }
 
     // Util to get the first parameter of a parameter pack
     template <typename... Args>
     FK_HOST_DEVICE_CNST auto ppFirst(const Args&... args) {
-        return ppGet<0>(args...);
+        return get<0>(args...);
     }
 
     template <size_t idx, size_t... iseq>
     constexpr inline size_t get_index_f(const std::index_sequence<iseq...>&) {
-        return ppGet<static_cast<int>(idx)>(iseq...);
+        return get<static_cast<int>(idx)>(iseq...);
     }
 
     template <size_t idx, typename ISeq>
@@ -53,7 +66,7 @@ namespace fk { // namespace fused kernel
 
     template <typename T, T idx, T... iseq>
     constexpr inline size_t get_integer_f(const std::integer_sequence<T, iseq...>&) {
-        return ppGet<static_cast<int>(idx)>(iseq...);
+        return get<static_cast<int>(idx)>(iseq...);
     }
 
     template <typename T, T idx, typename ISeq>

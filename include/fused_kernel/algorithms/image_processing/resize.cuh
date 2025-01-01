@@ -1,4 +1,4 @@
-/* Copyright 2023-2024 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -207,42 +207,6 @@ namespace fk {
                 return build(BF{ {input} }, computedDSize);
             }
         }
-
-        using InstantiableSourceType = SourceReadBack<ResizeRead<IType, AR, BackFunction_>>;
-
-        template <enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR, InstantiableSourceType>
-        build_source(const BackFunction_& backFunction, const Size& dstSize) {
-            return make_source(build(backFunction, dstSize));
-        }
-
-        template <enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, InstantiableSourceType>
-        build_source(const BackFunction_& backFunction, const Size& dstSize, const OutputType& backgroundValue) {
-            return make_source(build(backFunction, dstSize, backgroundValue));
-        }
-
-        template <int BATCH, enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR, InstantiableSourceType>
-        build_source_batch(const std::array<BackFunction, BATCH>& backFunction,
-                           const std::array<Size, BATCH>& dstSize) {
-            return make_source(build_batch(backFunction, dstSize));
-        }
-
-        template <int BATCH, enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, InstantiableSourceType>
-        build_source_batch(const std::array<BackFunction, BATCH>& backFunction,
-                           const std::array<Size, BATCH>& dstSize,
-                           const std::array<OutputType, BATCH>& backgroundValue) {
-            return make_source(build_batch(backFunction, dstSize, backgroundValue));
-        }
-
-        template <typename BF = BackFunction_>
-        FK_HOST_FUSE
-        std::enable_if_t<std::is_same_v<BF, Read<PerThreadRead<_2D, ReadDataType>>>, InstantiableSourceType>
-        build_source(const RawPtr<_2D, ReadDataType>& input, const Size& dSize, const double& fx, const double& fy) {
-            return make_source(build(input, dSize, fx, fy));
-        }
     };
 
     template <enum AspectRatio AR, typename T = void>
@@ -333,26 +297,29 @@ namespace fk {
             return ResizeRead<IType, AR_, TypeList<void, T>>::build(dstSize, backgroundValue);
         }
 
-        template <typename BF, enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR, SourceReadBack<ResizeRead<IType, AR_, BF>>>
-        build_source(const BF& backFunction, const Size& dstSize) {
-            return ResizeRead<IType, AR_, BF>::build_source(backFunction, dstSize);
-        }
-
-        template <typename BF, enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, SourceReadBack<ResizeRead<IType, AR_, BF>>>
-        build_source(const BF& backFunction, const Size& dstSize,
-                     const typename ResizeRead<IType, AR_, BF>::OutputType& backgroundValue) {
-            return ResizeRead<IType, AR_, BF>::build_source(backFunction, dstSize, backgroundValue);
-        }
-
         template <typename T>
         FK_HOST_FUSE auto build(const RawPtr<_2D, T>& input, const Size& dSize, const double& fx, const double& fy) {
             return ResizeRead<IType, AR, Instantiable<PerThreadRead<_2D, T>>>::build(input, dSize, fx, fy);
         }
-        template <typename T>
-        FK_HOST_FUSE auto build_source(const RawPtr<_2D, T>& input, const Size& dSize, const double& fx, const double& fy) {
-            return ResizeRead<IType, AR, Instantiable<PerThreadRead<_2D, T>>>::build_source(input, dSize, fx, fy);
+        template <size_t Idx, typename Array>
+        FK_HOST_FUSE auto get_element_at_index(const Array& array) -> decltype(array[Idx]) {
+            return array[Idx];
+        }
+        template <size_t Idx, typename... Arrays>
+        FK_HOST_FUSE auto call_build_at_index(const Arrays&... arrays) {
+            return build(get_element_at_index<Idx>(arrays)...);
+        }
+        template <size_t... Idx, typename... Arrays>
+        FK_HOST_FUSE auto build_helper_generic(const std::index_sequence<Idx...>&, const Arrays&... arrays) {
+            using OutputType = decltype(call_build_at_index<0>(std::declval<Arrays>()...));
+            return std::array<OutputType, sizeof...(Idx)>{ call_build_at_index<Idx>(arrays...)... };
+        }
+        template <size_t BATCH, typename FirstType, typename... ArrayTypes>
+        FK_HOST_FUSE auto build_batch(const std::array<FirstType, BATCH>& firstInstance,
+                                      const ArrayTypes&... arrays) {
+            static_assert(allArraysSameSize_v<BATCH, std::array<FirstType, BATCH>, ArrayTypes...>,
+                "Not all arrays have the same size as BATCH");
+            return build_helper_generic(std::make_index_sequence<BATCH>(), firstInstance, arrays...);
         }
     };
 }; // namespace fk

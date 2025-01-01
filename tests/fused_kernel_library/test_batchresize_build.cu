@@ -1,5 +1,4 @@
-/*
-   Copyright 2023-2024 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -31,12 +30,12 @@ int launch() {
     constexpr std::array<float, BATCH> defaultArray = make_set_std_array<float, BATCH>(defaultValue);
     constexpr int usedPlanes = 15;
 
-    constexpr auto readDFArray = buildInstantiableArray<PerThreadRead<_2D, float>, BATCH>(inputs);
+    constexpr auto readDFArray = PerThreadRead<_2D, float>::build_batch<BATCH>(inputs);
 
-    constexpr auto oneResizeread = ResizeRead<INTER_LINEAR, IGNORE_AR>::build(readDFArray[0], resParams[0]);
+    constexpr auto oneResizeread = ResizeRead<INTER_LINEAR>::build(readDFArray[0], resParams[0]);
 
-    constexpr auto resizeDFArray = buildInstantiableArray<ResizeRead<INTER_LINEAR, IGNORE_AR>, BATCH>(readDFArray, resParams);
-    const auto resizeDFArray2 = buildInstantiableArray<ResizeRead<INTER_LINEAR, PRESERVE_AR>, BATCH>(readDFArray, resParams, defaultArray);
+    const auto resizeDFArray = ResizeRead<INTER_LINEAR>::build_batch<BATCH>(readDFArray, resParams);
+    const auto resizeDFArray2 = ResizeRead<INTER_LINEAR, PRESERVE_AR>::build_batch<BATCH>(readDFArray, resParams, defaultArray);
 
     return 0;
 }

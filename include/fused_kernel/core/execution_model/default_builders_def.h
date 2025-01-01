@@ -1,4 +1,4 @@
-/* Copyright 2023-2024 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 #define BUILDERS
 
 #define DEFAULT_READ_BATCH_BUILD \
+private: \
 template <size_t Idx, typename Array> \
 FK_HOST_FUSE auto get_element_at_index(const Array& array) -> decltype(array[Idx]) { \
     return array[Idx]; \
@@ -29,30 +30,45 @@ FK_HOST_FUSE auto build_helper_generic(const std::index_sequence<Idx...>&, const
     using OutputArrayType = decltype(InstantiableType::Operation::build(std::declval<typename Arrays::value_type>()...)); \
     return std::array<OutputArrayType, sizeof...(Idx)>{ call_build_at_index<Idx>(arrays...)... }; \
 } \
+public: \
 template <size_t BATCH, typename FirstType, typename... ArrayTypes> \
 FK_HOST_FUSE std::array<InstantiableType, BATCH> \
 build_batch(const std::array<FirstType, BATCH>& firstInstance, const ArrayTypes&... arrays) { \
-    static_assert(allArraysSameSize_v<BATCH, std::array<FirstType, BATCH>, ArrayTypes...>, "Not all arrays have the same size as BATCH"); \
+    static_assert(allArraysSameSize_v<BATCH, std::array<FirstType, BATCH>, ArrayTypes...>, \
+                  "Not all arrays have the same size as BATCH"); \
     return build_helper_generic(std::make_index_sequence<BATCH>(), firstInstance, arrays...); \
+} \
+template <size_t BATCH, typename FirstType, typename... ArrayTypes> \
+FK_HOST_FUSE auto \
+build(const std::array<FirstType, BATCH>& firstInstance, const ArrayTypes&... arrays) { \
+    const auto arrayOfIOps = build_batch(firstInstance, arrays...); \
+    if constexpr (isReadBackType<std::decay_t<decltype(arrayOfIOps[0])>>) { \
+        return BatchReadBack<BATCH>::build(arrayOfIOps); \
+    } else { \
+        return BatchRead<BATCH>::build(arrayOfIOps); \
+    } \
+} \
+template <size_t BATCH, typename T, typename FirstType, typename... ArrayTypes> \
+FK_HOST_FUSE auto \
+build(const int& usedPlanes, const T& defaultValue, \
+      const std::array<FirstType, BATCH>& firstInstance, const ArrayTypes&... arrays) { \
+    const auto arrayOfIOps = build_batch(firstInstance, arrays...); \
+    if constexpr (isReadBackType<decltype(arrayOfIOps[0])>) { \
+        return BatchReadBack<BATCH>::build(arrayOfIOps, usedPlanes, defaultValue); \
+    } else { \
+        return BatchRead<BATCH>::build(arrayOfIOps, usedPlanes, defaultValue); \
+    } \
 }
 
 #define DEFAULT_READ_BUILD \
 static constexpr __host__ __forceinline__ auto build(const ParamsType& params) { \
     return InstantiableType{ {params} }; \
-} \
-static constexpr __host__ __forceinline__ \
-auto build_source(const ParamsType& params) { \
-    return make_source(InstantiableType{ {params} }); \
 }
 
 #define DEFAULT_READBACK_BUILD \
 static constexpr __host__ __forceinline__ \
 auto build(const ParamsType& params, const BackFunction_& backFunction) { \
     return InstantiableType{ { params, backFunction } }; \
-} \
-static constexpr __host__ __forceinline__ \
-auto build_source(const ParamsType& params, const BackFunction_& backFunction) { \
-    return make_source(InstantiableType{{ params, backFunction }}); \
 }
 
 #define DEFAULT_UNARY_BUILD \

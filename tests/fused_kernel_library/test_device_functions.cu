@@ -1,4 +1,4 @@
-/* Copyright 2024 Oscar Amoros Huguet
+/* Copyright 2024-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -53,7 +53,6 @@ int launch() {
         then(Instantiable<UIntFloat>{}).
         then(Instantiable<BAddFloat>{5.3});
 
-    static_assert(func2.isSource == false);
     static_assert(func2.is<ReadType>);
     static_assert(func2.params.size == 5);
     using ResType = decltype(func2);
@@ -101,11 +100,13 @@ int launch() {
 
     constexpr auto finalOp = someReadOp.then(Mul<float3>::build({ 3.f, 1.f, 32.f }));
 
-    constexpr auto inputAlt = ReadSet<uchar3>::build_source({ { 0,0,0 }, {128,128,1} });
+    constexpr auto inputAlt = ReadSet<uchar3>::build({ { 0,0,0 }, {128,128,1} });
 
-    static_assert(inputAlt.activeThreads.x == 128, "Incorrect size in x");
-    static_assert(inputAlt.activeThreads.y == 128, "Incorrect size in y");
-    static_assert(inputAlt.activeThreads.z == 1, "Incorrect size in z");
+    constexpr ActiveThreads activeThreads = decltype(inputAlt)::getActiveThreads(inputAlt);
+
+    static_assert(activeThreads.x == 128, "Incorrect size in x");
+    static_assert(activeThreads.y == 128, "Incorrect size in y");
+    static_assert(activeThreads.z == 1, "Incorrect size in z");
 
     constexpr auto someReadOpAlt =
         ReadSet<uchar3>::build({ { 0,0,0 }, {128,128,1} })
@@ -114,11 +115,11 @@ int launch() {
         .then(Add<float3>::build({ 3.f, 1.f, 32.f }))
         .then(Cast<float3, uint3>::build());
 
-    static_assert(make_source(someReadOpAlt).activeThreads.x == 32, "Wrong width");
-    static_assert(make_source(someReadOpAlt).activeThreads.y == 32, "Wrong height");
-    static_assert(make_source(someReadOpAlt).activeThreads.z == 1, "Wrong depth");
+    static_assert(decltype(someReadOpAlt)::getActiveThreads(someReadOpAlt).x == 32, "Wrong width");
+    static_assert(decltype(someReadOpAlt)::getActiveThreads(someReadOpAlt).y == 32, "Wrong height");
+    static_assert(decltype(someReadOpAlt)::getActiveThreads(someReadOpAlt).z == 1, "Wrong depth");
 
-    executeOperations(stream, make_source(someReadOpAlt), PerThreadWrite<_2D, uint3>::build(outputAlt));
+    executeOperations(stream, someReadOpAlt, PerThreadWrite<_2D, uint3>::build(outputAlt));
 
     gpuErrchk(cudaMemcpy2DAsync(h_output.ptr().data, h_output.dims().pitch,
                                 outputAlt.ptr().data, outputAlt.dims().pitch,

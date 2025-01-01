@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,6 +52,22 @@ namespace cvGS {
             }
         }
     };
+
+    template <typename I>
+    struct cvScalar2CUDAV_t {
+        FK_HOST_FUSE I get(const cv::Scalar& val) {
+            if constexpr (fk::cn<I> == 1) {
+                return static_cast<fk::VBase<I>>(val[0]);
+            } else if constexpr (fk::cn<I> == 2) {
+                return fk::make::type<fk::VBase<I>>(val[0], val[1]);
+            } else if constexpr (fk::cn<I> == 3) {
+                return fk::make::type<fk::VBase<I>>(val[0], val[1], val[2]);
+            } else {
+                return fk::make::type<fk::VBase<I>>(val[0], val[1], val[2], val[3]);
+            }
+        }
+    };
+
 namespace internal {
 
     template <int I, typename PtrType, typename Operator>

@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,10 +55,10 @@ bool test_batchread_x_write3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::
 
         double alpha = 1.0;
 
-        const Parameters one{ {1u}, {alpha}, {1.f}, {3.2f} };
-        const Parameters two{ {1u, 2u}, {alpha, alpha}, {1.f, 4.f}, {3.2f, 0.6f} };
-        const Parameters three{ {1u, 2u, 3u}, {alpha, alpha, alpha}, {1.f, 4.f, 3.2f}, {3.2f, 0.6f, 11.8f} };
-        const Parameters four{ {1u, 2u, 3u, 4u}, {alpha, alpha, alpha, alpha}, {1.f, 4.f, 3.2f, 0.5f}, {3.2f, 0.6f, 11.8f, 33.f} };
+        const Parameters one{ {10u}, {alpha}, {1.f}, {3.2f} };
+        const Parameters two{ {10u, 20u}, {alpha, alpha}, {1.f, 4.f}, {3.2f, 0.6f} };
+        const Parameters three{ {10u, 20u, 30u}, {alpha, alpha, alpha}, {1.f, 4.f, 3.2f}, {3.2f, 0.6f, 11.8f} };
+        const Parameters four{ {10u, 20u, 30u, 40u}, {alpha, alpha, alpha, alpha}, {1.f, 4.f, 3.2f, 0.5f}, {3.2f, 0.6f, 11.8f, 33.f} };
         const std::array<Parameters, 4> params{ one, two, three, four };
 
         const cv::Scalar val_init = params.at(CV_MAT_CN(CV_TYPE_O) - 1).init;
@@ -102,7 +102,7 @@ bool test_batchread_x_write3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::
             // Assuming we use all the batch
             // On Linux it is necessary to pass the BATCH as a template parameter
             // On Windows (VS2022 Community) it is not needed, it is deduced from crops 
-            cvGS::executeOperations<true, BATCH>(crops, BATCH, cv_stream,
+            cvGS::executeOperations<true, BATCH>(crops, cv_stream,
                 cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
                 cvGS::subtract<CV_TYPE_O>(val_sub),
                 cvGS::divide<CV_TYPE_O>(val_div),
