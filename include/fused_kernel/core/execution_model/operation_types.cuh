@@ -77,24 +77,13 @@ namespace fk {
     using GetOutputType_t = typename InstantiableOperation::Operation::OutputType;
 
     template <typename InstantiableOperation>
-    FK_HOST_DEVICE_CNST GetOutputType_t<InstantiableOperation> read(const Point& thread, const InstantiableOperation& instantiableOperation) {
-        if constexpr (InstantiableOperation::template is<ReadType>) {
-            return InstantiableOperation::Operation::exec(thread, instantiableOperation.params);
-        } else if constexpr (InstantiableOperation::template is<ReadBackType>) {
-            return InstantiableOperation::Operation::exec(thread, instantiableOperation.params, instantiableOperation.back_function);
-        }
-    }
-
-    template <typename InstantiableOperation>
     FK_HOST_DEVICE_CNST GetOutputType_t<InstantiableOperation> compute(const GetInputType_t<InstantiableOperation>& input,
-        const InstantiableOperation& instantiableOperation) {
+                                                                       const InstantiableOperation& instantiableOperation) {
         static_assert(isComputeType<InstantiableOperation>, "Function compute only works with InstantiableOperation InstanceTypes of the group ComputeTypeList");
         if constexpr (isUnaryType<InstantiableOperation>) {
             return InstantiableOperation::Operation::exec(input);
-        } else if constexpr (isBinaryType<InstantiableOperation>) {
-            return InstantiableOperation::Operation::exec(input, instantiableOperation.params);
-        } else if constexpr (isTernaryType<InstantiableOperation>) {
-            return InstantiableOperation::Operation::exec(input, instantiableOperation.params, instantiableOperation.back_function);
+        } else {
+            return InstantiableOperation::Operation::exec(input, instantiableOperation);
         }
     }
 

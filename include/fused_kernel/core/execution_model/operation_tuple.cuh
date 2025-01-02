@@ -63,8 +63,7 @@ namespace fk {
     struct hasParamsAndBackFunction : std::false_type {};
 
     template <typename T>
-    struct hasParamsAndBackFunction<T, std::void_t<
-        typename T::ParamsType,
+    struct hasParamsAndBackFunction<T, std::void_t<typename T::ParamsType,
         typename T::BackFunction>> : std::true_type {};
 
     template <typename T>

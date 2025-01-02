@@ -29,11 +29,13 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
-            return input + params;
+        using OperationDataType = OperationData<Add<I, P, O, BinaryType>>;
+        FK_HOST_DEVICE_FUSE OutputType
+        exec(const InputType& input, const OperationDataType& opData) {
+            return input + opData.params;
         }
         using InstantiableType = Binary<Add<I, P, O, BinaryType>>;
-        DEFAULT_BINARY_BUILD
+        DEFAULT_BUILD
     };
 
     template <typename I1, typename I2, typename O>
@@ -54,11 +56,13 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
-            return input - params;
+        using OperationDataType = OperationData<Sub<I, P, O>>;
+        FK_HOST_DEVICE_FUSE OutputType
+        exec(const InputType& input, const OperationDataType& opData) {
+            return input - opData.params;
         }
         using InstantiableType = Binary<Sub<I, P, O>>;
-        DEFAULT_BINARY_BUILD
+        DEFAULT_BUILD
     };
 
     template <typename I, typename P = I, typename O = I>
@@ -67,11 +71,13 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
-            return input * params;
+        using OperationDataType = OperationData<Mul<I, P, O>>;
+        FK_HOST_DEVICE_FUSE OutputType
+        exec(const InputType& input, const OperationDataType& opData) {
+            return input * opData.params;
         }
         using InstantiableType = Binary<Mul<I, P, O>>;
-        DEFAULT_BINARY_BUILD
+        DEFAULT_BUILD
     };
 
     template <typename I, typename P = I, typename O = I>
@@ -80,11 +86,13 @@ namespace fk {
         using InputType = I;
         using ParamsType = P;
         using InstanceType = BinaryType;
-        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
-            return input / params;
+        using OperationDataType = OperationData<Div<I, P, O>>;
+        FK_HOST_DEVICE_FUSE OutputType
+        exec(const InputType& input, const OperationDataType& opData) {
+            return input / opData.params;
         }
         using InstantiableType = Binary<Div<I, P, O>>;
-        DEFAULT_BINARY_BUILD
+        DEFAULT_BUILD
     };
 } // namespace fk
 

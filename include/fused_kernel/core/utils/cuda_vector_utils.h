@@ -218,17 +218,6 @@ namespace fk {
         }
     }
 
-    template <int... idx>
-    struct VReorder {
-        template <typename T>
-        FK_HOST_DEVICE_FUSE T exec(const T& vector) {
-            static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: VReorder<...>::exec<invalid_type>(invalid_type vector)");
-            static_assert(sizeof...(idx) == cn<T>, "Wrong number of indexes for the cuda vetor type in VReorder.");
-            return { VectorAt<idx>(vector)... };
-        }
-    };
-
-
     // Automagically making any CUDA vector type from a template type
     // It will not compile if you try to do bad things. The number of elements
     // need to conform to T, and the type of the elements will always be casted.
@@ -254,18 +243,18 @@ namespace fk {
     template <typename T, typename Enabler = void>
     struct UnaryVectorSet;
 
+    // This case exists to make things easier when we don't know if the type
+    // is going to be a vector type or a normal type
     template <typename T>
-    struct UnaryVectorSet<T, typename std::enable_if_t<!validCUDAVec<T>>> {
-        // This case exists to make things easier when we don't know if the type
-        // is going to be a vector type or a normal type
+    struct UnaryVectorSet<T, typename std::enable_if_t<!validCUDAVec<T>, void>> {
         FK_HOST_DEVICE_FUSE T exec(const T& val) {
             return val;
         }
     };
 
     template <typename T>
-    struct UnaryVectorSet<T, typename std::enable_if_t<validCUDAVec<T>>> {
-        FK_HOST_DEVICE_FUSE T exec(const typename VectorTraits<T>::base& val) {
+    struct UnaryVectorSet<T, typename std::enable_if_t<validCUDAVec<T>, void>> {
+        FK_HOST_DEVICE_FUSE T exec(const VBase<T>& val) {
             if constexpr (cn<T> == 1) {
                 return { val };
             }
@@ -290,6 +279,7 @@ namespace fk {
     FK_HOST_DEVICE_CNST T make_set(const T& val) {
         return UnaryVectorSet<T>::exec(val);
     }
+
 } // namespace fk
 
 #ifdef DEBUG_MATRIX
@@ -901,25 +891,5 @@ SCALAR_BINARY_OP(^, int, int, int)
 SCALAR_BINARY_OP(^, uint, uint, uint)
 
 #undef SCALAR_BINARY_OP
-
-namespace fk {
-    template <uint ELEMS_PER_THREAD>
-    struct SubVector {
-        template <uint IDX, typename Vector>
-        FK_HOST_DEVICE_FUSE
-            auto get(const Vector& data) {
-            static_assert(IDX < ELEMS_PER_THREAD, "SubVector index out of range");
-            using OutputType = VectorType_t<VBase<Vector>, cn<Vector> / ELEMS_PER_THREAD>;
-            getImpl<Vector, OutputType>(data,
-                make_integer_sequence_from<uint, IDX * ELEMS_PER_THREAD, cn<OutputType>>());
-        }
-    private:
-        template <typename Vector, typename OutputType, uint... IDX>
-        FK_HOST_DEVICE_FUSE
-            OutputType getImpl(const Vector& data, std::integer_sequence<uint, IDX...>) {
-            return make_<OutputType>(VectorAt<IDX, VBase<Vector>>(data)...);
-        }
-    };
-}
 
 #endif

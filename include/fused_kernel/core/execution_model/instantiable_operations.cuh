@@ -101,9 +101,9 @@ namespace fk { // namespace FusedKernel
         }
 
         FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const ReadInstantiableOperation<Operation>& mySelf) {
-            return { Operation::num_elems_x(Point(), mySelf.params),
-                     Operation::num_elems_y(Point(), mySelf.params),
-                     Operation::num_elems_z(Point(), mySelf.params)};
+            return { Operation::num_elems_x(Point(), mySelf),
+                     Operation::num_elems_y(Point(), mySelf),
+                     Operation::num_elems_z(Point(), mySelf)};
         }
     };
 
@@ -126,9 +126,9 @@ namespace fk { // namespace FusedKernel
         }
 
         FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const ReadBackInstantiableOperation<Operation>& mySelf) {
-            return { Operation::num_elems_x(Point(), mySelf.params, mySelf.back_function),
-                     Operation::num_elems_y(Point(), mySelf.params, mySelf.back_function),
-                     Operation::num_elems_z(Point(), mySelf.params, mySelf.back_function)};
+            return { Operation::num_elems_x(Point(), mySelf),
+                     Operation::num_elems_y(Point(), mySelf),
+                     Operation::num_elems_z(Point(), mySelf)};
         }
     };
 
@@ -140,7 +140,7 @@ namespace fk { // namespace FusedKernel
     * It can be composed of a single Operation or of a chain of Operations, in which case it wraps them into an
     * FusedOperation.
     * Expects Operation_t to have an static __device__ function member with the following parameters:
-    * OutputType exec(const InputType& input, const ParamsType& params)
+    * OutputType exec(const InputType& input, const OperationData<Operation_t>& opDat)
     */
     template <typename Operation_t>
     struct BinaryInstantiableOperation final : public OperationData<Operation_t> {
@@ -162,7 +162,7 @@ namespace fk { // namespace FusedKernel
     * Third parameter (back_function): it's a InstantiableOperation that will be used at some point in the implementation of the
     * Operation. It can be any kind of InstantiableOperation.
     * Expects Operation_t to have an static __device__ function member with the following parameters:
-    * OutputType exec(const InputType& input, const ParamsType& params, const BackFunction& back_function)
+    * OutputType exec(const InputType& input, const OperationData<Operation_t>& opData)
     */
     template <typename Operation_t>
     struct TernaryInstantiableOperation final : public OperationData<Operation_t> {
@@ -246,21 +246,58 @@ namespace fk { // namespace FusedKernel
     template <typename Operation>
     using Write = WriteInstantiableOperation<Operation>;
 
+    template <typename Operation, typename Enabler = void>
+    struct InstantiableOperationType;
+
+    // Single Operation cases
+    template <typename Operation>
+    struct InstantiableOperationType<Operation, std::enable_if_t<isReadType<Operation>>> {
+        using type = Read<Operation>;
+    };
+
+    template <typename Operation>
+    struct InstantiableOperationType<Operation, std::enable_if_t<isReadBackType<Operation>>> {
+        using type = ReadBack<Operation>;
+    };
+
+    template <typename Operation>
+    struct InstantiableOperationType<Operation, std::enable_if_t<isUnaryType<Operation>>> {
+        using type = Unary<Operation>;
+    };
+
+    template <typename Operation>
+    struct InstantiableOperationType<Operation, std::enable_if_t<isBinaryType<Operation>>> {
+        using type = Binary<Operation>;
+    };
+
+    template <typename Operation>
+    struct InstantiableOperationType<Operation, std::enable_if_t<isTernaryType<Operation>>> {
+        using type = Ternary<Operation>;
+    };
+
+    template <typename Operation>
+    struct InstantiableOperationType<Operation, std::enable_if_t<isWriteType<Operation>>> {
+        using type = Write<Operation>;
+    };
+
+    template <typename Operation>
+    using Instantiable = typename InstantiableOperationType<Operation>::type;
+
     enum PlanePolicy { PROCESS_ALL = 0, CONDITIONAL_WITH_DEFAULT = 1 };
 
     template <int BATCH, enum PlanePolicy PP, typename OpParamsType, typename DefaultType>
     struct BatchReadParams;
 
-    template <int BATCH, typename OpParamsType, typename DefaultType>
-    struct BatchReadParams<BATCH, CONDITIONAL_WITH_DEFAULT, OpParamsType, DefaultType> {
-        OpParamsType op_params[BATCH];
+    template <int BATCH, typename Operation, typename DefaultType>
+    struct BatchReadParams<BATCH, CONDITIONAL_WITH_DEFAULT, Operation, DefaultType> {
+        OperationData<Operation> opData[BATCH];
         int usedPlanes;
         DefaultType default_value;
     };
 
-    template <int BATCH, typename OpParamsType, typename DefaultType>
-    struct BatchReadParams<BATCH, PROCESS_ALL, OpParamsType, DefaultType> {
-        OpParamsType op_params[BATCH];
+    template <int BATCH, typename Operation, typename DefaultType>
+    struct BatchReadParams<BATCH, PROCESS_ALL, Operation, DefaultType> {
+        OperationData<Operation> opData[BATCH];
     };
 
     template <int BATCH, typename Operation>
@@ -298,50 +335,49 @@ namespace fk { // namespace FusedKernel
         using Operation = Operation_;
         static constexpr int BATCH = BATCH_;
         using OutputType = typename Operation::OutputType;
-        using ParamsType = BatchReadParams<BATCH, PP, typename Operation::ParamsType, OutputType>;
+        using ParamsType = BatchReadParams<BATCH, PP, Operation, OutputType>;
         using ReadDataType = typename Operation::ReadDataType;
         using InstanceType = ReadType;
         static constexpr bool THREAD_FUSION{ (PP == PROCESS_ALL) ? Operation::THREAD_FUSION : false };
-        static_assert(std::is_same_v<InstanceType, typename Operation::InstanceType>);
+        static_assert(isAnyReadType<Operation>, "The Operation is not of any Read type");
 
     private:
         template <uint ELEMS_PER_THREAD = 1>
-        FK_HOST_DEVICE_FUSE const auto exec_helper(const Point& thread, const typename Operation::ParamsType(&params)[BATCH]) {
+        FK_HOST_DEVICE_FUSE const auto exec_helper(const Point& thread, const OperationData<Operation>(&opData)[BATCH]) {
             if constexpr (THREAD_FUSION) {
-                return Operation::exec<ELEMS_PER_THREAD>(thread, params[thread.z]);
+                return Operation::exec<ELEMS_PER_THREAD>(thread, opData[thread.z]);
             } else {
-                return Operation::exec(thread, params[thread.z]);
+                return Operation::exec(thread, opData[thread.z]);
             }
         }
     public:
 
         template <uint ELEMS_PER_THREAD = 1>
-        FK_HOST_DEVICE_FUSE const auto exec(const Point& thread, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE const auto exec(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
             if constexpr (PP == CONDITIONAL_WITH_DEFAULT) {
                 static_assert(ELEMS_PER_THREAD == 1, "ELEMS_PER_THREAD should be 1");
-                if (params.usedPlanes <= thread.z) {
-                    return params.default_value;
+                if (opData.params.usedPlanes <= thread.z) {
+                    return opData.params.default_value;
                 } else {
-                    return exec_helper<1>(thread, params.op_params);
+                    return exec_helper<1>(thread, opData.params.opData);
                 }
             } else {
-                return exec_helper<ELEMS_PER_THREAD>(thread, params.op_params);
+                return exec_helper<ELEMS_PER_THREAD>(thread, opData.params.opData);
             }
         }
 
-        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& ptr) {
-            return Operation::num_elems_x(thread, ptr.op_params[thread.z]);
+        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
+            return Operation::num_elems_x(thread, opData.params.opData[thread.z]);
         }
-        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const ParamsType& ptr) {
-            return Operation::num_elems_y(thread, ptr.op_params[thread.z]);
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
+            return Operation::num_elems_y(thread, opData.params.opData[thread.z]);
         }
-        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& ptr) {
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
             return BATCH;
         }
-        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const ParamsType& ptr) {
-            return Operation::pitch(thread, ptr.op_params[thread.z]);
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
+            return Operation::pitch(thread, opData.params.opData[thread.z]);
         }
-        static_assert(std::is_same_v<typename Operation::InstanceType, ReadType>, "Operation is not ReadType");
         using InstantiableType = Read<BatchRead<BATCH, PP, Operation>>;
 
     private:
@@ -349,18 +385,17 @@ namespace fk { // namespace FusedKernel
 
         template <int... Idx, enum PlanePolicy PP_ = PP>
         FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
-            build_helper(const std::array<Read<Operation>, BATCH>& instantiableOperations,
-                const std::integer_sequence<int, Idx...>&) {
-            return { {{instantiableOperations[Idx].params...}} };
+            build_helper(const std::array<Instantiable<Operation>, BATCH>& instantiableOperations,
+                         const std::integer_sequence<int, Idx...>&) {
+            return { {{{static_cast<OperationData<Operation>>(instantiableOperations[Idx])...}}} };
         }
 
         template <int... Idx, enum PlanePolicy PP_ = PP>
         FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
-            build_helper(const std::array<Read<Operation>, BATCH>& instantiableOperations,
-                const int& usedPlanes, const OutputType& defaultValue,
-                const std::integer_sequence<int, Idx...>&) {
-            static_assert(std::is_same_v<typename InstantiableType::Operation::InstanceType, ReadType>);
-            return { { {{ instantiableOperations[Idx].params... }, usedPlanes, defaultValue} } };
+            build_helper(const std::array<Instantiable<Operation>, BATCH>& instantiableOperations,
+                         const int& usedPlanes, const OutputType& defaultValue,
+                         const std::integer_sequence<int, Idx...>&) {
+            return { {{{static_cast<OperationData<Operation>>(instantiableOperations[Idx])...}, usedPlanes, defaultValue}} };
         }
 
         // END DEVICE FUNCTION BASED BUILDERS
@@ -370,10 +405,10 @@ namespace fk { // namespace FusedKernel
         /// @brief build(): host function to create a Read instance PROCESS_ALL
         /// @param instantiableOperations 
         /// @return 
-        template <enum PlanePolicy PP_ = PP>
+        template <typename IOp, enum PlanePolicy PP_ = PP>
         FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
-            build(const std::array<Read<Operation>, BATCH>& instantiableOperations) {
-            static_assert(std::is_same_v<InstanceType, typename Operation::InstanceType>);
+            build(const std::array<IOp, BATCH>& instantiableOperations) {
+            static_assert(isAnyReadType<IOp>);
             return build_helper(instantiableOperations, std::make_integer_sequence<int, BATCH>{});
         }
 
@@ -382,12 +417,13 @@ namespace fk { // namespace FusedKernel
         /// @param usedPlanes 
         /// @param defaultValue 
         /// @return 
-        template <enum PlanePolicy PP_ = PP>
+        template <typename IOp, enum PlanePolicy PP_ = PP>
         FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
-        build(const std::array<Read<Operation>, BATCH>& instantiableOperations,
-              const int& usedPlanes, const OutputType& defaultValue) {
-            static_assert(std::is_same_v<InstanceType, typename Operation::InstanceType>);
-            return build_helper(instantiableOperations, usedPlanes, defaultValue, std::make_integer_sequence<int, BATCH>{});
+        build(const std::array<IOp, BATCH>& instantiableOperations,
+              const int& usedPlanes, const typename IOp::Operation::OutputType& defaultValue) {
+            static_assert(isAnyReadType<IOp>);
+            return build_helper(instantiableOperations, usedPlanes, defaultValue,
+                                std::make_integer_sequence<int, BATCH>{});
         }
 
         // END DEVICE FUNCTION BASED BUILDERS
@@ -395,188 +431,58 @@ namespace fk { // namespace FusedKernel
 
     template <int BATCH, enum PlanePolicy PP>
     struct BatchRead<BATCH, PP, void> {
-        template <typename Operation, enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, Read<BatchRead<BATCH, PP_, Operation>>>
-        build(const std::array<Read<Operation>, BATCH>& instantiableOperations) {
-            return BatchRead<BATCH, PP, Operation>::build(instantiableOperations);
+        template <typename IOp, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, Read<BatchRead<BATCH, PP_, typename IOp::Operation>>>
+        build(const std::array<IOp, BATCH>& instantiableOperations) {
+            return BatchRead<BATCH, PP, typename IOp::Operation>::build(instantiableOperations);
         }
 
-        template <typename Operation, enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, Read<BatchRead<BATCH, PP_, Operation>>>
-        build(const std::array<Read<Operation>, BATCH>& instantiableOperations,
-              const int& usedPlanes, const typename Operation::OutputType& defaultValue) {
-            return BatchRead<BATCH, PP, Operation>::build(instantiableOperations, usedPlanes, defaultValue);
+        template <typename IOp, enum PlanePolicy PP_ = PP>
+        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, Read<BatchRead<BATCH, PP_, typename IOp::Operation>>>
+        build(const std::array<IOp, BATCH>& instantiableOperations,
+              const int& usedPlanes, const typename IOp::Operation::OutputType& defaultValue) {
+            return BatchRead<BATCH, PP, typename IOp::Operation>::build(instantiableOperations, usedPlanes, defaultValue);
         }
-    };
-
-    /// @brief struct BatchReadBack
-    /// @tparam BATCH: number of thread planes and number of data planes to process
-    /// @tparam PP: enum to select if all planes will be processed equally, or only some
-    /// with the remainder not reading and returning a default value
-    /// @tparam Operation: the read Operation to perform on the data
-    template <int BATCH_, enum PlanePolicy PP = PROCESS_ALL, typename Operation_ = void>
-    struct BatchReadBack final : public BatchReadCommon<BATCH_, Operation_> {
-        using Operation = Operation_;
-        static constexpr int BATCH = BATCH_;
-        using InstanceType = ReadBackType;
-        using OutputType = typename Operation::OutputType;
-        using ParamsType = BatchReadParams<BATCH, PP, typename Operation::ParamsType, OutputType>;
-        using BackFunction = typename Operation::BackFunction[BATCH];
-        static constexpr bool THREAD_FUSION{ false };
-        using ReadDataType = typename Operation::ReadDataType;
-
-        template <uint ELEMS_PER_THREAD = 1>
-        FK_HOST_DEVICE_FUSE auto exec(const Point& thread,
-            const ParamsType& params,
-            const typename Operation::BackFunction(&back_function)[BATCH]) {
-            if constexpr (PP == PROCESS_ALL) {
-                return Operation::exec(thread, params.op_params[thread.z], back_function[thread.z]);
-            } else {
-                if (params.usedPlanes <= thread.z) {
-                    return params.default_value;
-                } else {
-                    return Operation::exec(thread, params.op_params[thread.z], back_function[thread.z]);
-                }
-            }
-        }
-
-        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& params, const BackFunction& back_function) {
-            return Operation::num_elems_x(thread, params.op_params[thread.z], back_function[thread.z]);
-        }
-
-        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const ParamsType& params, const BackFunction& back_function) {
-            return Operation::num_elems_y(thread, params.op_params[thread.z], back_function[thread.z]);
-        }
-
-        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& params, const BackFunction& back_function) {
-            return BATCH;
-        }
-        static_assert(std::is_same_v<typename Operation::InstanceType, ReadBackType>, "Operation is not ReadBackType");
-        using InstantiableType = ReadBack<BatchReadBack<BATCH, PP, Operation>>;
-
-    private:
-        // DEVICE FUNCTION BASED BUILDERS
-
-        template <int... Idx, enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
-            build_helper(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
-                const std::integer_sequence<int, Idx...>&) {
-            return { {{instantiableOperations[Idx].params...}, {instantiableOperations[Idx].back_function...}} };
-        }
-
-        template <int... Idx, enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
-            build_helper(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
-                const int& usedPlanes, const OutputType& defaultValue,
-                const std::integer_sequence<int, Idx...>&) {
-            return { {{{ instantiableOperations[Idx].params... }, usedPlanes, defaultValue}, {instantiableOperations[Idx].back_function...}} };
-        }
-
-        // END DEVICE FUNCTION BASED BUILDERS
-    public:
-        // DEVICE FUNCTION BASED BUILDERS
-
-        /// @brief build(): host function to create a Read instance PROCESS_ALL
-        /// @param instantiableOperations 
-        /// @return 
-        template <enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
-            build(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations) {
-            return build_helper(instantiableOperations, std::make_integer_sequence<int, BATCH>{});
-        }
-
-        /// @brief build(): host function to create a Read instance CONDITIONAL_WITH_DEFAULT
-        /// @param instantiableOperations 
-        /// @param usedPlanes 
-        /// @param defaultValue 
-        /// @return 
-        template <enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
-            build(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
-                const int& usedPlanes, const OutputType& defaultValue) {
-            return build_helper(instantiableOperations, usedPlanes, defaultValue, std::make_integer_sequence<int, BATCH>{});
-        }
-
-        // END DEVICE FUNCTION BASED BUILDERS
-    };
-
-    template <int BATCH, enum PlanePolicy PP>
-    struct BatchReadBack<BATCH, PP, void> {
-        // DEVICE FUNCTION BASED BUILDERS
-
-        /// @brief build(): host function to create a Read instance
-        /// @tparam Operation 
-        /// @param instantiableOperations 
-        /// @return 
-        template <typename Operation, enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE
-            std::enable_if_t<PP_ == PROCESS_ALL, ReadBack<BatchReadBack<BATCH, PP_, Operation>>>
-            build(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations) {
-            return BatchReadBack<BATCH, PP, Operation>::build(instantiableOperations);
-        }
-
-        /// @brief build(): host function to create a Read instance
-        /// @tparam Operation 
-        /// @param instantiableOperations 
-        /// @param usedPlanes 
-        /// @param defaultValue 
-        /// @return 
-        template <typename Operation, enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE
-            std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, ReadBack<BatchReadBack<BATCH, PP_, Operation>>>
-            build(const std::array<ReadBack<Operation>, BATCH>& instantiableOperations,
-                const int& usedPlanes, const typename Operation::OutputType& defaultValue) {
-            return BatchReadBack<BATCH, PP, Operation>::build(instantiableOperations, usedPlanes, defaultValue);
-        }
-
-        // END DEVICE FUNCTION BASED BUILDERS
     };
 
     namespace fused_operation_impl {
         // FusedOperation implementation struct
         template <typename Operation>
-        FK_HOST_DEVICE_CNST typename Operation::OutputType exec_operate(const typename Operation::InputType& i_data) {
+        FK_HOST_DEVICE_CNST typename Operation::OutputType
+        exec_operate(const typename Operation::InputType& i_data) {
             return Operation::exec(i_data);
         }
         template <typename Tuple_>
-        FK_HOST_DEVICE_CNST auto exec_operate(const typename Tuple_::Operation::InputType& i_data, const Tuple_& tuple) {
+        FK_HOST_DEVICE_CNST auto
+        exec_operate(const typename Tuple_::Operation::InputType& i_data, const Tuple_& tuple) {
             using Operation = typename Tuple_::Operation;
             static_assert(isComputeType<Operation>, "The operation is WriteType and shouldn't be.");
-            if constexpr (std::is_same_v<typename Operation::InstanceType, TernaryType>) {
-                return Operation::exec(i_data, tuple.instance.params, tuple.instance.back_function);
-            } else if constexpr (std::is_same_v<typename Operation::InstanceType, BinaryType>) {
-                return Operation::exec(i_data, tuple.instance.params);
-            } else if constexpr (std::is_same_v<typename Operation::InstanceType, UnaryType>) {
+            if constexpr (isUnaryType<Operation>) {
                 return Operation::exec(i_data);
+            } else {
+                return Operation::exec(i_data, tuple.instance);
             }
         }
         template <typename Tuple_>
         FK_HOST_DEVICE_CNST auto exec_operate(const Point& thread, const Tuple_& tuple) {
-            using Operation = typename Tuple_::Operation;
-            if constexpr (std::is_same_v<typename Operation::InstanceType, ReadType>) {
-                return Operation::exec(thread, tuple.instance.params);
-            } else if constexpr (std::is_same_v<typename Operation::InstanceType, ReadBackType>) {
-                return Operation::exec(thread, tuple.instance.params, tuple.instance.back_function);
-            }
+            return Tuple_::Operation::exec(thread, tuple.instance);
         }
         template <typename Tuple_>
         FK_HOST_DEVICE_CNST auto exec_operate(const Point& thread,
-            const typename Tuple_::Operation::InputType& i_data,
-            const Tuple_& tuple) {
+                                              const typename Tuple_::Operation::InputType& i_data,
+                                              const Tuple_& tuple) {
             using Operation = typename Tuple_::Operation;
-            if constexpr (std::is_same_v<typename Operation::InstanceType, TernaryType>) {
-                return Operation::exec(i_data, tuple.instance.params, tuple.instance.back_function);
-            } else if constexpr (std::is_same_v<typename Operation::InstanceType, BinaryType>) {
-                return Operation::exec(i_data, tuple.instance.params);
-            } else if constexpr (std::is_same_v<typename Operation::InstanceType, UnaryType>) {
+            if constexpr (isComputeType<Operation> && !isUnaryType<Operation>) {
+                return Operation::exec(i_data, tuple.instance);
+            } else if constexpr (isUnaryType<Operation>) {
                 return Operation::exec(i_data);
-            } else if constexpr (std::is_same_v<typename Operation::InstanceType, WriteType>) {
+            } else if constexpr (isWriteType<Operation>) {
                 // Assuming the behavior of a MidWriteType InstantiableOperation
-                Operation::exec(thread, i_data, tuple.instance.params);
+                Operation::exec(thread, i_data, tuple.instance);
                 return i_data;
-            } else if constexpr (std::is_same_v<typename Operation::InstanceType, MidWriteType>) {
+            } else if constexpr (isMidWriteType<Operation>) {
                 // We are executing another FusedOperation that is MidWriteType
-                return Operation::exec(thread, i_data, tuple.instance.params);
+                return Operation::exec(thread, i_data, tuple.instance);
             }
         }
 
@@ -690,46 +596,17 @@ namespace fk { // namespace FusedKernel
         using ParamsType = OperationTuple<Operations...>;
         using OutputType = FOOT<Operations...>;
         using InstanceType = BinaryType;
-
-        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& tuple) {
-            return fused_operation_impl::tuple_operate(input, tuple);
+        using OperationDataType = OperationData<FusedOperation_<void, Operations...>>;
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input,
+                                            const OperationDataType& opData) {
+            return fused_operation_impl::tuple_operate(input, opData.params);
         }
         using InstantiableType = Binary<FusedOperation_<void, Operations...>>;
-        DEFAULT_BINARY_BUILD
+        DEFAULT_BUILD
     };
 
     template <typename... Operations>
-    struct FusedOperation_<std::enable_if_t<isReadType<FirstType_t<Operations...>>>, Operations...> {
-        using ParamsType = OperationTuple<Operations...>;
-        using OutputType = FOOT<Operations...>;
-        using InstanceType = ReadType;
-        using ReadDataType = typename FirstType_t<Operations...>::ReadDataType;
-        static constexpr bool THREAD_FUSION{ sizeof...(Operations) > 1 ? false :
-            FirstType_t<Operations...>::THREAD_FUSION };
-
-        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const ParamsType& tuple) {
-            return fused_operation_impl::tuple_operate(thread, tuple);
-        }
-
-        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& params) {
-            return ParamsType::Operation::num_elems_x(thread, params.instance.params);
-        }
-
-        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const ParamsType& params) {
-            return ParamsType::Operation::num_elems_y(thread, params.instance.params);
-        }
-
-        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& params) {
-            return ParamsType::Operation::num_elems_z(thread, params.instance.params);
-        }
-
-        using InstantiableType = Read<FusedOperation_<void, Operations...>>;
-        DEFAULT_READ_BUILD
-        DEFAULT_READ_BATCH_BUILD
-    };
-
-    template <typename... Operations>
-    struct FusedOperation_<std::enable_if_t<isReadBackType<FirstType_t<Operations...>>>, Operations...> {
+    struct FusedOperation_<std::enable_if_t<isAnyReadType<FirstType_t<Operations...>>>, Operations...> {
         using ParamsType = OperationTuple<Operations...>;
         using OutputType = FOOT<Operations...>;
         using InstanceType = ReadType;
@@ -738,25 +615,30 @@ namespace fk { // namespace FusedKernel
         // in the TransformDPP
         static constexpr bool THREAD_FUSION{ sizeof...(Operations) > 1 ? false :
             FirstType_t<Operations...>::THREAD_FUSION };
+        using OperationDataType = OperationData<FusedOperation_<void, Operations...>>;
 
-        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const ParamsType& tuple) {
-            return fused_operation_impl::tuple_operate(thread, tuple);
+        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread,
+                                            const OperationDataType& opData) {
+            return fused_operation_impl::tuple_operate(thread, opData.params);
         }
 
-        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& params) {
-            return ParamsType::Operation::num_elems_x(thread, params.instance.params, params.instance.back_function);
+        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread,
+                                             const OperationDataType& opData) {
+            return ParamsType::Operation::num_elems_x(thread, opData.params.instance);
         }
 
-        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const ParamsType& params) {
-            return ParamsType::Operation::num_elems_y(thread, params.instance.params, params.instance.back_function);
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread,
+                                             const OperationDataType& opData) {
+            return ParamsType::Operation::num_elems_y(thread, opData.params.instance);
         }
 
-        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& params) {
-            return ParamsType::Operation::num_elems_z(thread, params.instance.params, params.instance.back_function);
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread,
+                                             const OperationDataType& opData) {
+            return ParamsType::Operation::num_elems_z(thread, opData.params.instance);
         }
 
         using InstantiableType = Read<FusedOperation_<void, Operations...>>;
-        DEFAULT_READ_BUILD
+        DEFAULT_BUILD
         DEFAULT_READ_BATCH_BUILD
     };
 
@@ -770,12 +652,14 @@ namespace fk { // namespace FusedKernel
         // May be used in future implementations
         static constexpr bool THREAD_FUSION{ false };
         using WriteDataType = typename FirstType_t<Operations...>::WriteDataType;
+        using OperationDataType = OperationData<FusedOperation_<void, Operations...>>;
 
-        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const InputType& input, const ParamsType& tuple) {
-            return fused_operation_impl::tuple_operate(thread, input, tuple);
+        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const InputType& input,
+                                            const OperationDataType& opData) {
+            return fused_operation_impl::tuple_operate(thread, input, opData.params);
         }
         using InstantiableType = MidWrite<FusedOperation_<void, Operations...>>;
-        DEFAULT_WRITE_BUILD
+        DEFAULT_BUILD
     };
 
     template <typename... Operations>
@@ -788,55 +672,20 @@ namespace fk { // namespace FusedKernel
         // May be used in future implementations
         static constexpr bool THREAD_FUSION{ false };
         using WriteDataType = typename FirstType_t<Operations...>::WriteDataType;
+        using OperationDataType = OperationData<FusedOperation_<void, Operations...>>;
 
-        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const InputType& input, const ParamsType& tuple) {
-            return fused_operation_impl::tuple_operate(thread, input, tuple);
+        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const InputType& input,
+                                            const OperationDataType& opData) {
+            return fused_operation_impl::tuple_operate(thread, input, opData.params);
         }
         using InstantiableType = MidWrite<FusedOperation_<void, Operations...>>;
-        DEFAULT_WRITE_BUILD
+        DEFAULT_BUILD
     };
 
     template <typename... Operations>
     using FusedOperation = FusedOperation_<void, Operations...>;
 
 #include <fused_kernel/core/execution_model/default_builders_undef.h>
-
-    template <typename Operation, typename Enabler = void>
-    struct InstantiableOperationType;
-
-    // Single Operation cases
-    template <typename Operation>
-    struct InstantiableOperationType<Operation, std::enable_if_t<isReadType<Operation>>> {
-        using type = Read<Operation>;
-    };
-
-    template <typename Operation>
-    struct InstantiableOperationType<Operation, std::enable_if_t<isReadBackType<Operation>>> {
-        using type = ReadBack<Operation>;
-    };
-
-    template <typename Operation>
-    struct InstantiableOperationType<Operation, std::enable_if_t<isUnaryType<Operation>>> {
-        using type = Unary<Operation>;
-    };
-
-    template <typename Operation>
-    struct InstantiableOperationType<Operation, std::enable_if_t<isBinaryType<Operation>>> {
-        using type = Binary<Operation>;
-    };
-
-    template <typename Operation>
-    struct InstantiableOperationType<Operation, std::enable_if_t<isTernaryType<Operation>>> {
-        using type = Ternary<Operation>;
-    };
-
-    template <typename Operation>
-    struct InstantiableOperationType<Operation, std::enable_if_t<isWriteType<Operation>>> {
-        using type = Write<Operation>;
-    };
-
-    template <typename Operation>
-    using Instantiable = typename InstantiableOperationType<Operation>::type;
 
     template <typename T>
     struct is_fused_operation : std::false_type {};

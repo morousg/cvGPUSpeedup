@@ -12,9 +12,9 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#undef DEFAULT_READ_BUILD
+#undef DEFAULT_BUILD
+#undef DEFAULT_BUILD_PARAMS
+#undef DEFAULT_BUILD_PARAMS_BACKIOP
 #undef DEFAULT_UNARY_BUILD
-#undef DEFAULT_BINARY_BUILD
-#undef DEFAULT_TERNARY_BUILD
-#undef DEFAULT_WRITE_BUILD
+#undef DEFAULT_READ_BATCH_BUILD
 #undef BUILDERS

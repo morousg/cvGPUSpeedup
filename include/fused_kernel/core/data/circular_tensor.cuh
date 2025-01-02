@@ -121,14 +121,14 @@ namespace fk {
 
             MidWrite<CircularTensorWrite<CircularDirection::Ascendent, writeOpType, BATCH>> updateWriteToTemp;
             updateWriteToTemp.params.first = m_nextUpdateIdx;
-            updateWriteToTemp.params.params = m_tempTensor.ptr();
+            updateWriteToTemp.params.opData.params = m_tempTensor.ptr();
 
             const auto updateOps = buildOperationSequence_tup(insert_before_last(updateWriteToTemp, instantiableOperationInstances...));
 
             // Build copy pipeline
             equivalentReadDFType nonUpdateRead;
             nonUpdateRead.params.first = m_nextUpdateIdx;
-            nonUpdateRead.params.params = m_tempTensor.ptr();
+            nonUpdateRead.params.opData.params = m_tempTensor.ptr();
 
             const auto copyOps = buildOperationSequence(nonUpdateRead, writeInstantiableOperation);
 

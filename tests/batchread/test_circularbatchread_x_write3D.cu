@@ -58,7 +58,7 @@ bool testCircularBatchRead() {
     fk::Read<fk::CircularBatchRead<fk::Ascendent, fk::PerThreadRead<fk::_2D, uchar3>, BATCH>> circularBatchRead;
     circularBatchRead.params.first = FIRST;
     for (int i = 0; i < BATCH; i++) {
-        circularBatchRead.params.params[i] = input[i];
+        circularBatchRead.params.opData[i].params = input[i];
     }
     fk::WriteInstantiableOperation<fk::PerThreadWrite<fk::_3D, uchar3>> write3D{ {output} };
 

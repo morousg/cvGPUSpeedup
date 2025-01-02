@@ -98,9 +98,9 @@ int launch() {
         std::is_same_v<OperationTuple<PerThreadRead<_2D, uchar3>, Cast<uchar3, float3>>, decltype(someReadOp.back_function.params)>;
     static_assert(correct, "Unexpected resulting type");
 
-    constexpr auto finalOp = someReadOp.then(Mul<float3>::build({ 3.f, 1.f, 32.f }));
+    constexpr auto finalOp = someReadOp.then(Mul<float3>::build({ { 3.f, 1.f, 32.f } }));
 
-    constexpr auto inputAlt = ReadSet<uchar3>::build({ { 0,0,0 }, {128,128,1} });
+    constexpr auto inputAlt = ReadSet<uchar3>::build({ { { 0,0,0 }, {128,128,1} } });
 
     constexpr ActiveThreads activeThreads = decltype(inputAlt)::getActiveThreads(inputAlt);
 
@@ -109,17 +109,21 @@ int launch() {
     static_assert(activeThreads.z == 1, "Incorrect size in z");
 
     constexpr auto someReadOpAlt =
-        ReadSet<uchar3>::build({ { 0,0,0 }, {128,128,1} })
+        ReadSet<uchar3>::build({ { { 0,0,0 }, {128,128,1} } })
         .then(Cast<uchar3, float3>::build())
         .then(ResizeRead<INTER_LINEAR>::build(dstSize))
-        .then(Add<float3>::build({ 3.f, 1.f, 32.f }))
+        .then(Add<float3>::build({ { 3.f, 1.f, 32.f } }))
         .then(Cast<float3, uint3>::build());
+
+    using ResultingType = decltype(someReadOpAlt);
+
+    constexpr auto res_x = ResultingType::getActiveThreads(someReadOpAlt);
 
     static_assert(decltype(someReadOpAlt)::getActiveThreads(someReadOpAlt).x == 32, "Wrong width");
     static_assert(decltype(someReadOpAlt)::getActiveThreads(someReadOpAlt).y == 32, "Wrong height");
     static_assert(decltype(someReadOpAlt)::getActiveThreads(someReadOpAlt).z == 1, "Wrong depth");
 
-    executeOperations(stream, someReadOpAlt, PerThreadWrite<_2D, uint3>::build(outputAlt));
+    executeOperations(stream, someReadOpAlt, PerThreadWrite<_2D, uint3>::build({ outputAlt }));
 
     gpuErrchk(cudaMemcpy2DAsync(h_output.ptr().data, h_output.dims().pitch,
                                 outputAlt.ptr().data, outputAlt.dims().pitch,

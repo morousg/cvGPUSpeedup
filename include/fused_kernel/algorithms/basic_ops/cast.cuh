@@ -36,7 +36,7 @@ namespace fk {
         using OutputType = O;
         using InstanceType = UnaryType;
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
-            return UnaryV<I, O, CastBase<VBase<I>, VBase<O>>>::exec(input);
+            return UnaryV<CastBase<VBase<I>, VBase<O>>, I, O>::exec(input);
         }
         using InstantiableType = Unary<Cast<I, O>>;
         DEFAULT_UNARY_BUILD

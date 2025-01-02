@@ -36,6 +36,17 @@ namespace fk {
         enum { size = sizeof...(Types) + 1 };
     };
 
+    // Primary template: defaults to false
+    template <typename T>
+    struct isTuple : std::false_type {};
+
+    // Partial specialization: matches any specialization of Tuple
+    template <typename... Types>
+    struct isTuple<Tuple<Types...>> : std::true_type {};
+
+    template <typename TypeToTest>
+    constexpr bool isTuple_v = isTuple<std::decay_t<TypeToTest>>::value;
+
     struct TupleUtil {
         template <typename Tuple1, typename Tuple2, int... I1, int... I2>
         FK_HOST_DEVICE_FUSE auto cat_impl(const Tuple1& t1, std::integer_sequence<int, I1...>,
@@ -123,6 +134,20 @@ namespace fk {
     FK_HOST_DEVICE_CNST auto& get(Tuple<Types...>& tuple) {
         return TupleUtil::get<INDEX>(tuple);
     }
+
+    template <typename TupleType>
+    struct TupleTypeToTypeList;
+
+    template <typename... Types>
+    struct TupleTypeToTypeList<Tuple<Types...>> {
+        using type = TypeList<Types...>;
+    };
+
+    template <typename TupleType>
+    using ToTypeList = typename TupleTypeToTypeList<TupleType>::type;
+
+    template <int INDEX, typename TupleType>
+    using get_t = TypeAt_t<INDEX, ToTypeList<TupleType>>;
 
     template <int INDEX, typename T, typename TupleLike>
     FK_HOST_DEVICE_CNST auto tuple_insert(const T& element, const TupleLike& tuple) {
@@ -243,6 +268,8 @@ namespace fk {
         static_translate_get_second(const std::array<std::pair<FT, ST>, NElems>& srcArray) {
         return static_translate_helper<GetSecond<FT, ST>>(NElems, srcArray, std::make_integer_sequence<int, NElems>{});
     }
+
+
 } // namespace fk
 
 #endif

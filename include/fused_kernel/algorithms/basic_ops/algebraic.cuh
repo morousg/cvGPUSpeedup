@@ -28,20 +28,38 @@ namespace fk {
         const float3 z;
     };
 
+    template <typename OpInstanceType = BinaryType>
     struct MxVFloat3 {
         using OutputType = float3;
         using InputType = float3;
         using ParamsType = M3x3Float; 
-        using InstanceType = BinaryType; 
-        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
-            const float3 xOut = input * params.x;
-            const float3 yOut = input * params.y;
-            const float3 zOut = input * params.z;
+        using InstanceType = BinaryType;
+        using OperationDataType = OperationData<MxVFloat3>;
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const OperationDataType& opData) {
+            const float3 xOut = input * opData.params.x;
+            const float3 yOut = input * opData.params.y;
+            const float3 zOut = input * opData.params.z;
             using Reduce = VectorReduce<float3, Add<float>>;
             return { Reduce::exec(xOut), Reduce::exec(yOut), Reduce::exec(zOut) };
         }
         using InstantiableType = Binary<MxVFloat3>;
-        DEFAULT_BINARY_BUILD
+        DEFAULT_BUILD
+    };
+
+    template <>
+    struct MxVFloat3<UnaryType> {
+        using OutputType = float3;
+        using InputType = Tuple<float3, M3x3Float>;
+        using InstanceType = UnaryType;
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
+            const float3 xOut = get<0>(input) * get<1>(input).x;
+            const float3 yOut = get<0>(input) * get<1>(input).y;
+            const float3 zOut = get<0>(input) * get<1>(input).z;
+            using Reduce = VectorReduce<float3, Add<float>>;
+            return { Reduce::exec(xOut), Reduce::exec(yOut), Reduce::exec(zOut) };
+        }
+        using InstantiableType = Unary<MxVFloat3>;
+        DEFAULT_UNARY_BUILD
     };
 } //namespace fk
 

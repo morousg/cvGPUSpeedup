@@ -55,7 +55,7 @@ namespace fk {
                                             const cudaStream_t& stream,
                                             const IOps&... iOps) {
         execute_operations_internal::executeOperations_helper<THREAD_FUSION>(stream,
-            PerThreadRead<_2D, I>::build(input), iOps...);
+            PerThreadRead<_2D, I>::build({ input }), iOps...);
     }
 
     template <typename I, typename... IOps>
@@ -70,7 +70,7 @@ namespace fk {
                                             const Ptr2D<O>& output,
                                             const cudaStream_t& stream, const IOps&... iOps) {
         execute_operations_internal::executeOperations_helper<THREAD_FUSION>(stream,
-            PerThreadRead<_2D, I>::build(input), iOps..., PerThreadWrite<_2D, O>::build(output));
+            PerThreadRead<_2D, I>::build({ input }), iOps..., PerThreadWrite<_2D, O>::build({ output }));
     }
 
     template <typename I, typename O, typename... IOps>
@@ -148,13 +148,13 @@ namespace fk {
         if (outputPtr.getMemType() == MemType::Device) {
             if constexpr (D == _1D) {
                 const ActiveThreads activeThreads(output.dims.width);
-                executeOperations(stream, ReadSet<T>::build({ value, activeThreads }), PerThreadWrite<D, T>::build(output));
+                executeOperations(stream, ReadSet<T>::build(value, activeThreads), PerThreadWrite<D, T>::build(output));
             } else if constexpr (D == _2D) {
                 const ActiveThreads activeThreads(output.dims.width, output.dims.height);
-                executeOperations(stream, ReadSet<T>::build({value, activeThreads}), PerThreadWrite<D, T>::build(output));
+                executeOperations(stream, ReadSet<T>::build(value, activeThreads), PerThreadWrite<D, T>::build(output));
             } else if constexpr (D == _3D) {
                 const ActiveThreads activeThreads(output.dims.width, output.dims.height, output.dims.planes);
-                executeOperations(stream, ReadSet<T>::build({ value, activeThreads }), PerThreadWrite<D, T>::build(output));
+                executeOperations(stream, ReadSet<T>::build(value, activeThreads), PerThreadWrite<D, T>::build(output));
             }
         } else {
             for (int i = 0; i < (int)outputPtr.getNumElements(); i++) {

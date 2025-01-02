@@ -85,7 +85,8 @@ inline constexpr auto convertTo(float alpha, float beta) {
     using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
     using SecondOp = fk::Mul<CUDA_T(O)>;
     using ThirdOp = fk::Add<CUDA_T(O)>;
-    return fk::FusedOperation<FirstOp, SecondOp, ThirdOp>::build({ {fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }} });
+
+    return fk::FusedOperation<FirstOp, SecondOp, ThirdOp>::build({ { {fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }} } });
 }
 
 template <int I>
@@ -126,7 +127,7 @@ inline constexpr auto split(const std::vector<cv::cuda::GpuMat>& output) {
     for (auto& mat : output) {
         fk_output.push_back(gpuMat2Ptr2D<BASE_CUDA_T(O)>(mat));
     }
-    return internal::split_builder_t<O, fk::Ptr2D<BASE_CUDA_T(O)>, fk::Write<fk::SplitWrite<fk::_2D, CUDA_T(O)>>>::build(fk_output);
+    return fk::SplitWrite<fk::_2D, CUDA_T(O)>::build(fk_output);
 }
 
 template <int O>
@@ -177,10 +178,10 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input,
     using Resize = fk::ResizeRead<IType, AR, fk::Read<PixelReadOp>>;
     if constexpr (AR != fk::IGNORE_AR) {
         const auto resizeDFs = Resize::build_batch(readOP, sizeArr, backgroundArr);
-        return fk::BatchReadBack<NPtr, fk::CONDITIONAL_WITH_DEFAULT>::build(resizeDFs, usedPlanes, backgroundValue);
+        return fk::BatchRead<NPtr, fk::CONDITIONAL_WITH_DEFAULT>::build(resizeDFs, usedPlanes, backgroundValue);
     } else {
         const auto resizeDFs = Resize::build_batch(readOP, sizeArr);
-        return fk::BatchReadBack<NPtr, fk::CONDITIONAL_WITH_DEFAULT>::build(resizeDFs, usedPlanes, backgroundValue);
+        return fk::BatchRead<NPtr, fk::CONDITIONAL_WITH_DEFAULT>::build(resizeDFs, usedPlanes, backgroundValue);
     }
 }
 

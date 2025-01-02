@@ -102,9 +102,9 @@ namespace fk { // namespace FusedKernel
                 return i_data;
             // MidWriteOperation with continuations, based on FusedOperation
             } else if constexpr (InstantiableOperation::template is<MidWriteType> && isMidWriteType<typename InstantiableOperation::Operation>) {
-                return InstantiableOperation::Operation::exec(thread, i_data, df.params);
+                return InstantiableOperation::Operation::exec(thread, i_data, df);
             } else if constexpr (InstantiableOperation::template is<MidWriteType> && !isMidWriteType<typename InstantiableOperation::Operation>) {
-                InstantiableOperation::Operation::exec(thread, i_data, df.params);
+                InstantiableOperation::Operation::exec(thread, i_data, df);
                 return i_data;
             } else {
                 return operate(thread, compute(i_data, df), instantiableOperationInstances...);
@@ -133,18 +133,10 @@ namespace fk { // namespace FusedKernel
 
         template <typename ReadIOp, typename TFI>
         FK_DEVICE_FUSE auto read(const Point& thread, const ReadIOp& readDF) {
-            if constexpr (ReadIOp::template is<ReadBackType>) {
-                if constexpr (TFI::ENABLED) {
-                    return ReadIOp::Operation::exec<TFI::elems_per_thread>(thread, readDF.params, readDF.back_function);
-                } else {
-                    return ReadIOp::Operation::exec(thread, readDF.params, readDF.back_function);
-                }
-            } else if constexpr (ReadIOp::template is<ReadType>) {
-                if constexpr (TFI::ENABLED) {
-                    return ReadIOp::Operation::exec<TFI::elems_per_thread>(thread, readDF.params);
-                } else {
-                    return ReadIOp::Operation::exec(thread, readDF.params);
-                }
+            if constexpr (TFI::ENABLED) {
+                return ReadIOp::Operation::exec<TFI::elems_per_thread>(thread, readDF);
+            } else {
+                return ReadIOp::Operation::exec(thread, readDF);
             }
         }
 
@@ -161,17 +153,17 @@ namespace fk { // namespace FusedKernel
                 const auto tempI = read<ReadIOp, TFI>(thread, readDF);
                 if constexpr (sizeof...(iOps) > 1) {
                     const auto tempO = operate_thread_fusion<TFI>(thread, tempI, iOps...);
-                    WriteOperation::exec<TFI::elems_per_thread>(thread, tempO, writeDF.params);
+                    WriteOperation::exec<TFI::elems_per_thread>(thread, tempO, writeDF);
                 } else {
-                    WriteOperation::exec<TFI::elems_per_thread>(thread, tempI, writeDF.params);
+                    WriteOperation::exec<TFI::elems_per_thread>(thread, tempI, writeDF);
                 }
             } else {
                 const auto tempI = read<ReadIOp, TFI>(thread, readDF);
                 if constexpr (sizeof...(iOps) > 1) {
                     const auto tempO = operate(thread, tempI, iOps...);
-                    WriteOperation::exec(thread, tempO, writeDF.params);
+                    WriteOperation::exec(thread, tempO, writeDF);
                 } else {
-                    WriteOperation::exec(thread, tempI, writeDF.params);
+                    WriteOperation::exec(thread, tempI, writeDF);
                 }
             }
         }
