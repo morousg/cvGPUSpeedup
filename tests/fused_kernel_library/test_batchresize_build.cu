@@ -34,8 +34,8 @@ int launch() {
 
     constexpr auto oneResizeread = ResizeRead<INTER_LINEAR>::build(readDFArray[0], resParams[0]);
 
-    const auto resizeDFArray = ResizeRead<INTER_LINEAR>::build_batch<BATCH>(readDFArray, resParams);
-    const auto resizeDFArray2 = ResizeRead<INTER_LINEAR, PRESERVE_AR>::build_batch<BATCH>(readDFArray, resParams, defaultArray);
+    const auto resizeDFArray = ResizeRead<INTER_LINEAR>::build(readDFArray, resParams);
+    const auto resizeDFArray2 = ResizeRead<INTER_LINEAR, PRESERVE_AR>::build(readDFArray, resParams, defaultArray);
 
     return 0;
 }

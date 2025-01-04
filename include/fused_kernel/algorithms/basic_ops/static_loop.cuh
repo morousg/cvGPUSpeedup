@@ -31,7 +31,7 @@ namespace fk {
         template <int ITERATION>
         FK_DEVICE_FUSE OutputType helper_exec(const InputType& input, const OperationDataType& opData) {
             if constexpr (ITERATION + 1 < ITERATIONS) {
-                return helper_exec<ITERATION + 1>(Operation::exec(input, opData), opData);
+                return helper_exec<ITERATION + 1>(Operation::exec(input, { opData.params }), opData);
             } else {
                 return input;
             }
@@ -39,7 +39,7 @@ namespace fk {
 
         public:
         FK_DEVICE_FUSE OutputType exec(const InputType& input, const OperationDataType& opData) {
-            return helper_exec<0>(Operation::exec(input, opData), opData);
+            return helper_exec<0>(Operation::exec(input, { opData.params }), opData);
         }
         using InstantiableType = Binary<StaticLoop<Operation, ITERATIONS>>;
         DEFAULT_BUILD

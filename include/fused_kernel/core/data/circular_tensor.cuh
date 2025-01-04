@@ -107,9 +107,9 @@ namespace fk {
             m_tempTensor.allocTensor(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_);
         }
 
-        template <typename... InstantiableOperationTypes>
+        template <typename... IOpTypes>
         __host__ inline constexpr void update(const cudaStream_t& stream,
-            const InstantiableOperationTypes&... instantiableOperationInstances) {
+            const IOpTypes&... instantiableOperationInstances) {
             const auto writeInstantiableOperation = ppLast(instantiableOperationInstances...);
             using writeDFType = std::decay_t<decltype(writeInstantiableOperation)>;
             using writeOpType = typename writeDFType::Operation;
@@ -136,9 +136,7 @@ namespace fk {
                 (uint)ceil((float)this->ptr_a.dims.height / (float)this->adjusted_blockSize.y),
                 BATCH);
 
-            const auto iDBTDPP = DivergentBatchTransformDPP<SequenceSelectorType<CT_ORDER, BATCH>>::build(updateOps, copyOps);
-
-            launchDPPs_Kernel<<<grid, this->adjusted_blockSize, 0, stream >>>(iDBTDPP);
+            launchDivergentBatchTransformDPP_Kernel<SequenceSelectorType<CT_ORDER, BATCH>> << <grid, this->adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
 
             m_nextUpdateIdx = (m_nextUpdateIdx + 1) % BATCH;
             gpuErrchk(cudaGetLastError());

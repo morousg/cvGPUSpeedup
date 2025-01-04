@@ -151,7 +151,6 @@ namespace fk {
  
         using InstantiableType = ReadBack<ResizeRead<IType, AR, BackFunction_>>;
         DEFAULT_BUILD
-        DEFAULT_READ_BATCH_BUILD
 
         template <enum AspectRatio AR_ = AR>
         FK_HOST_FUSE
@@ -210,6 +209,8 @@ namespace fk {
                 return build(BF{ {input} }, computedDSize);
             }
         }
+
+        DEFAULT_READ_BATCH_BUILD
     };
 
     template <enum AspectRatio AR, typename T = void>
@@ -318,8 +319,8 @@ namespace fk {
             return std::array<OutputType, sizeof...(Idx)>{ call_build_at_index<Idx>(arrays...)... };
         }
         template <size_t BATCH, typename FirstType, typename... ArrayTypes>
-        FK_HOST_FUSE auto build_batch(const std::array<FirstType, BATCH>& firstInstance,
-                                      const ArrayTypes&... arrays) {
+        FK_HOST_FUSE auto build(const std::array<FirstType, BATCH>& firstInstance,
+                                const ArrayTypes&... arrays) {
             static_assert(allArraysSameSize_v<BATCH, std::array<FirstType, BATCH>, ArrayTypes...>,
                 "Not all arrays have the same size as BATCH");
             return build_helper_generic(std::make_index_sequence<BATCH>(), firstInstance, arrays...);

@@ -133,7 +133,7 @@ namespace fk { // namespace FusedKernel
     };
 
     /**
-    * @brief BinaryInstantiableOperation: represents a InstantiableOperation that takes the result of the previous InstantiableOperation as input
+    * @brief BinaryInstantiableOperation: represents a IOp that takes the result of the previous IOp as input
     * (which will reside on GPU registers) and an additional parameter that contains data not generated during the execution
     * of the current kernel.
     * It generates an output and returns it in register memory.
@@ -155,12 +155,12 @@ namespace fk { // namespace FusedKernel
     };
 
     /**
-    * @brief TernaryInstantiableOperation: represents a InstantiableOperation that takes the result of the previous InstantiableOperation as input
+    * @brief TernaryInstantiableOperation: represents a IOp that takes the result of the previous IOp as input
     * (which will reside on GPU registers) plus two additional parameters.
     * Second parameter (params): represents the same as in a BinaryFunction, data thas was not generated during the execution
     * of this kernel.
-    * Third parameter (back_function): it's a InstantiableOperation that will be used at some point in the implementation of the
-    * Operation. It can be any kind of InstantiableOperation.
+    * Third parameter (back_function): it's a IOp that will be used at some point in the implementation of the
+    * Operation. It can be any kind of IOp.
     * Expects Operation_t to have an static __device__ function member with the following parameters:
     * OutputType exec(const InputType& input, const OperationData<Operation_t>& opData)
     */
@@ -175,7 +175,7 @@ namespace fk { // namespace FusedKernel
     };
 
     /**
-    * @brief UnaryInstantiableOperation: represents a InstantiableOperation that takes the result of the previous InstantiableOperation as input
+    * @brief UnaryInstantiableOperation: represents a IOp that takes the result of the previous IOp as input
     * (which will reside on GPU registers).
     * It allows to execute the Operation (or chain of Unary Operations) on the input, and returns the result as output
     * in register memory.
@@ -195,10 +195,10 @@ namespace fk { // namespace FusedKernel
     };
 
     /**
-    * @brief MidWriteInstantiableOperation: represents a InstantiableOperation that takes the result of the previous InstantiableOperation as input
+    * @brief MidWriteInstantiableOperation: represents a IOp that takes the result of the previous IOp as input
     * (which will reside on GPU registers) and writes it into device memory. The way that the data is written, is definded
     * by the implementation of Operation_t.
-    * It returns the input data without modification, so that another InstantiableOperation can be executed after it, using the same data.
+    * It returns the input data without modification, so that another IOp can be executed after it, using the same data.
     */
     template <typename Operation_t>
     struct MidWriteInstantiableOperation final : public OperationData<Operation_t> {
@@ -214,10 +214,10 @@ namespace fk { // namespace FusedKernel
     };
 
     /**
-    * @brief WriteInstantiableOperation: represents a InstantiableOperation that takes the result of the previous InstantiableOperation as input
+    * @brief WriteInstantiableOperation: represents a IOp that takes the result of the previous IOp as input
     * (which will reside on GPU registers) and writes it into device memory. The way that the data is written, is definded
     * by the implementation of Operation_t.
-    * It can only be the last InstantiableOperation in a sequence of InstantiableOperations.
+    * It can only be the last IOp in a sequence of InstantiableOperations.
     */
     template <typename Operation_t>
     struct WriteInstantiableOperation final : public OperationData<Operation_t> {
@@ -300,38 +300,13 @@ namespace fk { // namespace FusedKernel
         OperationData<Operation> opData[BATCH];
     };
 
-    template <int BATCH, typename Operation>
-    struct BatchReadCommon {
-    protected:
-        // BUILDERS THAT CAN USE ANY BUILDER FROM OPERATION
-
-        template <size_t Idx, typename Array>
-        FK_HOST_FUSE auto get_element_at_index(const Array& array) -> decltype(array[Idx]) {
-            return array[Idx];
-        }
-
-        template <size_t Idx, typename... Arrays>
-        FK_HOST_FUSE auto call_build_at_index(const Arrays&... arrays) {
-            return Operation::build(get_element_at_index<Idx>(arrays)...);
-        }
-
-        template <size_t... Idx, typename... Arrays>
-        FK_HOST_FUSE auto build_helper_generic(const std::index_sequence<Idx...>&, const Arrays&... arrays) {
-            static_assert(sizeof...(Idx) == BATCH);
-            using OutputArrayType = decltype(Operation::build(std::declval<typename Arrays::value_type>()...));
-            return std::array<OutputArrayType, sizeof...(Idx)>{ call_build_at_index<Idx>(arrays...)... };
-        }
-
-        // END BUILDERS THAT CAN USE ANY BUILDER FROM OPERATION
-    };
-
     /// @brief struct BatchRead
     /// @tparam BATCH: number of thread planes and number of data planes to process
     /// @tparam Operation: the read Operation to perform on the data
     /// @tparam PP: enum to select if all planes will be processed equally, or only some
     /// with the remainder not reading and returning a default value
     template <int BATCH_, enum PlanePolicy PP = PROCESS_ALL, typename Operation_ = void>
-    struct BatchRead final : public BatchReadCommon<BATCH_, Operation_> {
+    struct BatchRead {
         using Operation = Operation_;
         static constexpr int BATCH = BATCH_;
         using OutputType = typename Operation::OutputType;
@@ -340,7 +315,7 @@ namespace fk { // namespace FusedKernel
         using InstanceType = ReadType;
         static constexpr bool THREAD_FUSION{ (PP == PROCESS_ALL) ? Operation::THREAD_FUSION : false };
         static_assert(isAnyReadType<Operation>, "The Operation is not of any Read type");
-
+        using OperationDataType = OperationData<BatchRead<BATCH, PP, Operation>>;
     private:
         template <uint ELEMS_PER_THREAD = 1>
         FK_HOST_DEVICE_FUSE const auto exec_helper(const Point& thread, const OperationData<Operation>(&opData)[BATCH]) {
@@ -400,6 +375,9 @@ namespace fk { // namespace FusedKernel
 
         // END DEVICE FUNCTION BASED BUILDERS
     public:
+        FK_HOST_DEVICE_FUSE auto build(const OperationDataType& opData) {
+                return InstantiableType{ opData };
+        }
         // DEVICE FUNCTION BASED BUILDERS
 
         /// @brief build(): host function to create a Read instance PROCESS_ALL
@@ -477,7 +455,7 @@ namespace fk { // namespace FusedKernel
             } else if constexpr (isUnaryType<Operation>) {
                 return Operation::exec(i_data);
             } else if constexpr (isWriteType<Operation>) {
-                // Assuming the behavior of a MidWriteType InstantiableOperation
+                // Assuming the behavior of a MidWriteType IOp
                 Operation::exec(thread, i_data, tuple.instance);
                 return i_data;
             } else if constexpr (isMidWriteType<Operation>) {
@@ -693,7 +671,7 @@ namespace fk { // namespace FusedKernel
     template <typename... Operations>
     struct is_fused_operation<FusedOperation<Operations...>> : std::true_type {};
 
-    template <typename InstantiableOperation, typename Enabler = void>
+    template <typename IOp, typename Enabler = void>
     struct InstantiableFusedOperationToOperationTuple;
 
     template <template <typename...> class SomeDF, typename... Operations>
@@ -709,14 +687,14 @@ namespace fk { // namespace FusedKernel
         }
     };
 
-    template <typename InstantiableOperation>
-    FK_HOST_DEVICE_CNST auto fusedOperationToOperationTuple(const InstantiableOperation& df) {
-        return InstantiableFusedOperationToOperationTuple<InstantiableOperation>::value(df);
+    template <typename IOp>
+    FK_HOST_DEVICE_CNST auto fusedOperationToOperationTuple(const IOp& df) {
+        return InstantiableFusedOperationToOperationTuple<IOp>::value(df);
     }
 
-    template <typename InstantiableOperation>
-    FK_HOST_DEVICE_CNST auto devicefunctions_to_operationtuple(const InstantiableOperation& df) {
-        using Op = typename InstantiableOperation::Operation;
+    template <typename IOp>
+    FK_HOST_DEVICE_CNST auto devicefunctions_to_operationtuple(const IOp& df) {
+        using Op = typename IOp::Operation;
         if constexpr (is_fused_operation<Op>::value) {
             return fusedOperationToOperationTuple(df);
         } else if constexpr (hasParamsAndBackFunction_v<Op>) {
@@ -728,9 +706,9 @@ namespace fk { // namespace FusedKernel
         }
     }
 
-    template <typename InstantiableOperation, typename... InstantiableOperations>
-    FK_HOST_DEVICE_CNST auto devicefunctions_to_operationtuple(const InstantiableOperation& df, const InstantiableOperations&... dfs) {
-        using Op = typename InstantiableOperation::Operation;
+    template <typename IOp, typename... InstantiableOperations>
+    FK_HOST_DEVICE_CNST auto devicefunctions_to_operationtuple(const IOp& df, const InstantiableOperations&... dfs) {
+        using Op = typename IOp::Operation;
         return cat(devicefunctions_to_operationtuple(df), devicefunctions_to_operationtuple(dfs...));
     }
 
@@ -756,7 +734,7 @@ namespace fk { // namespace FusedKernel
         return OperationTupleToInstantiableOperation<OperationTuple>::value(opTuple);
     }
 
-    /** @brief fuseDF: function that creates either a Read or a Binary InstantiableOperation, composed of a
+    /** @brief fuseDF: function that creates either a Read or a Binary IOp, composed of a
     * FusedOperation, where the operations are the ones found in the InstantiableOperations in the
     * instantiableOperations parameter pack.
     * This is a convenience function to simplify the implementation of ReadBack and Ternary InstantiableOperations

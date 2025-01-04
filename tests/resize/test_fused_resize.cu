@@ -88,9 +88,7 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer, const uint& NUM_ELE
               (uint)ceil((float)down.height / (float)block.y),
               (uint)OUTPUTS);
 
-    const auto iDBTDPP = fk::DivergentBatchTransformDPP<PerPlaneSequenceSelector>::build(OpSeqTensor);
-    fk::launchDPPs_Kernel << <grid, block, 0, stream >> > (iDBTDPP);
-    //fk::cuda_transform_divergent_batch<PerPlaneSequenceSelector><<<grid, block, 0, stream>>>(OpSeqTensor);
+    fk::launchDivergentBatchTransformDPP_Kernel<PerPlaneSequenceSelector><<<grid, block, 0, stream>>>(OpSeqTensor);
    
     gpuErrchk(cudaStreamSynchronize(stream));
 

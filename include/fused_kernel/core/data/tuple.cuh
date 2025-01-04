@@ -195,19 +195,19 @@ namespace fk {
     }
 
     // Struct to hold a parameter pack, and be able to pass it arround
-    template <typename... InstantiableOperationTypes>
+    template <typename... IOpTypes>
     struct InstantiableOperationSequence {
-        Tuple<InstantiableOperationTypes...> instantiableOperations;
+        Tuple<IOpTypes...> instantiableOperations;
     };
 
     // Function that fills the OperationSequence struct, from a parameter pack
-    template <typename... InstantiableOperationTypes>
-    FK_HOST_DEVICE_CNST auto buildOperationSequence(const InstantiableOperationTypes&... instantiableOperationInstances) {
-        return InstantiableOperationSequence<InstantiableOperationTypes...> {{instantiableOperationInstances...}};
+    template <typename... IOpTypes>
+    FK_HOST_DEVICE_CNST auto buildOperationSequence(const IOpTypes&... instantiableOperationInstances) {
+        return InstantiableOperationSequence<IOpTypes...> {{instantiableOperationInstances...}};
     }
 
-    template <typename... InstantiableOperationTypes>
-    FK_HOST_DEVICE_CNST auto buildOperationSequence_tup(const Tuple<InstantiableOperationTypes...>& instantiableOperationInstances) {
+    template <typename... IOpTypes>
+    FK_HOST_DEVICE_CNST auto buildOperationSequence_tup(const Tuple<IOpTypes...>& instantiableOperationInstances) {
         return apply([](const auto&... args) {
             return buildOperationSequence(args...);
             }, instantiableOperationInstances);
