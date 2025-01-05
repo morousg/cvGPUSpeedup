@@ -29,11 +29,8 @@ namespace cxp {
 
     template <typename T>
     FK_HOST_DEVICE_CNST bool isinf(T x) {
-        // Positive infinity: x == +infinity
-        // Negative infinity: x == -infinity
-        return x == std::numeric_limits<T>::infinity() || x == -std::numeric_limits<T>::infinity();
+        return x == x && x != T(0) && x + x == x;
     }
-
 
     template<typename T>
     FK_HOST_DEVICE_CNST T round(T x) {

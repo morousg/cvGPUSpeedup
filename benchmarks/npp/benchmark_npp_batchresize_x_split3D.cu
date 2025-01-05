@@ -254,12 +254,11 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       }
 
       STOP_NPP_START_FK_BENCHMARK
-          // do the same via fk
-          const auto sizeArray = fk::make_set_std_array<fk::Size, BATCH>(fk::Size(UP_W, UP_H));
-          const auto readInstantiableArray = fk::PerThreadRead<fk::_2D, uchar3>::build_batch(d_crop_fk);
-          const auto resizeArray = fk::ResizeRead<fk::INTER_LINEAR, fk::IGNORE_AR>::build(readInstantiableArray, sizeArray);
-          const auto readOp = fk::BatchRead<BATCH>::build(resizeArray);
-          auto split = fk::Write<fk::TensorSplit<float3>>{d_tensor.ptr()};
+      // do the same via fk
+      const auto sizeArray = fk::make_set_std_array<BATCH>(fk::Size(UP_W, UP_H));
+      const auto readInstantiableArray = fk::PerThreadRead<fk::_2D, uchar3>::build_batch(d_crop_fk);
+      const auto readOp = fk::ResizeRead<fk::INTER_LINEAR>::build(readInstantiableArray, sizeArray);
+      const auto split = fk::Write<fk::TensorSplit<float3>>{d_tensor.ptr()};
 
       fk::executeOperations(compute_stream, readOp, colorConvert, multiply, sub, div, split);
       STOP_FK_BENCHMARK
