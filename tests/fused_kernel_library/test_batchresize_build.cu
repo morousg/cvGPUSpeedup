@@ -22,12 +22,12 @@ using namespace fk;
 int launch() {
     constexpr int BATCH = 20;
     constexpr RawPtr<_2D, float> data{ nullptr,{16,16,16} };
-    constexpr std::array<RawPtr<_2D, float>, BATCH> inputs = make_set_std_array<RawPtr<_2D, float>, BATCH>(data);
+    constexpr std::array<RawPtr<_2D, float>, BATCH> inputs = make_set_std_array<BATCH>(data);
     constexpr Size oneSize(8,8);
-    constexpr std::array<Size, BATCH> resParams = make_set_std_array<Size, BATCH>(oneSize);
+    constexpr std::array<Size, BATCH> resParams = make_set_std_array<BATCH>(oneSize);
 
     constexpr float defaultValue = 0;
-    constexpr std::array<float, BATCH> defaultArray = make_set_std_array<float, BATCH>(defaultValue);
+    constexpr std::array<float, BATCH> defaultArray = make_set_std_array<BATCH>(defaultValue);
     constexpr int usedPlanes = 15;
 
     constexpr auto readDFArray = PerThreadRead<_2D, float>::build_batch<BATCH>(inputs);

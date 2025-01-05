@@ -173,8 +173,8 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input,
     constexpr fk::InterpolationType IType = static_cast<fk::InterpolationType>(INTER_F);
     constexpr fk::AspectRatio AR = static_cast<fk::AspectRatio>(AR_);
     const auto readOP = PixelReadOp::build_batch(fk_input);
-    const auto sizeArr = fk::make_set_std_array<fk::Size, NPtr>({ dsize.width, dsize.height });
-    const auto backgroundArr = fk::make_set_std_array<O, NPtr>(backgroundValue);
+    const auto sizeArr = fk::make_set_std_array<NPtr>(fk::Size(dsize.width, dsize.height));
+    const auto backgroundArr = fk::make_set_std_array<NPtr>(backgroundValue);
     using Resize = fk::ResizeRead<IType, AR, fk::Read<PixelReadOp>>;
     if constexpr (AR != fk::IGNORE_AR) {
         const auto resizeDFs = Resize::build_batch(readOP, sizeArr, backgroundArr);

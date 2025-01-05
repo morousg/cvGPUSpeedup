@@ -20,7 +20,7 @@
 #include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/core/data/array.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
-
+#include <fused_kernel/core/constexpr_libs/constexpr_cmath.cuh>
 #include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {
@@ -99,14 +99,14 @@ namespace fk {
         FK_HOST_FUSE std::pair<int, int> compute_target_size(const Size& srcSize, const Size& dstSize) {
             const float scaleFactor = dstSize.height / (float)srcSize.height;
             const int targetHeight = dstSize.height;
-            const int targetWidth = static_cast<int> (round(scaleFactor * srcSize.width));
+            const int targetWidth = static_cast<int>(cxp::round(scaleFactor * srcSize.width));
             if constexpr (AR == PRESERVE_AR_RN_EVEN) {
                 // We round to the next even integer smaller or equal to targetWidth
                 const int targetWidthTemp = targetWidth - (targetWidth % 2);
                 if (targetWidthTemp > dstSize.width) {
                     const float scaleFactorTemp = dstSize.width / (float)srcSize.width;
                     const int targetWidthTemp2 = dstSize.width;
-                    const int targetHeightTemp = static_cast<int> (round(scaleFactorTemp * srcSize.height));
+                    const int targetHeightTemp = static_cast<int> (cxp::round(scaleFactorTemp * srcSize.height));
                     return std::make_pair(targetWidthTemp2, targetHeightTemp - (targetHeightTemp % 2));
                 } else {
                     return std::make_pair(targetWidthTemp, targetHeight);
@@ -115,7 +115,7 @@ namespace fk {
                 if (targetWidth > dstSize.width) {
                     const float scaleFactorTemp = dstSize.width / (float)srcSize.width;
                     const int targetWidthTemp = dstSize.width;
-                    const int targetHeightTemp = static_cast<int> (round(scaleFactorTemp * srcSize.height));
+                    const int targetHeightTemp = static_cast<int> (cxp::round(scaleFactorTemp * srcSize.height));
                     return std::make_pair(targetWidthTemp, targetHeightTemp);
                 } else {
                     return std::make_pair(targetWidth, targetHeight);
@@ -232,7 +232,7 @@ namespace fk {
         using OutputType = int;
         using ParamsType = IncompleteResizeReadParams<AR, T>;
         using ReadDataType = int;
-
+        using OperationDataType = OperationData<ResizeRead<IType, AR, TypeList<void, T>>>;
         template <enum AspectRatio AR_ = AR>
         FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR, ReadBack<ResizeRead<IType, AR_, TypeList<void, void>>>>
         build(const Size& dstSize) {
@@ -243,7 +243,7 @@ namespace fk {
         FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, ReadBack<ResizeRead<IType, AR_, TypeList<void, T>>>>
         build(const Size& dstSize,
               const T& backgroundValue) {
-            return ReadBack<ResizeRead<IType, AR_, TypeList<void, void>>>{{{dstSize, backgroundValue}, 0}};
+            return ReadBack<ResizeRead<IType, AR_, TypeList<void, T>>>{{{dstSize, backgroundValue}, 0}};
         }
 
         template <typename ReadIOp, enum AspectRatio AR_ = AR>
@@ -259,6 +259,9 @@ namespace fk {
                 "Background value type is not the same as the provided ReadOperation OutputType");
             return ResizeRead<IType, AR_, ReadIOp>::build(readIOp, iOp.params.dstSize, iOp.params.defaultValue);
         }
+        using InstantiableType = Instantiable<ResizeRead<IType, AR, TypeList<void, T>>>;
+        DEFAULT_BUILD
+        DEFAULT_READ_BATCH_BUILD
     };
 
     template <enum InterpolationType IType, enum AspectRatio AR>
@@ -305,26 +308,7 @@ namespace fk {
         FK_HOST_FUSE auto build(const RawPtr<_2D, T>& input, const Size& dSize, const double& fx, const double& fy) {
             return ResizeRead<IType, AR, Instantiable<PerThreadRead<_2D, T>>>::build(input, dSize, fx, fy);
         }
-        template <size_t Idx, typename Array>
-        FK_HOST_FUSE auto get_element_at_index(const Array& array) -> decltype(array[Idx]) {
-            return array[Idx];
-        }
-        template <size_t Idx, typename... Arrays>
-        FK_HOST_FUSE auto call_build_at_index(const Arrays&... arrays) {
-            return build(get_element_at_index<Idx>(arrays)...);
-        }
-        template <size_t... Idx, typename... Arrays>
-        FK_HOST_FUSE auto build_helper_generic(const std::index_sequence<Idx...>&, const Arrays&... arrays) {
-            using OutputType = decltype(call_build_at_index<0>(std::declval<Arrays>()...));
-            return std::array<OutputType, sizeof...(Idx)>{ call_build_at_index<Idx>(arrays...)... };
-        }
-        template <size_t BATCH, typename FirstType, typename... ArrayTypes>
-        FK_HOST_FUSE auto build(const std::array<FirstType, BATCH>& firstInstance,
-                                const ArrayTypes&... arrays) {
-            static_assert(allArraysSameSize_v<BATCH, std::array<FirstType, BATCH>, ArrayTypes...>,
-                "Not all arrays have the same size as BATCH");
-            return build_helper_generic(std::make_index_sequence<BATCH>(), firstInstance, arrays...);
-        }
+        DEFAULT_READ_BATCH_BUILD
     };
 }; // namespace fk
 

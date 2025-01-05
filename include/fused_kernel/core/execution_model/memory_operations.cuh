@@ -32,34 +32,34 @@ namespace fk {
 
     template <typename InstantiableOp>
     struct Num_elems<InstantiableOp, std::enable_if_t<InstantiableOp::template is<ReadType>, void>> {
-        FK_HOST_DEVICE_FUSE uint x(const Point& thread, const InstantiableOp& df) {
-            return InstantiableOp::Operation::num_elems_x(thread, df.params);
+        FK_HOST_DEVICE_FUSE uint x(const Point& thread, const InstantiableOp& iOp) {
+            return InstantiableOp::Operation::num_elems_x(thread, iOp);
         }
-        FK_HOST_DEVICE_FUSE uint y(const Point& thread, const InstantiableOp& df) {
-            return InstantiableOp::Operation::num_elems_y(thread, df.params);
+        FK_HOST_DEVICE_FUSE uint y(const Point& thread, const InstantiableOp& iOp) {
+            return InstantiableOp::Operation::num_elems_y(thread, iOp);
         }
-        FK_HOST_DEVICE_FUSE Size size(const Point& thread, const InstantiableOp& df) {
-            return Size(x(thread, df), y(thread, df));
+        FK_HOST_DEVICE_FUSE Size size(const Point& thread, const InstantiableOp& iOp) {
+            return Size(x(thread, iOp), y(thread, iOp));
         }
-        FK_HOST_DEVICE_FUSE uint z(const Point& thread, const InstantiableOp& df) {
-            return InstantiableOp::Operation::num_elems_z(thread, df.params);
+        FK_HOST_DEVICE_FUSE uint z(const Point& thread, const InstantiableOp& iOp) {
+            return InstantiableOp::Operation::num_elems_z(thread, iOp);
         }
     };
 
     template <typename InstantiableOp>
     struct Num_elems<InstantiableOp, std::enable_if_t<InstantiableOp::template is<ReadBackType>, void>> {
-        FK_HOST_DEVICE_FUSE uint x(const Point& thread, const InstantiableOp& df) {
-            return InstantiableOp::Operation::num_elems_x(thread, df.params, df.back_function);
+        FK_HOST_DEVICE_FUSE uint x(const Point& thread, const InstantiableOp& iOp) {
+            return InstantiableOp::Operation::num_elems_x(thread, iOp);
         }
 
-        FK_HOST_DEVICE_FUSE uint y(const Point& thread, const InstantiableOp& df) {
-            return InstantiableOp::Operation::num_elems_y(thread, df.params, df.back_function);
+        FK_HOST_DEVICE_FUSE uint y(const Point& thread, const InstantiableOp& iOp) {
+            return InstantiableOp::Operation::num_elems_y(thread, iOp);
         }
-        FK_HOST_DEVICE_FUSE Size size(const Point& thread, const InstantiableOp& df) {
-            return Size(x(thread, df), y(thread, df));
+        FK_HOST_DEVICE_FUSE Size size(const Point& thread, const InstantiableOp& iOp) {
+            return Size(x(thread, iOp), y(thread, iOp));
         }
-        FK_HOST_DEVICE_FUSE uint z(const Point& thread, const InstantiableOp& df) {
-            return InstantiableOp::Operation::num_elems_z(thread, df.params, df.back_function);
+        FK_HOST_DEVICE_FUSE uint z(const Point& thread, const InstantiableOp& iOp) {
+            return InstantiableOp::Operation::num_elems_z(thread, iOp);
         }
     };
 

@@ -43,6 +43,110 @@ using WPerThrFloat = PerThreadWrite<_2D, float>;
 // MidWrite
 using MWPerThrFloat = FusedOperation<WPerThrFloat, BAddFloat>;
 
+constexpr inline bool test_read_then_batch() {
+    constexpr RawPtr<_2D, float> input{ {nullptr}, { 64,64, 64 * sizeof(float) } };
+    constexpr auto readIOp = RPerThrFloat::build(input);
+
+    constexpr std::array<Size, 2> resizes{ Size(16, 16), Size(16, 16) };
+    constexpr auto batchResize = ResizeRead<INTER_LINEAR>::build(2, 3.f, resizes);
+
+    constexpr auto fusedBatchIOp = readIOp.then(batchResize);
+    using ResultingType = decltype(fusedBatchIOp);
+
+    static_assert(fusedBatchIOp.params.usedPlanes == 2);
+    static_assert(fusedBatchIOp.params.default_value == 3.f);
+    static_assert(isReadType<ResultingType>);
+    static_assert(isReadBackType<typename ResultingType::Operation::Operation>);
+    static_assert(isReadType<typename ResultingType::Operation::Operation::BackFunction>);
+
+    return true;
+}
+
+constexpr inline bool test_readback_then_batch() {
+
+    constexpr RawPtr<_2D, float> input{ {nullptr}, { 64, 64, 64 * sizeof(float) } };
+    constexpr auto readIOp = RPerThrFloat::build(input);
+    constexpr auto oneResize = ResizeRead<INTER_LINEAR>::build(readIOp, Size(32, 32));
+    using ResizeType = decltype(oneResize);
+
+    constexpr std::array<Size, 2> resizes{ Size(16, 16), Size(16, 16) };
+    constexpr auto batchResize = ResizeRead<INTER_LINEAR>::build(2, 3.f, resizes);
+
+    constexpr auto fusedBatch = oneResize.then(batchResize);
+
+    return true;
+}
+
+constexpr inline bool test_batch_then_readback() {
+    constexpr std::array<RawPtr<_2D, float>, 2> inputs{ RawPtr<_2D, float>{{nullptr}, {64,64, 64 * sizeof(float)}},
+                                                        RawPtr<_2D, float>{{nullptr}, {128,64, 64 * (sizeof(float))}} };
+
+    constexpr auto readBatchOp = RPerThrFloat::build(inputs);
+    using ReadIOp = decltype(readBatchOp);
+
+    constexpr auto oneResize = ResizeRead<INTER_LINEAR>::build(Size(32, 32));
+    using ResizeType = decltype(oneResize);
+
+    constexpr auto fusedBatch = readBatchOp.then(oneResize);
+
+    return true;
+}
+
+constexpr inline bool test_batch_then_compute() {
+    constexpr std::array<RawPtr<_2D, float>, 2> inputs{ RawPtr<_2D, float>{{nullptr}, {64,64, 64 * sizeof(float)}},
+                                                        RawPtr<_2D, float>{{nullptr}, {64,64, 64 * (sizeof(float))}} };
+
+    constexpr auto readBatchOp = RPerThrFloat::build(inputs);
+    using ReadIOp = decltype(readBatchOp);
+
+    constexpr auto fusedBatch = readBatchOp.then(Add<float>::build(4.5));
+
+    return true;
+}
+
+constexpr inline bool test_read_then_readback() {
+    constexpr RawPtr<_2D, float> input{ {nullptr}, { 64, 64, 64 * sizeof(float) } };
+    constexpr auto readIOp = RPerThrFloat::build(input);
+
+    constexpr auto fusedOp = readIOp.then(ResizeRead<INTER_LINEAR, PRESERVE_AR>::build(Size(16,32), 0.5f));
+
+    return true;
+}
+
+constexpr inline bool test_batched() {
+
+    constexpr std::array<RawPtr<_2D, float>, 2> inputs{ RawPtr<_2D, float>{{nullptr}, {64,64, 64*sizeof(float)}},
+                                                        RawPtr<_2D, float>{{nullptr}, {64,64, 64*(sizeof(float))}}};
+
+    constexpr auto readBatchOp = RPerThrFloat::build(inputs);
+    using ReadIOp = decltype(readBatchOp);
+
+    constexpr auto oneResize = ResizeRead<INTER_LINEAR>::build(Size(32, 32));
+    using ResizeType = decltype(oneResize);
+
+    constexpr std::array<Size, 2> resizes{ Size(32, 32), Size(32, 32) };
+
+    constexpr auto batchResize = ResizeRead<INTER_LINEAR>::build(2, 3.f, resizes);
+
+    // start then()
+    constexpr auto bkArray = decltype(readBatchOp)::Operation::toArray(readBatchOp);
+    constexpr auto fwdArray = decltype(batchResize)::Operation::toArray(batchResize);
+    using BackwardIOp = std::decay_t<decltype(bkArray[0])>;
+    using ForwardIOp = std::decay_t<decltype(fwdArray[0])>;
+
+    using ResultingType = decltype(ForwardIOp::Operation::build(std::declval<BackwardIOp>(), std::declval<ForwardIOp>()));
+    constexpr std::array<ResultingType, 2> fusedArray{ForwardIOp::Operation::build(bkArray[0], fwdArray[0]),
+                                                      ForwardIOp::Operation::build(bkArray[1], fwdArray[1])};
+
+    constexpr auto batcheResize = ResultingType::Operation::build(batchResize.params.usedPlanes,
+                                                                  batchResize.params.default_value,
+                                                                  fusedArray);
+    // end then()
+    constexpr auto fusedBatchesOp = readBatchOp.then(batchResize);
+
+    return std::is_same_v<decltype(batcheResize), decltype(fusedBatchesOp)>;
+}
+
 int launch() {
     constexpr Instantiable<RPerThrFloat> func1{};
     func1.then(UFloatInt::build());
@@ -108,12 +212,17 @@ int launch() {
     static_assert(activeThreads.y == 128, "Incorrect size in y");
     static_assert(activeThreads.z == 1, "Incorrect size in z");
 
+    constexpr uchar3 value = make_<uchar3>(0, 0, 0);
+    constexpr ActiveThreads threads = ActiveThreads(128, 128, 1);
+
+    constexpr float3 addValue = make_<float3>(3.f, 1.f, 32.f);
+
     constexpr auto someReadOpAlt =
-        ReadSet<uchar3>::build({ { { 0,0,0 }, {128,128,1} } })
-        .then(Cast<uchar3, float3>::build())
-        .then(ResizeRead<INTER_LINEAR>::build(dstSize))
-        .then(Add<float3>::build({ { 3.f, 1.f, 32.f } }))
-        .then(Cast<float3, uint3>::build());
+        ReadSet<uchar3>::build(value, threads)
+                        .then(Cast<uchar3, float3>::build())
+                        .then(ResizeRead<INTER_LINEAR>::build(dstSize))
+                        .then(Add<float3>::build(addValue))
+                        .then(Cast<float3, uint3>::build());
 
     using ResultingType = decltype(someReadOpAlt);
 
@@ -141,5 +250,12 @@ int launch() {
         }
     }
 
-    return correct2 ? 0 : -1;
+    constexpr bool correct3 = and_v<test_batched(),
+                                    test_read_then_batch(),
+                                    test_readback_then_batch(),
+                                    test_batch_then_readback(),
+                                    test_batch_then_compute(),
+                                    test_read_then_readback()>;
+
+    return (correct && correct2 && correct3) ? 0 : -1;
 }

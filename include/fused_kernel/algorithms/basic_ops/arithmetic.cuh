@@ -36,6 +36,7 @@ namespace fk {
         }
         using InstantiableType = Binary<Add<I, P, O, BinaryType>>;
         DEFAULT_BUILD
+        DEFAULT_BUILD_PARAMS
     };
 
     template <typename I1, typename I2, typename O>

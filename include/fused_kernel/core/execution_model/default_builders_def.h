@@ -23,18 +23,19 @@ FK_HOST_FUSE auto get_element_at_index(const Array& paramArray) -> decltype(para
 } \
 template <size_t Idx, typename... Arrays> \
 FK_HOST_FUSE auto call_build_at_index(const Arrays&... arrays) { \
-    return InstantiableType::Operation::build(get_element_at_index<Idx>(arrays)...); \
+    return build(get_element_at_index<Idx>(arrays)...); \
 } \
 template <size_t... Idx, typename... Arrays> \
-FK_HOST_FUSE auto build_helper_generic(const std::index_sequence<Idx...>&, const Arrays&... arrays) { \
-    using OutputArrayType = decltype(InstantiableType::Operation::build(std::declval<typename Arrays::value_type>()...)); \
+FK_HOST_FUSE auto build_helper_generic(const std::index_sequence<Idx...>&, \
+                                       const Arrays&... arrays) { \
+    using OutputArrayType = decltype(call_build_at_index<0>(std::declval<Arrays>()...)); \
     return std::array<OutputArrayType, sizeof...(Idx)>{ call_build_at_index<Idx>(arrays...)... }; \
 } \
 public: \
 template <size_t BATCH, typename FirstType, typename... ArrayTypes> \
-FK_HOST_FUSE std::array<InstantiableType, BATCH> \
+FK_HOST_FUSE auto \
 build_batch(const std::array<FirstType, BATCH>& firstInstance, const ArrayTypes&... arrays) { \
-    static_assert(allArraysSameSize_v<BATCH, std::array<FirstType, BATCH>, ArrayTypes...>, \
+    static_assert(allArraysSameSize_v<BATCH, ArrayTypes...>, \
                   "Not all arrays have the same size as BATCH"); \
     return build_helper_generic(std::make_index_sequence<BATCH>(), firstInstance, arrays...); \
 } \
@@ -49,7 +50,7 @@ FK_HOST_FUSE auto build(const int& usedPlanes, const T& defaultValue, \
                         const std::array<FirstType, BATCH>& firstInstance, \
                         const ArrayTypes&... arrays) { \
     const auto arrayOfIOps = build_batch(firstInstance, arrays...); \
-    return BatchRead<BATCH>::build(arrayOfIOps, usedPlanes, defaultValue); \
+    return BatchRead<BATCH, CONDITIONAL_WITH_DEFAULT>::build(arrayOfIOps, usedPlanes, defaultValue); \
 }
 
 #define DEFAULT_BUILD \
