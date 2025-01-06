@@ -76,12 +76,12 @@ namespace fk {
     template <enum InterpolationType IType, enum AspectRatio AR = AspectRatio::IGNORE_AR, typename BackFunction_ = void>
     struct ResizeRead {
         using BackFunction = BackFunction_;
-        static constexpr bool THREAD_FUSION{ false };
         using InstanceType = ReadBackType;
         using OutputType = typename Interpolate<IType, BackFunction>::OutputType;
         using ParamsType = ResizeReadParams<IType, AR, std::conditional_t<AR == IGNORE_AR, void, OutputType>>;
         using ReadDataType = typename BackFunction::Operation::OutputType;
         using OperationDataType = OperationData<ResizeRead<IType, AR, BackFunction>>;
+        static constexpr bool THREAD_FUSION{ false };
     private:
         FK_HOST_DEVICE_FUSE OutputType exec_resize(const Point& thread, const OperationDataType& opData) {
             const float fx = opData.params.src_conv_factors.x;
@@ -149,6 +149,10 @@ namespace fk {
             return 1;
         }
  
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return { num_elems_x(Point(), opData), num_elems_y(Point(), opData), num_elems_z(Point(), opData) };
+        }
+
         using InstantiableType = ReadBack<ResizeRead<IType, AR, BackFunction_>>;
         DEFAULT_BUILD
 

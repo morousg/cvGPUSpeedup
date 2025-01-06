@@ -16,6 +16,7 @@
 #define FK_CONSTEXPR_CMATH
 
 #include <fused_kernel/core/utils/utils.h>
+#include <fused_kernel/core/utils/type_lists.h>
 
 #include <type_traits>
 #include <limits>
@@ -43,6 +44,41 @@ namespace cxp {
         return (x > T(0))
             ? static_cast<T>(static_cast<int>(x + T(0.5)))
             : static_cast<T>(static_cast<int>(x - T(0.5)));
+    }
+
+    namespace internal {
+        template <typename Type>
+        FK_HOST_DEVICE_CNST auto max_helper(const Type& value) {
+            return value;
+        }
+        template <typename FirstType, typename... Types>
+        FK_HOST_DEVICE_CNST auto max_helper(const FirstType& firstValue,
+                                            const Types&... values) {
+            const auto previousMax = max_helper(values...);
+            return firstValue >= previousMax ? firstValue : previousMax;
+        }
+        template <typename Type>
+        FK_HOST_DEVICE_CNST auto min_helper(const Type& value) {
+            return value;
+        }
+        template <typename FirstType, typename... Types>
+        FK_HOST_DEVICE_CNST auto min_helper(const FirstType& firstValue,
+            const Types&... values) {
+            const auto previousMax = max_helper(values...);
+            return firstValue <= previousMax ? firstValue : previousMax;
+        }
+    } // namespace internal
+
+    template <typename FirstType, typename... Types>
+    FK_HOST_DEVICE_CNST auto max(const FirstType& value, const Types&... values) {
+        static_assert(fk::all_types_are_same<FirstType, Types...>, "All types must be the same");
+        return internal::max_helper(value, values...);
+    }
+
+    template <typename FirstType, typename... Types>
+    FK_HOST_DEVICE_CNST auto min(const FirstType& value, const Types&... values) {
+        static_assert(fk::all_types_are_same<FirstType, Types...>, "All types must be the same");
+        return internal::min_helper(value, values...);
     }
 
 } // namespace cxp

@@ -24,8 +24,6 @@ namespace fk {
         template <bool THREAD_FUSION, typename... IOps>
         inline constexpr void executeOperations_helper(const cudaStream_t& stream, const IOps&... iOps) {
             const auto tDetails = TransformDPP<void>::build_details<THREAD_FUSION>(iOps...);
-
-            
             if constexpr (decltype(tDetails)::TFI::ENABLED) {
                 const ActiveThreads activeThreads = tDetails.activeThreads;
 
@@ -40,12 +38,9 @@ namespace fk {
                     launchTransformDPP_Kernel<true><<<grid, block, 0, stream>>>(tDetails, iOps...);
                 }
             } else {
-                using ReadOp = typename FirstType_t<IOps...>::Operation;
                 const auto readOp = get<0>(iOps...);
 
-                const ActiveThreads activeThreads{ ReadOp::num_elems_x(Point(), readOp),
-                                                   ReadOp::num_elems_y(Point(), readOp),
-                                                   ReadOp::num_elems_z(Point(), readOp) };
+                const ActiveThreads activeThreads = readOp.getActiveThreads();
 
                 const dim3 block = getDefaultBlockSize(activeThreads.x, activeThreads.y);
 
@@ -55,7 +50,6 @@ namespace fk {
 
                 launchTransformDPP_Kernel<true><<<grid, block, 0, stream>>>(tDetails, iOps...);
             }
-            
             gpuErrchk(cudaGetLastError());
         }
     } // namespace execute_operations_internal

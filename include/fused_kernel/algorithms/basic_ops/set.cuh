@@ -1,4 +1,4 @@
-/* Copyright 2024 Oscar Amoros Huguet
+/* Copyright 2024-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -50,6 +50,10 @@ namespace fk {
 
         FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const OperationDataType& opData) {
             return opData.params.size.z;
+        }
+
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return { num_elems_x(Point(), opData), num_elems_y(Point(), opData), num_elems_z(Point(), opData) };
         }
 
         using InstantiableType = Read<ReadSet<T>>;

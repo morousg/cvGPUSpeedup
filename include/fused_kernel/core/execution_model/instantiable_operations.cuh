@@ -21,6 +21,7 @@
 #include <fused_kernel/core/data/ptr_nd.cuh>
 #include <fused_kernel/core/data/size.h>
 #include <fused_kernel/core/data/array.cuh>
+#include <fused_kernel/core/constexpr_libs/constexpr_cmath.cuh>
 
 namespace fk { // namespace FusedKernel
 
@@ -143,10 +144,8 @@ namespace fk { // namespace FusedKernel
             return then(cIOp).then(cIOps...);
         }
 
-        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const ReadInstantiableOperation<Operation>& mySelf) {
-            return { Operation::num_elems_x(Point(), mySelf),
-                     Operation::num_elems_y(Point(), mySelf),
-                     Operation::num_elems_z(Point(), mySelf)};
+        FK_HOST_DEVICE_CNST ActiveThreads getActiveThreads() const {
+            return Operation::getActiveThreads(*this);
         }
     };
 
@@ -199,10 +198,8 @@ namespace fk { // namespace FusedKernel
             return then(cIOp).then(cIOps...);
         }
 
-        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const ReadBackInstantiableOperation<Operation>& mySelf) {
-            return { Operation::num_elems_x(Point(), mySelf),
-                     Operation::num_elems_y(Point(), mySelf),
-                     Operation::num_elems_z(Point(), mySelf)};
+        FK_HOST_DEVICE_CNST ActiveThreads getActiveThreads() const {
+            return Operation::getActiveThreads(*this);
         }
     };
 
@@ -416,17 +413,29 @@ namespace fk { // namespace FusedKernel
             }
         }
 
-        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
+        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const OperationDataType& opData) {
             return Operation::num_elems_x(thread, opData.params.opData[thread.z]);
         }
-        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const OperationDataType& opData) {
             return Operation::num_elems_y(thread, opData.params.opData[thread.z]);
         }
-        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const OperationDataType& opData) {
             return BATCH;
         }
-        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationDataType& opData) {
             return Operation::pitch(thread, opData.params.opData[thread.z]);
+        }
+    private:
+        template <size_t... Idx>
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads_helper(const std::index_sequence<Idx...>&,
+                                                                  const OperationDataType& opData) {
+            return { cxp::max(num_elems_x(Point(0, 0, Idx), opData)...),
+                     cxp::max(num_elems_y(Point(0, 0, Idx), opData)...),
+                     BATCH };
+        }
+    public:
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return getActiveThreads_helper(std::make_index_sequence<BATCH>{}, opData);
         }
         using InstantiableType = Read<BatchRead<BATCH, PP, Operation>>;
         DEFAULT_BUILD
@@ -693,6 +702,10 @@ namespace fk { // namespace FusedKernel
         FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread,
                                              const OperationDataType& opData) {
             return ParamsType::Operation::num_elems_z(thread, opData.params.instance);
+        }
+
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return { num_elems_x(Point(), opData), num_elems_y(Point(), opData), num_elems_z(Point(), opData) };
         }
 
         using InstantiableType = Read<FusedOperation_<void, Operations...>>;

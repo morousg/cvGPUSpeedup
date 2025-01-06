@@ -220,7 +220,7 @@ int launch() {
 
     constexpr auto inputAlt = ReadSet<uchar3>::build({ { { 0,0,0 }, {128,128,1} } });
 
-    constexpr ActiveThreads activeThreads = decltype(inputAlt)::getActiveThreads(inputAlt);
+    constexpr ActiveThreads activeThreads = inputAlt.getActiveThreads();
 
     static_assert(activeThreads.x == 128, "Incorrect size in x");
     static_assert(activeThreads.y == 128, "Incorrect size in y");
@@ -238,13 +238,11 @@ int launch() {
                         .then(Add<float3>::build(addValue))
                         .then(Cast<float3, uint3>::build());
 
-    using ResultingType = decltype(someReadOpAlt);
+    constexpr auto res_x = someReadOpAlt.getActiveThreads();
 
-    constexpr auto res_x = ResultingType::getActiveThreads(someReadOpAlt);
-
-    static_assert(decltype(someReadOpAlt)::getActiveThreads(someReadOpAlt).x == 32, "Wrong width");
-    static_assert(decltype(someReadOpAlt)::getActiveThreads(someReadOpAlt).y == 32, "Wrong height");
-    static_assert(decltype(someReadOpAlt)::getActiveThreads(someReadOpAlt).z == 1, "Wrong depth");
+    static_assert(someReadOpAlt.getActiveThreads().x == 32, "Wrong width");
+    static_assert(someReadOpAlt.getActiveThreads().y == 32, "Wrong height");
+    static_assert(someReadOpAlt.getActiveThreads().z == 1, "Wrong depth");
 
     executeOperations(stream, someReadOpAlt, PerThreadWrite<_2D, uint3>::build({ outputAlt }));
 
