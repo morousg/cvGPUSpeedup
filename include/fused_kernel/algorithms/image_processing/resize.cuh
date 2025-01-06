@@ -233,13 +233,8 @@ namespace fk {
         using ParamsType = IncompleteResizeReadParams<AR, T>;
         using ReadDataType = int;
         using OperationDataType = OperationData<ResizeRead<IType, AR, TypeList<void, T>>>;
-        template <enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR, ReadBack<ResizeRead<IType, AR_, TypeList<void, void>>>>
-        build(const Size& dstSize) {
-            return ReadBack<ResizeRead<IType, AR_, TypeList<void, void>>>{{{dstSize}, 0}};
-        }
 
-        template <typename T, enum AspectRatio AR_ = AR>
+        template <enum AspectRatio AR_ = AR>
         FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, ReadBack<ResizeRead<IType, AR_, TypeList<void, T>>>>
         build(const Size& dstSize,
               const T& backgroundValue) {
@@ -247,12 +242,6 @@ namespace fk {
         }
 
         template <typename ReadIOp, enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR, ReadBack<ResizeRead<IType, AR_, ReadIOp>>>
-        build(const ReadIOp& readIOp, const ReadBack<ResizeRead<IType, AR_, TypeList<void, void>>>& iOp) {
-            return ResizeRead<IType, AR_, ReadIOp>::build(readIOp, iOp.params.dstSize);
-        }
-
-        template <typename ReadIOp, typename T, enum AspectRatio AR_ = AR>
         FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, ReadBack<ResizeRead<IType, AR_, ReadIOp>>>
         build(const ReadIOp& readIOp, const ReadBack<ResizeRead<IType, AR_, TypeList<void, T>>>& iOp) {
             static_assert(std::is_same_v<T, typename ReadIOp::Operation::OutputType>,
@@ -260,6 +249,32 @@ namespace fk {
             return ResizeRead<IType, AR_, ReadIOp>::build(readIOp, iOp.params.dstSize, iOp.params.defaultValue);
         }
         using InstantiableType = Instantiable<ResizeRead<IType, AR, TypeList<void, T>>>;
+        DEFAULT_BUILD
+        DEFAULT_READ_BATCH_BUILD
+    };
+
+    template <enum InterpolationType IType>
+    struct ResizeRead<IType, IGNORE_AR, TypeList<void, void>> {
+        using BackFunction = int;
+        static constexpr bool THREAD_FUSION{ false };
+        using InstanceType = ReadBackType;
+        using OutputType = int;
+        using ParamsType = IncompleteResizeReadParams<IGNORE_AR, void>;
+        using ReadDataType = int;
+        using OperationDataType = OperationData<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>;
+
+        FK_HOST_FUSE ReadBack<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>
+        build(const Size& dstSize) {
+            return ReadBack<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>{{{dstSize}, 0}};
+        }
+
+        template <typename ReadIOp>
+        FK_HOST_FUSE ReadBack<ResizeRead<IType, IGNORE_AR, ReadIOp>>
+        build(const ReadIOp& readIOp, const ReadBack<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>& iOp) {
+            return ResizeRead<IType, IGNORE_AR, ReadIOp>::build(readIOp, iOp.params.dstSize);
+        }
+
+        using InstantiableType = Instantiable<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>;
         DEFAULT_BUILD
         DEFAULT_READ_BATCH_BUILD
     };

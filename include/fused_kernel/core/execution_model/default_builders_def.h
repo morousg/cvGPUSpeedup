@@ -45,8 +45,8 @@ FK_HOST_FUSE auto build(const std::array<FirstType, BATCH>& firstInstance, \
     const auto arrayOfIOps = build_batch(firstInstance, arrays...); \
     return BatchRead<BATCH>::build(arrayOfIOps); \
 } \
-template <size_t BATCH, typename T, typename FirstType, typename... ArrayTypes> \
-FK_HOST_FUSE auto build(const int& usedPlanes, const T& defaultValue, \
+template <size_t BATCH, typename DefaultValueType, typename FirstType, typename... ArrayTypes> \
+FK_HOST_FUSE auto build(const int& usedPlanes, const DefaultValueType& defaultValue, \
                         const std::array<FirstType, BATCH>& firstInstance, \
                         const ArrayTypes&... arrays) { \
     const auto arrayOfIOps = build_batch(firstInstance, arrays...); \

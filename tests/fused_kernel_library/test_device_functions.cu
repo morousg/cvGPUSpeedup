@@ -44,20 +44,34 @@ using WPerThrFloat = PerThreadWrite<_2D, float>;
 using MWPerThrFloat = FusedOperation<WPerThrFloat, BAddFloat>;
 
 constexpr inline bool test_read_then_batch() {
-    constexpr RawPtr<_2D, float> input{ {nullptr}, { 64,64, 64 * sizeof(float) } };
+    constexpr RawPtr<_2D, float> input{ nullptr, { 64,64, 64 * sizeof(float) } };
     constexpr auto readIOp = RPerThrFloat::build(input);
 
     constexpr std::array<Size, 2> resizes{ Size(16, 16), Size(16, 16) };
     constexpr auto batchResize = ResizeRead<INTER_LINEAR>::build(2, 3.f, resizes);
 
-    constexpr auto fusedBatchIOp = readIOp.then(batchResize);
-    using ResultingType = decltype(fusedBatchIOp);
+    // start then()
+    constexpr auto backOpArray = make_set_std_array<2>(readIOp);
+    constexpr auto forwardOpArray = decltype(batchResize)::Operation::toArray(batchResize);
+    using BackwardIOp = typename decltype(backOpArray)::value_type;
+    using ForwardIOp = typename decltype(forwardOpArray)::value_type;
+    using ResultingType = decltype(ForwardIOp::Operation::build(std::declval<BackwardIOp>(), std::declval<ForwardIOp>()));
+    constexpr auto fusedArray = std::array<ResultingType, 2>{ForwardIOp::Operation::build(backOpArray[0], forwardOpArray[0]),
+                                                         ForwardIOp::Operation::build(backOpArray[1], forwardOpArray[1])};
+    using ContinuationIOpNewType = typename decltype(fusedArray)::value_type;
+    constexpr auto fusedBatchIOp = ContinuationIOpNewType::Operation::build(batchResize.params.usedPlanes, batchResize.params.default_value, fusedArray);
+    using ResultingType_ = decltype(fusedBatchIOp);
+    // end then()
 
+    constexpr auto fusedBatchIOp2 = readIOp.then(batchResize);
+    using ResultingType2 = decltype(fusedBatchIOp2);
+
+    static_assert(std::is_same_v<ResultingType_, ResultingType2>);
     static_assert(fusedBatchIOp.params.usedPlanes == 2);
     static_assert(fusedBatchIOp.params.default_value == 3.f);
-    static_assert(isReadType<ResultingType>);
-    static_assert(isReadBackType<typename ResultingType::Operation::Operation>);
-    static_assert(isReadType<typename ResultingType::Operation::Operation::BackFunction>);
+    static_assert(isReadType<ResultingType2>);
+    static_assert(isReadBackType<typename ResultingType2::Operation::Operation>);
+    static_assert(isReadType<typename ResultingType2::Operation::Operation::BackFunction>);
 
     return true;
 }
