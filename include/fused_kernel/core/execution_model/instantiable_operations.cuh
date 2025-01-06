@@ -72,12 +72,14 @@ namespace fk { // namespace FusedKernel
     template <typename T>
     constexpr bool isBatchOperation = IsBatchOperation<T>::value;
 
+    enum PlanePolicy { PROCESS_ALL = 0, CONDITIONAL_WITH_DEFAULT = 1 };
+
     template <typename Operation_t>
     struct ReadInstantiableOperation final : public OperationData<Operation_t> {
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadType)
     private:
         template <size_t BATCH, size_t... Idx, typename BackwardIOp, typename ForwardIOp>
-        FK_HOST_FUSE auto make_fusedArray(std::index_sequence<Idx...>&,
+        FK_HOST_FUSE auto make_fusedArray(const std::index_sequence<Idx...>&,
                                           const std::array<BackwardIOp, BATCH>& bkArray,
                                           const std::array<ForwardIOp, BATCH>& fwdArray) {
             using ResultingType = decltype(ForwardIOp::Operation::build(std::declval<BackwardIOp>(), std::declval<ForwardIOp>()));
@@ -153,9 +155,9 @@ namespace fk { // namespace FusedKernel
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadBackType)
     private:
         template <size_t BATCH, size_t... Idx, typename BackwardIOp, typename ForwardIOp>
-        FK_HOST_FUSE auto make_fusedArray(std::index_sequence<Idx...>&,
-            const std::array<BackwardIOp, BATCH>& bkArray,
-            const std::array<ForwardIOp, BATCH>& fwdArray) {
+        FK_HOST_FUSE auto make_fusedArray(const std::index_sequence<Idx...>&,
+                                          const std::array<BackwardIOp, BATCH>& bkArray,
+                                          const std::array<ForwardIOp, BATCH>& fwdArray) {
             using ResultingType = decltype(ForwardIOp::Operation::build(std::declval<BackwardIOp>(), std::declval<ForwardIOp>()));
             return std::array<ResultingType, BATCH>{ForwardIOp::Operation::build(bkArray[Idx], fwdArray[Idx])...};
         }
@@ -356,8 +358,6 @@ namespace fk { // namespace FusedKernel
     using Instantiable = typename InstantiableOperationType<Operation>::type;
 
 #include <fused_kernel/core/execution_model/default_builders_def.h>
-
-    enum PlanePolicy { PROCESS_ALL = 0, CONDITIONAL_WITH_DEFAULT = 1 };
 
     template <int BATCH, enum PlanePolicy PP, typename OpParamsType, typename DefaultType>
     struct BatchReadParams;
