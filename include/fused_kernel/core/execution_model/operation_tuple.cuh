@@ -63,8 +63,7 @@ namespace fk {
     struct hasParamsAndBackFunction : std::false_type {};
 
     template <typename T>
-    struct hasParamsAndBackFunction<T, std::void_t<
-        typename T::ParamsType,
+    struct hasParamsAndBackFunction<T, std::void_t<typename T::ParamsType,
         typename T::BackFunction>> : std::true_type {};
 
     template <typename T>
@@ -257,6 +256,30 @@ namespace fk {
         }
     }
 
+    template <typename TupleType>
+    struct OperationTupleTypeToTypeList;
+
+    template <typename... Types>
+    struct OperationTupleTypeToTypeList<OperationTuple<Types...>> {
+        using type = TypeList<Types...>;
+    };
+
+    template <typename TupleType>
+    using OTToTypeList = typename OperationTupleTypeToTypeList<TupleType>::type;
+
+    template <int INDEX, typename TupleType>
+    using get_ot = TypeAt_t<INDEX, OTToTypeList<TupleType>>;
+
+    template <int INDEX, typename... OperationTypes>
+    FK_HOST_DEVICE_CNST auto getIOp(const OperationTuple<OperationTypes...>& instances) {
+        using SelectedOperation = get_ot<INDEX, OperationTuple<OperationTypes...>>;
+        if constexpr (isUnaryType<SelectedOperation>) {
+            return SelectedOperation::build();
+        } else {
+            return SelectedOperation::build(get<INDEX>(instances));
+        }
+    }
+
     struct NotUnaryRestriction {
         template <typename Type>
         FK_HOST_DEVICE_FUSE bool complies() {
@@ -288,36 +311,12 @@ namespace fk {
                         t2, filtered_integer_sequence_t<int, NotUnaryRestriction, TypeList<typename Operations2::InstanceType...>>{});
     }
 
-    template <typename Operation, typename Param>
-    FK_HOST_DEVICE_CNST OperationTuple<Operation> make_operation_tuple(const Param& param) {
-        static_assert(hasParams_v<Operation>, "Operation expected to have parameters");
-        static_assert(std::is_same_v<typename Operation::ParamsType, Param>, "Operation ParamsType does not coincide with the parameter type, in make_operation_tuple");
-        return { {param} };
+    template <typename... IOps>
+    FK_HOST_DEVICE_CNST auto make_operation_tuple(const IOps&... iOps) {
+        const auto fusedOp = fuseDF(iOps...);
+        return fusedOp.params;
     }
 
-    template <typename FirstOperation, typename... Operations>
-    FK_HOST_DEVICE_CNST OperationTuple<FirstOperation, Operations...> make_operation_tuple() {
-        static_assert(!hasParams_v<FirstOperation>, "FirstOperation has parameters and it should not have.");
-        if constexpr (sizeof...(Operations) > 0) {
-            return { make_operation_tuple<Operations...>() };
-        } else {
-            return {};
-        }
-    }
-
-    template <typename FirstOperation, typename... Operations, typename Param, typename... Params>
-    FK_HOST_DEVICE_CNST std::enable_if_t<hasParams_v<FirstOperation>, OperationTuple<FirstOperation, Operations...>>
-        make_operation_tuple(const Param& param, const Params&... params) {
-        using OpParamsType = typename FirstOperation::ParamsType;
-        static_assert(std::is_same_v<OpParamsType, Param>, "FirstOperation ParamsType does not coincide with the first parameter type, in make_operation_tuple");
-        return { param, make_operation_tuple<Operations...>(params...) };
-    }
-
-    template <typename FirstOperation, typename... Operations, typename Param, typename... Params>
-    FK_HOST_DEVICE_CNST std::enable_if_t<!hasParams_v<FirstOperation>, OperationTuple<FirstOperation, Operations...>>
-        make_operation_tuple(const Param& param, const Params&... params) {
-        return { make_operation_tuple<Operations...>(param, params...) };
-    }
 
     template <typename Type, typename = void>
     struct HasOperation : std::false_type {};
@@ -331,20 +330,6 @@ namespace fk {
             return HasOperation<Type>::value;
         }
     };
-
-    template <typename FirstOperation, typename... Operations, typename Param, typename BackFunction, typename... Params>
-    FK_HOST_DEVICE_CNST std::enable_if_t<hasParamsAndBackFunction_v<FirstOperation>,OperationTuple<FirstOperation, Operations...>> 
-        make_operation_tuple(const Param& param, const BackFunction& back_function, const Params&... params) {
-        static_assert(IsInstantiableOperation::complies<BackFunction>(), "Expected a Device Funtion");
-        return { {param, back_function}, make_operation_tuple<Operations...>(params...) };
-    }
-
-    template <typename Operation, typename Param, typename BackFunction>
-    FK_HOST_DEVICE_CNST std::enable_if_t<hasParamsAndBackFunction_v<Operation>, OperationTuple<Operation>>
-        make_operation_tuple(const Param& param, const BackFunction& back_function) {
-        static_assert(IsInstantiableOperation::complies<BackFunction>(), "Expected a Device Funtion");
-        return { {param, back_function} };
-    }
 } // namespace fk
 
 #endif

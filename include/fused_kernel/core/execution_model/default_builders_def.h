@@ -1,4 +1,4 @@
-/* Copyright 2023-2024 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -16,67 +16,61 @@
 #define BUILDERS
 
 #define DEFAULT_READ_BATCH_BUILD \
+private: \
 template <size_t Idx, typename Array> \
-FK_HOST_FUSE auto get_element_at_index(const Array& array) -> decltype(array[Idx]) { \
-    return array[Idx]; \
+FK_HOST_FUSE auto get_element_at_index(const Array& paramArray) -> decltype(paramArray[Idx]) { \
+    return paramArray[Idx]; \
 } \
 template <size_t Idx, typename... Arrays> \
 FK_HOST_FUSE auto call_build_at_index(const Arrays&... arrays) { \
-    return InstantiableType::Operation::build(get_element_at_index<Idx>(arrays)...); \
+    return build(get_element_at_index<Idx>(arrays)...); \
 } \
 template <size_t... Idx, typename... Arrays> \
-FK_HOST_FUSE auto build_helper_generic(const std::index_sequence<Idx...>&, const Arrays&... arrays) { \
-    using OutputArrayType = decltype(InstantiableType::Operation::build(std::declval<typename Arrays::value_type>()...)); \
+FK_HOST_FUSE auto build_helper_generic(const std::index_sequence<Idx...>&, \
+                                       const Arrays&... arrays) { \
+    using OutputArrayType = decltype(call_build_at_index<0>(std::declval<Arrays>()...)); \
     return std::array<OutputArrayType, sizeof...(Idx)>{ call_build_at_index<Idx>(arrays...)... }; \
 } \
+public: \
 template <size_t BATCH, typename FirstType, typename... ArrayTypes> \
-FK_HOST_FUSE std::array<InstantiableType, BATCH> \
+FK_HOST_FUSE auto \
 build_batch(const std::array<FirstType, BATCH>& firstInstance, const ArrayTypes&... arrays) { \
-    static_assert(allArraysSameSize_v<BATCH, std::array<FirstType, BATCH>, ArrayTypes...>, "Not all arrays have the same size as BATCH"); \
+    static_assert(allArraysSameSize_v<BATCH, ArrayTypes...>, \
+                  "Not all arrays have the same size as BATCH"); \
     return build_helper_generic(std::make_index_sequence<BATCH>(), firstInstance, arrays...); \
+} \
+template <size_t BATCH, typename FirstType, typename... ArrayTypes> \
+FK_HOST_FUSE auto build(const std::array<FirstType, BATCH>& firstInstance, \
+                        const ArrayTypes&... arrays) { \
+    const auto arrayOfIOps = build_batch(firstInstance, arrays...); \
+    return BatchRead<BATCH>::build(arrayOfIOps); \
+} \
+template <size_t BATCH, typename DefaultValueType, typename FirstType, typename... ArrayTypes> \
+FK_HOST_FUSE auto build(const int& usedPlanes, const DefaultValueType& defaultValue, \
+                        const std::array<FirstType, BATCH>& firstInstance, \
+                        const ArrayTypes&... arrays) { \
+    const auto arrayOfIOps = build_batch(firstInstance, arrays...); \
+    return BatchRead<BATCH, CONDITIONAL_WITH_DEFAULT>::build(arrayOfIOps, usedPlanes, defaultValue); \
 }
 
-#define DEFAULT_READ_BUILD \
-static constexpr __host__ __forceinline__ auto build(const ParamsType& params) { \
+#define DEFAULT_BUILD \
+FK_HOST_DEVICE_FUSE auto build(const OperationDataType& opData) { \
+    return InstantiableType{ opData }; \
+}
+
+#define DEFAULT_BUILD_PARAMS \
+FK_HOST_FUSE auto build(const ParamsType& params) { \
     return InstantiableType{ {params} }; \
-} \
-static constexpr __host__ __forceinline__ \
-auto build_source(const ParamsType& params) { \
-    using OutputType = decltype(make_source(std::declval<InstantiableType>(), std::declval<ActiveThreads>())); \
-    return OutputType{ {params}, {num_elems_x(Point(), params), num_elems_y(Point(), params), num_elems_z(Point(), params)} }; \
 }
 
-#define DEFAULT_READBACK_BUILD \
-static constexpr __host__ __forceinline__ \
-auto build(const ParamsType& params, const BackFunction_& backFunction) { \
-    return InstantiableType{ { params, backFunction } }; \
-} \
-static constexpr __host__ __forceinline__ auto build_source(const ParamsType& params, const BackFunction_& backFunction) { \
-    using OutputType = decltype(make_source(std::declval<InstantiableType>(), std::declval<ActiveThreads>())); \
-    return OutputType{ { params, backFunction }, \
-        { num_elems_x(Point(), params, backFunction), \
-          num_elems_y(Point(), params, backFunction), \
-          num_elems_z(Point(), params, backFunction) } }; \
+#define DEFAULT_BUILD_PARAMS_BACKIOP \
+FK_HOST_FUSE auto build(const ParamsType& params, const BackFunction& backIOp) { \
+    return InstantiableType{ {params, backIOp} }; \
 }
 
 #define DEFAULT_UNARY_BUILD \
-static constexpr __host__ __forceinline__ InstantiableType build() { \
+FK_HOST_DEVICE_FUSE auto build() { \
     return InstantiableType{}; \
-}
-
-#define DEFAULT_BINARY_BUILD \
-static constexpr __host__ __forceinline__ InstantiableType build(const ParamsType& params) { \
-    return InstantiableType{ {params} }; \
-}
-
-#define DEFAULT_TERNARY_BUILD \
-static constexpr __host__ __forceinline__ InstantiableType build(const ParamsType& params, const BackFunction& backFunction) { \
-    return InstantiableType{ {params, backFunction} }; \
-}
-
-#define DEFAULT_WRITE_BUILD \
-static constexpr __host__ __forceinline__ InstantiableType build(const ParamsType& params) { \
-    return InstantiableType{ {params} }; \
 }
 
 #endif

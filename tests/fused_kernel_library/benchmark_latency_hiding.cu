@@ -38,19 +38,17 @@ __global__ void init_values(const T val, fk::RawPtr<fk::_1D, T> pointer_to_init)
     }
 }
 
-template <typename InputType, typename OutputType, size_t NumOps, typename InstantiableOperation>
+template <typename InputType, typename OutputType, size_t NumOps, typename IOp>
 struct VerticalFusion {
     static inline void execute(const fk::Ptr1D<InputType>& input, const cudaStream_t& stream,
-                               const fk::Ptr1D<OutputType>& output, const InstantiableOperation& dFunc) {
+                               const fk::Ptr1D<OutputType>& output, const IOp& dFunc) {
         const fk::ActiveThreads activeThreads{ output.ptr().dims.width };
-        fk::SourceRead<fk::PerThreadRead<fk::_1D, InputType>> readDF{ input.ptr(), activeThreads};
-        using Loop = fk::Binary<fk::StaticLoop<fk::StaticLoop<typename InstantiableOperation::Operation, INCREMENT>, NumOps/INCREMENT>>;
+        fk::Read<fk::PerThreadRead<fk::_1D, InputType>> readDF{ {input.ptr()} };
+        using Loop = fk::Binary<fk::StaticLoop<fk::StaticLoop<typename IOp::Operation, INCREMENT>, NumOps/INCREMENT>>;
         Loop loop;
         loop.params = dFunc.params;
 
-        dim3 block(256);
-        dim3 grid(ceil(NUM_ELEMENTS / (float)block.x));
-        fk::cuda_transform<<<grid, block, 0, stream>>>(readDF, loop, fk::Write<fk::PerThreadWrite<fk::_1D, OutputType>>{ output.ptr() });
+        fk::executeOperations(stream, readDF, loop, fk::Write<fk::PerThreadWrite<fk::_1D, OutputType>>{ {output.ptr()} });
     }
 };
 
@@ -66,15 +64,15 @@ inline int testLatencyHiding(cudaStream_t stream) {
     dim3 grid(ceil(NUM_ELEMENTS / (float)block.x));
     init_values<<<grid, block, 0, stream>>>(init_val, input.ptr());
 
-    using InstantiableOperation = fk::Binary<fk::Add<float3>>;
-    InstantiableOperation df{ fk::make_set<float3>(2) };
+    using IOp = fk::Binary<fk::Add<float3>>;
+    IOp df{ fk::make_set<float3>(2) };
 
     // Warmup
-    VerticalFusion<float3, float3, 1, InstantiableOperation>::execute(input, stream, output, df);
+    VerticalFusion<float3, float3, 1, IOp>::execute(input, stream, output, df);
 
     START_CVGS_BENCHMARK
 
-        VerticalFusion<float3, float3, VARIABLE_DIMENSION, InstantiableOperation>::execute(input, stream, output, df);
+        VerticalFusion<float3, float3, VARIABLE_DIMENSION, IOp>::execute(input, stream, output, df);
 
     STOP_CVGS_BENCHMARK
 

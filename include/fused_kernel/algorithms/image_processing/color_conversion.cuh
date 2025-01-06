@@ -32,7 +32,7 @@ namespace fk {
         using OutputType = VOneMore<I>;
         using InstanceType = UnaryType;
         FK_DEVICE_FUSE OutputType exec(const InputType& input) {
-            return AddLast<InputType, OutputType>::exec(input, alpha);
+            return AddLast<InputType, OutputType>::exec(input, { alpha });
         }
         using InstantiableType = Unary<StaticAddAlpha<I, alpha>>;
         DEFAULT_UNARY_BUILD
@@ -133,7 +133,7 @@ namespace fk {
         using InstanceType = UnaryType;
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             constexpr auto alpha = maxDepthValue<CD>;
-            return AddLast<InputType, OutputType>::exec(input, alpha);
+            return AddLast<InputType, OutputType>::exec(input, { alpha });
         }
         using InstantiableType = Unary<AddOpaqueAlpha<I, CD>>;
         DEFAULT_UNARY_BUILD
@@ -147,7 +147,7 @@ namespace fk {
         using Base = typename VectorTraits<T>::base;
 
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
-            return Saturate<float>::exec(input, { 0.f, static_cast<float>(maxDepthValue<CD>) });
+            return Saturate<float>::exec(input, { { 0.f, static_cast<float>(maxDepthValue<CD>) } });
         }
         using InstantiableType = Unary<SaturateDepth<T, CD>>;
         DEFAULT_UNARY_BUILD
@@ -272,13 +272,13 @@ namespace fk {
         // Cb(U) -> input.y
         // Cr(V) -> input.z
         FK_HOST_DEVICE_FUSE float3 computeRGB(const InputType& pixel) {
-            const M3x3Float coefficients = ccMatrix<CR, CP, YCbCr2RGB>;
-            const float CSub = subCoefficients<CD>.chroma;
+            constexpr M3x3Float coefficients = ccMatrix<CR, CP, YCbCr2RGB>;
+            constexpr float CSub = subCoefficients<CD>.chroma;
             if constexpr (CP == bt601) {
-                const float YSub = subCoefficients<CD>.luma;
-                return MxVFloat3::exec(make_<float3>(pixel.x - YSub, pixel.y - CSub, pixel.z - CSub), coefficients);
+                constexpr float YSub = subCoefficients<CD>.luma;
+                return MxVFloat3<UnaryType>::exec({ make_<float3>(pixel.x - YSub, pixel.y - CSub, pixel.z - CSub), coefficients });
             } else {
-                return MxVFloat3::exec(make_<float3>(pixel.x, pixel.y - CSub, pixel.z - CSub), coefficients);
+                return MxVFloat3<UnaryType>::exec({ make_<float3>(pixel.x, pixel.y - CSub, pixel.z - CSub), coefficients });
             }
         }
 
@@ -304,7 +304,7 @@ namespace fk {
         public:
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             // Pixel data shifted to the right to it's color depth numerical range
-            const InputType shiftedPixel = ShiftRight<InputType>::exec(input, shiftFactor<CD>);
+            const InputType shiftedPixel = ShiftRight<InputType>::exec(input, { shiftFactor<CD> });
 
             // Using color depth numerical range to compute the RGB pixel
             const OutputType computedPixel = computePixel(shiftedPixel);
@@ -313,7 +313,7 @@ namespace fk {
                 return NormalizeColorRangeDepth<OutputType, CD>::exec(computedPixel);
             } else {
                 // Moving back the pixel channels to data type numerical range, either 8bit or 16bit
-                return ShiftLeft<OutputType>::exec(computedPixel, shiftFactor<CD>);
+                return ShiftLeft<OutputType>::exec(computedPixel, { shiftFactor<CD> });
             }
         }
         using InstantiableType = Unary<ConvertYUVToRGB<PF, CR, CP, ALPHA, ReturnType>>;
@@ -328,38 +328,40 @@ namespace fk {
         using InstanceType = ReadType;
         using ReadDataType = PixelBaseType;
         static constexpr bool THREAD_FUSION{ false };
-        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const ParamsType& params) {
+        using OperationDataType = OperationData<ReadYUV<PF>>;
+        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const OperationDataType& opData) {
             if constexpr (PF == NV12 || PF == P010 || PF == P016 || PF == P210 || PF == P216) {
                 // Planar luma
-                const PixelBaseType Y = *PtrAccessor<_2D>::cr_point(thread, params);
+                const PixelBaseType Y = *PtrAccessor<_2D>::cr_point(thread, opData.params);
 
                 // Packed chroma
-                const PtrDims<_2D> dims = params.dims;
+                const PtrDims<_2D> dims = opData.params.dims;
                 using VectorType2 = VectorType_t<PixelBaseType, 2>;
                 const RawPtr<_2D, VectorType2> chromaPlane{
-                    (VectorType2*)((uchar*)params.data + dims.pitch * dims.height),
+                    reinterpret_cast<VectorType2*>(reinterpret_cast<uchar*>(opData.params.data) + dims.pitch * dims.height),
                     { dims.width >> 1, dims.height >> 1, dims.pitch }
                 };
-                const ColorSpace CS = (ColorSpace)PixelFormatTraits<PF>::space;
+                const ColorSpace CS = static_cast<ColorSpace>(PixelFormatTraits<PF>::space);
                 const VectorType2 UV =
                     *PtrAccessor<_2D>::cr_point({ thread.x >> 1, CS == YUV420 ? thread.y >> 1 : thread.y, thread.z }, chromaPlane);
 
                 return { Y, UV.x, UV.y };
             } else if constexpr (PF == NV21) {
                 // Planar luma
-                const uchar Y = *PtrAccessor<_2D>::cr_point(thread, params);
+                const uchar Y = *PtrAccessor<_2D>::cr_point(thread, opData.params);
 
                 // Packed chroma
-                const PtrDims<_2D> dims = params.dims;
+                const PtrDims<_2D> dims = opData.params.dims;
                 const RawPtr<_2D, uchar2> chromaPlane{
-                    (uchar2*)((uchar*)params.data + dims.pitch * dims.height), { dims.width >> 1, dims.height >> 1, dims.pitch }
+                    reinterpret_cast<uchar2*>(reinterpret_cast<uchar*>(opData.params.data) + dims.pitch * dims.height),
+                                              { dims.width >> 1, dims.height >> 1, dims.pitch }
                 };
                 const uchar2 VU = *PtrAccessor<_2D>::cr_point({ thread.x >> 1, thread.y >> 1, thread.z }, chromaPlane);
 
                 return { Y, VU.y, VU.x };
             } else if constexpr (PF == Y216 || PF == Y210) {
-                const PtrDims<_2D> dims = params.dims;
-                const RawPtr<_2D, ushort4> image{ (ushort4*)params.data, {dims.width >> 1, dims.height, dims.pitch} };
+                const PtrDims<_2D> dims = opData.params.dims;
+                const RawPtr<_2D, ushort4> image{ reinterpret_cast<ushort4*>(opData.params.data), {dims.width >> 1, dims.height, dims.pitch} };
                 const ushort4 pixel = *PtrAccessor<_2D>::cr_point({ thread.x >> 1, thread.y, thread.z }, image);
                 const bool isEvenThread = IsEven<uint>::exec(thread.x);
 
@@ -367,26 +369,26 @@ namespace fk {
             } else if constexpr (PF == Y416) {
                 // AVYU
                 // We use ushort as the type, to be compatible with the rest of the cases
-                const RawPtr<_2D, ushort4> readImage{ params.data, params.dims };
-                const ushort4 pixel = *PtrAccessor<_2D>::cr_point(thread, params);
+                const RawPtr<_2D, ushort4> readImage{ opData.params.data, opData.params.dims };
+                const ushort4 pixel = *PtrAccessor<_2D>::cr_point(thread, opData.params);
                 return { pixel.z, pixel.w, pixel.y, pixel.x };
             }
         }
 
-        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const ParamsType& params) {
-            return params.dims.width;
+        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const OperationDataType& opData) {
+            return opData.params.dims.width;
         }
 
-        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const ParamsType& params) {
-            return params.dims.height;
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const OperationDataType& opData) {
+            return opData.params.dims.height;
         }
 
-        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const ParamsType& params) {
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const OperationDataType& opData) {
             return 1;
         }
 
         using InstantiableType = Read<ReadYUV<PF>>;
-        DEFAULT_READ_BUILD
+        DEFAULT_BUILD
         DEFAULT_READ_BATCH_BUILD
     };
 

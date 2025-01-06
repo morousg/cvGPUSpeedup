@@ -46,7 +46,21 @@ namespace fk {
         DEFAULT_UNARY_BUILD
     };
 
-    template <typename T, int... idxs>
+    template <typename T, int... Idx>
+    struct VReorder {
+        using InputType = T;
+        using OutputType = T;
+        using InstanceType = UnaryType;
+        FK_HOST_DEVICE_FUSE T exec(const T& vector) {
+            static_assert(validCUDAVec<T>, "Non valid CUDA vetor type: VReorder<...>::exec<invalid_type>(invalid_type vector)");
+            static_assert(sizeof...(Idx) == cn<T>, "Wrong number of indexes for the cuda vetor type in VReorder.");
+            return { VectorAt<Idx>(vector)... };
+        }
+        using InstantiableType = Unary<VReorder<T, Idx...>>;
+        DEFAULT_UNARY_BUILD
+    };
+
+    template <typename T, int... Idx>
     struct VectorReorder {
         using InputType = T;
         using OutputType = T;
@@ -54,9 +68,9 @@ namespace fk {
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             static_assert(validCUDAVec<InputType>, "Non valid CUDA vetor type: UnaryVectorReorder");
             static_assert(cn<InputType> >= 2, "Minimum number of channels is 2: UnaryVectorReorder");
-            return VReorder<idxs...>::exec(input);
+            return VReorder<T, Idx...>::exec(input);
         }
-        using InstantiableType = Unary<VectorReorder<T, idxs...>>;
+        using InstantiableType = Unary<VectorReorder<T, Idx...>>;
         DEFAULT_UNARY_BUILD
     };
 
@@ -106,11 +120,12 @@ namespace fk {
         using OutputType = O;
         using ParamsType = typename VectorTraits<I>::base;
         using InstanceType = BinaryType;
-        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
+        using OperationDataType = OperationData<AddLast<I, O>>;
+        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const OperationDataType& opData) {
             static_assert(cn<InputType> == cn<OutputType> -1, "Output type should have one channel more");
             static_assert(std::is_same_v<typename VectorTraits<InputType>::base, typename VectorTraits<OutputType>::base>,
                 "Base types should be the same");
-            const ParamsType newElem = params;
+            const ParamsType newElem = opData.params;
             if constexpr (cn<InputType> == 1) {
                 if constexpr (std::is_aggregate_v<InputType>) {
                     return { input.x, newElem };
@@ -124,7 +139,7 @@ namespace fk {
             }
         }
         using InstantiableType = Binary<AddLast<I, O>>;
-        DEFAULT_BINARY_BUILD
+        DEFAULT_BUILD
     };
 
     template <typename T>

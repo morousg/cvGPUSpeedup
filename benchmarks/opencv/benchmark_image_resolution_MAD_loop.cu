@@ -53,10 +53,8 @@ struct VerticalFusionMAD {
         fk::get<0>(loop.params) = cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul);
         fk::get<1>(loop.params) = cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_add);
 
-        cvGS::executeOperations(crops, BATCH, cv_stream,
-            cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
-            loop,
-            cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
+        cvGS::executeOperations(crops, cv_stream, cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha), loop,
+                                cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
     }
 };
 

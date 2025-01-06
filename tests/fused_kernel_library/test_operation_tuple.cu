@@ -1,4 +1,4 @@
-/* Copyright 2024 Oscar Amoros Huguet
+/* Copyright 2024-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -30,15 +30,14 @@ bool test_OTInitialization() {
     constexpr uint X = 64;
     constexpr uint Y = 64;
 
-    const fk::Ptr2D<uchar> input(64, 64);
-    constexpr fk::ActiveThreads gridActiveThreads(X, Y);
+    const fk::Ptr2D<uchar> input(X, Y);
     using Op = fk::PerThreadRead<fk::_2D, uchar>;
-    const fk::SourceRead<Op> read{ {input}, gridActiveThreads };
+    const fk::Read<Op> read{ {input} };
 
     const fk::OperationTuple<Op> testing{ {read.params} };
 
     const auto test2 = fk::devicefunctions_to_operationtuple(read);
-    const fk::SourceRead<fk::FusedOperation<Op>> test3 = fk::fuseDF(read);
+    const fk::Read<fk::FusedOperation<Op>> test3 = fk::fuseDF(read);
 
     using Op2 = fk::SaturateCast<uchar, uint>;
     constexpr fk::Unary<Op2> cast = {};
@@ -58,9 +57,9 @@ bool test_OTInitialization() {
 
     const auto test8 = fk::fuseDF(read, cast);
 
-    const auto test9 = fk::make_source(fk::Instantiable<fk::FusedOperation<typename decltype(read)::Operation,
+    const auto test9 = fk::Instantiable<fk::FusedOperation<typename decltype(read)::Operation,
                                                                    typename decltype(cast)::Operation>>
-    { fk::devicefunctions_to_operationtuple(read, cast) }, read.activeThreads);
+    { fk::devicefunctions_to_operationtuple(read, cast) };
 
     return true;
 }

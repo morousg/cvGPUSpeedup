@@ -1,4 +1,4 @@
-/* Copyright 2024 Oscar Amoros Huguet
+/* Copyright 2024-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ int launch() {
     using TernaryDummy = fk::Interpolate<fk::InterpolationType::INTER_LINEAR, fk::Read<ReadDummy>>;
     using WriteDummy = fk::PerThreadWrite<fk::_2D, int>;
 
-    using DFList = fk::TypeList<fk::SourceRead<ReadDummy>, fk::SourceReadBack<ReadBackDummy>,
+    using DFList = fk::TypeList<fk::Read<ReadDummy>, fk::ReadBack<ReadBackDummy>,
                    fk::Read<ReadDummy>, fk::ReadBack<ReadBackDummy>,
                    fk::Binary<BinaryDummy>, fk::Ternary<TernaryDummy>,
                    fk::MidWrite<WriteDummy>, fk::Write<WriteDummy>>;

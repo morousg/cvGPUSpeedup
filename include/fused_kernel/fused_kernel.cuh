@@ -1,4 +1,4 @@
-/* Copyright 2023-2024 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -15,180 +15,152 @@
 #ifndef FK_FUSED_KERNEL
 #define FK_FUSED_KERNEL
 
-#include <fused_kernel/core/execution_model/grid_patterns.cuh>
+#include <fused_kernel/core/execution_model/data_parallel_patterns.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
 #include <fused_kernel/algorithms/basic_ops/set.cuh>
 
 namespace fk {
-    template <typename ReadInstantiableOperation, typename... InstantiableOperationTypes>
-    inline constexpr void executeOperations(const cudaStream_t& stream, const ReadInstantiableOperation& readDF, const InstantiableOperationTypes&... instantiableOperations) {
-        executeOperations<true>(stream, readDF, instantiableOperations...);
-    }
+    namespace execute_operations_internal {
+        template <bool THREAD_FUSION, typename... IOps>
+        inline constexpr void executeOperations_helper(const cudaStream_t& stream, const IOps&... iOps) {
+            const auto tDetails = TransformDPP<void>::build_details<THREAD_FUSION>(iOps...);
 
-    template <bool THREAD_FUSION, typename ReadInstantiableOperation, typename... InstantiableOperationTypes>
-    inline constexpr void executeOperations(const cudaStream_t& stream, const ReadInstantiableOperation& readDF, const InstantiableOperationTypes&... instantiableOperations) {
-        const ActiveThreads dataDims = readDF.activeThreads;
-        const dim3 block{ getDefaultBlockSize(dataDims.x, dataDims.y) };
-        constexpr bool THREAD_FUSION_ENABLED = isThreadFusionEnabled<THREAD_FUSION, ReadInstantiableOperation, InstantiableOperationTypes...>();
-        const uint elems_per_thread = computeElementsPerThread<THREAD_FUSION_ENABLED>(readDF, instantiableOperations...);
-        const dim3 grid{ (unsigned int)ceil((dataDims.x/ (float)elems_per_thread) / (float)block.x),
-                         (unsigned int)ceil(dataDims.y / (float)block.y),
-                         dataDims.z };
+            
+            if constexpr (decltype(tDetails)::TFI::ENABLED) {
+                const ActiveThreads activeThreads = tDetails.activeThreads;
 
-        const ActiveThreads activeThreads{ (uint)ceil(readDF.activeThreads.x / (float)elems_per_thread), readDF.activeThreads.y, readDF.activeThreads.z };
+                const dim3 block = getDefaultBlockSize(activeThreads.x, activeThreads.y);
 
-        ReadInstantiableOperation readInstantiableOperation = readDF;
-        readInstantiableOperation.activeThreads = activeThreads;
-
-        if (elems_per_thread > 1) {
-            const bool threadDisvisible = isThreadDivisible<THREAD_FUSION_ENABLED>(elems_per_thread, readInstantiableOperation, instantiableOperations...);
-            if (threadDisvisible) {
-                cuda_transform<true, THREAD_FUSION_ENABLED> << <grid, block, 0, stream >> > (readInstantiableOperation, instantiableOperations...);
+                const dim3 grid{ static_cast<uint>(ceil(activeThreads.x / static_cast<float>(block.x))),
+                                 static_cast<uint>(ceil(activeThreads.y / static_cast<float>(block.y))),
+                                 activeThreads.z };
+                if (!tDetails.threadDivisible) {
+                    launchTransformDPP_Kernel<false><<<grid, block, 0, stream>>>(tDetails, iOps...);
+                } else {
+                    launchTransformDPP_Kernel<true><<<grid, block, 0, stream>>>(tDetails, iOps...);
+                }
             } else {
-                cuda_transform<false, THREAD_FUSION_ENABLED> << <grid, block, 0, stream >> > (readInstantiableOperation, instantiableOperations...);
+                using ReadOp = typename FirstType_t<IOps...>::Operation;
+                const auto readOp = get<0>(iOps...);
+
+                const ActiveThreads activeThreads{ ReadOp::num_elems_x(Point(), readOp),
+                                                   ReadOp::num_elems_y(Point(), readOp),
+                                                   ReadOp::num_elems_z(Point(), readOp) };
+
+                const dim3 block = getDefaultBlockSize(activeThreads.x, activeThreads.y);
+
+                const dim3 grid{ static_cast<uint>(ceil(activeThreads.x / static_cast<float>(block.x))),
+                                 static_cast<uint>(ceil(activeThreads.y / static_cast<float>(block.y))),
+                                 activeThreads.z };
+
+                launchTransformDPP_Kernel<true><<<grid, block, 0, stream>>>(tDetails, iOps...);
             }
-        } else {
-            cuda_transform<true, false> << <grid, block, 0, stream >> > (readInstantiableOperation, instantiableOperations...);
+            
+            gpuErrchk(cudaGetLastError());
         }
+    } // namespace execute_operations_internal
 
-        gpuErrchk(cudaGetLastError());
+    template <bool THREAD_FUSION, typename... IOps>
+    inline constexpr void executeOperations(const cudaStream_t& stream,
+                                            const IOps&... iOps) {
+        execute_operations_internal::executeOperations_helper<THREAD_FUSION>(stream, iOps...);
     }
 
-    template <bool THREAD_FUSION, typename I, typename... InstantiableOperationTypes>
-    inline constexpr void executeOperations(const Ptr2D<I>& input, const cudaStream_t& stream, const InstantiableOperationTypes&... instantiableOperations) {
-        using ReadInstantiableOperation = SourceRead<PerThreadRead<_2D, I>>;
-        ReadInstantiableOperation readInstantiableOperation{ {input} };
-        constexpr bool THREAD_FUSION_ENABLED = isThreadFusionEnabled<THREAD_FUSION, ReadInstantiableOperation, InstantiableOperationTypes...>();
-        const uint elems_per_thread = computeElementsPerThread<THREAD_FUSION_ENABLED>(readInstantiableOperation, instantiableOperations...);
-
-        const dim3 block = input.getBlockSize();
-        const dim3 grid{ (uint)ceil(input.dims().width / ((float)elems_per_thread * (float)block.x)),
-                         (uint)ceil(input.dims().height / (float)block.y) };
-        const ActiveThreads gridActiveThreads((uint)ceil(input.dims().width / (float)elems_per_thread), input.dims().height);
-        readInstantiableOperation.activeThreads = gridActiveThreads;
-
-        if (elems_per_thread > 1) {
-            const bool threadDisvisible = isThreadDivisible<THREAD_FUSION_ENABLED>(elems_per_thread, readInstantiableOperation, instantiableOperations...);
-            if (threadDisvisible) {
-                cuda_transform<true, THREAD_FUSION_ENABLED> << <grid, block, 0, stream >> > (readInstantiableOperation, instantiableOperations...);
-            } else {
-                cuda_transform<false, THREAD_FUSION_ENABLED> << <grid, block, 0, stream >> > (readInstantiableOperation, instantiableOperations...);
-            }
-        } else {
-            cuda_transform<true, false> << <grid, block, 0, stream >> > (readInstantiableOperation, instantiableOperations...);
-        }
-
-        gpuErrchk(cudaGetLastError());
+    template <typename... IOps>
+    inline constexpr void executeOperations(const cudaStream_t& stream, const IOps&... iOps) {
+        executeOperations<true>(stream, iOps...);
     }
 
-    template <typename I, typename... InstantiableOperationTypes>
-    inline constexpr void executeOperations(const Ptr2D<I>& input, const cudaStream_t& stream, const InstantiableOperationTypes&... instantiableOperations) {
-        executeOperations<true>(input, stream, instantiableOperations...);
+    template <bool THREAD_FUSION, typename I, typename... IOps>
+    inline constexpr void executeOperations(const Ptr2D<I>& input,
+                                            const cudaStream_t& stream,
+                                            const IOps&... iOps) {
+        execute_operations_internal::executeOperations_helper<THREAD_FUSION>(stream,
+            PerThreadRead<_2D, I>::build({ input }), iOps...);
     }
 
-    template <bool THREAD_FUSION, typename I, typename O, typename... InstantiableOperationTypes>
-    inline constexpr void executeOperations(const Ptr2D<I>& input, const Ptr2D<O>& output, const cudaStream_t& stream, const InstantiableOperationTypes&... instantiableOperations) {
-        auto firstOp = PerThreadRead<_2D, I>::build_source(input);
-        const auto opFinal = PerThreadWrite<_2D, O>::build(output);
-        
-        constexpr bool THREAD_FUSION_ENABLED = isThreadFusionEnabled<THREAD_FUSION, decltype(firstOp), InstantiableOperationTypes..., decltype(opFinal)>();
-        const uint elems_per_thread = computeElementsPerThread<THREAD_FUSION_ENABLED>(firstOp, instantiableOperations..., opFinal);
-
-        const dim3 block = input.getBlockSize();
-        const dim3 grid((uint)ceil(input.dims().width / (elems_per_thread * (float)block.x)), (uint)ceil(input.dims().height / (float)block.y));
-        const ActiveThreads gridActiveThreads((uint)ceil(input.dims().width / (float)elems_per_thread), input.dims().height);
-        firstOp.activeThreads = gridActiveThreads;
-        if (elems_per_thread > 1) {
-            const bool threadDisvisible = isThreadDivisible<THREAD_FUSION_ENABLED>(elems_per_thread, firstOp, instantiableOperations..., opFinal);
-            if (threadDisvisible) {
-                cuda_transform<true, THREAD_FUSION_ENABLED> << <grid, block, 0, stream >> > (firstOp, instantiableOperations..., opFinal);
-            } else {
-                cuda_transform<false, THREAD_FUSION_ENABLED> << <grid, block, 0, stream >> > (firstOp, instantiableOperations..., opFinal);
-            }
-        } else {
-            cuda_transform<true, false> << <grid, block, 0, stream >> > (firstOp, instantiableOperations..., opFinal);
-        }
-        gpuErrchk(cudaGetLastError());
+    template <typename I, typename... IOps>
+    inline constexpr void executeOperations(const Ptr2D<I>& input,
+                                            const cudaStream_t& stream,
+                                            const IOps&... iOps) {
+        executeOperations<true>(input, stream, iOps...);
     }
 
-    template <typename I, typename O, typename... InstantiableOperationTypes>
-    inline constexpr void executeOperations(const Ptr2D<I>& input, const Ptr2D<O>& output, const cudaStream_t& stream, const InstantiableOperationTypes&... instantiableOperations) {
-        executeOperations<true>(input, output, stream, instantiableOperations...);
+    template <bool THREAD_FUSION, typename I, typename O, typename... IOps>
+    inline constexpr void executeOperations(const Ptr2D<I>& input,
+                                            const Ptr2D<O>& output,
+                                            const cudaStream_t& stream, const IOps&... iOps) {
+        execute_operations_internal::executeOperations_helper<THREAD_FUSION>(stream,
+            PerThreadRead<_2D, I>::build({ input }), iOps..., PerThreadWrite<_2D, O>::build({ output }));
     }
 
-    template <bool THREAD_FUSION, typename I, int BATCH, typename... InstantiableOperationTypes>
-    inline constexpr void executeOperations(const std::array<Ptr2D<I>, BATCH>& input, const int& activeBatch, const cudaStream_t& stream, const InstantiableOperationTypes&... instantiableOperations) {
-        const Ptr2D<I>& firstInput = input[0];
-        using ReadInstantiableOperation = SourceRead<BatchRead<BATCH, PerThreadRead<_2D, I>>>;
-        ReadInstantiableOperation firstOp;
-        for (int plane = 0; plane < activeBatch; plane++) {
-            firstOp.params.op_params[plane] = input[plane];
-        }
-
-        constexpr bool THREAD_FUSION_ENABLED = isThreadFusionEnabled<THREAD_FUSION, ReadInstantiableOperation, InstantiableOperationTypes...>();
-        const uint elems_per_thread = computeElementsPerThread<THREAD_FUSION_ENABLED>(firstOp, instantiableOperations...);
-
-        const dim3 block = firstInput.getBlockSize();
-        const dim3 grid{ (uint)ceil(firstInput.dims().width / (elems_per_thread * (float)block.x)),
-                         (uint)ceil(firstInput.dims().height / (float)block.y),
-                         (uint)activeBatch };
-        const ActiveThreads gridActiveThreads((uint)ceil(firstInput.dims().width / (float)elems_per_thread), firstInput.dims().height, activeBatch);
-        firstOp.activeThreads = gridActiveThreads;
-        if (elems_per_thread > 1) {
-            const bool threadDisvisible = isThreadDivisible<THREAD_FUSION_ENABLED>(elems_per_thread, firstOp, instantiableOperations...);
-            if (threadDisvisible) {
-                cuda_transform<true, THREAD_FUSION_ENABLED> << <grid, block, 0, stream >> > (firstOp, instantiableOperations...);
-            } else {
-                cuda_transform<false, THREAD_FUSION_ENABLED> << <grid, block, 0, stream >> > (firstOp, instantiableOperations...);
-            }
-        } else {
-            cuda_transform<true, false> << <grid, block, 0, stream >> > (firstOp, instantiableOperations...);
-        }
-        
-        gpuErrchk(cudaGetLastError());
+    template <typename I, typename O, typename... IOps>
+    inline constexpr void executeOperations(const Ptr2D<I>& input,
+                                            const Ptr2D<O>& output,
+                                            const cudaStream_t& stream, const IOps&... iOps) {
+        executeOperations<true>(input, output, stream, iOps...);
     }
 
-    template <typename I, int Batch, typename... InstantiableOperationTypes>
-    inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const cudaStream_t& stream, const InstantiableOperationTypes&... instantiableOperations) {
-        executeOperations<true>(input, activeBatch, stream, instantiableOperations...);
+    template <bool THREAD_FUSION, typename I, int BATCH, typename... IOps>
+    inline constexpr void executeOperations(const std::array<Ptr2D<I>, BATCH>& input,
+                                            const int& activeBatch, const I& defaultValue,
+                                            const cudaStream_t& stream, const IOps&... iOps) {
+        const auto batchReadIOp = PerThreadRead<_2D, I>::build(activeBatch, defaultValue, input);
+        execute_operations_internal::executeOperations_helper<THREAD_FUSION>(stream, batchReadIOp, iOps...);
     }
 
-    template <bool THREAD_FUSION, typename I, typename O, int Batch, typename... InstantiableOperationTypes>
-    inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const Tensor<O>& output, const cudaStream_t& stream, const InstantiableOperationTypes&... instantiableOperations) {
-        const Ptr2D<I>& firstInput = input[0];
-        
-        using ReadDF = SourceRead<BatchRead<Batch, PerThreadRead<_2D, I>>>;
-        ReadDF firstOp;
-        for (int plane = 0; plane < activeBatch; plane++) {
-            firstOp.params[plane] = input[plane];
-        }
-
-        using WriteInstantiableOperation = WriteInstantiableOperation<PerThreadWrite<_3D, O>>;
-        const WriteInstantiableOperation opFinal{ output };
-
-        constexpr bool THREAD_FUSION_ENABLED = isThreadFusionEnabled<THREAD_FUSION, ReadInstantiableOperation, InstantiableOperationTypes..., WriteInstantiableOperation>();
-        const uint elems_per_thread = computeElementsPerThread<THREAD_FUSION_ENABLED>(firstOp, instantiableOperations..., opFinal);
-
-        const dim3 block = output.getBlockSize();
-        const dim3 grid(ceil(firstInput.dims().width / (elems_per_thread * (float)block.x)), ceil(firstInput.dims().rows / (float)block.y), activeBatch);
-        const dim3 gridActiveThreads(firstInput.dims().width / (float)elems_per_thread, firstInput.dims().height, activeBatch);
-        firstOp.activeThreads = gridActiveThreads;
-        if (elems_per_thread > 1) {
-            const bool threadDisvisible = isThreadDivisible<THREAD_FUSION_ENABLED>(elems_per_thread, firstOp, instantiableOperations..., opFinal);
-            if (threadDisvisible) {
-                cuda_transform<true, THREAD_FUSION_ENABLED> << <grid, block, 0, stream >> > (firstOp, instantiableOperations..., opFinal);
-            } else {
-                cuda_transform<false, THREAD_FUSION_ENABLED> << <grid, block, 0, stream >> > (firstOp, instantiableOperations..., opFinal);
-            }
-        } else {
-            cuda_transform<true, false> << <grid, block, 0, stream >> > (firstOp, instantiableOperations...);
-        }
-        gpuErrchk(cudaGetLastError());
+    template <bool THREAD_FUSION, typename I, int BATCH, typename... IOps>
+    inline constexpr void executeOperations(const std::array<Ptr2D<I>, BATCH>& input,
+                                            const cudaStream_t& stream, const IOps&... iOps) {
+        const auto batchReadIOp = PerThreadRead<_2D, I>::build(input);
+        execute_operations_internal::executeOperations_helper<THREAD_FUSION>(stream, batchReadIOp, iOps...);
     }
 
-    template <typename I, typename O, int Batch, typename... operations>
-    inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input, const int& activeBatch, const Tensor<O>& output, const cudaStream_t& stream, const operations&... ops) {
-        executeOperations<true>(input, activeBatch, output, stream, ops...);
+    template <typename I, int Batch, typename... IOps>
+    inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input,
+                                            const int& activeBatch, const I& defaultValue,
+                                            const cudaStream_t& stream, const IOps&... iOps) {
+        executeOperations<true>(input, activeBatch, defaultValue, stream, iOps...);
+    }
+
+    template <typename I, int Batch, typename... IOps>
+    inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input,
+                                            const cudaStream_t& stream, const IOps&... iOps) {
+        executeOperations<true>(input, stream, iOps...);
+    }
+
+    template <bool THREAD_FUSION, typename I, typename O, int Batch, typename... IOps>
+    inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input,
+                                            const int& activeBatch, const I& defaultValue,
+                                            const Tensor<O>& output,
+                                            const cudaStream_t& stream, const IOps&... iOps) {
+        const auto batchReadIOp = PerThreadRead<_2D, I>::build(activeBatch, defaultValue, input);
+        const auto writeOp = PerThreadWrite<_3D, O>::build(output);
+        execute_operations_internal::executeOperations_helper<THREAD_FUSION>(stream, batchReadIOp, iOps..., writeOp);
+    }
+
+    template <bool THREAD_FUSION, typename I, typename O, int Batch, typename... IOps>
+    inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input,
+                                            const Tensor<O>& output,
+                                            const cudaStream_t& stream, const IOps&... iOps) {
+        const auto batchReadIOp = PerThreadRead<_2D, I>::build(input);
+        const auto writeOp = PerThreadWrite<_3D, O>::build(output);
+        execute_operations_internal::executeOperations_helper<THREAD_FUSION>(stream, batchReadIOp, iOps..., writeOp);
+    }
+
+    template <typename I, typename O, int Batch, typename... IOps>
+    inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input,
+                                            const Tensor<O>& output,
+                                            const cudaStream_t& stream, const IOps&... iOps) {
+        executeOperations<true>(input, output, stream, iOps...);
+    }
+
+    template <typename I, typename O, int Batch, typename... IOps>
+    inline constexpr void executeOperations(const std::array<Ptr2D<I>, Batch>& input,
+                                            const int& activeBatch, const I& defaultValue,
+                                            const Tensor<O>& output,
+                                            const cudaStream_t& stream, const IOps&... iOps) {
+        executeOperations<true>(input, activeBatch, defaultValue, output, stream, iOps...);
     }
 
     template <ND D, typename T>
@@ -197,13 +169,13 @@ namespace fk {
         if (outputPtr.getMemType() == MemType::Device) {
             if constexpr (D == _1D) {
                 const ActiveThreads activeThreads(output.dims.width);
-                executeOperations(stream, SourceRead<ReadSet<T>>{value, activeThreads}, Write<PerThreadWrite<D, T>>{output});
+                executeOperations(stream, ReadSet<T>::build(value, activeThreads), PerThreadWrite<D, T>::build(output));
             } else if constexpr (D == _2D) {
                 const ActiveThreads activeThreads(output.dims.width, output.dims.height);
-                executeOperations(stream, SourceRead<ReadSet<T>>{value, activeThreads}, Write<PerThreadWrite<D, T>>{output});
+                executeOperations(stream, ReadSet<T>::build(value, activeThreads), PerThreadWrite<D, T>::build(output));
             } else if constexpr (D == _3D) {
                 const ActiveThreads activeThreads(output.dims.width, output.dims.height, output.dims.planes);
-                executeOperations(stream, SourceRead<ReadSet<T>>{value, activeThreads}, Write<PerThreadWrite<D, T>>{output});
+                executeOperations(stream, ReadSet<T>::build(value, activeThreads), PerThreadWrite<D, T>::build(output));
             }
         } else {
             for (int i = 0; i < (int)outputPtr.getNumElements(); i++) {

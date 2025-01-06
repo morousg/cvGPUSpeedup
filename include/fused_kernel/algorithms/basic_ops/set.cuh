@@ -20,18 +20,43 @@
 #include <fused_kernel/core/execution_model/default_builders_def.h>
 
 namespace fk {
+
+    template <typename T>
+    struct ReadSetParams {
+        T value;
+        ActiveThreads size;
+    };
+
     template <typename T>
     struct ReadSet {
         using InstanceType = ReadType;
         using OutputType = T;
-        using ParamsType = T;
+        using ParamsType = ReadSetParams<T>;
         using ReadDataType = T;
+        using OperationDataType = OperationData<ReadSet<T>>;
         static constexpr bool THREAD_FUSION{ false };
-        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const ParamsType& params) {
-            return params;
+
+        FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const OperationDataType& opData) {
+            return opData.params.value;
         }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const OperationDataType& opData) {
+            return opData.params.size.x;
+        }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const OperationDataType& opData) {
+            return opData.params.size.y;
+        }
+
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const OperationDataType& opData) {
+            return opData.params.size.z;
+        }
+
         using InstantiableType = Read<ReadSet<T>>;
-        DEFAULT_READ_BUILD
+        DEFAULT_BUILD
+        FK_HOST_FUSE auto build(const T& value, const ActiveThreads& activeThreads) {
+            return InstantiableType{ OperationDataType{{ value, activeThreads }} };
+        }
         DEFAULT_READ_BATCH_BUILD
     };
 } // namespace fk

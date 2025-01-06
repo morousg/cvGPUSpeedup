@@ -1,4 +1,4 @@
-/* Copyright 2023-2024 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -36,6 +36,17 @@ namespace fk {
         enum { size = sizeof...(Types) + 1 };
     };
 
+    // Primary template: defaults to false
+    template <typename T>
+    struct isTuple : std::false_type {};
+
+    // Partial specialization: matches any specialization of Tuple
+    template <typename... Types>
+    struct isTuple<Tuple<Types...>> : std::true_type {};
+
+    template <typename TypeToTest>
+    constexpr bool isTuple_v = isTuple<std::decay_t<TypeToTest>>::value;
+
     struct TupleUtil {
         template <typename Tuple1, typename Tuple2, int... I1, int... I2>
         FK_HOST_DEVICE_FUSE auto cat_impl(const Tuple1& t1, std::integer_sequence<int, I1...>,
@@ -70,7 +81,7 @@ namespace fk {
                 return get<INDEX - 1>(instances.next);
             } else if constexpr (INDEX == -1) {
                 if constexpr (numberOfInstances > 0) {
-                    return get<numberOfInstances - 1>(instances.next);
+                    return get<numberOfInstances - 1>(instances);
                 } else {
                     return instances.instance;
                 }
@@ -124,6 +135,20 @@ namespace fk {
         return TupleUtil::get<INDEX>(tuple);
     }
 
+    template <typename TupleType>
+    struct TupleTypeToTypeList;
+
+    template <typename... Types>
+    struct TupleTypeToTypeList<Tuple<Types...>> {
+        using type = TypeList<Types...>;
+    };
+
+    template <typename TupleType>
+    using ToTypeList = typename TupleTypeToTypeList<TupleType>::type;
+
+    template <int INDEX, typename TupleType>
+    using get_t = TypeAt_t<INDEX, ToTypeList<TupleType>>;
+
     template <int INDEX, typename T, typename TupleLike>
     FK_HOST_DEVICE_CNST auto tuple_insert(const T& element, const TupleLike& tuple) {
         return TupleUtil::tuple_insert<INDEX,T>(element, tuple);
@@ -170,19 +195,19 @@ namespace fk {
     }
 
     // Struct to hold a parameter pack, and be able to pass it arround
-    template <typename... InstantiableOperationTypes>
+    template <typename... IOpTypes>
     struct InstantiableOperationSequence {
-        Tuple<InstantiableOperationTypes...> instantiableOperations;
+        Tuple<IOpTypes...> instantiableOperations;
     };
 
     // Function that fills the OperationSequence struct, from a parameter pack
-    template <typename... InstantiableOperationTypes>
-    FK_HOST_DEVICE_CNST auto buildOperationSequence(const InstantiableOperationTypes&... instantiableOperationInstances) {
-        return InstantiableOperationSequence<InstantiableOperationTypes...> {{instantiableOperationInstances...}};
+    template <typename... IOpTypes>
+    FK_HOST_DEVICE_CNST auto buildOperationSequence(const IOpTypes&... instantiableOperationInstances) {
+        return InstantiableOperationSequence<IOpTypes...> {{instantiableOperationInstances...}};
     }
 
-    template <typename... InstantiableOperationTypes>
-    FK_HOST_DEVICE_CNST auto buildOperationSequence_tup(const Tuple<InstantiableOperationTypes...>& instantiableOperationInstances) {
+    template <typename... IOpTypes>
+    FK_HOST_DEVICE_CNST auto buildOperationSequence_tup(const Tuple<IOpTypes...>& instantiableOperationInstances) {
         return apply([](const auto&... args) {
             return buildOperationSequence(args...);
             }, instantiableOperationInstances);
@@ -243,6 +268,8 @@ namespace fk {
         static_translate_get_second(const std::array<std::pair<FT, ST>, NElems>& srcArray) {
         return static_translate_helper<GetSecond<FT, ST>>(NElems, srcArray, std::make_integer_sequence<int, NElems>{});
     }
+
+
 } // namespace fk
 
 #endif

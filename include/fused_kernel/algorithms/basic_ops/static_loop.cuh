@@ -25,23 +25,24 @@ namespace fk {
         using OutputType = typename Operation::OutputType;
         using ParamsType = typename Operation::ParamsType;
         using InstanceType = BinaryType;
+        using OperationDataType = OperationData<StaticLoop<Operation, ITERATIONS>>;
 
         private:
         template <int ITERATION>
-        FK_DEVICE_FUSE OutputType helper_exec(const InputType& input, const ParamsType& params) {
+        FK_DEVICE_FUSE OutputType helper_exec(const InputType& input, const OperationDataType& opData) {
             if constexpr (ITERATION + 1 < ITERATIONS) {
-                return helper_exec<ITERATION + 1>(Operation::exec(input, params), params);
+                return helper_exec<ITERATION + 1>(Operation::exec(input, { opData.params }), opData);
             } else {
                 return input;
             }
         }
 
         public:
-        FK_DEVICE_FUSE OutputType exec(const InputType& input, const ParamsType& params) {
-            return helper_exec<0>(Operation::exec(input, params), params);
+        FK_DEVICE_FUSE OutputType exec(const InputType& input, const OperationDataType& opData) {
+            return helper_exec<0>(Operation::exec(input, { opData.params }), opData);
         }
         using InstantiableType = Binary<StaticLoop<Operation, ITERATIONS>>;
-        DEFAULT_BINARY_BUILD
+        DEFAULT_BUILD
     };
 } // namespace fk
 

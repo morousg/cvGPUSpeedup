@@ -1,4 +1,4 @@
-/* Copyright 2024 Oscar Amoros Huguet
+/* Copyright 2024-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -36,15 +36,14 @@ bool test_fuseDFResultingTypes() {
 
     constexpr auto fused1 = fuseDF(readOp, addOp, castOp);
 
-    constexpr auto read = Read<PerThreadRead<_2D, float>>{{ fk::RawPtr<_2D, float>{} }};
-    constexpr auto sourceRead = make_source(read, ActiveThreads(128, 4));
+    constexpr auto read = Read<PerThreadRead<_2D, float>>{ { fk::RawPtr<_2D, float>{nullptr, {128, 4}} } };
 
     constexpr auto readOp2 = PerThreadRead<_2D, uchar3>::build(RawPtr<_2D, uchar3>{nullptr, PtrDims<_2D>(128,128)});
 
     constexpr auto readYUV = ReadYUV<PixelFormat::NV12>::build(RawPtr<_2D, uchar>{nullptr, PtrDims<_2D>(128, 128)});
     constexpr auto readRGB = readYUV.then(ConvertYUVToRGB<PixelFormat::NV12, ColorRange::Full, ColorPrimitives::bt2020, false>::build());
 
-    constexpr auto resizeRead = ResizeRead<INTER_LINEAR>::build_source(readRGB, Size(64, 64)).then(Mul<float>::build(3.f)).then(Div<float>::build(4.3f));
+    constexpr auto resizeRead = ResizeRead<INTER_LINEAR>::build(readRGB, Size(64, 64)).then(Mul<float>::build(3.f)).then(Div<float>::build(4.3f));
 
     //decltype(fused1)::
 

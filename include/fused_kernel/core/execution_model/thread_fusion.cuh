@@ -116,17 +116,17 @@ namespace fk {
 
     // Thread Fusion hepler functions
 
-    template <bool THREAD_FUSION_ENABLED, typename... InstantiableOperationTypes>
+    template <bool THREAD_FUSION_ENABLED, typename... IOpTypes>
     inline constexpr bool isThreadFusionEnabled() {
-        using ReadOperation = typename FirstType_t<InstantiableOperationTypes...>::Operation;
-        using WriteOperation = typename LastType_t<InstantiableOperationTypes...>::Operation;
+        using ReadOperation = typename FirstType_t<IOpTypes...>::Operation;
+        using WriteOperation = typename LastType_t<IOpTypes...>::Operation;
         return ReadOperation::THREAD_FUSION && WriteOperation::THREAD_FUSION && THREAD_FUSION_ENABLED;
     }
 
-    template <bool THREAD_FUSION_ENABLED, typename... InstantiableOperationTypes>
-    inline constexpr uint computeElementsPerThread(const InstantiableOperationTypes&... instantiableOperations) {
-        using ReadOperation = typename FirstType_t<InstantiableOperationTypes...>::Operation;
-        using WriteOperation = typename LastType_t<InstantiableOperationTypes...>::Operation;
+    template <bool THREAD_FUSION_ENABLED, typename... IOpTypes>
+    inline constexpr uint computeElementsPerThread(const IOpTypes&... instantiableOperations) {
+        using ReadOperation = typename FirstType_t<IOpTypes...>::Operation;
+        using WriteOperation = typename LastType_t<IOpTypes...>::Operation;
         using RDT = typename ReadOperation::ReadDataType;
         using WDT = typename WriteOperation::WriteDataType;
         if constexpr (THREAD_FUSION_ENABLED) {
@@ -140,13 +140,13 @@ namespace fk {
         }
     }
 
-    template <bool THREAD_FUSION_ENABLED, typename... InstantiableOperationTypes>
-    inline bool isThreadDivisible(const uint& elems_per_thread, const InstantiableOperationTypes&... instantiableOperations) {
+    template <bool THREAD_FUSION_ENABLED, typename... IOpTypes>
+    inline bool isThreadDivisible(const uint& elems_per_thread, const IOpTypes&... instantiableOperations) {
         if constexpr (THREAD_FUSION_ENABLED) {
             const auto& readOp = ppFirst(instantiableOperations...);
             const auto& writeOp = ppLast(instantiableOperations...);
-            using ReadOperation = typename FirstType_t<InstantiableOperationTypes...>::Operation;
-            using WriteOperation = typename LastType_t<InstantiableOperationTypes...>::Operation;
+            using ReadOperation = typename FirstType_t<IOpTypes...>::Operation;
+            using WriteOperation = typename LastType_t<IOpTypes...>::Operation;
             const uint readRow = ReadOperation::num_elems_x(Point(0, 0, 0), readOp.params);
             const uint writeRow = WriteOperation::num_elems_x(Point(0, 0, 0), writeOp.params);
             return (readRow % elems_per_thread == 0) && (writeRow % elems_per_thread == 0);

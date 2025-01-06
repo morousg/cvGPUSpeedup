@@ -31,7 +31,7 @@ namespace fk {
 
     template <uint bxS_t>
     struct computeBestSolution<bxS_t, 0> {
-        static constexpr void exec(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint(&blockDimX)[4], const uint(&blockDimY)[2][4]) {
+        static constexpr inline void exec(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint(&blockDimX)[4], const uint(&blockDimY)[2][4]) {
             const uint currentDiscardedThreads = computeDiscardedThreads(width, height, blockDimX[bxS_t], blockDimY[0][bxS_t]);
             if (minDiscardedThreads > currentDiscardedThreads) {
                 minDiscardedThreads = currentDiscardedThreads;
@@ -45,7 +45,7 @@ namespace fk {
 
     template <uint bxS_t>
     struct computeBestSolution<bxS_t, 1> {
-        static constexpr void exec(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint(&blockDimX)[4], const uint(&blockDimY)[2][4]) {
+        static constexpr inline void exec(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint(&blockDimX)[4], const uint(&blockDimY)[2][4]) {
             const uint currentDiscardedThreads = computeDiscardedThreads(width, height, blockDimX[bxS_t], blockDimY[1][bxS_t]);
             if (minDiscardedThreads > currentDiscardedThreads) {
                 minDiscardedThreads = currentDiscardedThreads;
@@ -60,7 +60,7 @@ namespace fk {
 
     template <>
     struct computeBestSolution<3, 1> {
-        static constexpr void exec(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint(&blockDimX)[4], const uint(&blockDimY)[2][4]) {
+        static constexpr inline void exec(const uint width, const uint height, uint& bxS, uint& byS, uint& minDiscardedThreads, const uint(&blockDimX)[4], const uint(&blockDimY)[2][4]) {
             const uint currentDiscardedThreads = computeDiscardedThreads(width, height, blockDimX[3], blockDimY[1][3]);
             if (minDiscardedThreads > currentDiscardedThreads) {
                 minDiscardedThreads = currentDiscardedThreads;

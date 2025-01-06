@@ -1,4 +1,4 @@
-/* Copyright 2023-2024 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 #define FK_CIRCULAR_TENSOR
 
 #include <fused_kernel/core/data/ptr_nd.cuh>
-#include <fused_kernel/core/execution_model/grid_patterns.cuh>
+#include <fused_kernel/core/execution_model/data_parallel_patterns.cuh>
 
 namespace fk {
 
@@ -91,9 +91,9 @@ namespace fk {
             Write<TensorSplit<StoreT>>,
             Write<TensorTSplit<StoreT>>>;
 
-        using ReadInstantiableOperations = TypeList<SourceRead<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorRead<StoreT>, BATCH>>,
-            SourceRead<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorPack<StoreT>, BATCH>>,
-            SourceRead<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorTPack<StoreT>, BATCH>>>;
+        using ReadInstantiableOperations = TypeList<Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorRead<StoreT>, BATCH>>,
+            Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorPack<StoreT>, BATCH>>,
+            Read<CircularTensorRead<CTReadDirection_v<CT_ORDER>, TensorTPack<StoreT>, BATCH>>>;
 
     public:
         __host__ inline constexpr CircularTensor() {};
@@ -107,9 +107,9 @@ namespace fk {
             m_tempTensor.allocTensor(width_, height_, BATCH, COLOR_PLANES, MemType::Device, deviceID_);
         }
 
-        template <typename... InstantiableOperationTypes>
+        template <typename... IOpTypes>
         __host__ inline constexpr void update(const cudaStream_t& stream,
-            const InstantiableOperationTypes&... instantiableOperationInstances) {
+            const IOpTypes&... instantiableOperationInstances) {
             const auto writeInstantiableOperation = ppLast(instantiableOperationInstances...);
             using writeDFType = std::decay_t<decltype(writeInstantiableOperation)>;
             using writeOpType = typename writeDFType::Operation;
@@ -121,17 +121,14 @@ namespace fk {
 
             MidWrite<CircularTensorWrite<CircularDirection::Ascendent, writeOpType, BATCH>> updateWriteToTemp;
             updateWriteToTemp.params.first = m_nextUpdateIdx;
-            updateWriteToTemp.params.params = m_tempTensor.ptr();
+            updateWriteToTemp.params.opData.params = m_tempTensor.ptr();
 
             const auto updateOps = buildOperationSequence_tup(insert_before_last(updateWriteToTemp, instantiableOperationInstances...));
 
             // Build copy pipeline
             equivalentReadDFType nonUpdateRead;
             nonUpdateRead.params.first = m_nextUpdateIdx;
-            nonUpdateRead.params.params = m_tempTensor.ptr();
-            nonUpdateRead.activeThreads.x = this->ptr_a.dims.width;
-            nonUpdateRead.activeThreads.y = this->ptr_a.dims.height;
-            nonUpdateRead.activeThreads.z = BATCH;
+            nonUpdateRead.params.opData.params = m_tempTensor.ptr();
 
             const auto copyOps = buildOperationSequence(nonUpdateRead, writeInstantiableOperation);
 
@@ -139,7 +136,7 @@ namespace fk {
                 (uint)ceil((float)this->ptr_a.dims.height / (float)this->adjusted_blockSize.y),
                 BATCH);
 
-            cuda_transform_divergent_batch<SequenceSelectorType<CT_ORDER, BATCH>> << <grid, this->adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
+            launchDivergentBatchTransformDPP_Kernel<SequenceSelectorType<CT_ORDER, BATCH>> << <grid, this->adjusted_blockSize, 0, stream >> > (updateOps, copyOps);
 
             m_nextUpdateIdx = (m_nextUpdateIdx + 1) % BATCH;
             gpuErrchk(cudaGetLastError());

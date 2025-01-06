@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -43,23 +43,15 @@ bool testPtr_2D() {
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
 
-    dim3 block2D(32,8);
-    dim3 grid2D((uint)std::ceil(width_crop / (float)block2D.x),
-                (uint)std::ceil(height_crop / (float)block2D.y));
-    dim3 grid2DBig((uint)std::ceil(width / (float)block2D.x),
-                   (uint)std::ceil(height / (float)block2D.y));
-
-    fk::ActiveThreads gridActiveThreadsCrop(cropedInput.dims().width, cropedInput.dims().height);
-    fk::ActiveThreads gridActiveThreads(input.dims().width, input.dims().height);
-    fk::SourceReadInstantiableOperation<fk::PerThreadRead<fk::_2D, T>> readCrop{{cropedInput}, gridActiveThreadsCrop};
-    fk::SourceReadInstantiableOperation<fk::PerThreadRead<fk::_2D, T>> readFull{{input}, gridActiveThreads};
+    fk::ReadInstantiableOperation<fk::PerThreadRead<fk::_2D, T>> readCrop{{cropedInput}};
+    fk::ReadInstantiableOperation<fk::PerThreadRead<fk::_2D, T>> readFull{{input}};
 
     fk::WriteInstantiableOperation<fk::PerThreadWrite<fk::_2D, T>> opFinal_2D = { {output} };
     fk::WriteInstantiableOperation<fk::PerThreadWrite<fk::_2D, T>> opFinal_2DBig = { {outputBig} };
 
     for (int i=0; i<100; i++) {
-        fk::cuda_transform<<<grid2D, block2D, 0, stream>>>(readCrop, opFinal_2D);
-        fk::cuda_transform<<<grid2DBig, block2D, 0, stream>>>(readFull, opFinal_2DBig);
+        fk::executeOperations(stream, readCrop, opFinal_2D);
+        fk::executeOperations(stream, readFull, opFinal_2DBig);
     }
 
     cudaError_t err = cudaStreamSynchronize(stream);
@@ -86,9 +78,8 @@ int launch() {
 
     fk::Ptr2D<uchar> input(64,64);
     fk::Ptr2D<uint> output(64,64);
-    
-    fk::ActiveThreads gridActiveThreads(64, 64);
-    fk::SourceRead<fk::PerThreadRead<fk::_2D, uchar>> read{ {input}, gridActiveThreads };
+
+    fk::Read<fk::PerThreadRead<fk::_2D, uchar>> read{ {input} };
     fk::Unary<fk::SaturateCast<uchar, uint>> cast = {};
     fk::Write<fk::PerThreadWrite<fk::_2D, uint>> write { {output} };
 
@@ -97,7 +88,7 @@ int launch() {
     //fusedDF.params.next.instance.params; // Should not compile
     fusedDF.params.next.next.instance.params;
 
-    fk::cuda_transform<<<dim3(1,8),dim3(64,8),0,stream>>>(fusedDF, write);
+    fk::executeOperations(stream, fusedDF, write);
 
     fk::OperationTuple<fk::PerThreadRead<fk::_2D, uchar>, fk::SaturateCast<uchar, uint>, fk::PerThreadWrite<fk::_2D, uint>> myTup{};
 
