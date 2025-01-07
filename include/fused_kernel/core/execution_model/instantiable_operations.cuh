@@ -429,9 +429,9 @@ namespace fk { // namespace FusedKernel
         template <size_t... Idx>
         FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads_helper(const std::index_sequence<Idx...>&,
                                                                   const OperationDataType& opData) {
-            return { cxp::max(num_elems_x(Point(0, 0, Idx), opData)...),
-                     cxp::max(num_elems_y(Point(0, 0, Idx), opData)...),
-                     BATCH };
+            return { cxp::max(num_elems_x(Point(0u, 0u, static_cast<uint>(Idx)), opData)...),
+                     cxp::max(num_elems_y(Point(0u, 0u, static_cast<uint>(Idx)), opData)...),
+                     static_cast<uint>(BATCH) };
         }
     public:
         FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
@@ -612,14 +612,14 @@ namespace fk { // namespace FusedKernel
     template <typename Enabler, typename... Operations>
     struct FusedOperationOutputType;
 
-    template <typename... Operations>
-    struct FusedOperationOutputType<std::enable_if_t<isWriteType<LastType_t<Operations...>>>, Operations...> {
-        using type = typename LastType_t<Operations...>::InputType;
+    template <typename Operation>
+    struct FusedOperationOutputType<std::enable_if_t<isWriteType<Operation>>, Operation> {
+        using type = typename Operation::InputType;
     };
 
-    template <typename... Operations>
-    struct FusedOperationOutputType<std::enable_if_t<!isWriteType<LastType_t<Operations...>>>, Operations...> {
-        using type = typename LastType_t<Operations...>::OutputType;
+    template <typename Operation>
+    struct FusedOperationOutputType<std::enable_if_t<!isWriteType<Operation>>, Operation> {
+        using type = typename Operation::OutputType;
     };
 
     template <typename... Operations>
@@ -661,7 +661,7 @@ namespace fk { // namespace FusedKernel
                            !allUnaryTypes<Operations...>>, Operations...> {
         using InputType = typename FirstType_t<Operations...>::InputType;
         using ParamsType = OperationTuple<Operations...>;
-        using OutputType = FOOT<Operations...>;
+        using OutputType = FOOT<LastType_t<Operations...>>;
         using InstanceType = BinaryType;
         using OperationDataType = OperationData<FusedOperation_<void, Operations...>>;
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input,
@@ -675,7 +675,7 @@ namespace fk { // namespace FusedKernel
     template <typename... Operations>
     struct FusedOperation_<std::enable_if_t<isAnyReadType<FirstType_t<Operations...>>>, Operations...> {
         using ParamsType = OperationTuple<Operations...>;
-        using OutputType = FOOT<Operations...>;
+        using OutputType = FOOT<LastType_t<Operations...>>;
         using InstanceType = ReadType;
         using ReadDataType = typename FirstType_t<Operations...>::ReadDataType;
         // In the future we can improve this by splitting the read op from the compute ops
@@ -716,7 +716,7 @@ namespace fk { // namespace FusedKernel
     template <typename... Operations>
     struct FusedOperation_<std::enable_if_t<isWriteType<FirstType_t<Operations...>>>, Operations...> {
         using ParamsType = OperationTuple<Operations...>;
-        using OutputType = FOOT<Operations...>;
+        using OutputType = FOOT<LastType_t<Operations...>>;
         using InputType = typename FirstType_t<Operations...>::InputType;
         using InstanceType = MidWriteType;
         // THREAD_FUSION in this case will not be used in the current Transform implementation
@@ -736,7 +736,7 @@ namespace fk { // namespace FusedKernel
     template <typename... Operations>
     struct FusedOperation_<std::enable_if_t<isMidWriteType<FirstType_t<Operations...>>>, Operations...> {
         using ParamsType = OperationTuple<Operations...>;
-        using OutputType = FOOT<Operations...>;
+        using OutputType = FOOT<LastType_t<Operations...>>;
         using InputType = typename FirstType_t<Operations...>::InputType;
         using InstanceType = MidWriteType;
         // THREAD_FUSION in this case will not be used in the current Transform implementation
@@ -801,7 +801,6 @@ namespace fk { // namespace FusedKernel
 
     template <typename IOp, typename... InstantiableOperations>
     FK_HOST_DEVICE_CNST auto devicefunctions_to_operationtuple(const IOp& df, const InstantiableOperations&... dfs) {
-        using Op = typename IOp::Operation;
         return cat(devicefunctions_to_operationtuple(df), devicefunctions_to_operationtuple(dfs...));
     }
 

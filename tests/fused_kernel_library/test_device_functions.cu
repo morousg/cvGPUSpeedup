@@ -238,8 +238,6 @@ int launch() {
                         .then(Add<float3>::build(addValue))
                         .then(Cast<float3, uint3>::build());
 
-    constexpr auto res_x = someReadOpAlt.getActiveThreads();
-
     static_assert(someReadOpAlt.getActiveThreads().x == 32, "Wrong width");
     static_assert(someReadOpAlt.getActiveThreads().y == 32, "Wrong height");
     static_assert(someReadOpAlt.getActiveThreads().z == 1, "Wrong depth");
