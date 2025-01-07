@@ -19,6 +19,7 @@
 #include <fused_kernel/core/data/circular_tensor.cuh>
 #include <fused_kernel/algorithms/image_processing/resize.cuh>
 #include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
+#include <fused_kernel/algorithms/image_processing/crop.cuh>
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda_stream_accessor.hpp>
@@ -149,6 +150,11 @@ inline constexpr auto splitT(const fk::RawPtr<fk::T3D, typename fk::VectorTraits
     return fk::Write<fk::TensorTSplit<CUDA_T(O)>> {output};
 }
 
+template <int INTER_F>
+inline const auto resize(const cv::Size& dsize) {
+    return fk::ResizeRead<static_cast<fk::InterpolationType>(INTER_F)>::build(fk::Size(dsize.width, dsize.height));
+}
+
 template <int T, int INTER_F>
 inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, double fx, double fy) {
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
@@ -164,14 +170,16 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input,
                          const cv::Scalar& backgroundValue_ = cvScalar_set<CV_MAKETYPE(CV_32F, CV_MAT_CN(T))>(0)) {
     static_assert(isSupportedInterpolation<INTER_F>, "Interpolation type not supported yet.");
 
-    const std::array<fk::RawPtr<fk::_2D, CUDA_T(T)>, NPtr> fk_input{ gpuMat2RawPtr2D_arr<CUDA_T(T), NPtr>(input) };
-    const fk::Size dSize{ dsize.width, dsize.height };
+    constexpr fk::AspectRatio AR = static_cast<fk::AspectRatio>(AR_);
+    constexpr fk::InterpolationType IType = static_cast<fk::InterpolationType>(INTER_F);
+
     constexpr int defaultType = CV_MAKETYPE(CV_32F, CV_MAT_CN(T));
+    const std::array<fk::RawPtr<fk::_2D, CUDA_T(T)>, NPtr> fk_input{ gpuMat2RawPtr2D_arr<CUDA_T(T), NPtr>(input) };
+
     using PixelReadOp = fk::PerThreadRead<fk::_2D, CUDA_T(T)>;
     using O = CUDA_T(defaultType);
     const O backgroundValue = cvScalar2CUDAV<defaultType>::get(backgroundValue_);
-    constexpr fk::InterpolationType IType = static_cast<fk::InterpolationType>(INTER_F);
-    constexpr fk::AspectRatio AR = static_cast<fk::AspectRatio>(AR_);
+    
     const auto readOP = PixelReadOp::build_batch(fk_input);
     const auto sizeArr = fk::make_set_std_array<NPtr>(fk::Size(dsize.width, dsize.height));
     const auto backgroundArr = fk::make_set_std_array<NPtr>(backgroundValue);
@@ -183,6 +191,31 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input,
         const auto resizeDFs = Resize::build_batch(readOP, sizeArr);
         return fk::BatchRead<NPtr, fk::CONDITIONAL_WITH_DEFAULT>::build(resizeDFs, usedPlanes, backgroundValue);
     }
+}
+
+inline constexpr auto crop(const cv::Rect2d& rect) {
+    return fk::Crop<>::build(fk::Rect(static_cast<uint>(rect.x), static_cast<uint>(rect.y), static_cast<int>(rect.width), static_cast<int>(rect.height)));
+}
+
+template <int BATCH>
+inline constexpr auto crop(const std::array<cv::Rect2d, BATCH>& rects) {
+    std::array<fk::Rect, BATCH> fk_rects{};
+
+    for (int i = 0; i < BATCH; ++i) {
+        const auto tmp = rects[i];
+        fk_rects[i] = fk::Rect(static_cast<uint>(tmp.x), static_cast<uint>(tmp.y), static_cast<int>(tmp.width), static_cast<int>(tmp.height));
+    }
+    return fk::Crop<>::build(fk_rects);
+}
+
+template <typename BackIOp>
+inline constexpr auto crop(const BackIOp& backIOp, const cv::Rect2d& rect) {
+    return fk::Crop<BackIOp>::build(backIOp, fk::Rect(static_cast<uint>(rect.x), static_cast<uint>(rect.y), static_cast<int>(rect.width), static_cast<int>(rect.height)));
+}
+
+template <typename BackIOp, int BATCH>
+inline constexpr auto crop(const BackIOp& backIOp, const std::array<cv::Rect2d, BATCH>& rects) {
+    return backIOp.then(crop(rects));
 }
 
 template <int O>
