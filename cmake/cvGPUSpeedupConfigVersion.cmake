@@ -9,7 +9,7 @@
 # The variable CVF_VERSION must be set before calling configure_file().
 
 
-set(PACKAGE_VERSION "0.17.0")
+set(PACKAGE_VERSION "0.18.0")
 
 if(PACKAGE_VERSION VERSION_LESS PACKAGE_FIND_VERSION)
   set(PACKAGE_VERSION_COMPATIBLE FALSE)
@@ -21,7 +21,7 @@ else()
       string(REGEX REPLACE "^0+" "" CVF_VERSION_MAJOR "${CVF_VERSION_MAJOR}")
     endif()
   else()
-    set(CVF_VERSION_MAJOR "0.17.0")
+    set(CVF_VERSION_MAJOR "0.18.0")
   endif()
 
   if(PACKAGE_FIND_VERSION_RANGE)
