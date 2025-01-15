@@ -1,4 +1,4 @@
-/* Copyright 2024 Oscar Amoros Huguet
+/* Copyright 2024-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ struct VerticalFusion {
         Loop loop;
         loop.params = dFunc.params;
 
-        fk::executeOperations(stream, readDF, loop, fk::Write<fk::PerThreadWrite<fk::_1D, OutputType>>{ {output.ptr()} });
+        fk::executeOperations<false>(stream, readDF, loop, fk::Write<fk::PerThreadWrite<fk::_1D, OutputType>>{ {output.ptr()} });
     }
 };
 

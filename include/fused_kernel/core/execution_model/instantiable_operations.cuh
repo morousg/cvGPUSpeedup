@@ -17,10 +17,12 @@
 
 #include <vector_types.h>
 #include <fused_kernel/core/execution_model/operation_tuple.cuh>
+#include <fused_kernel/core/execution_model/thread_fusion.cuh>
 #include <fused_kernel/core/utils/parameter_pack_utils.cuh>
 #include <fused_kernel/core/data/ptr_nd.cuh>
 #include <fused_kernel/core/data/size.h>
 #include <fused_kernel/core/data/array.cuh>
+#include <fused_kernel/core/constexpr_libs/constexpr_cmath.cuh>
 
 namespace fk { // namespace FusedKernel
 
@@ -143,10 +145,8 @@ namespace fk { // namespace FusedKernel
             return then(cIOp).then(cIOps...);
         }
 
-        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const ReadInstantiableOperation<Operation>& mySelf) {
-            return { Operation::num_elems_x(Point(), mySelf),
-                     Operation::num_elems_y(Point(), mySelf),
-                     Operation::num_elems_z(Point(), mySelf)};
+        FK_HOST_DEVICE_CNST ActiveThreads getActiveThreads() const {
+            return Operation::getActiveThreads(*this);
         }
     };
 
@@ -199,10 +199,8 @@ namespace fk { // namespace FusedKernel
             return then(cIOp).then(cIOps...);
         }
 
-        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const ReadBackInstantiableOperation<Operation>& mySelf) {
-            return { Operation::num_elems_x(Point(), mySelf),
-                     Operation::num_elems_y(Point(), mySelf),
-                     Operation::num_elems_z(Point(), mySelf)};
+        FK_HOST_DEVICE_CNST ActiveThreads getActiveThreads() const {
+            return Operation::getActiveThreads(*this);
         }
     };
 
@@ -416,17 +414,29 @@ namespace fk { // namespace FusedKernel
             }
         }
 
-        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
+        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const OperationDataType& opData) {
             return Operation::num_elems_x(thread, opData.params.opData[thread.z]);
         }
-        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const OperationDataType& opData) {
             return Operation::num_elems_y(thread, opData.params.opData[thread.z]);
         }
-        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const OperationDataType& opData) {
             return BATCH;
         }
-        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationDataType& opData) {
             return Operation::pitch(thread, opData.params.opData[thread.z]);
+        }
+    private:
+        template <size_t... Idx>
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads_helper(const std::index_sequence<Idx...>&,
+                                                                  const OperationDataType& opData) {
+            return { cxp::max(num_elems_x(Point(0u, 0u, static_cast<uint>(Idx)), opData)...),
+                     cxp::max(num_elems_y(Point(0u, 0u, static_cast<uint>(Idx)), opData)...),
+                     static_cast<uint>(BATCH) };
+        }
+    public:
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return getActiveThreads_helper(std::make_index_sequence<BATCH>{}, opData);
         }
         using InstantiableType = Read<BatchRead<BATCH, PP, Operation>>;
         DEFAULT_BUILD
@@ -502,6 +512,68 @@ namespace fk { // namespace FusedKernel
         build(const std::array<IOp, BATCH>& instantiableOperations,
               const int& usedPlanes, const typename IOp::Operation::OutputType& defaultValue) {
             return BatchRead<BATCH, PP, typename IOp::Operation>::build(instantiableOperations, usedPlanes, defaultValue);
+        }
+    };
+
+    template <int BATCH, typename Operation = void>
+    struct BatchWrite {
+        using InputType = typename Operation::InputType;
+        using ParamsType = typename Operation::ParamsType[BATCH];
+        using InstanceType = WriteType;
+        static constexpr bool THREAD_FUSION{ Operation::THREAD_FUSION };
+        using WriteDataType = typename Operation::WriteDataType;
+        using OperationDataType = OperationData<BatchWrite<BATCH, Operation>>;
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_HOST_DEVICE_FUSE void exec(const Point& thread,
+            const ThreadFusionType<InputType, ELEMS_PER_THREAD>& input,
+            const OperationDataType& opData) {
+            if constexpr (THREAD_FUSION) {
+                Operation::exec<ELEMS_PER_THREAD>(thread, input, opData.params[thread.z]);
+            }
+            else {
+                Operation::exec(thread, input, opData.params[thread.z]);
+            }
+        }
+        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const OperationDataType& opData) {
+            return Operation::num_elems_x(thread, opData.params[thread.z]);
+        }
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationDataType& opData) {
+            return Operation::pitch(thread, opData.params[thread.z]);
+        }
+        using InstantiableType = Write<BatchWrite<BATCH, Operation>>;
+        DEFAULT_BUILD
+    private:
+        // DEVICE FUNCTION BASED BUILDERS
+
+        template <int... Idx>
+        FK_HOST_FUSE InstantiableType build_helper(const std::array<Instantiable<Operation>, BATCH>& iOps,
+                                                   const std::integer_sequence<int, Idx...>&) {
+            return { {{(iOps[Idx].params)...}} };
+        }
+
+        // END DEVICE FUNCTION BASED BUILDERS
+    public:
+        // DEVICE FUNCTION BASED BUILDERS
+
+        /// @brief build(): host function to create a Read instance PROCESS_ALL
+        /// @param instantiableOperations 
+        /// @return 
+        template <typename IOp>
+        FK_HOST_FUSE InstantiableType build(const std::array<IOp, BATCH>& iOps) {
+            static_assert(isWriteType<IOp>);
+            return build_helper(iOps, std::make_integer_sequence<int, BATCH>{});
+        }
+        // END DEVICE FUNCTION BASED BUILDERS
+        DEFAULT_WRITE_BATCH_BUILD
+    };
+
+    template <int BATCH>
+    struct BatchWrite<BATCH, void> {
+        using InstaceType = WriteType;
+        template <typename IOp>
+        FK_HOST_FUSE auto build(const std::array<IOp, BATCH>& iOps) {
+            return BatchWrite<BATCH, typename IOp::Operation>::build(iOps);
         }
     };
 
@@ -603,14 +675,14 @@ namespace fk { // namespace FusedKernel
     template <typename Enabler, typename... Operations>
     struct FusedOperationOutputType;
 
-    template <typename... Operations>
-    struct FusedOperationOutputType<std::enable_if_t<isWriteType<LastType_t<Operations...>>>, Operations...> {
-        using type = typename LastType_t<Operations...>::InputType;
+    template <typename Operation>
+    struct FusedOperationOutputType<std::enable_if_t<isWriteType<Operation>>, Operation> {
+        using type = typename Operation::InputType;
     };
 
-    template <typename... Operations>
-    struct FusedOperationOutputType<std::enable_if_t<!isWriteType<LastType_t<Operations...>>>, Operations...> {
-        using type = typename LastType_t<Operations...>::OutputType;
+    template <typename Operation>
+    struct FusedOperationOutputType<std::enable_if_t<!isWriteType<Operation>>, Operation> {
+        using type = typename Operation::OutputType;
     };
 
     template <typename... Operations>
@@ -652,7 +724,7 @@ namespace fk { // namespace FusedKernel
                            !allUnaryTypes<Operations...>>, Operations...> {
         using InputType = typename FirstType_t<Operations...>::InputType;
         using ParamsType = OperationTuple<Operations...>;
-        using OutputType = FOOT<Operations...>;
+        using OutputType = FOOT<LastType_t<Operations...>>;
         using InstanceType = BinaryType;
         using OperationDataType = OperationData<FusedOperation_<void, Operations...>>;
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input,
@@ -666,7 +738,7 @@ namespace fk { // namespace FusedKernel
     template <typename... Operations>
     struct FusedOperation_<std::enable_if_t<isAnyReadType<FirstType_t<Operations...>>>, Operations...> {
         using ParamsType = OperationTuple<Operations...>;
-        using OutputType = FOOT<Operations...>;
+        using OutputType = FOOT<LastType_t<Operations...>>;
         using InstanceType = ReadType;
         using ReadDataType = typename FirstType_t<Operations...>::ReadDataType;
         // In the future we can improve this by splitting the read op from the compute ops
@@ -695,6 +767,10 @@ namespace fk { // namespace FusedKernel
             return ParamsType::Operation::num_elems_z(thread, opData.params.instance);
         }
 
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return { num_elems_x(Point(), opData), num_elems_y(Point(), opData), num_elems_z(Point(), opData) };
+        }
+
         using InstantiableType = Read<FusedOperation_<void, Operations...>>;
         DEFAULT_BUILD
         DEFAULT_READ_BATCH_BUILD
@@ -703,7 +779,7 @@ namespace fk { // namespace FusedKernel
     template <typename... Operations>
     struct FusedOperation_<std::enable_if_t<isWriteType<FirstType_t<Operations...>>>, Operations...> {
         using ParamsType = OperationTuple<Operations...>;
-        using OutputType = FOOT<Operations...>;
+        using OutputType = FOOT<LastType_t<Operations...>>;
         using InputType = typename FirstType_t<Operations...>::InputType;
         using InstanceType = MidWriteType;
         // THREAD_FUSION in this case will not be used in the current Transform implementation
@@ -723,7 +799,7 @@ namespace fk { // namespace FusedKernel
     template <typename... Operations>
     struct FusedOperation_<std::enable_if_t<isMidWriteType<FirstType_t<Operations...>>>, Operations...> {
         using ParamsType = OperationTuple<Operations...>;
-        using OutputType = FOOT<Operations...>;
+        using OutputType = FOOT<LastType_t<Operations...>>;
         using InputType = typename FirstType_t<Operations...>::InputType;
         using InstanceType = MidWriteType;
         // THREAD_FUSION in this case will not be used in the current Transform implementation
@@ -788,7 +864,6 @@ namespace fk { // namespace FusedKernel
 
     template <typename IOp, typename... InstantiableOperations>
     FK_HOST_DEVICE_CNST auto devicefunctions_to_operationtuple(const IOp& df, const InstantiableOperations&... dfs) {
-        using Op = typename IOp::Operation;
         return cat(devicefunctions_to_operationtuple(df), devicefunctions_to_operationtuple(dfs...));
     }
 

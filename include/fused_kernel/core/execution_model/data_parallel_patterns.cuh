@@ -139,13 +139,13 @@ namespace fk { // namespace FusedKernel
         }
 
         public:
-        template <typename FirstOp>
+        template <typename FirstIOp>
         FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const Details& details,
-                                                           const FirstOp& operation) {
+                                                           const FirstIOp& iOp) {
             if constexpr (Details::TFI::ENABLED) {
                 return details.activeThreads;
             } else {
-                return FirstOp::getActiveThreads(operation);
+                return FirstIOp::Operation::getActiveThreads(iOp);
             }
         }
 
@@ -200,7 +200,7 @@ namespace fk { // namespace FusedKernel
             using TFI = typename Details::TFI;
 
             if constexpr (TFI::ENABLED) {
-                const ActiveThreads initAT = FirstIOp::getActiveThreads(firstIOp);
+                const ActiveThreads initAT = firstIOp.getActiveThreads();
                 const ActiveThreads gridActiveThreads(static_cast<uint>(ceil(initAT.x / static_cast<float>(TFI::elems_per_thread))),
                                                       initAT.y, initAT.z);
                 const bool threadDivisible = isThreadDivisible<TFI::ENABLED>(TFI::elems_per_thread, firstIOp, iOps...);

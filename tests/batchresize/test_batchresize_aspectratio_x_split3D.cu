@@ -36,7 +36,7 @@ constexpr size_t INCREMENT = 10;
 #ifndef CUDART_MAJOR_VERSION
 #error CUDART_MAJOR_VERSION Undefined!
 #elif (CUDART_MAJOR_VERSION == 11)
-constexpr size_t NUM_EXPERIMENTS = 5;
+constexpr size_t NUM_EXPERIMENTS = 4;
 #elif (CUDART_MAJOR_VERSION == 12 && BENCHMARK_ENABLED)
 constexpr size_t NUM_EXPERIMENTS = 30;
 #elif (CUDART_MAJOR_VERSION == 12)

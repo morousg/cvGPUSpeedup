@@ -51,7 +51,7 @@ bool test_cvtColor(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_
             POP_RANGE
             // cvGPUSpeedup
             PUSH_RANGE("Launching cvGS")
-            cvGS::executeOperations(d_input, d_output_cvGS, cv_stream, cvGS::cvtColor<CC, CV_TYPE_I, CV_TYPE_O>());
+            cvGS::executeOperations<false>(d_input, d_output_cvGS, cv_stream, cvGS::cvtColor<CC, CV_TYPE_I, CV_TYPE_O>());
             POP_RANGE
 
             d_output_cv.download(h_cvResults, cv_stream);

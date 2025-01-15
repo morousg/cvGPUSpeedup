@@ -1,4 +1,4 @@
-﻿/* Copyright 2024 Oscar Amoros Huguet
+﻿/* Copyright 2024-2025 Oscar Amoros Huguet
    Copyright 2024 Albert Andaluz Gonzalez
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -260,7 +260,7 @@ bool test_npp_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cuda
       const auto readOp = fk::ResizeRead<fk::INTER_LINEAR>::build(readInstantiableArray, sizeArray);
       const auto split = fk::Write<fk::TensorSplit<float3>>{d_tensor.ptr()};
 
-      fk::executeOperations(compute_stream, readOp, colorConvert, multiply, sub, div, split);
+      fk::executeOperations<false>(compute_stream, readOp, colorConvert, multiply, sub, div, split);
       STOP_FK_BENCHMARK
       // copy tensor
       gpuErrchk(cudaMemcpyAsync(h_tensor.ptr().data, d_tensor.ptr().data, h_tensor.sizeInBytes(),

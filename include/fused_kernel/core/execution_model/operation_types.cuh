@@ -1,4 +1,4 @@
-/* Copyright 2023-2024 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -28,47 +28,48 @@ namespace fk {
     struct MidWriteType {};
     struct WriteType {};
 
-    template <typename OperationORInstantiableOperation>
-    constexpr bool isReadType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, ReadType>;
+    template <typename OpORIOp>
+    constexpr bool isReadType = std::is_same_v<typename OpORIOp::InstanceType, ReadType>;
 
-    template <typename OperationORInstantiableOperation>
-    constexpr bool isReadBackType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, ReadBackType>;
+    template <typename OpORIOp>
+    constexpr bool isReadBackType = std::is_same_v<typename OpORIOp::InstanceType, ReadBackType>;
 
     using ReadTypeList = TypeList<ReadType, ReadBackType>;
 
-    template <typename OperationORInstantiableOperation>
-    constexpr bool isAnyReadType = one_of_v<typename OperationORInstantiableOperation::InstanceType, ReadTypeList>;
+    template <typename OpORIOp>
+    constexpr bool isAnyReadType = one_of_v<typename OpORIOp::InstanceType, ReadTypeList>;
 
-    template <typename OperationORInstantiableOperation, typename = void>
+    template <typename OpORIOp, typename = void>
     struct is_any_read_type : std::false_type {};
 
-    template <typename OperationORInstantiableOperation>
-    struct is_any_read_type<OperationORInstantiableOperation, std::enable_if_t<isAnyReadType<OperationORInstantiableOperation>, void>> : std::true_type {};
+    template <typename OpORIOp>
+    struct is_any_read_type<OpORIOp, std::enable_if_t<std::is_same_v<typename OpORIOp::InstanceType, ReadType> ||
+                                                      std::is_same_v<typename OpORIOp::InstanceType, ReadBackType>, void>> : std::true_type {};
 
-    template <typename OperationORInstantiableOperation>
-    constexpr bool isUnaryType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, UnaryType>;
+    template <typename OpORIOp>
+    constexpr bool isUnaryType = std::is_same_v<typename OpORIOp::InstanceType, UnaryType>;
 
-    template <typename OperationORInstantiableOperation>
-    constexpr bool isBinaryType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, BinaryType>;
+    template <typename OpORIOp>
+    constexpr bool isBinaryType = std::is_same_v<typename OpORIOp::InstanceType, BinaryType>;
 
-    template <typename OperationORInstantiableOperation>
-    constexpr bool isTernaryType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, TernaryType>;
+    template <typename OpORIOp>
+    constexpr bool isTernaryType = std::is_same_v<typename OpORIOp::InstanceType, TernaryType>;
 
-    template <typename OperationORInstantiableOperation>
-    constexpr bool isWriteType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, WriteType>;
+    template <typename OpORIOp>
+    constexpr bool isWriteType = std::is_same_v<typename OpORIOp::InstanceType, WriteType>;
 
-    template <typename OperationORInstantiableOperation>
-    constexpr bool isMidWriteType = std::is_same_v<typename OperationORInstantiableOperation::InstanceType, MidWriteType>;
+    template <typename OpORIOp>
+    constexpr bool isMidWriteType = std::is_same_v<typename OpORIOp::InstanceType, MidWriteType>;
 
     using ComputeTypeList = TypeList<UnaryType, BinaryType, TernaryType>;
 
-    template <typename OperationORInstantiableOperation>
-    constexpr bool isComputeType = one_of_v<typename OperationORInstantiableOperation::InstanceType, ComputeTypeList>;
+    template <typename OpORIOp>
+    constexpr bool isComputeType = one_of_v<typename OpORIOp::InstanceType, ComputeTypeList>;
 
     using WriteTypeList = TypeList<WriteType, MidWriteType>;
 
-    template <typename OperationORInstantiableOperation>
-    constexpr bool isAnyWriteType = one_of_v<typename OperationORInstantiableOperation::InstanceType, WriteTypeList>;
+    template <typename OpORIOp>
+    constexpr bool isAnyWriteType = one_of_v<typename OpORIOp::InstanceType, WriteTypeList>;
 
     template <typename IOp>
     using GetInputType_t = typename IOp::Operation::InputType;

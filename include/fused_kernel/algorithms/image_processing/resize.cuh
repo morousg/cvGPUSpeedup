@@ -44,44 +44,34 @@ namespace fk {
         DEFAULT_BUILD
     };
 
-    enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
+    enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2, PRESERVE_AR_LEFT = 3 };
 
     template <enum InterpolationType IType, enum AspectRatio = IGNORE_AR, typename T = void>
     struct ResizeReadParams {
         Size dstSize; // This is the destination size used to compute the src_conv_factors
         float2 src_conv_factors;
         InterpolationParameters<IType> params;
-    };
-
-    template <enum InterpolationType IType, typename T>
-    struct ResizeReadParams<IType, PRESERVE_AR, T> {
-        Size dstSize; // This is the destination size used to compute the src_conv_factors
-        float2 src_conv_factors;
-        InterpolationParameters<IType> params;
         int x1, y1; // Top left
         int x2, y2; // Bottom right
         T defaultValue;
     };
 
-    template <enum InterpolationType IType, typename T>
-    struct ResizeReadParams<IType, PRESERVE_AR_RN_EVEN, T> {
+    template <enum InterpolationType IType>
+    struct ResizeReadParams<IType, IGNORE_AR, void> {
         Size dstSize; // This is the destination size used to compute the src_conv_factors
         float2 src_conv_factors;
         InterpolationParameters<IType> params;
-        int x1, y1; // Top left
-        int x2, y2; // Bottom right
-        T defaultValue;
     };
 
     template <enum InterpolationType IType, enum AspectRatio AR = AspectRatio::IGNORE_AR, typename BackFunction_ = void>
     struct ResizeRead {
         using BackFunction = BackFunction_;
-        static constexpr bool THREAD_FUSION{ false };
         using InstanceType = ReadBackType;
         using OutputType = typename Interpolate<IType, BackFunction>::OutputType;
         using ParamsType = ResizeReadParams<IType, AR, std::conditional_t<AR == IGNORE_AR, void, OutputType>>;
         using ReadDataType = typename BackFunction::Operation::OutputType;
         using OperationDataType = OperationData<ResizeRead<IType, AR, BackFunction>>;
+        static constexpr bool THREAD_FUSION{ false };
     private:
         FK_HOST_DEVICE_FUSE OutputType exec_resize(const Point& thread, const OperationDataType& opData) {
             const float fx = opData.params.src_conv_factors.x;
@@ -96,7 +86,7 @@ namespace fk {
             return Interpolate<IType, BackFunction>::exec(rezisePoint, { opData.params.params, opData.back_function });
         }
 
-        FK_HOST_FUSE std::pair<int, int> compute_target_size(const Size& srcSize, const Size& dstSize) {
+        FK_HOST_FUSE Size compute_target_size(const Size& srcSize, const Size& dstSize) {
             const float scaleFactor = dstSize.height / (float)srcSize.height;
             const int targetHeight = dstSize.height;
             const int targetWidth = static_cast<int>(cxp::round(scaleFactor * srcSize.width));
@@ -107,18 +97,18 @@ namespace fk {
                     const float scaleFactorTemp = dstSize.width / (float)srcSize.width;
                     const int targetWidthTemp2 = dstSize.width;
                     const int targetHeightTemp = static_cast<int> (cxp::round(scaleFactorTemp * srcSize.height));
-                    return std::make_pair(targetWidthTemp2, targetHeightTemp - (targetHeightTemp % 2));
+                    return Size(targetWidthTemp2, targetHeightTemp - (targetHeightTemp % 2));
                 } else {
-                    return std::make_pair(targetWidthTemp, targetHeight);
+                    return Size(targetWidthTemp, targetHeight);
                 }
             } else {
                 if (targetWidth > dstSize.width) {
                     const float scaleFactorTemp = dstSize.width / (float)srcSize.width;
                     const int targetWidthTemp = dstSize.width;
                     const int targetHeightTemp = static_cast<int> (cxp::round(scaleFactorTemp * srcSize.height));
-                    return std::make_pair(targetWidthTemp, targetHeightTemp);
+                    return Size(targetWidthTemp, targetHeightTemp);
                 } else {
-                    return std::make_pair(targetWidth, targetHeight);
+                    return Size(targetWidth, targetHeight);
                 }
             }
         }
@@ -149,6 +139,10 @@ namespace fk {
             return 1;
         }
  
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return { num_elems_x(Point(), opData), num_elems_y(Point(), opData), num_elems_z(Point(), opData) };
+        }
+
         using InstantiableType = ReadBack<ResizeRead<IType, AR, BackFunction_>>;
         DEFAULT_BUILD
 
@@ -174,26 +168,45 @@ namespace fk {
         build(const BackFunction& backFunction, const Size& dstSize, const OutputType& backgroundValue) {
             const Size srcSize = Num_elems<BackFunction>::size(Point(), backFunction);
 
-            const auto [targetWidth, targetHeight] = compute_target_size(srcSize, dstSize);
+            const Size targetSize = compute_target_size(srcSize, dstSize);
 
-            const int x1 = static_cast<int>((dstSize.width - targetWidth) / 2);
-            const int y1 = static_cast<int>((dstSize.height - targetHeight) / 2);
+            const double cfx = static_cast<double>(targetSize.width) / srcSize.width;
+            const double cfy = static_cast<double>(targetSize.height) / srcSize.height;
 
-            const double cfx = static_cast<double>(targetWidth) / srcSize.width;
-            const double cfy = static_cast<double>(targetHeight) / srcSize.height;
+            if constexpr (AR_ == PRESERVE_AR_LEFT) {
+                const int x1 = 0; // Always 0 to make sure the image is adjusted to the left
+                const int y1 = static_cast<int>((dstSize.height - targetSize.height) / 2);
 
-            const ParamsType resizeParams{
+                const ParamsType resizeParams{
                 dstSize,
                 { static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy) },
                 { srcSize },
                 /*x1*/ x1,
                 /*y1*/ y1,
-                /*x2*/ x1 + targetWidth - 1,
-                /*y2*/ y1 + targetHeight - 1,
+                /*x2*/ x1 + targetSize.width - 1,
+                /*y2*/ y1 + targetSize.height - 1,
                 /*defaultValue*/ backgroundValue
-            };
+                };
 
-            return { {resizeParams, backFunction} };
+                return { {resizeParams, backFunction} };
+
+            } else {
+                const int x1 = static_cast<int>((dstSize.width - targetSize.width) / 2);
+                const int y1 = static_cast<int>((dstSize.height - targetSize.height) / 2);
+
+                const ParamsType resizeParams{
+                dstSize,
+                { static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy) },
+                { srcSize },
+                /*x1*/ x1,
+                /*y1*/ y1,
+                /*x2*/ x1 + targetSize.width - 1,
+                /*y2*/ y1 + targetSize.height - 1,
+                /*defaultValue*/ backgroundValue
+                };
+
+                return { {resizeParams, backFunction} };
+            }
         }
 
         template <typename BF = BackFunction_>
@@ -281,26 +294,14 @@ namespace fk {
 
     template <enum InterpolationType IType, enum AspectRatio AR>
     struct ResizeRead<IType, AR, void> {
-        template <typename Operation>
-        FK_HOST_FUSE auto build(const typename ResizeRead<IType, AR, Read<Operation>>::ParamsType& params,
-                                const Read<Operation>& backfunction) {
-            return ResizeRead<IType, AR, Read<Operation>>::build(params, backfunction);
-        }
-
-        template <typename Operation>
-        FK_HOST_FUSE auto build(const typename ResizeRead<IType, AR, ReadBack<Operation>>::ParamsType& params,
-                                const ReadBack<Operation>& backfunction) {
-            return ResizeRead<IType, AR, ReadBack<Operation>>::build(params, backfunction);
-        }
-        
         template <typename BF, enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR, ReadBack<ResizeRead<IType, AR_, BF>>>
+        FK_HOST_FUSE std::enable_if_t<AR_ == IGNORE_AR && is_any_read_type<BF>::value, ReadBack<ResizeRead<IType, AR_, BF>>>
         build(const BF& backFunction, const Size& dstSize) {
             return ResizeRead<IType, AR_, BF>::build(backFunction, dstSize);
         }
 
         template <typename BF, enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, ReadBack<ResizeRead<IType, AR_, BF>>>
+        FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR && is_any_read_type<BF>::value, ReadBack<ResizeRead<IType, AR_, BF>>>
         build(const BF& backFunction, const Size& dstSize,
               const typename ResizeRead<IType, AR_, BF>::OutputType& backgroundValue) {
             return ResizeRead<IType, AR_, BF>::build(backFunction, dstSize, backgroundValue);

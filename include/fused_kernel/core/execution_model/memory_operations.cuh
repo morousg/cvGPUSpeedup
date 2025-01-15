@@ -1,5 +1,4 @@
-/* 
-   Copyright 2023-2025 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -101,6 +100,10 @@ namespace fk {
             return opData.params.dims.pitch;
         }
 
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return { num_elems_x(Point(), opData), num_elems_y(Point(), opData), num_elems_z(Point(), opData) };
+        }
+
         using InstantiableType = Read<PerThreadRead<D, T>>;
         DEFAULT_BUILD
         DEFAULT_BUILD_PARAMS
@@ -160,6 +163,11 @@ namespace fk {
         FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationDataType& opData) {
             return opData.params.dims.pitch;
         }
+
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return { num_elems_x(Point(), opData), num_elems_y(Point(), opData), num_elems_z(Point(), opData) };
+        }
+
         using InstantiableType = Read<TensorRead<T>>;
         DEFAULT_BUILD
         DEFAULT_READ_BATCH_BUILD
@@ -298,6 +306,9 @@ namespace fk {
         FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationDataType& opData) {
             return opData.params.dims.pitch;
         }
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return { num_elems_x(Point(), opData), num_elems_y(Point(), opData), num_elems_z(Point(), opData) };
+        }
         using InstantiableType = Read<TensorPack<T>>;
         DEFAULT_BUILD
         DEFAULT_READ_BATCH_BUILD
@@ -342,6 +353,9 @@ namespace fk {
         }
         FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationDataType& opData) {
             return opData.params.dims.pitch;
+        }
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return { num_elems_x(Point(), opData), num_elems_y(Point(), opData), num_elems_z(Point(), opData) };
         }
         using InstantiableType = Read<TensorTPack<T>>;
         DEFAULT_BUILD
@@ -407,38 +421,8 @@ namespace fk {
                 return InstantiableType{ {{output.at(0).ptr(), output.at(1).ptr(), output.at(2).ptr(), output.at(3).ptr()}} };
             }
         }
+        DEFAULT_WRITE_BATCH_BUILD
     };
-
-    template <int BATCH, typename Operation>
-    struct BatchWrite {
-        using InputType = typename Operation::InputType;
-        using ParamsType = typename Operation::ParamsType[BATCH];
-        using InstaceType = WriteType;
-        static constexpr bool THREAD_FUSION{ Operation::THREAD_FUSION };
-        using WriteDataType = typename Operation::WriteDataType;
-        using OperationDataType = OperationData<BatchWrite<BATCH, Operation>>;
-
-        template <uint ELEMS_PER_THREAD = 1>
-        FK_HOST_DEVICE_FUSE void exec(const Point& thread,
-                                      const ThreadFusionType<InputType, ELEMS_PER_THREAD>& input,
-                                      const OperationDataType& opData) {
-            if constexpr (THREAD_FUSION) {
-                Operation::exec<ELEMS_PER_THREAD>(thread, input, opData.params[thread.z]);
-            } else {
-                Operation::exec(thread, input, opData.params[thread.z]);
-            }
-        }
-        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const OperationDataType& opData) {
-            return Operation::num_elems_x(thread, opData.params[thread.z]);
-        }
-        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationDataType& opData) {
-            return Operation::pitch(thread, opData.params[thread.z]);
-        }
-        using InstantiableType = Write<BatchWrite<BATCH, Operation>>;
-        DEFAULT_BUILD
-    };
-
-
 
     /* The following code has the following copy right
 
@@ -512,6 +496,11 @@ namespace fk {
         FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationDataType& opData) {
             return Operation::pitch(thread, opData.params.opData[thread.z]);
         }
+
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return { num_elems_x(Point(), opData), num_elems_y(Point(), opData), num_elems_z(Point(), opData) };
+        }
+
         using InstantiableType = Read<CircularBatchRead<direction, Operation, BATCH>>;
         DEFAULT_BUILD
     };
@@ -577,6 +566,11 @@ namespace fk {
         FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationDataType& opData) {
             return Operation::pitch(thread, opData.params.opData);
         }
+
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return { num_elems_x(Point(), opData), num_elems_y(Point(), opData), num_elems_z(Point(), opData) };
+        }
+
         using InstantiableType = Read<CircularTensorRead<direction, Operation, BATCH>>;
         DEFAULT_BUILD
     };

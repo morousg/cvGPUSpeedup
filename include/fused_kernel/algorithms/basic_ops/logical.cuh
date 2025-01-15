@@ -1,4 +1,4 @@
-/* Copyright 2023-2024 Oscar Amoros Huguet
+/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include <fused_kernel/core/execution_model/vector_operations.cuh>
 #include <fused_kernel/core/data/tuple.cuh>
 #include <fused_kernel/core/execution_model/default_builders_def.h>
+#include <fused_kernel/core/constexpr_libs/constexpr_cmath.cuh>
 
 namespace fk {
     enum ShiftDirection { Left, Right };
@@ -63,7 +64,7 @@ namespace fk {
         using InputType = I;
         using OutputType = bool;
         using InstanceType = UnaryType;
-        using AcceptedTypes = TypeList<uchar, ushort, uint>;
+        using AcceptedTypes = TypeList<uchar, ushort, uint, ulong, ulonglong>;
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
             static_assert(one_of_v<InputType, AcceptedTypes>, "Input type not valid for UnaryIsEven");
             return (input & 1u) == 0;
@@ -80,8 +81,9 @@ namespace fk {
         using InstanceType = BinaryType;
         using OperationDataType = OperationData<MaxBase<I, P, O>>;
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const OperationDataType& opData) {
-            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Max_ can't work with cuda vector types.");
-            return input >= opData.params ? input : opData.params;
+            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>,
+                "Max_ can't work with cuda vector types.");
+            return cxp::max(input, opData.params);
         }
     };
 
@@ -91,8 +93,9 @@ namespace fk {
         using InputType = Tuple<I, P>;
         using InstanceType = UnaryType;
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
-            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Max_ can't work with cuda vector types.");
-            return get<0>(input) >= get<1>(input) ? get<0>(input) : get<1>(input);
+            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>,
+                "Max_ can't work with cuda vector types.");
+            return cxp::max(get<0>(input), get<1>(input));
         }
     };
 
@@ -130,8 +133,9 @@ namespace fk {
         using InstanceType = BinaryType;
         using OperationDataType = OperationData<MinBase<I, P, O>>;
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input, const OperationDataType& opData) {
-            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Min_ can't work with cuda vector types.");
-            return input <= opData.params ? input : opData.params;
+            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>,
+                "Min_ can't work with cuda vector types.");
+            return cxp::min(input, opData.params);
         }
     };
 
@@ -141,8 +145,9 @@ namespace fk {
         using InputType = Tuple<I,P>;
         using InstanceType = UnaryType;
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
-            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>, "Min_ can't work with cuda vector types.");
-            return get<0>(input) <= get<1>(input) ? get<0>(input) : get<1>(input);
+            static_assert(!validCUDAVec<I> && !validCUDAVec<P> && !validCUDAVec<O>,
+                "Min_ can't work with cuda vector types.");
+            return cxp::min(get<0>(input), get<1>(input));
         }
     };
 
@@ -184,7 +189,6 @@ namespace fk {
         DEFAULT_UNARY_BUILD
     };
 } //namespace fk
-
 #include <fused_kernel/core/execution_model/default_builders_undef.h>
 
 #endif
