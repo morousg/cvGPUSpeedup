@@ -17,6 +17,7 @@
 
 #include <vector_types.h>
 #include <fused_kernel/core/execution_model/operation_tuple.cuh>
+#include <fused_kernel/core/execution_model/thread_fusion.cuh>
 #include <fused_kernel/core/utils/parameter_pack_utils.cuh>
 #include <fused_kernel/core/data/ptr_nd.cuh>
 #include <fused_kernel/core/data/size.h>
@@ -511,6 +512,68 @@ namespace fk { // namespace FusedKernel
         build(const std::array<IOp, BATCH>& instantiableOperations,
               const int& usedPlanes, const typename IOp::Operation::OutputType& defaultValue) {
             return BatchRead<BATCH, PP, typename IOp::Operation>::build(instantiableOperations, usedPlanes, defaultValue);
+        }
+    };
+
+    template <int BATCH, typename Operation = void>
+    struct BatchWrite {
+        using InputType = typename Operation::InputType;
+        using ParamsType = typename Operation::ParamsType[BATCH];
+        using InstanceType = WriteType;
+        static constexpr bool THREAD_FUSION{ Operation::THREAD_FUSION };
+        using WriteDataType = typename Operation::WriteDataType;
+        using OperationDataType = OperationData<BatchWrite<BATCH, Operation>>;
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_HOST_DEVICE_FUSE void exec(const Point& thread,
+            const ThreadFusionType<InputType, ELEMS_PER_THREAD>& input,
+            const OperationDataType& opData) {
+            if constexpr (THREAD_FUSION) {
+                Operation::exec<ELEMS_PER_THREAD>(thread, input, opData.params[thread.z]);
+            }
+            else {
+                Operation::exec(thread, input, opData.params[thread.z]);
+            }
+        }
+        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const OperationDataType& opData) {
+            return Operation::num_elems_x(thread, opData.params[thread.z]);
+        }
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationDataType& opData) {
+            return Operation::pitch(thread, opData.params[thread.z]);
+        }
+        using InstantiableType = Write<BatchWrite<BATCH, Operation>>;
+        DEFAULT_BUILD
+    private:
+        // DEVICE FUNCTION BASED BUILDERS
+
+        template <int... Idx>
+        FK_HOST_FUSE InstantiableType build_helper(const std::array<Instantiable<Operation>, BATCH>& iOps,
+                                                   const std::integer_sequence<int, Idx...>&) {
+            return { {{(iOps[Idx].params)...}} };
+        }
+
+        // END DEVICE FUNCTION BASED BUILDERS
+    public:
+        // DEVICE FUNCTION BASED BUILDERS
+
+        /// @brief build(): host function to create a Read instance PROCESS_ALL
+        /// @param instantiableOperations 
+        /// @return 
+        template <typename IOp>
+        FK_HOST_FUSE InstantiableType build(const std::array<IOp, BATCH>& iOps) {
+            static_assert(isWriteType<IOp>);
+            return build_helper(iOps, std::make_integer_sequence<int, BATCH>{});
+        }
+        // END DEVICE FUNCTION BASED BUILDERS
+        DEFAULT_WRITE_BATCH_BUILD
+    };
+
+    template <int BATCH>
+    struct BatchWrite<BATCH, void> {
+        using InstaceType = WriteType;
+        template <typename IOp>
+        FK_HOST_FUSE auto build(const std::array<IOp, BATCH>& iOps) {
+            return BatchWrite<BATCH, typename IOp::Operation>::build(iOps);
         }
     };
 

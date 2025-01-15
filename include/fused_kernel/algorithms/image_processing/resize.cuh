@@ -44,33 +44,23 @@ namespace fk {
         DEFAULT_BUILD
     };
 
-    enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
+    enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2, PRESERVE_AR_LEFT = 3 };
 
     template <enum InterpolationType IType, enum AspectRatio = IGNORE_AR, typename T = void>
     struct ResizeReadParams {
         Size dstSize; // This is the destination size used to compute the src_conv_factors
         float2 src_conv_factors;
         InterpolationParameters<IType> params;
-    };
-
-    template <enum InterpolationType IType, typename T>
-    struct ResizeReadParams<IType, PRESERVE_AR, T> {
-        Size dstSize; // This is the destination size used to compute the src_conv_factors
-        float2 src_conv_factors;
-        InterpolationParameters<IType> params;
         int x1, y1; // Top left
         int x2, y2; // Bottom right
         T defaultValue;
     };
 
-    template <enum InterpolationType IType, typename T>
-    struct ResizeReadParams<IType, PRESERVE_AR_RN_EVEN, T> {
+    template <enum InterpolationType IType>
+    struct ResizeReadParams<IType, IGNORE_AR, void> {
         Size dstSize; // This is the destination size used to compute the src_conv_factors
         float2 src_conv_factors;
         InterpolationParameters<IType> params;
-        int x1, y1; // Top left
-        int x2, y2; // Bottom right
-        T defaultValue;
     };
 
     template <enum InterpolationType IType, enum AspectRatio AR = AspectRatio::IGNORE_AR, typename BackFunction_ = void>
@@ -180,13 +170,14 @@ namespace fk {
 
             const Size targetSize = compute_target_size(srcSize, dstSize);
 
-            const int x1 = static_cast<int>((dstSize.width - targetSize.width) / 2);
-            const int y1 = static_cast<int>((dstSize.height - targetSize.height) / 2);
-
             const double cfx = static_cast<double>(targetSize.width) / srcSize.width;
             const double cfy = static_cast<double>(targetSize.height) / srcSize.height;
 
-            const ParamsType resizeParams{
+            if constexpr (AR_ == PRESERVE_AR_LEFT) {
+                const int x1 = 0; // Always 0 to make sure the image is adjusted to the left
+                const int y1 = static_cast<int>((dstSize.height - targetSize.height) / 2);
+
+                const ParamsType resizeParams{
                 dstSize,
                 { static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy) },
                 { srcSize },
@@ -195,9 +186,27 @@ namespace fk {
                 /*x2*/ x1 + targetSize.width - 1,
                 /*y2*/ y1 + targetSize.height - 1,
                 /*defaultValue*/ backgroundValue
-            };
+                };
 
-            return { {resizeParams, backFunction} };
+                return { {resizeParams, backFunction} };
+
+            } else {
+                const int x1 = static_cast<int>((dstSize.width - targetSize.width) / 2);
+                const int y1 = static_cast<int>((dstSize.height - targetSize.height) / 2);
+
+                const ParamsType resizeParams{
+                dstSize,
+                { static_cast<float>(1.0 / cfx), static_cast<float>(1.0 / cfy) },
+                { srcSize },
+                /*x1*/ x1,
+                /*y1*/ y1,
+                /*x2*/ x1 + targetSize.width - 1,
+                /*y2*/ y1 + targetSize.height - 1,
+                /*defaultValue*/ backgroundValue
+                };
+
+                return { {resizeParams, backFunction} };
+            }
         }
 
         template <typename BF = BackFunction_>

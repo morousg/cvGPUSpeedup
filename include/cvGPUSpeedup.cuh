@@ -1,4 +1,5 @@
-/* Copyright 2023-2025 Oscar Amoros Huguet
+/* Copyright 2025 Grup Mediapro S.L.U.
+   Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -26,7 +27,7 @@
 
 namespace cvGS {
 
-enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2 };
+enum AspectRatio { PRESERVE_AR = 0, IGNORE_AR = 1, PRESERVE_AR_RN_EVEN = 2, PRESERVE_AR_LEFT = 3 };
 
 template <typename T>
 inline constexpr fk::Ptr2D<T> gpuMat2Ptr2D(const cv::cuda::GpuMat& source) {
@@ -129,6 +130,19 @@ inline constexpr auto split(const std::vector<cv::cuda::GpuMat>& output) {
         fk_output.push_back(gpuMat2Ptr2D<BASE_CUDA_T(O)>(mat));
     }
     return fk::SplitWrite<fk::_2D, CUDA_T(O)>::build(fk_output);
+}
+
+template <int O, int N>
+inline constexpr auto split(const std::array<std::vector<cv::cuda::GpuMat>, N>& output) {
+    std::array<std::vector<fk::Ptr2D<BASE_CUDA_T(O)>>, N> fkOutput{};
+    for (int i = 0; i < N; ++i) {
+        std::vector<fk::Ptr2D<BASE_CUDA_T(O)>> fk_output;
+        for (auto& mat : output[i]) {
+            fk_output.push_back(gpuMat2Ptr2D<BASE_CUDA_T(O)>(mat));
+        }
+        fkOutput[i] = fk_output;
+    }
+    return fk::SplitWrite<fk::_2D, CUDA_T(O)>::build(fkOutput);
 }
 
 template <int O>
