@@ -75,6 +75,48 @@ namespace fk {
         }
     };
 
+    template<ND D>
+    struct StaticPtrAccessor;
+
+    template<>
+    struct StaticPtrAccessor<_1D> {
+        template <int W, typename T>
+        FK_HOST_DEVICE_FUSE T read(const Point& p, const StaticRawPtr<StaticPtrDims1D<W>, T>& ptr) {
+            return ptr.data[p.x];
+        }
+
+        template <int W, typename T>
+        FK_HOST_DEVICE_FUSE void write(const Point& p, StaticRawPtr<StaticPtrDims1D<W>, T>& ptr, const T& value) {
+            ptr.data[p.x] = value;
+        }
+    };
+
+    template<>
+    struct StaticPtrAccessor<_2D> {
+        template <int W, int H, typename T>
+        FK_HOST_DEVICE_FUSE T read(const Point& p, const StaticRawPtr<StaticPtrDims2D<W, H>, T>& ptr) {
+            return ptr.data[p.y][p.x];
+        }
+
+        template <int W, int H, typename T>
+        FK_HOST_DEVICE_FUSE void write(const Point& p, StaticRawPtr<StaticPtrDims2D<W, H>, T>& ptr, const T& value) {
+            ptr.data[p.y][p.x] = value;
+        }
+    };
+
+    template<>
+    struct StaticPtrAccessor<_3D> {
+        template <int W, int H, int P, typename T>
+        FK_HOST_DEVICE_FUSE T read(const Point& p, const StaticRawPtr<StaticPtrDims3D<W, H, P>, T>& ptr) {
+            return ptr.data[p.z][p.y][p.x];
+        }
+
+        template <int W, int H, int P, typename T>
+        FK_HOST_DEVICE_FUSE void write(const Point& p, StaticRawPtr<StaticPtrDims3D<W, H, P>, T>& ptr, const T& value) {
+            ptr.data[p.z][p.y][p.x] = value;
+        }
+    };
+
     template <ND D, typename T>
     struct PtrImpl;
 
