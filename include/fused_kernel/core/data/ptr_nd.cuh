@@ -117,6 +117,19 @@ namespace fk {
         }
     };
 
+    template <typename StaticRawPtr>
+    struct StaticPtr {
+        using Type = typename StaticRawPtr::type;
+        using At = StaticPtrAccessor<StaticRawPtr::ND>;
+        StaticRawPtr ptr_a;
+        inline constexpr StaticRawPtr ptr() const {
+            return ptr_a;
+        }
+        inline constexpr auto dims() const {
+            return ptr_a.dims;
+        }
+    };
+
     template <ND D, typename T>
     struct PtrImpl;
 
@@ -214,7 +227,7 @@ namespace fk {
 
     template <ND D, typename T>
     class Ptr {
-
+        using Type = T;
         using At = PtrAccessor<D>;
 
     protected:
@@ -378,6 +391,7 @@ namespace fk {
     template <typename T>
     class Ptr1D : public Ptr<_1D, T> {
     public:
+        inline constexpr Ptr1D<T>() {}
         inline constexpr Ptr1D<T>(const uint& num_elems, const uint& size_in_bytes = 0, const MemType& type_ = Device, const int& deviceID_ = 0) :
             Ptr<_1D, T>(PtrDims<_1D>(num_elems, size_in_bytes), type_, deviceID_) {}
 
