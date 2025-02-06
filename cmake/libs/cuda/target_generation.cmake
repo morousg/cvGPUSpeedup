@@ -1,4 +1,3 @@
- 
 function(set_default_cuda_target_properties TARGET_NAME)
     if (WIN32)
         list(APPEND COMPILER_CUDA_FLAGS -Xcompiler=/bigobj)
@@ -20,5 +19,18 @@ function(set_default_cuda_target_properties TARGET_NAME)
     #cuda 12 can compile in parallel, so let's use this 
     if (${CUDA_VERSION_MAJOR} GREATER_EQUAL 12)
         target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-split-compile=0>)
+    endif()
+    
+    if (NOT(${TEMPLATE_DEPTH} STREQUAL  "default"))
+    #bugfix for windows compilation of tests with more than 200 recursions
+    #set it in device code and host
+        target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-ftemplate-depth=${TEMPLATE_DEPTH}>)
+
+        if (WIN32)
+       #cannot be set, no compiler flag available
+        else() 
+        #asume clang or gcc on linux
+        target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-ftemplate-depth=${TEMPLATE_DEPTH}>)           
+        endif()
     endif()
 endfunction()
