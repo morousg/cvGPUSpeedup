@@ -351,6 +351,17 @@ bool testThreadFusionSameTypeIO_launcher_impl(cv::cuda::Stream& cv_stream, std::
     passed &= (testThreadFusionSameTypeIO<BASE ## C4, batchValues[IDX]>(cv_stream) && ...); \
     passed &= (testThreadFusionSameTypeIO<BASE ## C4, batchValues[IDX] + 1>(cv_stream) && ...);
 
+    // Warming up for the benchmarks
+#undef ENABLE_BENCHMARK
+    LAUNCH_testThreadFusionSameTypeIO(CV_8U)
+    LAUNCH_testThreadFusionSameTypeIO(CV_8S)
+    LAUNCH_testThreadFusionSameTypeIO(CV_16U)
+    LAUNCH_testThreadFusionSameTypeIO(CV_16S)
+    LAUNCH_testThreadFusionSameTypeIO(CV_32S)
+    LAUNCH_testThreadFusionSameTypeIO(CV_32F)
+    LAUNCH_testThreadFusionSameTypeIO(CV_64F)
+#define ENABLE_BENCHMARK
+
     LAUNCH_testThreadFusionSameTypeIO(CV_8U)
     LAUNCH_testThreadFusionSameTypeIO(CV_8S)
     LAUNCH_testThreadFusionSameTypeIO(CV_16U)

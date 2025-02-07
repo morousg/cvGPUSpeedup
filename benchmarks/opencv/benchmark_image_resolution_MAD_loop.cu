@@ -37,7 +37,7 @@ constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<F
 
 template <int CV_TYPE_I, int CV_TYPE_O>
 struct VerticalFusionMAD {
-    static inline void execute(const std::array<cv::cuda::GpuMat, 50>& crops,
+    static inline void execute(const std::array<cv::cuda::GpuMat, 1>& crops,
         const int& BATCH,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
@@ -63,7 +63,7 @@ template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
 bool benchmark_image_resolution_MAD_loop(cv::cuda::Stream& cv_stream, bool enabled) {
     constexpr size_t NUM_ELEMS_X = BATCH;
     constexpr size_t NUM_ELEMS_Y = BATCH;
-    constexpr size_t REAL_BATCH{ 50 };
+    constexpr size_t REAL_BATCH{ 1 };
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
@@ -193,7 +193,13 @@ int launch() {
     results["benchmark_image_resolution_MAD_loop"] &= launch_benchmark_image_resolution_MAD_loop<CV_INPUT, CV_OUTPUT>(iSeq, cv_stream, true);
 
     // Warming up for the benchmarks
-    results["benchmark_image_resolution_MAD_loop"] &= benchmark_image_resolution_MAD_loop<CV_8UC1, CV_32FC1, 8>(cv_stream, true);
+#undef ENABLE_BENCHMARK
+    LAUNCH_TESTS(CV_8UC1, CV_32FC1)
+    LAUNCH_TESTS(CV_8UC3, CV_32FC3)
+    LAUNCH_TESTS(CV_16UC4, CV_32FC4)
+    LAUNCH_TESTS(CV_32SC4, CV_32FC4)
+    LAUNCH_TESTS(CV_32FC4, CV_64FC4)
+#define ENABLE_BENCHMARK
 
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)

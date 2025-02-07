@@ -251,13 +251,20 @@ int launch() {
     std::unordered_map<std::string, bool> results;
     results["test_batchresize_aspectratio_x_split3D"] = true;
 
+#define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
+    results["test_batchresize_aspectratio_x_split3D"] &= launch_test_batchresize_aspectratio_x_split3D<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, std::make_index_sequence<batchValues.size()>{}, cv_stream, true);
+
 #ifdef ENABLE_BENCHMARK
     // Warming up for the benchmarks
-    results["test_batchresize_aspectratio_x_split3D"] &= test_batchresize_aspectratio_x_split3D<CV_8UC3, CV_32FC3, 5>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
+#undef ENABLE_BENCHMARK
+    LAUNCH_TESTS(CV_8UC3, CV_32FC3)
+    LAUNCH_TESTS(CV_8UC4, CV_32FC4)
+    LAUNCH_TESTS(CV_16UC3, CV_32FC3)
+    LAUNCH_TESTS(CV_16UC4, CV_32FC4)
+    LAUNCH_TESTS(CV_16SC3, CV_32FC3)
+    LAUNCH_TESTS(CV_16SC4, CV_32FC4)
+#define ENABLE_BENCHMARK
 #endif
-
-    #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-    results["test_batchresize_aspectratio_x_split3D"] &= launch_test_batchresize_aspectratio_x_split3D<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, std::make_index_sequence<batchValues.size()>{}, cv_stream, true);
 
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
     LAUNCH_TESTS(CV_8UC4, CV_32FC4)

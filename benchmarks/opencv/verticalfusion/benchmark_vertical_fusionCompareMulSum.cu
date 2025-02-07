@@ -28,7 +28,7 @@ constexpr size_t NUM_EXPERIMENTS = 15;
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 50;
 #elif (CUDART_MAJOR_VERSION == 12)
-constexpr size_t NUM_EXPERIMENTS = 60;
+constexpr size_t NUM_EXPERIMENTS = 200;
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 100;
 #endif // CUDART_MAJOR_VERSION
@@ -191,6 +191,11 @@ int launch() {
     std::make_index_sequence<batchValues.size()> iSeq{};
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
     results["launch_benchmark_vertical_fusion_loopMulAdd"] &= launch_benchmark_vertical_fusion_loopMulAdd<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
+
+    // Warming up for the benchmarks
+#undef ENABLE_BENCHMARK
+    LAUNCH_TESTS(CV_8UC1, CV_32FC1)
+#define ENABLE_BENCHMARK
 
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
 

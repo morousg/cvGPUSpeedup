@@ -398,17 +398,23 @@ int launch() {
   results["test_batchresize_x_split3D"] = true;
   std::make_index_sequence<batchValues.size()> iSeq{};
 
-#ifdef ENABLE_BENCHMARK
-  // Warming up for the benchmarks
-  results["test_batchresize_x_split3D_OCVBatch"] &=
-      test_batchresize_x_split3D_OCVBatch<CV_8UC3, CV_32FC3, 5>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
-#endif
-
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT)                                                                              \
   results["test_batchresize_x_split3D_OCVBatch"] &=                                                                    \
       test_batchresize_x_split3D_OCVBatch<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);       \
   results["test_batchresize_x_split3D"] &=                                                                             \
       test_batchresize_x_split3D<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
+
+#ifdef ENABLE_BENCHMARK
+    // Warming up for the benchmarks
+#undef ENABLE_BENCHMARK
+    LAUNCH_TESTS(CV_8UC3, CV_32FC3)
+    LAUNCH_TESTS(CV_8UC4, CV_32FC4)
+    LAUNCH_TESTS(CV_16UC3, CV_32FC3)
+    LAUNCH_TESTS(CV_16UC4, CV_32FC4)
+    LAUNCH_TESTS(CV_16SC3, CV_32FC3)
+    LAUNCH_TESTS(CV_16SC4, CV_32FC4)
+#define ENABLE_BENCHMARK
+#endif
 
   LAUNCH_TESTS(CV_8UC3, CV_32FC3)
   LAUNCH_TESTS(CV_8UC4, CV_32FC4)

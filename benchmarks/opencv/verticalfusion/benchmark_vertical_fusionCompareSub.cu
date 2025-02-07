@@ -192,6 +192,11 @@ int launch() {
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
     results["launch_benchmark_vertical_fusion_loopSub"] &= launch_benchmark_vertical_fusion_loopSub<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
 
+    // Warming up for the benchmarks
+#undef ENABLE_BENCHMARK
+    LAUNCH_TESTS(CV_8UC1, CV_32FC1)
+#define ENABLE_BENCHMARK
+
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
 
         CLOSE_BENCHMARK
