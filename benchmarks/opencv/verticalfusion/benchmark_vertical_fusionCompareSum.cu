@@ -193,9 +193,9 @@ int launch() {
     results["launch_benchmark_vertical_fusion_loopSum"] &= launch_benchmark_vertical_fusion_loopSum<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
 
     // Warming up for the benchmarks
-#undef ENABLE_BENCHMARK
+    warmup = true;
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
-#define ENABLE_BENCHMARK
+    warmup = false;
 
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
 

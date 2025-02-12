@@ -193,13 +193,13 @@ int launch() {
     results["benchmark_image_resolution_MAD_loop"] &= launch_benchmark_image_resolution_MAD_loop<CV_INPUT, CV_OUTPUT>(iSeq, cv_stream, true);
 
     // Warming up for the benchmarks
-#undef ENABLE_BENCHMARK
+    warmup = true;
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
     LAUNCH_TESTS(CV_16UC4, CV_32FC4)
     LAUNCH_TESTS(CV_32SC4, CV_32FC4)
     LAUNCH_TESTS(CV_32FC4, CV_64FC4)
-#define ENABLE_BENCHMARK
+    warmup = false;
 
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)

@@ -108,8 +108,9 @@ int launch() {
     results["test_read_convert_split"] &= test_read_convert_split<CV_INPUT, CV_OUTPUT, 1>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
 
 #ifdef ENABLE_BENCHMARK
+
     // Warming up for the benchmarks
-#undef ENABLE_BENCHMARK
+    warmup = true;
     LAUNCH_TESTS(CV_8UC2, CV_32FC2)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
     LAUNCH_TESTS(CV_8UC4, CV_32FC4)
@@ -128,7 +129,8 @@ int launch() {
     LAUNCH_TESTS(CV_32FC2, CV_64FC2)
     LAUNCH_TESTS(CV_32FC3, CV_64FC3)
     LAUNCH_TESTS(CV_32FC4, CV_64FC4)
-#define ENABLE_BENCHMARK
+    warmup = false;
+
 #endif
 
     LAUNCH_TESTS(CV_8UC2, CV_32FC2)

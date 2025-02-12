@@ -193,21 +193,21 @@ int launch() {
     results["launch_benchmark_vertical_fusion_loopSub"] &= launch_benchmark_vertical_fusion_loopSub<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
 
     // Warming up for the benchmarks
-#undef ENABLE_BENCHMARK
+    warmup = true;
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
-#define ENABLE_BENCHMARK
+    warmup = false;
 
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
 
-        CLOSE_BENCHMARK
+    CLOSE_BENCHMARK
 
-        for (const auto& [key, passed] : results) {
-            if (passed) {
-                std::cout << key << " passed!!" << std::endl;
-            } else {
-                std::cout << key << " failed!!" << std::endl;
-            }
+    for (const auto& [key, passed] : results) {
+        if (passed) {
+            std::cout << key << " passed!!" << std::endl;
+        } else {
+            std::cout << key << " failed!!" << std::endl;
         }
+    }
 
 #undef LAUNCH_TESTS
 #endif

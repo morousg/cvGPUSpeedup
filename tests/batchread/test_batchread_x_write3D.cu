@@ -180,7 +180,7 @@ int launch() {
 #ifdef ENABLE_BENCHMARK
     
     // Warming up for the benchmarks
-#undef ENABLE_BENCHMARK
+    warmup = true;
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
     LAUNCH_TESTS(CV_8SC1, CV_32FC1)
     LAUNCH_TESTS(CV_16UC1, CV_32FC1)
@@ -205,7 +205,8 @@ int launch() {
     LAUNCH_TESTS(CV_32FC2, CV_64FC2)
     LAUNCH_TESTS(CV_32FC3, CV_64FC3)
     LAUNCH_TESTS(CV_32FC4, CV_64FC4)
-#define ENABLE_BENCHMARK
+    warmup = false;
+
 #endif
 
     // Execute experiments

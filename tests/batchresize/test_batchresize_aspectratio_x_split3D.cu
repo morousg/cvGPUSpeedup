@@ -255,15 +255,17 @@ int launch() {
     results["test_batchresize_aspectratio_x_split3D"] &= launch_test_batchresize_aspectratio_x_split3D<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, std::make_index_sequence<batchValues.size()>{}, cv_stream, true);
 
 #ifdef ENABLE_BENCHMARK
+
     // Warming up for the benchmarks
-#undef ENABLE_BENCHMARK
+    warmup = true;
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
     LAUNCH_TESTS(CV_8UC4, CV_32FC4)
     LAUNCH_TESTS(CV_16UC3, CV_32FC3)
     LAUNCH_TESTS(CV_16UC4, CV_32FC4)
     LAUNCH_TESTS(CV_16SC3, CV_32FC3)
     LAUNCH_TESTS(CV_16SC4, CV_32FC4)
-#define ENABLE_BENCHMARK
+    warmup = false;
+
 #endif
 
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
