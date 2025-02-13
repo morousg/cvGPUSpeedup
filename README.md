@@ -31,16 +31,16 @@ In terms of feature completeness, the Fused Kernel Library is less than 1% compl
 Our aim with this repository is to create a code demonstration platform, and an space where to keep adding new ideas, features, and share it with the community to make it as big and useful as possible.
   
 ## Tested hw/sw
-*  Cuda SDK 11.8, 12.1, 12.3, 12.6 and 12.8 (WIP).
-  *  versions 12.4 to 12.6 have a [bug](https://forums.developer.nvidia.com/t/starting-with-cuda-12-4-nvcc-cant-deduce-a-template-type-in-template-function-under-weird-conditions/297637))
+*  Cuda SDK 11.8, 12.1, 12.3 and 12.8 (WIP).
+    *  versions 12.4 to 12.6 are NOT supported due to [bug](https://forums.developer.nvidia.com/t/starting-with-cuda-12-4-nvcc-cant-deduce-a-template-type-in-template-function-under-weird-conditions/297637))
   
-*  Visual Studio Community 2022 compiler versions v14.39 to 14.42
-*   *  (version v14.40-17.10 is not compatible with NVCC until cuda 12.5)
-*  OpenCV 4.8 and 4.9 (4.11 WIP with cuda 12.8)
-*  OS Windows 11 22H2 ,23H2 and 24H2 with drivers from 516.94 to 566.03.
+*  Visual Studio Community 2022 compiler versions v14.39 to 14.43
+    *  cuda 12.3 is compatible only until 14.39 (17.10).
+*  OpenCV 4.8, 4.9 and and 4.11 (first version to support cuda 12.8)
+*  OS Windows 11 22H2 ,23H2 and 24H2 with drivers from 516.94 to 572.16.
 *  Ubuntu 22.04 and 24.04 (both native and under WSL2 enviroment)   
-*  Compute capabilities 7.5 Turing, 8.6 Ampere, 8.9 Ada Lovelace (Blackwell WIP). Should work with any Compute capabilit 
-*  Systems with x86_64 (AMD Ryzen) and ARM 64  (Jetson Orin) platform.
+*  Compute capabilities 7.5 Turing, 8.6 Ampere, 8.9 Ada Lovelace (Blackwell WIP). Should work with any Compute capability. 
+*  Systems with x86_64 (Intel/AMD) and ARM 64 (Jetson Orin) platform.
 
 ## Examples
 ### OpenCV example
