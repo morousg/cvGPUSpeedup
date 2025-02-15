@@ -121,32 +121,54 @@ namespace fk {
         return (_Tp*)(((size_t)ptr + n - 1) & -n);
     }
 
-    template <typename PtrType>
-    static constexpr void mulTransposed(const PtrType& src, PtrType& dst, bool aTa) {
-        using SType = typename PtrType::Type;
+    template <typename PtrType1, typename PtrType2>
+    static constexpr void mulTransposed(const PtrType1& src, PtrType2& dst, bool aTa) {
+        using SType = std::decay_t<typename PtrType1::Type>;
         using DType = SType;
+        uint sPitch = src.dims().width * sizeof(SType);
+        uint dPitch = dst.dims().width * sizeof(DType);
         static_assert(std::is_same_v<SType, float> || std::is_same_v<SType, double>, "Ptr types must be float or double");
 
-        DType* dptr = dst.ptr().data;
-        size_t dstep = dst.step / sizeof(dptr[0]);
-        size_t sstep = src.step / sizeof(src.ptr<_Tp>()[0]);
-        int i, j, k, n = aTa ? src.cols : src.rows, m = aTa ? src.rows : src.cols;
-        double delta_buf[4] = { 0, 0, 0, 0 };
+        Mat src = _src.getMat(), delta = _delta.getMat();
+        const int gemm_level = 100; // boundary above which GEMM is faster.
+        int stype = src.type();
+        dtype = std::max(std::max(CV_MAT_DEPTH(dtype >= 0 ? dtype : stype), delta.depth()), CV_32F);
+        CV_Assert(src.channels() == 1);
 
-        for (i = 0; i < n; i++) {
-            for (j = i; j < n; j++) {
-                double s = 0;
-                const DType* sptr1 = src.ptr().data + sstep * (aTa ? 0 : i);
-                const DType* sptr2 = src.ptr().data + sstep * (aTa ? 0 : j);
+        if (!delta.empty()) {
+            CV_Assert_N(delta.channels() == 1,
+                (delta.rows == src.rows || delta.rows == 1),
+                (delta.cols == src.cols || delta.cols == 1));
+            if (delta.type() != dtype)
+                delta.convertTo(delta, dtype);
+        }
 
-                for (k = 0; k < m; k++) {
-                    s += (double)sptr1[k] * sptr2[k];
+        int dsize = ata ? src.cols : src.rows;
+        _dst.create(dsize, dsize, dtype);
+        Mat dst = _dst.getMat();
+
+        if (src.data == dst.data || (stype == dtype &&
+            (dst.cols >= gemm_level && dst.rows >= gemm_level &&
+                src.cols >= gemm_level && src.rows >= gemm_level))) {
+            Mat src2;
+            const Mat* tsrc = &src;
+            if (!delta.empty()) {
+                if (delta.size() == src.size())
+                    subtract(src, delta, src2);
+                else {
+                    repeat(delta, src.rows / delta.rows, src.cols / delta.cols, src2);
+                    subtract(src, src2, src2);
                 }
-
-                dptr[i * dstep + j] = (_Tp)s;
-                if (i != j)
-                    dptr[j * dstep + i] = (_Tp)s;
+                tsrc = &src2;
             }
+            gemm(*tsrc, *tsrc, scale, Mat(), 0, dst, ata ? GEMM_1_T : GEMM_2_T);
+        } else {
+            MulTransposedFunc func = getMulTransposedFunc(stype, dtype, ata);
+            if (!func)
+                CV_Error(CV_StsUnsupportedFormat, "");
+
+            func(src, dst, delta, scale);
+            completeSymm(dst, false);
         }
     }
 
@@ -321,7 +343,7 @@ namespace fk {
         Ptr2D<TypeI1> a(reinterpret_cast<TypeI1*>(ptr), n, m_, astep, MemType::Host);
 
         if (is_normal) {
-            //mulTransposed(src, a, true);
+            mulTransposed(src, a, true);
         } else if (method2 != DecompTypes::DECOMP_SVD) {
             //src.copyTo(a);
         } else {
