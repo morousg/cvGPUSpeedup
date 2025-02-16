@@ -28,7 +28,7 @@ constexpr size_t NUM_EXPERIMENTS = 15;
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 50;
 #elif (CUDART_MAJOR_VERSION == 12)
-constexpr size_t NUM_EXPERIMENTS = 200;
+constexpr size_t NUM_EXPERIMENTS = 1;
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 100;
 #endif // CUDART_MAJOR_VERSION
@@ -37,26 +37,7 @@ constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<F
 
 using namespace fk;
 
-template <int CV_TYPE_I, int CV_TYPE_O, int OPS_PER_ITER, size_t NumOps, typename DeviceFunction>
-struct VerticalFusion {
-    static inline void execute(const std::array<cv::cuda::GpuMat, 50>& crops,
-        const int& BATCH,
-        const cv::cuda::Stream& cv_stream,
-        const float& alpha,
-        const cv::cuda::GpuMat& d_tensor_output,
-        const cv::Size& cropSize,
-        const DeviceFunction& dFunc) {
-        using InputType = CUDA_T(CV_TYPE_I);
-        using OutputType = CUDA_T(CV_TYPE_O);
-        using Loop = Binary<StaticLoop<StaticLoop<
-            typename DeviceFunction::Operation, INCREMENT / OPS_PER_ITER>, NumOps / INCREMENT>>;
-
-        Loop loop;
-        loop.params = dFunc.params;
-
-        cvGS::executeOperations<false>(crops, cv_stream, cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha), loop, cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
-    }
-};
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_static_loop.cuh>
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
 bool benchmark_vertical_fusion_loopMulAdd(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {

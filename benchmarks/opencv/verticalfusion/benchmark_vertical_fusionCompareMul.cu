@@ -37,26 +37,7 @@ constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<F
 
 using namespace fk;
 
-template <int CV_TYPE_I, int CV_TYPE_O, int OPS_PER_ITER, size_t NumOps, typename DeviceFunction>
-struct VerticalFusion {
-    static inline void execute(const std::array<cv::cuda::GpuMat, 50>& crops,
-        const int& BATCH,
-        const cv::cuda::Stream& cv_stream,
-        const float& alpha,
-        const cv::cuda::GpuMat& d_tensor_output,
-        const cv::Size& cropSize,
-        const DeviceFunction& dFunc) {
-        using InputType = CUDA_T(CV_TYPE_I);
-        using OutputType = CUDA_T(CV_TYPE_O);
-        using Loop = Binary<StaticLoop<StaticLoop<
-            typename DeviceFunction::Operation, INCREMENT / OPS_PER_ITER>, NumOps / INCREMENT>>;
-
-        Loop loop;
-        loop.params = dFunc.params;
-
-        cvGS::executeOperations<false>(crops, cv_stream, cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha), loop, cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
-    }
-};
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/vf_kernel_instances.h>
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
 bool benchmark_vertical_fusion_loopMul(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
@@ -106,15 +87,15 @@ bool benchmark_vertical_fusion_loopMul(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, c
             }
 
             STOP_OCV_START_CVGS_BENCHMARK
-                using InputType = CUDA_T(CV_TYPE_I);
+            using InputType = CUDA_T(CV_TYPE_I);
             using OutputType = CUDA_T(CV_TYPE_O);
 
             const OutputType val{ cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul) };
 
             // cvGPUSpeedup
             const auto dFunc = Mul<OutputType>::build(val).then(Mul<OutputType>::build(val));
-            VerticalFusion<CV_TYPE_I, CV_TYPE_O, OPS_PER_ITERATION, BATCH, decltype(dFunc)>::execute(crops, REAL_BATCH, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
-
+            //VerticalFusion<CV_TYPE_I, CV_TYPE_O, OPS_PER_ITERATION, BATCH, decltype(dFunc)>::execute(crops, REAL_BATCH, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
+            launchMul<BATCH>(crops, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
             STOP_CVGS_BENCHMARK
 
                 // Download results
