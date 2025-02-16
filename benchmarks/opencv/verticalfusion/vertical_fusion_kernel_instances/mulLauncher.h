@@ -12,8 +12,8 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#ifndef VERTICAL_FUSION_KERNEL_INSTANCES_H
-#define VERTICAL_FUSION_KERNEL_INSTANCES_H
+#ifndef MUL_LAUNCHER_H
+#define MUL_LAUNCHER_H
 
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul2-1002.h>
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul1102-2002.h>
@@ -250,4 +250,4 @@ void launchMul(const std::array<cv::cuda::GpuMat, 50>& crops,
 #undef LAUNCH_MUL
 }
 
-#endif // VERTICAL_FUSION_KERNEL_INSTANCES_H
+#endif // MUL_LAUNCHER_H
