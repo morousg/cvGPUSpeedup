@@ -12,18 +12,8 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul2-1002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mulAdd11102-12002.h>
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_static_loop.cuh>
-
-template <int CV_TYPE_I, int CV_TYPE_O, int OPS_PER_ITER, size_t NumOps, typename DeviceFunction>
-void launchVerticalFusion(const std::array<cv::cuda::GpuMat, 50>& crops,
-    const cv::cuda::Stream& cv_stream,
-    const float& alpha,
-    const cv::cuda::GpuMat& d_tensor_output,
-    const cv::Size& cropSize,
-    const DeviceFunction& dFunc) {
-    VerticalFusion<CV_8UC1, CV_32FC1, 2, NumOps, DeviceFunction>::execute(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc);
-}
 
 #define LAUNCH(NumOps) \
 void launchMulAdd##NumOps(const std::array<cv::cuda::GpuMat, 50>& crops, \
@@ -31,8 +21,8 @@ void launchMulAdd##NumOps(const std::array<cv::cuda::GpuMat, 50>& crops, \
     const float& alpha, \
     const cv::cuda::GpuMat& d_tensor_output, \
     const cv::Size& cropSize, \
-    const MulFuncType& dFunc) { \
-    launchVerticalFusion<CV_8UC1, CV_32FC1, 2, NumOps, MulFuncType>(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc); \
+    const MulAddFuncType& dFunc) { \
+    VerticalFusion<CV_8UC1, CV_32FC1, 2, NumOps, MulAddFuncType>::execute(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc); \
 }
 
 LAUNCH(11102)

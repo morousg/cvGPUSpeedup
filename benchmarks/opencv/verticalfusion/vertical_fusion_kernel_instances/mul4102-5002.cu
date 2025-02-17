@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul2-1002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul4102-5002.h>
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_static_loop.cuh>
 
 template <int CV_TYPE_I, int CV_TYPE_O, int OPS_PER_ITER, size_t NumOps, typename DeviceFunction>

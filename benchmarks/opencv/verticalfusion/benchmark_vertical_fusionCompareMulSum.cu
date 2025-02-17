@@ -28,7 +28,7 @@ constexpr size_t NUM_EXPERIMENTS = 15;
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 50;
 #elif (CUDART_MAJOR_VERSION == 12)
-constexpr size_t NUM_EXPERIMENTS = 1;
+constexpr size_t NUM_EXPERIMENTS = 200;
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 100;
 #endif // CUDART_MAJOR_VERSION
