@@ -16,7 +16,7 @@
 #include <cvGPUSpeedup.cuh>
 
 using MulOutType = float;
-using MulFuncType = decltype(std::declval<decltype(fk::Mul<MulOutType>::build(std::declval<MulOutType>()))>()
+using MulAddFuncType = decltype(std::declval<decltype(fk::Mul<MulOutType>::build(std::declval<MulOutType>()))>()
     .then(std::declval<decltype(fk::Add<MulOutType>::build(std::declval<MulOutType>()))>()));
 
 #define LAUNCH_MUL_HEADER(NumOps) \
@@ -25,7 +25,7 @@ void launchMulAdd##NumOps(const std::array<cv::cuda::GpuMat, 50>& crops, \
     const float& alpha, \
     const cv::cuda::GpuMat& d_tensor_output, \
     const cv::Size& cropSize, \
-    const MulFuncType& dFunc);
+    const MulAddFuncType& dFunc);
 
 LAUNCH_MUL_HEADER(4102)
 LAUNCH_MUL_HEADER(4202)

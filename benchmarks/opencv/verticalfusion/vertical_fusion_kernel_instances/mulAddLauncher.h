@@ -43,7 +43,7 @@ void launchMulAdd(const std::array<cv::cuda::GpuMat, 50>& crops,
     const float& alpha,
     const cv::cuda::GpuMat& d_tensor_output,
     const cv::Size& cropSize,
-    const MulFuncType& dFunc) {
+    const MulAddFuncType& dFunc) {
     if constexpr (NumOps == 2) {
         launchMulAdd2(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc);
     }
