@@ -37,7 +37,7 @@ constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<F
 
 using namespace fk;
 
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mulLauncher.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/mulLauncher.h>
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
 bool benchmark_vertical_fusion_loopMul(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
