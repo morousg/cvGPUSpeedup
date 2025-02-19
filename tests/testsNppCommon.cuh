@@ -33,7 +33,7 @@ constexpr std::array<size_t, NUM_ELEMS> arrayIndexSecuence =
 std::unordered_map<std::string, std::stringstream> benchmarkResultsText;
 std::unordered_map<std::string, std::ofstream> currentFile;
 // Select the path where to write the benchmark files
-const std::string path{""};
+const std::string path{"/home/oscar-amoros-huguet/Documents/cvGPUSpeedupBenchmarkResults/NPP/"};
 
 constexpr int ITERS = 100;
 

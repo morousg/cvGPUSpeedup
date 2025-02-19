@@ -71,7 +71,7 @@ bool compareAndCheck(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& cvVersion, cv::M
 std::unordered_map<std::string, std::stringstream> benchmarkResultsText;
 std::unordered_map < std::string, std::ofstream> currentFile;
 // Select the path where to write the benchmark files
-const std::string path{ "" };
+const std::string path{ "/home/oscar-amoros-huguet/Documents/cvGPUSpeedupBenchmarkResults/" };
 
 constexpr int ITERS = 100;
 constexpr int ITERS_W = 1;

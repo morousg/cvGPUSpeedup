@@ -12,9 +12,6 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#ifndef LAUNCH_MUL_HEADER_MACRO_CUH
-#define LAUNCH_MUL_HEADER_MACRO_CUH
-
 #include <opencv2/cudaimgproc.hpp>
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/mulOpType.cuh>
 
@@ -25,8 +22,6 @@ void launchMul##NumOps(const std::array<cv::cuda::GpuMat, 50>& crops, \
     const cv::cuda::GpuMat& d_tensor_output, \
     const cv::Size& cropSize, \
     const MulFuncType& dFunc);
-
-#endif // !LAUNCH_MUL_HEADER_MACRO_CUH
 
 
 
