@@ -230,26 +230,26 @@ namespace fk {
 
     template<typename T, int W>
     struct StaticRawPtr<StaticPtrDims1D<W>, T> {
+        using type = T;
         T data[W];
         static constexpr StaticPtrDims1D<W> dims{};
-        using type = T;
-        enum { ND = _1D };
+        static constexpr ND ND{ _1D };
     };
 
     template<typename T, int W, int H>
     struct StaticRawPtr<StaticPtrDims2D<W, H>, T> {
+        using type = T;
         T data[H][W];
         static constexpr StaticPtrDims2D<W, H> dims{};
-        using type = T;
-        enum { ND = _2D };
+        static constexpr ND ND{ _2D };
     };
 
     template<typename T, int W, int H, int P>
     struct StaticRawPtr<StaticPtrDims3D<W, H, P>, T> {
+        using type = T;
         T data[P][H][W];
         static constexpr StaticPtrDims3D<W, H, P> dims{};
-        using type = T;
-        enum { ND = _3D };
+        static constexpr ND ND{ _3D };
     };
 
 } // namespace fk

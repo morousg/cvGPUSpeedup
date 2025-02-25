@@ -16,18 +16,34 @@
 #define FK_POINT
 
 #include <fused_kernel/core/utils/utils.h>
+#include <fused_kernel/core/data/ptr_nd.h>
 
 namespace fk {
+    template <typename T, enum ND D>
+    struct Point_;
 
     template <typename T>
-    struct Point_ {
+    struct Point_<T, _1D> {
+        T x;
+        FK_HOST_DEVICE_CNST Point_(const T x_ = 0) : x(x_) {}
+    };
+
+    template <typename T>
+    struct Point_<T, _2D> {
+        T x;
+        T y;
+        FK_HOST_DEVICE_CNST Point_(const T x_ = 0, const T y_ = 0) : x(x_), y(y_) {}
+    };
+
+    template <typename T>
+    struct Point_<T, _3D> {
         T x;
         T y;
         T z;
         FK_HOST_DEVICE_CNST Point_(const T x_ = 0, const T y_ = 0, const T z_ = 0) : x(x_), y(y_), z(z_) {}
     };
 
-    using Point = Point_<uint>;
+    using Point = Point_<uint, _3D>;
 } // namespace fk
 
 #endif
