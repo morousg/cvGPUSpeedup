@@ -31,7 +31,7 @@ In terms of feature completeness, the Fused Kernel Library is less than 1% compl
 Our aim with this repository is to create a code demonstration platform, and an space where to keep adding new ideas, features, and share it with the community to make it as big and useful as possible.
   
 ## Tested hw/sw
-*  Cuda SDK 11.8, 12.1, 12.3 and 12.8 (WIP).
+*  Cuda SDK 11.8, 12.1, 12.3 and 12.8.
     *  versions 12.4 to 12.6 are NOT supported due to [bug](https://forums.developer.nvidia.com/t/starting-with-cuda-12-4-nvcc-cant-deduce-a-template-type-in-template-function-under-weird-conditions/297637))
   
 *  Visual Studio Community 2022 compiler versions v14.39 to 14.43
