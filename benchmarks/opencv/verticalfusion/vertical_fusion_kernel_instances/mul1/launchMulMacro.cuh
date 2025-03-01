@@ -12,14 +12,21 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#include <opencv2/cudaimgproc.hpp>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAddOpType.cuh>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/realBatch.h
+#ifndef LAUNCH_MUL_MACRO_CUH
+#define LAUNCH_MUL_MACRO_CUH
 
-#define LAUNCH_MUL_ADD_HEADER(NumOps) \
-void launchMulAdd##NumOps(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops, \
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_static_loop.cuh>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul1/mulOpType.cuh>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul1/realBatch.h>
+
+#define LAUNCH(NumOps) \
+void launchMul##NumOps(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops, \
     const cv::cuda::Stream& cv_stream, \
     const float& alpha, \
     const cv::cuda::GpuMat& d_tensor_output, \
     const cv::Size& cropSize, \
-    const MulAddFuncType& dFunc);
+    const MulFuncType& dFunc) { \
+    VerticalFusion<CV_8UC1, CV_32FC1, 2, NumOps, MulFuncType>::execute(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc); \
+}
+
+#endif // LAUNCH_MUL_MACRO_CUH

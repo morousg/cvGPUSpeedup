@@ -37,8 +37,8 @@ constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<F
 
 using namespace fk;
 
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAddLauncher.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/realBatch.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAddLauncher.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/realBatch.h>
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
 bool benchmark_vertical_fusion_loopMulAdd(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
@@ -160,8 +160,8 @@ bool launch_benchmark_vertical_fusion_loopMulAdd(const size_t NUM_ELEMS_X, const
 
 int launch() {
 #ifdef ENABLE_BENCHMARK
-    constexpr size_t NUM_ELEMS_X = 60;
-    constexpr size_t NUM_ELEMS_Y = 120;
+    constexpr size_t NUM_ELEMS_X = 4096;
+    constexpr size_t NUM_ELEMS_Y = 2160;
 
     cv::cuda::Stream cv_stream;
 

@@ -13,13 +13,16 @@
    limitations under the License. */
 
 #include <opencv2/cudaimgproc.hpp>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAddOpType.cuh>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/realBatch.h
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul1/mulOpType.cuh>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul1/realBatch.h>
 
-#define LAUNCH_MUL_ADD_HEADER(NumOps) \
-void launchMulAdd##NumOps(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops, \
+#define LAUNCH_MUL_HEADER(NumOps) \
+void launchMul##NumOps(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops, \
     const cv::cuda::Stream& cv_stream, \
     const float& alpha, \
     const cv::cuda::GpuMat& d_tensor_output, \
     const cv::Size& cropSize, \
-    const MulAddFuncType& dFunc);
+    const MulFuncType& dFunc);
+
+
+

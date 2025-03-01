@@ -22,7 +22,7 @@ constexpr size_t INCREMENT = 100;
 
 template <int CV_TYPE_I, int CV_TYPE_O, int OPS_PER_ITER, size_t NumOps, typename DeviceFunction>
 struct VerticalFusion {
-    static inline void execute(const std::array<cv::cuda::GpuMat, 50>& crops,
+    static inline void execute(const std::array<cv::cuda::GpuMat, 1>& crops,
         const cv::cuda::Stream& cv_stream,
         const float& alpha,
         const cv::cuda::GpuMat& d_tensor_output,

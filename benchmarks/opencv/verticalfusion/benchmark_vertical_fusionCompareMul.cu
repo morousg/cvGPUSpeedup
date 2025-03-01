@@ -38,10 +38,10 @@ constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<F
 using namespace fk;
 
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/mulLauncher.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/realBatch.h>
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
 bool benchmark_vertical_fusion_loopMul(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
-    constexpr size_t REAL_BATCH{ 50 };
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
@@ -75,8 +75,8 @@ bool benchmark_vertical_fusion_loopMul(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, c
             cv::Mat h_output_cvGS(REAL_BATCH, cropSize.width * cropSize.height, CV_TYPE_O);
 
             START_OCV_BENCHMARK
-                // OpenCV version
-                constexpr int OPS_PER_ITERATION = 2;
+            // OpenCV version
+            constexpr int OPS_PER_ITERATION = 2;
 
             for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
                 crops[crop_i].convertTo(d_output_cv[crop_i], CV_TYPE_O, alpha, cv_stream);

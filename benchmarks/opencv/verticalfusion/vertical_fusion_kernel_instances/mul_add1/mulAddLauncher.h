@@ -15,27 +15,19 @@
 #ifndef MUL_ADD_LAUNCHER_H
 #define MUL_ADD_LAUNCHER_H
 
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd2-1002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd1102-2002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd2102-3002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd3102-4002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd4102-5002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd5102-6002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd6102-7002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd7102-8002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd8102-9002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd9102-10002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd10102-11002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd11102-12002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd12102-13002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd13102-14002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd14102-15002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd15102-16002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd16102-17002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd17102-18002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd18102-19002.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd19102-19502.h>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAdd19602-19902.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAdd2-1002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAdd1102-2002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAdd2102-3002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAdd3102-4002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAdd4102-5002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAdd5102-6002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAdd6102-7002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAdd7102-8002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAdd8102-9002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAdd9102-10002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAdd10102-11002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAdd11102-12002.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1/mulAdd12102-13002.h>
 
 template <int NumOps>
 void launchMulAdd(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops,
@@ -178,75 +170,6 @@ void launchMulAdd(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops,
     LAUNCH_MUL_ADD(12802)
     LAUNCH_MUL_ADD(12902)
     LAUNCH_MUL_ADD(13002)
-    LAUNCH_MUL_ADD(13102)
-    LAUNCH_MUL_ADD(13202)
-    LAUNCH_MUL_ADD(13302)
-    LAUNCH_MUL_ADD(13402)
-    LAUNCH_MUL_ADD(13502)
-    LAUNCH_MUL_ADD(13602)
-    LAUNCH_MUL_ADD(13702)
-    LAUNCH_MUL_ADD(13802)
-    LAUNCH_MUL_ADD(13902)
-    LAUNCH_MUL_ADD(14002)
-    LAUNCH_MUL_ADD(14102)
-    LAUNCH_MUL_ADD(14202)
-    LAUNCH_MUL_ADD(14302)
-    LAUNCH_MUL_ADD(14402)
-    LAUNCH_MUL_ADD(14502)
-    LAUNCH_MUL_ADD(14602)
-    LAUNCH_MUL_ADD(14702)
-    LAUNCH_MUL_ADD(14802)
-    LAUNCH_MUL_ADD(14902)
-    LAUNCH_MUL_ADD(15002)
-    LAUNCH_MUL_ADD(15102)
-    LAUNCH_MUL_ADD(15202)
-    LAUNCH_MUL_ADD(15302)
-    LAUNCH_MUL_ADD(15402)
-    LAUNCH_MUL_ADD(15502)
-    LAUNCH_MUL_ADD(15602)
-    LAUNCH_MUL_ADD(15702)
-    LAUNCH_MUL_ADD(15802)
-    LAUNCH_MUL_ADD(15902)
-    LAUNCH_MUL_ADD(16002)
-    LAUNCH_MUL_ADD(16102)
-    LAUNCH_MUL_ADD(16202)
-    LAUNCH_MUL_ADD(16302)
-    LAUNCH_MUL_ADD(16402)
-    LAUNCH_MUL_ADD(16502)
-    LAUNCH_MUL_ADD(16602)
-    LAUNCH_MUL_ADD(16702)
-    LAUNCH_MUL_ADD(16802)
-    LAUNCH_MUL_ADD(16902)
-    LAUNCH_MUL_ADD(17002)
-    LAUNCH_MUL_ADD(17102)
-    LAUNCH_MUL_ADD(17202)
-    LAUNCH_MUL_ADD(17302)
-    LAUNCH_MUL_ADD(17402)
-    LAUNCH_MUL_ADD(17502)
-    LAUNCH_MUL_ADD(17602)
-    LAUNCH_MUL_ADD(17702)
-    LAUNCH_MUL_ADD(17802)
-    LAUNCH_MUL_ADD(17902)
-    LAUNCH_MUL_ADD(18002)
-    LAUNCH_MUL_ADD(18102)
-    LAUNCH_MUL_ADD(18202)
-    LAUNCH_MUL_ADD(18302)
-    LAUNCH_MUL_ADD(18402)
-    LAUNCH_MUL_ADD(18502)
-    LAUNCH_MUL_ADD(18602)
-    LAUNCH_MUL_ADD(18702)
-    LAUNCH_MUL_ADD(18802)
-    LAUNCH_MUL_ADD(18902)
-    LAUNCH_MUL_ADD(19002)
-    LAUNCH_MUL_ADD(19102)
-    LAUNCH_MUL_ADD(19202)
-    LAUNCH_MUL_ADD(19302)
-    LAUNCH_MUL_ADD(19402)
-    LAUNCH_MUL_ADD(19502)
-    LAUNCH_MUL_ADD(19602)
-    LAUNCH_MUL_ADD(19702)
-    LAUNCH_MUL_ADD(19802)
-    LAUNCH_MUL_ADD(19902)
 #undef LAUNCH_MUL_ADD
 }
 

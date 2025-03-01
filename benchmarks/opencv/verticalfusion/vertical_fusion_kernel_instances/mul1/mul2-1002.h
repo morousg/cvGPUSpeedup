@@ -12,14 +12,18 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#include <opencv2/cudaimgproc.hpp>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAddOpType.cuh>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/realBatch.h
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul1/launchMulHeaderMacro.cuh>
 
-#define LAUNCH_MUL_ADD_HEADER(NumOps) \
-void launchMulAdd##NumOps(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops, \
-    const cv::cuda::Stream& cv_stream, \
-    const float& alpha, \
-    const cv::cuda::GpuMat& d_tensor_output, \
-    const cv::Size& cropSize, \
-    const MulAddFuncType& dFunc);
+LAUNCH_MUL_HEADER(2)
+LAUNCH_MUL_HEADER(102)
+LAUNCH_MUL_HEADER(202)
+LAUNCH_MUL_HEADER(302)
+LAUNCH_MUL_HEADER(402)
+LAUNCH_MUL_HEADER(502)
+LAUNCH_MUL_HEADER(602)
+LAUNCH_MUL_HEADER(702)
+LAUNCH_MUL_HEADER(802)
+LAUNCH_MUL_HEADER(902)
+LAUNCH_MUL_HEADER(1002)
+
+#undef LAUNCH_MUL_HEADER
