@@ -17,7 +17,7 @@
 
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_static_loop.cuh>
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAddOpType.cuh>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/realBatch.h
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/realBatch.h>
 
 #define LAUNCH(NumOps) \
 void launchMulAdd##NumOps(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops, \
