@@ -36,10 +36,8 @@ void launchMul(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops,
                const cv::cuda::GpuMat& d_tensor_output,
                const cv::Size& cropSize,
                const MulFuncType& dFunc) {
-    if constexpr (NumOps == 2) {
-        launchMul2(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc);
-    } 
-#define LAUNCH_MUL(n) else if constexpr (NumOps == n) { launchMul##n(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc); }
+#define LAUNCH_MUL(n) if constexpr (NumOps == n) { launchMul##n(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc); }
+    LAUNCH_MUL(2)
     LAUNCH_MUL(102)
     LAUNCH_MUL(202)
     LAUNCH_MUL(302)

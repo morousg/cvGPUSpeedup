@@ -36,10 +36,8 @@ void launchMulAdd(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops,
     const cv::cuda::GpuMat& d_tensor_output,
     const cv::Size& cropSize,
     const MulAddFuncType& dFunc) {
-    if constexpr (NumOps == 2) {
-        launchMulAdd2(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc);
-    }
-#define LAUNCH_MUL_ADD(n) else if constexpr (NumOps == n) { launchMulAdd##n(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc); }
+#define LAUNCH_MUL_ADD(n) if constexpr (NumOps == n) { launchMulAdd##n(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc); }
+    LAUNCH_MUL_ADD(2)
     LAUNCH_MUL_ADD(102)
     LAUNCH_MUL_ADD(202)
     LAUNCH_MUL_ADD(302)
