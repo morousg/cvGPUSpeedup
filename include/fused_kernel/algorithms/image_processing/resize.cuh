@@ -247,21 +247,22 @@ namespace fk {
         using ReadDataType = int;
         using OperationDataType = OperationData<ResizeRead<IType, AR, TypeList<void, T>>>;
 
+        using InstantiableType = ReadBack<ResizeRead<IType, AR, TypeList<void, T>>>;
+
         template <enum AspectRatio AR_ = AR>
-        FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, ReadBack<ResizeRead<IType, AR_, TypeList<void, T>>>>
-        build(const Size& dstSize,
-              const T& backgroundValue) {
-            return ReadBack<ResizeRead<IType, AR_, TypeList<void, T>>>{{{dstSize, backgroundValue}, 0}};
+        FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, InstantiableType>
+        build(const Size& dstSize, const T& backgroundValue) {
+            return InstantiableType{{{dstSize, backgroundValue}, 0}};
         }
 
         template <typename ReadIOp, enum AspectRatio AR_ = AR>
         FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, ReadBack<ResizeRead<IType, AR_, ReadIOp>>>
-        build(const ReadIOp& readIOp, const ReadBack<ResizeRead<IType, AR_, TypeList<void, T>>>& iOp) {
+        build(const ReadIOp& readIOp, const InstantiableType& iOp) {
             static_assert(std::is_same_v<T, typename ReadIOp::Operation::OutputType>,
                 "Background value type is not the same as the provided ReadOperation OutputType");
             return ResizeRead<IType, AR_, ReadIOp>::build(readIOp, iOp.params.dstSize, iOp.params.defaultValue);
         }
-        using InstantiableType = Instantiable<ResizeRead<IType, AR, TypeList<void, T>>>;
+        
         DEFAULT_BUILD
         DEFAULT_READ_BATCH_BUILD
     };
@@ -276,18 +277,17 @@ namespace fk {
         using ReadDataType = int;
         using OperationDataType = OperationData<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>;
 
-        FK_HOST_FUSE ReadBack<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>
-        build(const Size& dstSize) {
-            return ReadBack<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>{{{dstSize}, 0}};
+        using InstantiableType = Instantiable<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>;
+
+        FK_HOST_FUSE InstantiableType build(const Size& dstSize) {
+            return {{{dstSize}, 0}};
         }
 
         template <typename ReadIOp>
-        FK_HOST_FUSE ReadBack<ResizeRead<IType, IGNORE_AR, ReadIOp>>
-        build(const ReadIOp& readIOp, const ReadBack<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>& iOp) {
+        FK_HOST_FUSE auto build(const ReadIOp& readIOp, const InstantiableType& iOp) {
             return ResizeRead<IType, IGNORE_AR, ReadIOp>::build(readIOp, iOp.params.dstSize);
         }
 
-        using InstantiableType = Instantiable<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>;
         DEFAULT_BUILD
         DEFAULT_READ_BATCH_BUILD
     };

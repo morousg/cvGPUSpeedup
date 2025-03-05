@@ -80,7 +80,7 @@ namespace fk {
             const float2 coord = WarpingCoords<WT>::exec(thread, opData.params);
             const Size sourceSize(BackFunction::Operation::num_elems_x(thread, opData.back_function),
                                   BackFunction::Operation::num_elems_y(thread, opData.back_function));
-            if ((coord.x >= 0.f && coord.x <= sourceSize.width) && (coord.y >= 0.f && coord.y <= sourceSize.height)) {
+            if ((coord.x >= 0.f && coord.x < sourceSize.width) && (coord.y >= 0.f && coord.y < sourceSize.height)) {
                 return Interpolate<INTER_LINEAR, BackIOp>::exec(coord, { {sourceSize}, opData.back_function });
             } else {
                 return make_set<OutputType>(0.f);

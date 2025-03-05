@@ -21,6 +21,7 @@
 #include <fused_kernel/algorithms/image_processing/resize.cuh>
 #include <fused_kernel/algorithms/image_processing/color_conversion.cuh>
 #include <fused_kernel/algorithms/image_processing/crop.cuh>
+#include <fused_kernel/algorithms/image_processing/border_reader.cuh>
 #include <fused_kernel/algorithms/image_processing/warping.cuh>
 
 #include <opencv2/core.hpp>
@@ -229,7 +230,7 @@ inline constexpr auto crop(const BackIOp& backIOp, const cv::Rect2d& rect) {
 }
 
 template <enum fk::WarpType WT, int InputType = CV_8UC3>
-inline constexpr auto warp(const cv::cuda::GpuMat& input, const cv::Mat& transform_matrix, const cv::Size& dstSize) {
+inline constexpr auto warp(const cv::cuda::GpuMat& input, const cv::Mat& transform_matrix, const cv::Size& dstSize, int borderMode = 0, const cv::Scalar& borderValue = cv::Scalar()) {
     if (InputType != input.type()) {
         throw std::runtime_error("Input type does not match the input type of the operation.");
     }
@@ -237,20 +238,25 @@ inline constexpr auto warp(const cv::cuda::GpuMat& input, const cv::Mat& transfo
         throw std::runtime_error("Transform matrix type should be CV_64FC1.");
     }
     const auto read = fk::PerThreadRead<fk::_2D, CUDA_T(InputType)>::build({ (CUDA_T(InputType)*)input.data, { static_cast<uint>(input.cols), static_cast<uint>(input.rows), static_cast<uint>(input.step) } });
-    const double* const tm_raw = transform_matrix.ptr<double>();
+    const auto borderRead = read.then(fk::BorderReader<fk::BorderType::CONSTANT>::build(cvScalar2CUDAV<InputType>::get(borderValue)));
     if constexpr (WT == fk::WarpType::Affine) {
+        cv::Mat inverse_transform_matrix;
+        cv::invertAffineTransform(transform_matrix, inverse_transform_matrix);
+        const double* const tm_raw = inverse_transform_matrix.ptr<double>();
         const fk::WarpingParameters<fk::WarpType::Affine>
                                        params{ {{{static_cast<float>(tm_raw[0]), static_cast<float>(tm_raw[1]), static_cast<float>(tm_raw[2])},
                                                  {static_cast<float>(tm_raw[3]), static_cast<float>(tm_raw[4]), static_cast<float>(tm_raw[5])}}},
                                                  fk::Size(dstSize.width, dstSize.height) };
-        return fk::Warping<WT, std::decay_t<decltype(read)>>::build({ params, read });
+        return fk::Warping<WT, std::decay_t<decltype(borderRead)>>::build({ params, borderRead });
     } else {
+        const cv::Mat inverse_transform_matrix(transform_matrix.inv());
+        const double* const tm_raw = inverse_transform_matrix.ptr<double>();
         const fk::WarpingParameters<fk::WarpType::Perspective>
                                         params{{{{static_cast<float>(tm_raw[0]), static_cast<float>(tm_raw[1]), static_cast<float>(tm_raw[2])},
                                                  {static_cast<float>(tm_raw[3]), static_cast<float>(tm_raw[4]), static_cast<float>(tm_raw[5])},
                                                  {static_cast<float>(tm_raw[6]), static_cast<float>(tm_raw[7]), static_cast<float>(tm_raw[8])}}},
                                                  fk::Size(dstSize.width, dstSize.height) };
-        return fk::Warping<WT, std::decay_t<decltype(read)>>::build({ params, read });
+        return fk::Warping<WT, std::decay_t<decltype(borderRead)>>::build({ params, borderRead });
     }
 }
 

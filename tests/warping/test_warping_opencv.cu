@@ -15,7 +15,9 @@
 #include "tests/main.h"
 
 #include <cvGPUSpeedup.cuh>
+#include <fused_kernel/algorithms/image_processing/border_reader.cuh>
 #include <opencv2/opencv.hpp>
+#include "tests/testsCommon.cuh"
 
 bool testPerspective() {
     // Load the image
@@ -44,22 +46,7 @@ bool testPerspective() {
     // Apply the perspective transformation
     cv::cuda::warpPerspective(d_img, d_resultcv, perspective_matrix, img.size(), 1, 0, cv::Scalar(), stream);
 
-    cv::Mat inverted_perspective_matrix;
-    invert(perspective_matrix, inverted_perspective_matrix);
-
-    const auto warpFunc = cvGS::warp<fk::WarpType::Perspective, CV_8UC3>(d_img, inverted_perspective_matrix, img.size());
-
-    bool correct{ true };
-    /*const double* const rawMat = perspective_matrix.ptr<double>();
-    correct &= std::abs(static_cast<float>(rawMat[0]) - warpFunc.params.transformMatrix.data[0][0]) < 0.001;
-    correct &= std::abs(static_cast<float>(rawMat[1]) - warpFunc.params.transformMatrix.data[0][1]) < 0.001;
-    correct &= std::abs(static_cast<float>(rawMat[2]) - warpFunc.params.transformMatrix.data[0][2]) < 0.001;
-    correct &= std::abs(static_cast<float>(rawMat[3]) - warpFunc.params.transformMatrix.data[1][0]) < 0.001;
-    correct &= std::abs(static_cast<float>(rawMat[4]) - warpFunc.params.transformMatrix.data[1][1]) < 0.001;
-    correct &= std::abs(static_cast<float>(rawMat[5]) - warpFunc.params.transformMatrix.data[1][2]) < 0.001;
-    correct &= std::abs(static_cast<float>(rawMat[6]) - warpFunc.params.transformMatrix.data[2][0]) < 0.001;
-    correct &= std::abs(static_cast<float>(rawMat[7]) - warpFunc.params.transformMatrix.data[2][1]) < 0.001;
-    correct &= std::abs(static_cast<float>(rawMat[8]) - warpFunc.params.transformMatrix.data[2][2]) < 0.001;*/
+    const auto warpFunc = cvGS::warp<fk::WarpType::Perspective, CV_8UC3>(d_img, perspective_matrix, img.size());
 
     auto writeFunc = cvGS::write<CV_8UC3>(d_resultcvGS);
     cvGS::executeOperations(stream, warpFunc, fk::Cast<float3, uchar3>::build(), writeFunc);
@@ -69,6 +56,8 @@ bool testPerspective() {
     // Download the result back to CPU
     cv::Mat resultcv(d_resultcv);
     cv::Mat resultcvGS(d_resultcvGS);
+
+    const bool correct = compareAndCheck<CV_8UC3>(resultcv, resultcvGS);
 
     return correct;
 }
@@ -100,10 +89,7 @@ bool testAffine() {
     cv::cuda::GpuMat d_result;
     cv::cuda::warpAffine(d_img, d_resultcv, affine_matrix, img.size());
 
-    cv::Mat inverted_affine_matrix;
-    cv::invertAffineTransform(affine_matrix, inverted_affine_matrix);
-
-    const auto warpFunc = cvGS::warp<fk::WarpType::Affine, CV_8UC3>(d_img, inverted_affine_matrix, img.size());
+    const auto warpFunc = cvGS::warp<fk::WarpType::Affine, CV_8UC3>(d_img, affine_matrix, img.size());
     auto writeFunc = cvGS::write<CV_8UC3>(d_resultcvGS);
     cvGS::executeOperations(stream, warpFunc, fk::Cast<float3, uchar3>::build(), writeFunc);
 
