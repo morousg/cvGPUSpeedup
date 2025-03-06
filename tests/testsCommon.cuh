@@ -74,6 +74,8 @@ std::unordered_map < std::string, std::ofstream> currentFile;
 const std::string path{ "" };
 
 constexpr int ITERS = 100;
+constexpr int ITERS_W = 1;
+bool warmup = false;
 
 struct BenchmarkResultsNumbers {
     float OCVelapsedTimeMax;
@@ -194,6 +196,7 @@ gpuErrchk(cudaEventElapsedTime(&cvGSelapsedTime[i], start, stop)); \
 resF.cvGSelapsedTimeMax = resF.cvGSelapsedTimeMax < cvGSelapsedTime[i] ? cvGSelapsedTime[i] : resF.cvGSelapsedTimeMax; \
 resF.cvGSelapsedTimeMin = resF.cvGSelapsedTimeMin > cvGSelapsedTime[i] ? cvGSelapsedTime[i] : resF.cvGSelapsedTimeMin; \
 resF.cvGSelapsedTimeAcum += cvGSelapsedTime[i]; \
+if (warmup) break; \
 } \
 processExecution<CV_TYPE_I, CV_TYPE_O, BATCH, ITERS, batchValues.size(), batchValues>(resF, __func__, OCVelapsedTime, cvGSelapsedTime, VARIABLE_DIMENSION);
 #else

@@ -104,13 +104,34 @@ int launch() {
     std::unordered_map<std::string, bool> results;
     results["test_read_convert_split"] = true;
 
-#ifdef ENABLE_BENCHMARK
-    // Warming up for the benchmarks
-    results["test_read_convert_split"] &= test_read_convert_split<CV_8UC2, CV_32FC2, 5>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
-#endif
-
-    #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
+#define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
     results["test_read_convert_split"] &= test_read_convert_split<CV_INPUT, CV_OUTPUT, 1>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
+
+#ifdef ENABLE_BENCHMARK
+
+    // Warming up for the benchmarks
+    warmup = true;
+    LAUNCH_TESTS(CV_8UC2, CV_32FC2)
+    LAUNCH_TESTS(CV_8UC3, CV_32FC3)
+    LAUNCH_TESTS(CV_8UC4, CV_32FC4)
+    LAUNCH_TESTS(CV_8SC2, CV_32FC2)
+    LAUNCH_TESTS(CV_8SC3, CV_32FC3)
+    LAUNCH_TESTS(CV_8SC4, CV_32FC4)
+    LAUNCH_TESTS(CV_16UC2, CV_32FC2)
+    LAUNCH_TESTS(CV_16UC3, CV_32FC3)
+    LAUNCH_TESTS(CV_16UC4, CV_32FC4)
+    LAUNCH_TESTS(CV_16SC2, CV_32FC2)
+    LAUNCH_TESTS(CV_16SC3, CV_32FC3)
+    LAUNCH_TESTS(CV_16SC4, CV_32FC4)
+    LAUNCH_TESTS(CV_32SC2, CV_32FC2)
+    LAUNCH_TESTS(CV_32SC3, CV_32FC3)
+    LAUNCH_TESTS(CV_32SC4, CV_32FC4)
+    LAUNCH_TESTS(CV_32FC2, CV_64FC2)
+    LAUNCH_TESTS(CV_32FC3, CV_64FC3)
+    LAUNCH_TESTS(CV_32FC4, CV_64FC4)
+    warmup = false;
+
+#endif
 
     LAUNCH_TESTS(CV_8UC2, CV_32FC2)
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
