@@ -1,5 +1,5 @@
 
-set (LAUNCH_SOURCES ${CMAKE_SOURCE_DIR}/tests/main.cpp ${CMAKE_SOURCE_DIR}/tests/main.h)
+
 
 function (enable_intellisense TARGET_NAME)
 	# Hack to get intellisense working for CUDA includes

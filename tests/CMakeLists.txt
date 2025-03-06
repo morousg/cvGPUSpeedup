@@ -1,6 +1,4 @@
 option (ENABLE_BENCHMARK "build benchmarking unit tests" OFF)
-
-set (LAUNCH_SOURCES ${CMAKE_SOURCE_DIR}/tests/main.cpp ${CMAKE_SOURCE_DIR}/tests/main.h)
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OUT_DIR})
 
 MACRO(SUBDIRLIST result curdir)

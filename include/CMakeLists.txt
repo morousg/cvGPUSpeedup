@@ -6,6 +6,7 @@ file(
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/*.cuh"
 )
+
 add_library(headers INTERFACE ${CUDA_SOURCES})
 # Set virtual folders for MSVC
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${CUDA_SOURCES})
@@ -13,5 +14,6 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${CUDA_SOURCES})
 set_target_properties(${cuda_target} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 
 if (${BUILD_UTEST})   
+    set (LAUNCH_SOURCES ${CMAKE_SOURCE_DIR}/include/tests/main.cpp ${CMAKE_SOURCE_DIR}/include/tests/main.h)
     discover_tests("${CMAKE_CURRENT_SOURCE_DIR}/tests")
 endif()

@@ -1,4 +1,4 @@
-set (LAUNCH_SOURCES ${CMAKE_SOURCE_DIR}/tests/main.cpp ${CMAKE_SOURCE_DIR}/tests/main.h)
+
 
 function (discover_tests DIR)    
     file(
