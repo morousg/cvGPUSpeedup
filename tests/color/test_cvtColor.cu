@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+﻿/* Copyright 2023 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -17,7 +17,10 @@
 #include <opencv2/cudaimgproc.hpp>
 #include "tests/nvtx.h"
 
-#include "tests/main.h"
+
+#ifdef WIN32
+#include <intellisense/main.h>
+#endif
 
 template <int CV_TYPE_I, int CV_TYPE_O, cv::ColorConversionCodes CC>
 bool test_cvtColor(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {

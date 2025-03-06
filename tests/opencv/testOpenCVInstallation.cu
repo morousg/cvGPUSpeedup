@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+﻿/* Copyright 2023 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -21,7 +21,10 @@
 #include <opencv2/core/cuda_stream_accessor.hpp>
 #include <opencv2/cudaarithm.hpp>
 
-#include "tests/main.h"
+
+#ifdef WIN32
+#include <intellisense/main.h>
+#endif
 
 int launch() {
 

@@ -14,6 +14,9 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${CUDA_SOURCES})
 set_target_properties(${cuda_target} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 
 if (${BUILD_UTEST})   
-    set (LAUNCH_SOURCES ${CMAKE_SOURCE_DIR}/include/tests/main.cpp ${CMAKE_SOURCE_DIR}/include/tests/main.h)
+    if (MSVC)
+        #intellisense hack for vs2022
+        set (LAUNCH_SOURCES ${CMAKE_SOURCE_DIR}/include/intellisense/main.cpp ${CMAKE_SOURCE_DIR}/include/intellisense/main.h)
+    endif()
     discover_tests("${CMAKE_CURRENT_SOURCE_DIR}/tests")
 endif()

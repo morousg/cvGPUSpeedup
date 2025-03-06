@@ -1,4 +1,4 @@
-/* Copyright 2023-2025 Oscar Amoros Huguet
+﻿/* Copyright 2023-2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -16,7 +16,10 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
-#include "tests/main.h"
+
+#ifdef WIN32
+#include <intellisense/main.h>
+#endif
 
 #ifdef ENABLE_BENCHMARK
 constexpr char VARIABLE_DIMENSION[] {"Batch size"};
