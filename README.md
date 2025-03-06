@@ -39,7 +39,7 @@ Our aim with this repository is to create a code demonstration platform, and an 
 *  OpenCV 4.8, 4.9 and and 4.11 (first version to support cuda 12.8)
 *  OS Windows 11 22H2 ,23H2 and 24H2 with drivers from 516.94 to 572.16.
 *  Ubuntu 22.04 and 24.04 (both native and under WSL2 enviroment)   
-*  Compute capabilities 7.5 Turing, 8.6 Ampere, 8.9 Ada Lovelace (Blackwell WIP). Should work with any compute capability. 
+*  Compute Capabilities 7.5 (Turing), 8.6 (Ampere), 8.9 (Ada Lovelace), 10.0 (Blackwell). Should work with any Compute Capability. 
 *  Systems with x86_64 (Intel/AMD) and ARM 64 (Jetson Orin) platform.
 
 ## Examples
