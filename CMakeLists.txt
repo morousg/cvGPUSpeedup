@@ -16,15 +16,19 @@ DESCRIPTION "Make OpenCV-CUDA code run faster on the GPU" HOMEPAGE_URL "https://
 include (cmake/libs/cuda/cuda.cmake)
 include (cmake/cuda_init.cmake)
 include (cmake/libs/opencv.cmake)
+include (cmake/discover_tests.cmake)
+
+option (BUILD_UTEST "build standard unit tests" ON)
+option (ENABLE_BENCHMARK "build benchmarking unit tests" OFF)
 
 add_subdirectory(include)
 add_subdirectory(lib)
 
-option (BUILD_UTEST "build standard unit tests" ON)
-option (ENABLE_BENCHMARK "build benchmarking unit tests" OFF)
+
+
 if (${BUILD_UTEST})
-    enable_testing()
-    add_subdirectory(tests)
+    enable_testing()  
+    add_subdirectory(tests)    
 endif()
 
 
