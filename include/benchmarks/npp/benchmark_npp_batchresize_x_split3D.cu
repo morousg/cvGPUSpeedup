@@ -13,7 +13,9 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#include "tests/main.h"
+#ifdef WIN32
+#include <intellisense/main.h>
+#endif
 
 #include <npp.h>
 #include <nppi_geometry_transforms.h>
