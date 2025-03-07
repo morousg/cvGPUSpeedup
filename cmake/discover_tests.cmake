@@ -1,5 +1,10 @@
 
 
+if (MSVC)
+        #intellisense hack for vs2022
+    set (LAUNCH_SOURCES "${CMAKE_SOURCE_DIR}/include/intellisense/main.cpp;${CMAKE_SOURCE_DIR}/include/intellisense/main.h")
+endif()   
+
 function (discover_tests DIR)    
     file(
         GLOB_RECURSE

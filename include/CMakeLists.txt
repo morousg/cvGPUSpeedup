@@ -7,16 +7,19 @@ file(
 	"${CMAKE_CURRENT_SOURCE_DIR}/*.cuh"
 )
 
-add_library(headers INTERFACE ${CUDA_SOURCES})
+add_library(headers INTERFACE ${CUDA_SOURCES} )
 # Set virtual folders for MSVC
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${CUDA_SOURCES})
 #target_include_directories(include INTERFACE .)
 set_target_properties(${cuda_target} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 
-if (${BUILD_UTEST})   
-    if (MSVC)
+if (MSVC)
         #intellisense hack for vs2022
         set (LAUNCH_SOURCES ${CMAKE_SOURCE_DIR}/include/intellisense/main.cpp ${CMAKE_SOURCE_DIR}/include/intellisense/main.h)
-    endif()
+endif()   
+
+if (${BUILD_UTEST})       
     discover_tests("${CMAKE_CURRENT_SOURCE_DIR}/tests")
 endif()
+
+
