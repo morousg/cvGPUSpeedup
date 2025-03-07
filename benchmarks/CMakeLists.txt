@@ -30,21 +30,14 @@ function (enable_intellisense TARGET_NAME)
 
 endfunction()
 
-function(add_vertical_fusion_kernels FOLDER_FROM)
+function(add_vertical_fusion_kernels TARGET_NAME FOLDER_FROM)
     file(
         GLOB_RECURSE
         VF_KERNEL_SOURCES
         CONFIGURE_DEPENDS
-        "${CMAKE_SOURCE_DIR}/benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/${FOLDER_FROM}/*.cu"
+        "${CMAKE_SOURCE_DIR}/benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/${FOLDER_FROM}/*"
     )
-
-    add_library(vertical_fusion_kernels_${FOLDER_FROM} STATIC ${VF_KERNEL_SOURCES})
-    target_link_libraries(vertical_fusion_kernels_${FOLDER_FROM} PRIVATE cvGPUSpeedup)
-    set_target_properties(vertical_fusion_kernels_${FOLDER_FROM} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
-    target_include_directories(vertical_fusion_kernels_${FOLDER_FROM} PRIVATE "${CMAKE_SOURCE_DIR}")
-    add_opencv_to_target(vertical_fusion_kernels_${FOLDER_FROM} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs")
-    set_target_cuda_arch_flags(vertical_fusion_kernels_${FOLDER_FROM})
-    add_cuda_to_target(vertical_fusion_kernels_${FOLDER_FROM} "")
+	target_sources(${TARGET_NAME} PRIVATE ${VF_KERNEL_SOURCES})
 endfunction()
 
 function (discover_tests DIR)
@@ -69,33 +62,21 @@ function (discover_tests DIR)
 		string(FIND ${cuda_source} "benchmark_vertical_fusionCompareMulSum.cu" is_vmulsum)
 		string(FIND ${cuda_source} "benchmark_vertical_fusionCompareMulSum1.cu" is_vmulsum1)
 
-		# If the source is one of the 4 cases, add the required kernels as a library
-		if (${is_vmul} GREATER -1)
-			add_vertical_fusion_kernels("mul")
-		elseif (${is_vmul1} GREATER -1)
-			add_vertical_fusion_kernels("mul1")
-		elseif (${is_vmulsum} GREATER -1)
-			add_vertical_fusion_kernels("mul_add")
-		elseif (${is_vmulsum1} GREATER -1)
-			add_vertical_fusion_kernels("mul_add1")
-		endif()
-
 		if (${is_vfki} EQUAL -1)
 			if (${OPENCV_FOUND})
 				if (${is_ocv} GREATER -1)
 					add_executable(${cuda_target} ${cuda_source} ${LAUNCH_SOURCES})
-					add_opencv_to_target(${cuda_target} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs")
-					# If the source is one of the 4 cases, link with the created library
+					# If the source is one of the 4 cases, add the required kernels as a library
 					if (${is_vmul} GREATER -1)
-						target_link_libraries(${cuda_target} PRIVATE vertical_fusion_kernels_mul)
+						add_vertical_fusion_kernels(${cuda_target} "mul")
 					elseif (${is_vmul1} GREATER -1)
-						target_link_libraries(${cuda_target} PRIVATE vertical_fusion_kernels_mul1)
+						add_vertical_fusion_kernels(${cuda_target} "mul1")
 					elseif (${is_vmulsum} GREATER -1)
-						target_link_libraries(${cuda_target} PRIVATE vertical_fusion_kernels_mul_add)
+						add_vertical_fusion_kernels(${cuda_target} "mul_add")
 					elseif (${is_vmulsum1} GREATER -1)
-						target_link_libraries(${cuda_target} PRIVATE vertical_fusion_kernels_mul_add1)
+						add_vertical_fusion_kernels(${cuda_target} "mul_add1")
 					endif()
-					
+					add_opencv_to_target(${cuda_target} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs")
 					enable_intellisense(${cuda_target})
 				endif()
 			endif()
