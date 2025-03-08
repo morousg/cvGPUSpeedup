@@ -7,6 +7,14 @@ function(add_cuda_debug_support_to_target TARGET_NAME)
     target_compile_options(${TARGET_NAME} PRIVATE $<$<AND:$<CONFIG:debug>,$<COMPILE_LANGUAGE:CUDA>>:-G>)    
 endfunction()
 
+function(add_cuda_lineinfo_to_target TARGET_NAME)
+    #-G already implies lineinfo, so only pass flag if debug code is not 
+    if (NOT ${ENABLE_DEBUG})
+        target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>: -lineinfo>)    
+    endif()    
+endfunction()
+
+
 function(add_nvtx_support_to_target TARGET_NAME)    
     if (${CMAKE_VERSION} GREATER_EQUAL "3.25.0")
         target_link_libraries(${TARGET_NAME} PRIVATE CUDA::nvtx3)
