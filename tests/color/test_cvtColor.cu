@@ -18,9 +18,7 @@
 #include "tests/nvtx.h"
 
 
-#ifdef WIN32
-#include <intellisense/main.h>
-#endif
+#include "tests/main.h"
 
 template <int CV_TYPE_I, int CV_TYPE_O, cv::ColorConversionCodes CC>
 bool test_cvtColor(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {

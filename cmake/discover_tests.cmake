@@ -12,11 +12,8 @@ function (discover_tests DIR)
     foreach(cuda_source ${CUDA_SOURCES})
         get_filename_component(cuda_target ${cuda_source} NAME_WE)           
         add_executable(${cuda_target} ${cuda_source} )
-      
-      
-            target_sources(${cuda_target} PRIVATE ${LAUNCH_SOURCES})            
-       
-        
+        target_sources(${cuda_target} PRIVATE ${LAUNCH_SOURCES})            
+     
         if(${ENABLE_BENCHMARK})
             target_compile_definitions(${cuda_target} PRIVATE ENABLE_BENCHMARK)
         endif()

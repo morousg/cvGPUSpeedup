@@ -16,7 +16,7 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
  
-#include <tests/main.h>
+#include "tests/main.h"
 
 constexpr char VARIABLE_DIMENSION[]{"Batch size"};
 #ifndef CUDART_MAJOR_VERSION

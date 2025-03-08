@@ -13,9 +13,7 @@
    limitations under the License. */
 
 
-#ifdef WIN32
-#include <intellisense/main.h>
-#endif
+#include "tests/main.h"
 
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/opencv.hpp>

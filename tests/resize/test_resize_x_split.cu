@@ -12,10 +12,8 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
+#include "tests/main.h"
 
-#ifdef WIN32
-#include <intellisense/main.h>
-#endif
 #include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>

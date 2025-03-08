@@ -17,11 +17,7 @@
 #include <opencv2/cudaimgproc.hpp>
 #include "tests/nvtx.h"
 
-
-#ifdef WIN32
-#include <intellisense/main.h>
-#endif
-
+#include "tests/main.h"
 // It is 50, because otherwise we surpass the 4KB parameter limit
 // in CUDA 11.8. This limitations will be removed when migrating
 // to CUDA 12.

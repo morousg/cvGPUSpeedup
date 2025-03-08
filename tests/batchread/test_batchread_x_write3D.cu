@@ -17,9 +17,8 @@
 #include <opencv2/cudaimgproc.hpp>
 
 
-#ifdef WIN32
-#include <intellisense/main.h>
-#endif
+
+#include "tests/main.h"
 
 #ifdef ENABLE_BENCHMARK
 constexpr char VARIABLE_DIMENSION[] {"Batch size"};

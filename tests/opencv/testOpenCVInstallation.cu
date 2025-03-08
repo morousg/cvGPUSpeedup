@@ -21,10 +21,7 @@
 #include <opencv2/core/cuda_stream_accessor.hpp>
 #include <opencv2/cudaarithm.hpp>
 
-
-#ifdef WIN32
-#include <intellisense/main.h>
-#endif
+#include "tests/main.h"
 
 int launch() {
 

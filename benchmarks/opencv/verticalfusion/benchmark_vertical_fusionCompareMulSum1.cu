@@ -12,9 +12,8 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#ifdef WIN32
-#include <intellisense/main.h>
-#endif
+#include "tests/main.h"
+
 #include "tests/testsCommon.cuh"
 #include <fused_kernel/algorithms/basic_ops/static_loop.cuh>
 #include <cvGPUSpeedup.cuh>

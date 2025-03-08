@@ -19,9 +19,7 @@
 #include <cvGPUSpeedup.cuh>
 
 
-#ifdef WIN32
-#include <intellisense/main.h>
-#endif
+#include "tests/main.h"
 
 bool testCircularBatchRead() {
     constexpr uint WIDTH = 32;
