@@ -17,6 +17,7 @@
 
 #include <fused_kernel/algorithms/image_processing/interpolation.cuh>
 #include <fused_kernel/algorithms/image_processing/saturate.cuh>
+#include <fused_kernel/algorithms/basic_ops/cast.cuh>
 #include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/core/data/array.cuh>
 #include <fused_kernel/core/execution_model/memory_operations.cuh>
@@ -257,10 +258,10 @@ namespace fk {
         template <typename ReadIOp, enum AspectRatio AR_ = AR>
         FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, ReadBack<ResizeRead<IType, AR_, ReadIOp>>>
         build(const ReadIOp& readIOp, const ReadBack<ResizeRead<IType, AR_, TypeList<void, T>>>& iOp) {
-            static_assert(std::is_same_v<T, typename ReadIOp::Operation::OutputType>,
-                "Background value type is not the same as the provided ReadOperation OutputType");
-            return ResizeRead<IType, AR_, ReadIOp>::build(readIOp, iOp.params.dstSize, iOp.params.defaultValue);
+            using ReadIOpOutputType = typename ResizeRead<IType, AR_, ReadIOp>::OutputType;
+            return ResizeRead<IType, AR_, ReadIOp>::build(readIOp, iOp.params.dstSize, Cast<T, ReadIOpOutputType>::exec(iOp.params.defaultValue));
         }
+
         using InstantiableType = Instantiable<ResizeRead<IType, AR, TypeList<void, T>>>;
         DEFAULT_BUILD
         DEFAULT_READ_BATCH_BUILD

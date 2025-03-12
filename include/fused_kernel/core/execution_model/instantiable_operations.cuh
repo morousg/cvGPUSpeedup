@@ -23,9 +23,10 @@
 #include <fused_kernel/core/data/size.h>
 #include <fused_kernel/core/data/array.cuh>
 #include <fused_kernel/core/constexpr_libs/constexpr_cmath.cuh>
+#include <fused_kernel/core/execution_model/vector_operations.cuh>
+#include <fused_kernel/algorithms/basic_ops/cast_base.cuh>
 
 namespace fk { // namespace FusedKernel
-
     struct ActiveThreads {
         uint x, y, z;
         FK_HOST_DEVICE_CNST ActiveThreads(const uint& vx = 1,
@@ -81,22 +82,49 @@ namespace fk { // namespace FusedKernel
         DEVICE_FUNCTION_DETAILS_IS_ASSERT(ReadType)
     private:
         template <size_t BATCH, size_t... Idx, typename BackwardIOp, typename ForwardIOp>
-        FK_HOST_FUSE auto make_fusedArray(const std::index_sequence<Idx...>&,
+        FK_HOST_FUSE auto make_fusedArrayBack(const std::index_sequence<Idx...>&,
                                           const std::array<BackwardIOp, BATCH>& bkArray,
                                           const std::array<ForwardIOp, BATCH>& fwdArray) {
             using ResultingType = decltype(ForwardIOp::Operation::build(std::declval<BackwardIOp>(), std::declval<ForwardIOp>()));
             return std::array<ResultingType, BATCH>{ForwardIOp::Operation::build(bkArray[Idx], fwdArray[Idx])...};
         }
+        template <size_t BATCH, size_t... Idx, typename ThisIOp, typename ForwardIOp>
+        FK_HOST_FUSE auto make_fusedArray(const std::index_sequence<Idx...>&,
+                                          const std::array<ThisIOp, BATCH>& thisArray,
+                                          const std::array<ForwardIOp, BATCH>& fwdArray) {
+            using ResultingType = decltype(fuseDF(std::declval<ThisIOp>(), std::declval<ForwardIOp>()));
+            return std::array<ResultingType, BATCH>{fuseDF(thisArray[Idx], fwdArray[Idx])...};
+        }
         template <size_t BATCH, typename BackwardIOp, typename ForwardIOp, typename MainBatchIOp>
         FK_HOST_FUSE auto then_helper(const std::array<BackwardIOp, BATCH>& backOpArray,
                                       const std::array<ForwardIOp, BATCH>& forwardOpArray,
                                       const MainBatchIOp& mainIOp) {
-            const auto fusedArray = make_fusedArray<BATCH>(std::make_index_sequence<BATCH>{}, backOpArray, forwardOpArray);
+            const auto fusedArray = make_fusedArrayBack<BATCH>(std::make_index_sequence<BATCH>{}, backOpArray, forwardOpArray);
             using ContinuationIOpNewType = typename decltype(fusedArray)::value_type;
             if constexpr (MainBatchIOp::Operation::PP == PROCESS_ALL) {
                 return ContinuationIOpNewType::Operation::build(fusedArray);
             } else {
-                return ContinuationIOpNewType::Operation::build(mainIOp.params.usedPlanes, mainIOp.params.default_value, fusedArray);
+                using NewOutputType = typename ContinuationIOpNewType::Operation::OutputType;
+                using OldOutputType = std::decay_t<decltype(mainIOp.params.default_value)>;
+                const auto default_value = mainIOp.params.default_value;
+                const auto val = UnaryV<CastBase<VBase<OldOutputType>, VBase<NewOutputType>>, OldOutputType, NewOutputType>::exec(default_value);
+                return ContinuationIOpNewType::Operation::build(mainIOp.params.usedPlanes, val, fusedArray);
+            }
+        }
+        template <size_t BATCH, typename ThisIOp, typename ForwardIOp>
+        FK_HOST_CNST auto then_helper(const std::array<ThisIOp, BATCH>& thisArray,
+                                      const ForwardIOp& forwardIOp) const {
+            const auto forwardOpArray = make_set_std_array<BATCH>(forwardIOp);
+            const auto fusedArray = make_fusedArray<BATCH>(std::make_index_sequence<BATCH>{}, thisArray, forwardOpArray);
+            using ContinuationIOpNewType = typename decltype(fusedArray)::value_type;
+            if constexpr (Operation::PP == PROCESS_ALL) {
+                return ContinuationIOpNewType::Operation::build(fusedArray);
+            } else {
+                using NewOutputType = typename ContinuationIOpNewType::Operation::OutputType;
+                using OldOutputType = std::decay_t<decltype(this->params.default_value)>;
+                const auto default_value = this->params.default_value;
+                const auto val = UnaryV<CastBase<VBase<OldOutputType>, VBase<NewOutputType>>, OldOutputType, NewOutputType>::exec(default_value);
+                return ContinuationIOpNewType::Operation::build(this->params.usedPlanes, val, fusedArray);
             }
         }
     public:
@@ -121,13 +149,14 @@ namespace fk { // namespace FusedKernel
             } else if constexpr (isBatchOperation<Operation> && !isBatchOperation<typename ContinuationIOp::Operation>) {
                 static_assert(!isAnyReadType<ContinuationIOp> || isReadBackType<ContinuationIOp>,
                     "ReadOperation as continuation is not allowed. It has to be a ReadBackOperation.");
+                constexpr size_t BATCH = static_cast<size_t>(Operation::BATCH);
                 if constexpr (isReadBackType<ContinuationIOp>) {
-                    constexpr size_t BATCH = static_cast<size_t>(Operation::BATCH);
                     const auto backOpArray = Operation::toArray(*this);
                     const auto forwardOpArray = make_set_std_array<BATCH>(cIOp);
                     return then_helper<BATCH>(backOpArray, forwardOpArray, *this);
                 } else {
-                    return fuseDF(*this, cIOp);
+                    const auto thisArray = Operation::toArray(*this);
+                    return then_helper<BATCH>(thisArray, cIOp);
                 }
             } else if constexpr (!isBatchOperation<Operation>&& !isBatchOperation<typename ContinuationIOp::Operation>) {
                 static_assert(!isAnyReadType<ContinuationIOp> || isReadBackType<ContinuationIOp>,

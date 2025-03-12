@@ -107,36 +107,7 @@ namespace fk {
         using InstantiableType = Read<PerThreadRead<D, T>>;
         DEFAULT_BUILD
         DEFAULT_BUILD_PARAMS
-    private:
-        template <size_t Idx, typename Array>
-        static constexpr __forceinline  auto get_element_at_index(const Array& paramArray) -> decltype(paramArray[Idx]) {
-            return paramArray[Idx];
-        }
-        template <size_t Idx, typename... Arrays>
-        static constexpr __forceinline  auto call_build_at_index(const Arrays&... arrays) {
-            return build(get_element_at_index<Idx>(arrays)...);
-        }
-        template <size_t... Idx, typename... Arrays>
-        static constexpr __forceinline  auto build_helper_generic(const std::index_sequence<Idx...>&, const Arrays&... arrays) {
-            using OutputArrayType = decltype(call_build_at_index<0>(std::declval<Arrays>()...));
-            return std::array<OutputArrayType, sizeof...(Idx)>{ call_build_at_index<Idx>(arrays...)... };
-        } 
-    public: 
-        template <size_t BATCH_N, typename FirstType, typename... ArrayTypes>
-        static constexpr __forceinline  auto build_batch(const std::array<FirstType, BATCH_N>& firstInstance, const ArrayTypes&... arrays) {
-            static_assert(allArraysSameSize_v<BATCH_N, ArrayTypes...>, "Not all arrays have the same size as BATCH");
-            return build_helper_generic(std::make_index_sequence<BATCH_N>(), firstInstance, arrays...);
-        }
-        template <size_t BATCH_N, typename FirstType, typename... ArrayTypes>
-        static constexpr __forceinline  auto build(const std::array<FirstType, BATCH_N>& firstInstance, const ArrayTypes&... arrays) {
-            const auto arrayOfIOps = build_batch(firstInstance, arrays...);
-            return BatchRead<BATCH_N>::build(arrayOfIOps);
-        }
-        template <size_t BATCH_N, typename DefaultValueType, typename FirstType, typename... ArrayTypes>
-        static constexpr __forceinline  auto build(const int& usedPlanes, const DefaultValueType& defaultValue, const std::array<FirstType, BATCH_N>& firstInstance, const ArrayTypes&... arrays) {
-            const auto arrayOfIOps = build_batch(firstInstance, arrays...);
-            return BatchRead<BATCH_N, CONDITIONAL_WITH_DEFAULT>::build(arrayOfIOps, usedPlanes, defaultValue);
-        }
+        DEFAULT_READ_BATCH_BUILD
     };
 
     template <enum ND D, typename T>

@@ -12,27 +12,19 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#ifndef FK_CAST
-#define FK_CAST
+#ifndef FK_CAST_BASE
+#define FK_CAST_BASE
 
-#include <fused_kernel/core/execution_model/instantiable_operations.cuh>
-#include <fused_kernel/core/execution_model/vector_operations.cuh>
-#include <fused_kernel/algorithms/basic_ops/cast_base.cuh>
-
-#include <fused_kernel/core/execution_model/default_builders_def.h>
 namespace fk {
     template <typename I, typename O>
-    struct Cast {
+    struct CastBase {
         using InputType = I;
         using OutputType = O;
         using InstanceType = UnaryType;
         FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
-            return UnaryV<CastBase<VBase<I>, VBase<O>>, I, O>::exec(input);
+            return static_cast<O>(input);
         }
-        using InstantiableType = Unary<Cast<I, O>>;
-        DEFAULT_UNARY_BUILD
     };
 } // namespace fk
-#include <fused_kernel/core/execution_model/default_builders_undef.h>
 
 #endif

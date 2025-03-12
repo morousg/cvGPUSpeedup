@@ -20,15 +20,16 @@
 #include "tests/nvtx.h"
 
 #include <cvGPUSpeedup.cuh>
+#include <chrono>
 
-constexpr char VARIABLE_DIMENSION[]{ "Batch size" };
+constexpr char VARIABLE_DIMENSION[]{ "NONE" };
 constexpr size_t NUM_EXPERIMENTS = 1;
 constexpr size_t FIRST_VALUE = 50;
 constexpr size_t INCREMENT = 1;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
-template <const int BATCH>
-bool test_batchresize_aspectratio_x_split3D(cv::cuda::Stream& cv_stream, bool enabled) {
+bool test_cvGS_VS_fk_CPU_and_GPU(cv::cuda::Stream& cv_stream, bool enabled) {
+    constexpr int BATCH = 50;
     constexpr int CV_TYPE_I = CV_8UC3;
     constexpr int CV_TYPE_O = CV_32FC3;
     constexpr size_t NUM_ELEMS_X = 3840;
@@ -64,7 +65,7 @@ bool test_batchresize_aspectratio_x_split3D(cv::cuda::Stream& cv_stream, bool en
             if (newWidth > up.width) {
                 scaleFactor = up.width / (float)cropWidth;
                 newWidth = up.width;
-                newHeight = static_cast<int> (scaleFactor * cropHeight);
+                newHeight = static_cast<int>(scaleFactor * cropHeight);
             }
             cv::Size upAspectRatio(newWidth, newHeight);
 
@@ -75,14 +76,12 @@ bool test_batchresize_aspectratio_x_split3D(cv::cuda::Stream& cv_stream, bool en
             std::array<std::vector<cv::Mat>, BATCH> h_cvResults;
             std::array<std::vector<cv::Mat>, BATCH> h_cvGSResults;
 
-            cv::cuda::GpuMat d_tensor_output(BATCH, up.width * up.height * CV_MAT_CN(CV_32FC3),
-                                             CV_MAT_DEPTH(CV_32FC3));
+            cv::cuda::GpuMat d_tensor_output(BATCH, up.width * up.height * CV_MAT_CN(CV_32FC3), CV_MAT_DEPTH(CV_32FC3));
             d_tensor_output.step = up.width * up.height * CV_MAT_CN(CV_32FC3) * sizeof(BASE_CUDA_T(CV_32FC3));
             d_tensor_output.setTo(cv::Scalar(0.f, 0.f, 0.f));
 
             cv::Mat diff(up, CV_MAT_DEPTH(CV_32FC3));
             cv::Mat h_tensor_output(BATCH, up.width * up.height * CV_MAT_CN(CV_32FC3), CV_MAT_DEPTH(CV_32FC3));
-            
 
             std::array<cv::cuda::GpuMat, BATCH> crops;
             d_up.setTo(val_init_output);
@@ -97,8 +96,7 @@ bool test_batchresize_aspectratio_x_split3D(cv::cuda::Stream& cv_stream, bool en
             const std::array<fk::RawPtr<fk::_2D, uchar3>, BATCH> fk_crops{ cvGS::gpuMat2RawPtr2D_arr<uchar3, BATCH>(crops) };
             const fk::Size fk_size{up.width, up.height};
             cv::Mat h_fk_output(BATCH, up.width * up.height * CV_MAT_CN(CV_32FC3), CV_MAT_DEPTH(CV_32FC3));
-            cv::cuda::GpuMat d_fk_output(BATCH, up.width * up.height * CV_MAT_CN(CV_32FC3),
-                CV_MAT_DEPTH(CV_32FC3));
+            cv::cuda::GpuMat d_fk_output(BATCH, up.width * up.height * CV_MAT_CN(CV_32FC3), CV_MAT_DEPTH(CV_32FC3));
             d_fk_output.step = up.width * up.height * CV_MAT_CN(CV_32FC3) * sizeof(BASE_CUDA_T(CV_32FC3));
             d_fk_output.setTo(cv::Scalar(0.f, 0.f, 0.f));
             auto fk_output = cvGS::gpuMat2Tensor<float>(d_fk_output, up, 3);
@@ -108,21 +106,48 @@ bool test_batchresize_aspectratio_x_split3D(cv::cuda::Stream& cv_stream, bool en
             const float3 fk_val_div = cvGS::cvScalar2CUDAV<CV_32FC3>::get(val_div);
             const float3 fk_defaultBackground = cvGS::cvScalar2CUDAV<CV_32FC3>::get(val_init_output);
 
+            constexpr fk::AspectRatio AR{ fk::PRESERVE_AR };
+            constexpr fk::InterpolationType IType{ fk::INTER_LINEAR };
+
+            using PixelReadOp = fk::PerThreadRead<fk::_2D, uchar3>;
+            using O = float3;
+            const O backgroundValue = fk::make_set<float3>(128.f);
+
+            // CPU Time statistics
+            std::array<float, ITERS> fkCPUTime;
+            std::array<float, ITERS> cvGSCPUTime;
+
             START_OCV_BENCHMARK
+
             // fk version
+            const auto cpu_start1 = std::chrono::high_resolution_clock::now();
             PUSH_RANGE("Launching fk")
-            const auto resizeOp = fk::PerThreadRead<fk::_2D, uchar3>::build(BATCH, fk_defaultBackground, fk_crops)
-                                  .then(fk::ResizeRead<fk::INTER_LINEAR, fk::PRESERVE_AR>::build(fk_size, fk_defaultBackground));
-            fk::executeOperations(stream, resizeOp,
-                                  fk::ColorConversion<fk::COLOR_RGB2BGR, float3, float3>::build(),
-                                  fk::Mul<float3>::build(fk_val_alpha),
-                                  fk::Sub<float3>::build(fk_val_sub),
-                                  fk::Div<float3>::build(fk_val_div),
-                                  fk::TensorSplit<float3>::build({ fk_output }));
+            /*const auto resizeOp = fk::PerThreadRead<fk::_2D, uchar3>::build(BATCH, fk::make_set<uchar3>(128), fk_crops)
+                                  .then(fk::ResizeRead<fk::INTER_LINEAR, fk::PRESERVE_AR>::build(fk_size, fk_defaultBackground));*/
+
+            const auto readOP = PixelReadOp::build_batch(fk_crops);
+            const auto sizeArr = fk::make_set_std_array<BATCH>(fk_size);
+            const auto backgroundArr = fk::make_set_std_array<BATCH>(backgroundValue);
+            using Resize = fk::ResizeRead<IType, AR, fk::Read<PixelReadOp>>;
+            const auto resizeDFs = Resize::build_batch(readOP, sizeArr, backgroundArr);
+            const auto resizeOp = fk::BatchRead<BATCH, fk::CONDITIONAL_WITH_DEFAULT>::build(resizeDFs, BATCH, backgroundValue);
+
+            fk::executeOperations(stream,
+                resizeOp,
+                fk::Unary<fk::ColorConversion<fk::COLOR_RGB2BGR, float3, float3>>{},
+                fk::Binary<fk::Mul<float3>>{fk_val_alpha},
+                fk::Binary<fk::Sub<float3>>{fk_val_sub},
+                fk::Binary<fk::Div<float3>>{fk_val_div},
+                fk::Write<fk::TensorSplit<float3>>{{ fk_output }});
             POP_RANGE
+            const auto cpu_end1 = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<float, std::milli> cpu_elapsed1 = cpu_end1 - cpu_start1;
+            fkCPUTime[i] = cpu_elapsed1.count();
 
             STOP_OCV_START_CVGS_BENCHMARK
+
             // cvGPUSpeedup
+            const auto cpu_start = std::chrono::high_resolution_clock::now();
             PUSH_RANGE("Launching cvGS")
             cvGS::executeOperations(cv_stream,
                 cvGS::resize<CV_8UC3, cv::INTER_LINEAR, BATCH, cvGS::PRESERVE_AR>(crops, up, BATCH, val_init_output),
@@ -132,42 +157,49 @@ bool test_batchresize_aspectratio_x_split3D(cv::cuda::Stream& cv_stream, bool en
                 cvGS::divide<CV_32FC3>(val_div),
                 cvGS::split<CV_32FC3>(d_tensor_output, up));
             POP_RANGE
+            const auto cpu_end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<float, std::milli> cpu_elapsed = cpu_end - cpu_start;
+            cvGSCPUTime[i] = cpu_elapsed.count();
+
             STOP_CVGS_BENCHMARK
+
+            resF.OCVelapsedTimeMax = fk::minValue<float>;
+            resF.OCVelapsedTimeMin = fk::maxValue<float>;
+            resF.OCVelapsedTimeAcum = 0.f;
+            resF.cvGSelapsedTimeMax = fk::minValue<float>;
+            resF.cvGSelapsedTimeMin = fk::maxValue<float>;
+            resF.cvGSelapsedTimeAcum = 0.f;
+            for (int i = 0; i < ITERS; i++) {
+                OCVelapsedTime[i] = fkCPUTime[i];
+                resF.OCVelapsedTimeMax = resF.OCVelapsedTimeMax < OCVelapsedTime[i] ? OCVelapsedTime[i] : resF.OCVelapsedTimeMax;
+                resF.OCVelapsedTimeMin = resF.OCVelapsedTimeMin > OCVelapsedTime[i] ? OCVelapsedTime[i] : resF.OCVelapsedTimeMin;
+                resF.OCVelapsedTimeAcum += OCVelapsedTime[i];
+                cvGSelapsedTime[i] = cvGSCPUTime[i];
+                resF.cvGSelapsedTimeMax = resF.cvGSelapsedTimeMax < cvGSelapsedTime[i] ? cvGSelapsedTime[i] : resF.cvGSelapsedTimeMax;
+                resF.cvGSelapsedTimeMin = resF.cvGSelapsedTimeMin > cvGSelapsedTime[i] ? cvGSelapsedTime[i] : resF.cvGSelapsedTimeMin;
+                resF.cvGSelapsedTimeAcum += cvGSelapsedTime[i];
+            }
+            processExecution<CV_TYPE_I, CV_TYPE_O, BATCH, ITERS, batchValues.size(), batchValues>(resF,
+                                                                                                  __func__,
+                                                                                                  OCVelapsedTime,
+                                                                                                  cvGSelapsedTime,
+                                                                                                  VARIABLE_DIMENSION);
+
             d_tensor_output.download(h_tensor_output, cv_stream);
             d_fk_output.download(h_fk_output, cv_stream);
 
             cv_stream.waitForCompletion();
-            for (int crop_i = 0; crop_i < BATCH; crop_i++) {
-                cv::Mat row = h_tensor_output.row(crop_i);
-                cv::Mat row_fk = h_fk_output.row(crop_i);
-                for (int i = 0; i < CV_MAT_CN(CV_8UC3); i++) {
-                    int planeStart = i * up.width * up.height;
-                    int planeEnd = ((i + 1) * up.width * up.height) - 1;
-                    cv::Mat plane = row.colRange(planeStart, planeEnd);
-                    cv::Mat plane_fk = row_fk.colRange(planeStart, planeEnd);
-                    h_cvGSResults[crop_i].push_back(cv::Mat(up.height, up.width, plane.type(), plane.data));
-                    h_cvResults[crop_i].push_back(cv::Mat(up.height, up.width, plane_fk.type(), plane_fk.data));
-                }
-            }
 
-            for (int crop_i = 0; crop_i < BATCH; crop_i++) {
-                for (int i = 0; i < CV_MAT_CN(CV_32FC3); i++) {
-                    cv::Mat cvRes = h_cvResults[crop_i].at(i);
-                    cv::Mat cvGSRes = h_cvGSResults[crop_i].at(i);
-                    diff = cv::abs(cvRes - cvGSRes);
-                    bool passedThisTime = checkResults<CV_MAT_DEPTH(CV_32FC3)>(diff.cols, diff.rows, diff);
-                    passed &= passedThisTime;
-                }
-            }
-        }
-        catch (const cv::Exception& e) {
+            cv::Mat diff0 = h_tensor_output != h_fk_output;
+            bool passed = cv::sum(diff0) == cv::Scalar(0, 0, 0, 0);
+
+        } catch (const cv::Exception& e) {
             if (e.code != -210) {
                 error_s << e.what();
                 passed = false;
                 exception = true;
             }
-        }
-        catch (const std::exception& e) {
+        }  catch (const std::exception& e) {
             error_s << e.what();
             passed = false;
             exception = true;
@@ -193,7 +225,7 @@ bool test_batchresize_aspectratio_x_split3D(cv::cuda::Stream& cv_stream, bool en
 int launch() {
 #ifdef ENABLE_BENCHMARK
     cv::cuda::Stream cv_stream;
-    bool correct = test_batchresize_aspectratio_x_split3D<50>(cv_stream, true);
+    bool correct = test_cvGS_VS_fk_CPU_and_GPU(cv_stream, true);
 
     return correct ? 0 : -1;
 #else
