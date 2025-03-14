@@ -100,7 +100,6 @@ bool test_batchresize_aspectratio_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv
             cv::cuda::GpuMat d_temp2(up, CV_TYPE_O);
 
             std::array<std::vector<cv::cuda::GpuMat>, BATCH> d_output_cv;
-            std::array<std::vector<cv::cuda::GpuMat>, BATCH> d_output_cvGS;
             std::array<std::vector<cv::Mat>, BATCH> h_cvResults;
             std::array<std::vector<cv::Mat>, BATCH> h_cvGSResults;
             
