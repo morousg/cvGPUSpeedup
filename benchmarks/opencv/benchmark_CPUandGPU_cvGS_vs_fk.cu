@@ -122,8 +122,6 @@ bool test_cvGS_VS_fk_CPU_and_GPU(cv::cuda::Stream& cv_stream, bool enabled) {
             // fk version
             const auto cpu_start1 = std::chrono::high_resolution_clock::now();
             PUSH_RANGE("Launching fk")
-            /*const auto resizeOp = fk::PerThreadRead<fk::_2D, uchar3>::build(BATCH, fk::make_set<uchar3>(128), fk_crops)
-                                  .then(fk::ResizeRead<fk::INTER_LINEAR, fk::PRESERVE_AR>::build(fk_size, fk_defaultBackground));*/
 
             const auto readOP = PixelReadOp::build_batch(fk_crops);
             const auto sizeArr = fk::make_set_std_array<BATCH>(fk_size);
