@@ -4,6 +4,8 @@ Every memory read, is an opportunity for compute.
 
 With this idea in mind, this library wants to make OpenCV-CUDA code run faster on the GPU. Especially for typical pre and post processing operations for DL networks.
 
+This library is a wrapper for OpencV for the Fused Kernel Library, available [here](https://github.com/morousg/FusedKernelLibrary)
+
 ## What does it offer today?
 
 Crop, resize, basic point wise operations (for instance for normalization), color space conversions, color channel split and pack, and a flexible way to pack all those operations in a single fast kernel.
