@@ -43,7 +43,7 @@ namespace fk {
         FK_HOST_DEVICE_CNST Point_(const T x_ = 0, const T y_ = 0, const T z_ = 0) : x(x_), y(y_), z(z_) {}
     };
 
-    using Point = Point_<uint, _3D>;
+    using Point = Point_<int, _3D>;
 } // namespace fk
 
 #endif
