@@ -123,6 +123,6 @@ int launch() {
     const bool correctPerspective = testPerspective();
     const bool correctAffine = testAffine();
     // warpPerspective is almost identical to OpenCV's implementation, but there are a few pixels of difference in
-    // the border, despite using the same border type. Finding the cause of this difference is future work.
+    // the border. The reason is hard to find, since OpenCV is using NPP for the warping.
     return true && correctAffine ? 0 : -1;
 }
