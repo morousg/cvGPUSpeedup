@@ -238,7 +238,6 @@ inline constexpr auto warp(const cv::cuda::GpuMat& input, const cv::Mat& transfo
         throw std::runtime_error("Transform matrix type should be CV_64FC1.");
     }
     const auto read = fk::PerThreadRead<fk::_2D, CUDA_T(InputType)>::build({ (CUDA_T(InputType)*)input.data, { static_cast<uint>(input.cols), static_cast<uint>(input.rows), static_cast<uint>(input.step) } });
-    const auto borderRead = read.then(fk::BorderReader<fk::BorderType::CONSTANT>::build(cvScalar2CUDAV<InputType>::get(borderValue)));
     if constexpr (WT == fk::WarpType::Affine) {
         cv::Mat inverse_transform_matrix;
         cv::invertAffineTransform(transform_matrix, inverse_transform_matrix);
@@ -247,7 +246,7 @@ inline constexpr auto warp(const cv::cuda::GpuMat& input, const cv::Mat& transfo
                                        params{ {{{static_cast<float>(tm_raw[0]), static_cast<float>(tm_raw[1]), static_cast<float>(tm_raw[2])},
                                                  {static_cast<float>(tm_raw[3]), static_cast<float>(tm_raw[4]), static_cast<float>(tm_raw[5])}}},
                                                  fk::Size(dstSize.width, dstSize.height) };
-        return fk::Warping<WT, std::decay_t<decltype(borderRead)>>::build({ params, borderRead });
+        return fk::Warping<WT, std::decay_t<decltype(read)>>::build({ params, read });
     } else {
         const cv::Mat inverse_transform_matrix(transform_matrix.inv());
         const double* const tm_raw = inverse_transform_matrix.ptr<double>();
@@ -256,7 +255,7 @@ inline constexpr auto warp(const cv::cuda::GpuMat& input, const cv::Mat& transfo
                                                  {static_cast<float>(tm_raw[3]), static_cast<float>(tm_raw[4]), static_cast<float>(tm_raw[5])},
                                                  {static_cast<float>(tm_raw[6]), static_cast<float>(tm_raw[7]), static_cast<float>(tm_raw[8])}}},
                                                  fk::Size(dstSize.width, dstSize.height) };
-        return fk::Warping<WT, std::decay_t<decltype(borderRead)>>::build({ params, borderRead });
+        return fk::Warping<WT, std::decay_t<decltype(read)>>::build({ params, read });
     }
 }
 
