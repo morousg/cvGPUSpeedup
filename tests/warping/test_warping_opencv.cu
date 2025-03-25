@@ -19,12 +19,23 @@
 #include <opencv2/opencv.hpp>
 #include "tests/testsCommon.cuh"
 
+// Helper function to get the directory of the current file
+std::string getSourceDir() {
+    const std::string filePath = __FILE__;
+    size_t lastSlash = filePath.find_last_of("/\\");
+    const std::string test_warp = filePath.substr(0, lastSlash);
+    lastSlash = test_warp.find_last_of("/\\");
+    const std::string test = filePath.substr(0, lastSlash);
+    lastSlash = test.find_last_of("/\\");
+    return test.substr(0, lastSlash);
+}
+
 bool testPerspective() {
     // Load the image
-    const cv::Mat img = cv::imread("E:/GitHub/cvGPUSpeedup/images/NSightSystemsTimeline1.png");
+    const cv::Mat img = cv::imread(getSourceDir() + "/images/NSightSystemsTimeline1.png");
     if (img.empty()) {
         std::cerr << "Error loading image" << std::endl;
-        return -1;
+        return false;
     }
 
     cv::cuda::Stream stream;
@@ -66,10 +77,10 @@ bool testPerspective() {
 
 bool testAffine() {
     // Load the image
-    const cv::Mat img = cv::imread("E:/GitHub/cvGPUSpeedup/images/NSightSystemsTimeline1.png");
+    const cv::Mat img = cv::imread(getSourceDir() + "/images/NSightSystemsTimeline1.png");
     if (img.empty()) {
         std::cerr << "Error loading image" << std::endl;
-        return -1;
+        return false;
     }
 
     cv::cuda::Stream stream;
