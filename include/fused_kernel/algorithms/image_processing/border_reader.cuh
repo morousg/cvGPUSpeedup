@@ -49,17 +49,18 @@ namespace fk {
         template <typename T, enum BorderType BT_ = BT>
         FK_HOST_FUSE
         std::enable_if_t<BT_ == BorderType::CONSTANT,
-                         decltype(BorderReader<BT, TypeList<void, T>>::build(std::declval<T>()))>
+                         decltype(BorderReader<BT, TypeList<void, T>>::build(std::declval<OperationData<BorderReader<BorderType::CONSTANT, TypeList<void, T>>>>()))>
         build(const T& defaultValue) {
-            return BorderReader<BT, TypeList<void, T>>::build(defaultValue);
+            const BorderReaderParameters<BorderType::CONSTANT, T> params{ defaultValue };
+            return BorderReader<BT, TypeList<void, T>>::build({ params, 0 });
         }
 
         template <typename T, enum BorderType BT_ = BT>
         FK_HOST_FUSE
         std::enable_if_t<BT_ != BorderType::CONSTANT,
-                         decltype(BorderReader<BT, TypeList<void, T>>::build())>
+                         decltype(BorderReader<BT, TypeList<void, T>>::build(std::declval<OperationData<BorderReader<BT_, TypeList<void, T>>>>()))>
         build() {
-            return BorderReader<BT, TypeList<void, T>>::build();
+            return BorderReader<BT_, TypeList<void, T>>::build({});
         }
 
         template <typename BF, enum BorderType BT_ = BT>
@@ -67,13 +68,13 @@ namespace fk {
         std::enable_if_t<BT_ != BorderType::CONSTANT,
                          decltype(BorderReader<BT, BF>::build(std::declval<BF>()))>
         build(const BF& backFunction) {
-            return BorderReader<BT, BF>::build(backFunction);
+            return BorderReader<BT_, BF>::build(backFunction);
         }
 
         template <typename BF, enum BorderType BT_ = BT>
         FK_HOST_FUSE 
         std::enable_if_t<BT_ == BorderType::CONSTANT,
-                         decltype(BorderReader<BT, BF>::build(std::declval<BF>()))>
+                         decltype(BorderReader<BT, BF>::build(std::declval<BF>(), std::declval<typename BF::Operation::ReadDataType>()))>
         build(const BF& backFunction,
               const typename BF::Operation::ReadDataType& defaultValue) {
             return BorderReader<BT, BF>::build(backFunction, defaultValue);
@@ -104,7 +105,16 @@ using OutputType = ReadDataType; \
 using ParamsType = BorderReaderParameters<BT, ReadDataType>; \
 using BackFunction = BackIOp; \
 using InstanceType = ReadBackType; \
-using OperationDataType = OperationData<BorderReader<BT, BackFunction>>;
+using OperationDataType = OperationData<BorderReader<BT, BackFunction>>; \
+FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const OperationDataType& opData) { \
+    return BackFunction::Operation::num_elems_x(thread, opData.back_function); \
+} \
+FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const OperationDataType& opData) { \
+    return BackFunction::Operation::num_elems_y(thread, opData.back_function); \
+} \
+FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const OperationDataType& opData) { \
+    return BackFunction::Operation::num_elems_z(thread, opData.back_function); \
+}
 
 #define BODER_READER_EXEC \
 FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const OperationDataType& opData) { \
@@ -120,6 +130,8 @@ FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const OperationDataType
                                          !std::is_same_v<BackIOp, TypeList<void, typename BackIOp::Operation::ReadDataType>>, void>> {
         BODER_READER_DETAILS(BorderType::CONSTANT)
         FK_HOST_DEVICE_FUSE OutputType exec(const Point& thread, const OperationDataType& opData) {
+            const int width = BackFunction::Operation::num_elems_x(thread, opData.back_function);
+            const int height = BackFunction::Operation::num_elems_y(thread, opData.back_function);
             if (thread.x >= 0 && thread.x < width && thread.y >= 0 && thread.y < height) {
                 return BackFunction::Operation::exec(thread, opData.back_function);
             } else {
