@@ -105,28 +105,31 @@ namespace fk {
 
         using InstantiableType = ReadBack<Warping<WT, BackIOp>>;
         DEFAULT_BUILD
+        FK_HOST_FUSE auto build(const ParamsType& params, const BackFunction& iOp) {
+            return ReadBack<Warping<WT, BackFunction>>{{params, iOp}};
+        }
         DEFAULT_READ_BATCH_BUILD
     };
 
     template<enum WarpType WT>
     struct Warping<WT, void> {
-        using OutputType = float;
-        using ReadDataType = int;
+        using OutputType = NullType;
+        using ReadDataType = NullType;
         using ParamsType = WarpingParameters<WT>;
-        using BackFunction = int;
+        using BackFunction = NullType;
         using InstanceType = ReadBackType;
         using OperationDataType = OperationData<Warping<WT, void>>;
         static constexpr bool THREAD_FUSION{ false };
 
-        using InstantiableType = Instantiable<Warping<WT, void>>;
+        using InstantiableType = ReadBack<Warping<WT, void>>;
 
         FK_HOST_FUSE auto build(const ParamsType& params) {
-            return Instantiable<Warping<WT, void>>{{params, 0}};
+            return ReadBack<Warping<WT, void>>{{params, {}}};
         }
 
         template <typename BackIOp>
         FK_HOST_FUSE auto build(const BackIOp& backIOp, const InstantiableType& iOp) {
-            return Instantiable<Warping<WT, BackIOp>>{ {iOp.params, backIOp} };
+            return ReadBack<Warping<WT, BackIOp>>{ {iOp.params, backIOp} };
         }
 
         DEFAULT_BUILD

@@ -95,21 +95,21 @@ namespace fk { // namespace FusedKernel
             using ResultingType = decltype(fuseDF(std::declval<ThisIOp>(), std::declval<ForwardIOp>()));
             return std::array<ResultingType, BATCH>{fuseDF(thisArray[Idx], fwdArray[Idx])...};
         }
-        template <size_t BATCH, typename BackwardIOp, typename ForwardIOp, typename MainBatchIOp>
+        template <size_t BATCH, typename BackwardIOp, typename ForwardIOp, typename DefaultValueType>
         FK_HOST_FUSE auto then_helper(const std::array<BackwardIOp, BATCH>& backOpArray,
                                       const std::array<ForwardIOp, BATCH>& forwardOpArray,
-                                      const MainBatchIOp& mainIOp) {
+                                      const int& usedPlanes,
+                                      const DefaultValueType& defaultValue) {
             const auto fusedArray = make_fusedArrayBack<BATCH>(std::make_index_sequence<BATCH>{}, backOpArray, forwardOpArray);
             using ContinuationIOpNewType = typename decltype(fusedArray)::value_type;
-            if constexpr (MainBatchIOp::Operation::PP == PROCESS_ALL) {
-                return ContinuationIOpNewType::Operation::build(fusedArray);
-            } else {
-                using NewOutputType = typename ContinuationIOpNewType::Operation::OutputType;
-                using OldOutputType = std::decay_t<decltype(mainIOp.params.default_value)>;
-                const auto default_value = mainIOp.params.default_value;
-                const auto val = UnaryV<CastBase<VBase<OldOutputType>, VBase<NewOutputType>>, OldOutputType, NewOutputType>::exec(default_value);
-                return ContinuationIOpNewType::Operation::build(mainIOp.params.usedPlanes, val, fusedArray);
-            }
+            return ContinuationIOpNewType::Operation::build(usedPlanes, defaultValue, fusedArray);
+        }
+        template <size_t BATCH, typename BackwardIOp, typename ForwardIOp>
+        FK_HOST_FUSE auto then_helper_2arr(const std::array<BackwardIOp, BATCH>& backOpArray,
+                                           const std::array<ForwardIOp, BATCH>& forwardOpArray) {
+            const auto fusedArray = make_fusedArrayBack<BATCH>(std::make_index_sequence<BATCH>{}, backOpArray, forwardOpArray);
+            using ContinuationIOpNewType = typename decltype(fusedArray)::value_type;
+            return ContinuationIOpNewType::Operation::build(fusedArray);
         }
         template <size_t BATCH, typename ThisIOp, typename ForwardIOp>
         FK_HOST_CNST auto then_helper(const std::array<ThisIOp, BATCH>& thisArray,
@@ -138,14 +138,41 @@ namespace fk { // namespace FusedKernel
                 constexpr size_t BATCH = static_cast<size_t>(ContinuationIOp::Operation::BATCH);
                 const auto backOpArray = Operation::toArray(*this);
                 const auto forwardOpArray = ContinuationIOp::Operation::toArray(cIOp);
-                return then_helper<BATCH>(backOpArray, forwardOpArray, cIOp);
+                if constexpr (Operation::PP == PROCESS_ALL && ContinuationIOp::Operation::PP == PROCESS_ALL) {
+                    return then_helper_2arr<BATCH>(backOpArray, forwardOpArray);
+                } else if constexpr (Operation::PP == PROCESS_ALL && ContinuationIOp::Operation::PP == CONDITIONAL_WITH_DEFAULT) {
+                    return then_helper<BATCH>(backOpArray, forwardOpArray, cIOp.params.usedPlanes, cIOp.params.default_value);
+                } else if constexpr (Operation::PP == CONDITIONAL_WITH_DEFAULT && ContinuationIOp::Operation::PP == PROCESS_ALL) {
+                    using BackType = std::decay_t<decltype(backOpArray)>;
+                    using ForType = std::decay_t<decltype(forwardOpArray)>;
+                    using FusedType = typename decltype(make_fusedArray<BATCH>(std::declval<std::make_index_sequence<BATCH>>(), std::declval<BackType>(), std::declval<ForType>()))::value_type;
+                    using DefaultValueType = typename FusedType::Operation::OutputType;
+                    if constexpr (std::is_same_v<typename Operation::OutputType, DefaultValueType>) {
+                        return then_helper<BATCH>(backOpArray, forwardOpArray, this->params.usedPlanes, this->params.default_value);
+                    } else {
+                        using Original = typename BackType::value_type::Operation::OutputType;
+                        const auto defaultValue = UnaryV<CastBase<VBase<Original>, VBase<DefaultValueType>>, Original, DefaultValueType>::exec(this->params.default_value);
+                        return then_helper<BATCH>(backOpArray, forwardOpArray, this->params.usedPlanes, defaultValue);
+                    }
+                } else if constexpr (Operation::PP == CONDITIONAL_WITH_DEFAULT && ContinuationIOp::Operation::PP == CONDITIONAL_WITH_DEFAULT) {
+                    if (this->params.usedPlanes != cIOp.params.usedPlanes) {
+                        throw std::invalid_argument("Fusing two batch read operations with different number of used planes is not valid");
+                    }
+                    // We will take the default value of the continuation operation
+                    return then_helper<BATCH>(backOpArray, forwardOpArray, cIOp.params.usedPlanes, cIOp.params.default_value);
+                }
+                
             } else if constexpr (!isBatchOperation<Operation> && isBatchOperation<typename ContinuationIOp::Operation>) {
                 static_assert(isReadBackType<typename ContinuationIOp::Operation::Operation>,
                     "ReadOperation as continuation is not allowed. It has to be a ReadBackOperation.");
                 constexpr size_t BATCH = static_cast<size_t>(ContinuationIOp::Operation::BATCH);
                 const auto backOpArray = make_set_std_array<BATCH>(*this);
                 const auto forwardOpArray = ContinuationIOp::Operation::toArray(cIOp);
-                return then_helper<BATCH>(backOpArray, forwardOpArray, cIOp);
+                if constexpr (ContinuationIOp::Operation::PP == CONDITIONAL_WITH_DEFAULT) {
+                    return then_helper<BATCH>(backOpArray, forwardOpArray, cIOp.params.usedPlanes, cIOp.params.default_value);
+                } else {
+                    return then_helper_2arr<BATCH>(backOpArray, forwardOpArray);
+                }
             } else if constexpr (isBatchOperation<Operation> && !isBatchOperation<typename ContinuationIOp::Operation>) {
                 static_assert(!isAnyReadType<ContinuationIOp> || isReadBackType<ContinuationIOp>,
                     "ReadOperation as continuation is not allowed. It has to be a ReadBackOperation.");
@@ -153,7 +180,11 @@ namespace fk { // namespace FusedKernel
                 if constexpr (isReadBackType<ContinuationIOp>) {
                     const auto backOpArray = Operation::toArray(*this);
                     const auto forwardOpArray = make_set_std_array<BATCH>(cIOp);
-                    return then_helper<BATCH>(backOpArray, forwardOpArray, *this);
+                    if constexpr (Operation::PP == CONDITIONAL_WITH_DEFAULT) {
+                        return then_helper<BATCH>(backOpArray, forwardOpArray, this->params.usedPlanes, thsi->params.default_value);
+                    } else {
+                        return then_helper_2arr<BATCH>(backOpArray, forwardOpArray);
+                    }
                 } else {
                     const auto thisArray = Operation::toArray(*this);
                     return then_helper<BATCH>(thisArray, cIOp);
@@ -401,23 +432,26 @@ namespace fk { // namespace FusedKernel
         OperationData<Operation> opData[BATCH];
     };
 
+    template <int BATCH_, enum PlanePolicy PP__ = PROCESS_ALL, typename Operation_ = void, typename OutputType_ = NullType>
+    struct BatchRead;
+
     /// @brief struct BatchRead
     /// @tparam BATCH: number of thread planes and number of data planes to process
     /// @tparam Operation: the read Operation to perform on the data
     /// @tparam PP: enum to select if all planes will be processed equally, or only some
     /// with the remainder not reading and returning a default value
-    template <int BATCH_, enum PlanePolicy PP__ = PROCESS_ALL, typename Operation_ = void>
-    struct BatchRead {
+    template <int BATCH_, typename Operation_, typename OutputType_>
+    struct BatchRead<BATCH_, PROCESS_ALL, Operation_, OutputType_> {
         using Operation = Operation_;
         static constexpr int BATCH = BATCH_;
-        static constexpr PlanePolicy PP = PP__;
+        static constexpr PlanePolicy PP = PROCESS_ALL;
         using OutputType = typename Operation::OutputType;
-        using ParamsType = BatchReadParams<BATCH, PP, Operation, OutputType>;
+        using ParamsType = BatchReadParams<BATCH, PROCESS_ALL, Operation, OutputType>;
         using ReadDataType = typename Operation::ReadDataType;
         using InstanceType = ReadType;
-        static constexpr bool THREAD_FUSION{ (PP == PROCESS_ALL) ? Operation::THREAD_FUSION : false };
+        static constexpr bool THREAD_FUSION{ Operation::THREAD_FUSION };
         static_assert(isAnyReadType<Operation>, "The Operation is not of any Read type");
-        using OperationDataType = OperationData<BatchRead<BATCH, PP, Operation>>;
+        using OperationDataType = OperationData<BatchRead<BATCH, PROCESS_ALL, Operation>>;
     private:
         template <uint ELEMS_PER_THREAD = 1>
         FK_HOST_DEVICE_FUSE const auto exec_helper(const Point& thread, const OperationData<Operation>(&opData)[BATCH]) {
@@ -430,17 +464,8 @@ namespace fk { // namespace FusedKernel
     public:
 
         template <uint ELEMS_PER_THREAD = 1>
-        FK_HOST_DEVICE_FUSE const auto exec(const Point& thread, const OperationData<BatchRead<BATCH, PP, Operation>>& opData) {
-            if constexpr (PP == CONDITIONAL_WITH_DEFAULT) {
-                static_assert(ELEMS_PER_THREAD == 1, "ELEMS_PER_THREAD should be 1");
-                if (opData.params.usedPlanes <= thread.z) {
-                    return opData.params.default_value;
-                } else {
-                    return exec_helper<1>(thread, opData.params.opData);
-                }
-            } else {
-                return exec_helper<ELEMS_PER_THREAD>(thread, opData.params.opData);
-            }
+        FK_HOST_DEVICE_FUSE const auto exec(const Point& thread, const OperationData<BatchRead<BATCH, PROCESS_ALL, Operation>>& opData) {
+            return exec_helper<ELEMS_PER_THREAD>(thread, opData.params.opData);
         }
 
         FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const OperationDataType& opData) {
@@ -467,24 +492,16 @@ namespace fk { // namespace FusedKernel
         FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
             return getActiveThreads_helper(std::make_index_sequence<BATCH>{}, opData);
         }
-        using InstantiableType = Read<BatchRead<BATCH, PP, Operation>>;
+        using InstantiableType = Read<BatchRead<BATCH, PROCESS_ALL, Operation>>;
         DEFAULT_BUILD
     private:
         // DEVICE FUNCTION BASED BUILDERS
 
-        template <int... Idx, enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
+        template <int... Idx>
+        FK_HOST_FUSE InstantiableType
         build_helper(const std::array<Instantiable<Operation>, BATCH>& instantiableOperations,
                      const std::integer_sequence<int, Idx...>&) {
             return { {{{static_cast<OperationData<Operation>>(instantiableOperations[Idx])...}}} };
-        }
-
-        template <int... Idx, enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
-        build_helper(const std::array<Instantiable<Operation>, BATCH>& instantiableOperations,
-                     const int& usedPlanes, const OutputType& defaultValue,
-                     const std::integer_sequence<int, Idx...>&) {
-            return { {{{static_cast<OperationData<Operation>>(instantiableOperations[Idx])...}, usedPlanes, defaultValue}} };
         }
 
         // END DEVICE FUNCTION BASED BUILDERS
@@ -494,53 +511,134 @@ namespace fk { // namespace FusedKernel
         /// @brief build(): host function to create a Read instance PROCESS_ALL
         /// @param instantiableOperations 
         /// @return 
-        template <typename IOp, enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, InstantiableType>
-        build(const std::array<IOp, BATCH>& instantiableOperations) {
+        template <typename IOp>
+        FK_HOST_FUSE InstantiableType build(const std::array<IOp, BATCH>& instantiableOperations) {
             static_assert(isAnyReadType<IOp>);
             return build_helper(instantiableOperations, std::make_integer_sequence<int, BATCH>{});
-        }
-
-        /// @brief build(): host function to create a Read instance CONDITIONAL_WITH_DEFAULT
-        /// @param instantiableOperations 
-        /// @param usedPlanes 
-        /// @param defaultValue 
-        /// @return 
-        template <typename IOp, enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, InstantiableType>
-        build(const std::array<IOp, BATCH>& instantiableOperations,
-              const int& usedPlanes, const typename IOp::Operation::OutputType& defaultValue) {
-            static_assert(isAnyReadType<IOp>);
-            return build_helper(instantiableOperations, usedPlanes, defaultValue,
-                                std::make_integer_sequence<int, BATCH>{});
         }
 
         // END DEVICE FUNCTION BASED BUILDERS
         template <size_t... Idx>
         FK_HOST_FUSE std::array<Instantiable<Operation>, BATCH>
-        toArray_helper(const std::index_sequence<Idx...>&, const Read<BatchRead<BATCH, PP, Operation>>& mySelf) {
+        toArray_helper(const std::index_sequence<Idx...>&, const Read<BatchRead<BATCH, PROCESS_ALL, Operation>>& mySelf) {
             return { Operation::build(mySelf.params.opData[Idx])... };
         }
 
         FK_HOST_FUSE std::array<Instantiable<Operation>, BATCH>
-        toArray(const Read<BatchRead<BATCH, PP, Operation>>& mySelf) {
+        toArray(const Read<BatchRead<BATCH, PROCESS_ALL, Operation>>& mySelf) {
             return toArray_helper(std::make_index_sequence<BATCH>{}, mySelf);
         }
     };
 
-    template <int BATCH, enum PlanePolicy PP>
-    struct BatchRead<BATCH, PP, void> {
-        template <typename IOp, enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE std::enable_if_t<PP_ == PROCESS_ALL, Read<BatchRead<BATCH, PP_, typename IOp::Operation>>>
-        build(const std::array<IOp, BATCH>& instantiableOperations) {
-            return BatchRead<BATCH, PP, typename IOp::Operation>::build(instantiableOperations);
+    template <int BATCH_, typename Operation_, typename OutputType_>
+    struct BatchRead<BATCH_, CONDITIONAL_WITH_DEFAULT, Operation_, OutputType_> {
+        using Operation = Operation_;
+        static constexpr int BATCH = BATCH_;
+        static constexpr PlanePolicy PP = CONDITIONAL_WITH_DEFAULT;
+        using OutputType = std::conditional_t<std::is_same_v<typename Operation::OutputType, NullType>, OutputType_, typename Operation::OutputType>;
+        using ParamsType = BatchReadParams<BATCH, CONDITIONAL_WITH_DEFAULT, Operation, OutputType>;
+        using ReadDataType = typename Operation::ReadDataType;
+        using InstanceType = ReadType;
+        static constexpr bool THREAD_FUSION{ false };
+        static_assert(isAnyReadType<Operation>, "The Operation is not of any Read type");
+        using OperationDataType = OperationData<BatchRead<BATCH, CONDITIONAL_WITH_DEFAULT, Operation, OutputType_>>;
+    public:
+
+        template <uint ELEMS_PER_THREAD = 1>
+        FK_HOST_DEVICE_FUSE const auto exec(const Point& thread, const OperationData<BatchRead<BATCH, CONDITIONAL_WITH_DEFAULT, Operation, OutputType_>>& opData) {
+            if (opData.params.usedPlanes <= thread.z) {
+                return opData.params.default_value;
+            } else {
+                return Operation::exec(thread, opData.params.opData[thread.z]);
+            }
         }
 
-        template <typename IOp, enum PlanePolicy PP_ = PP>
-        FK_HOST_FUSE std::enable_if_t<PP_ == CONDITIONAL_WITH_DEFAULT, Read<BatchRead<BATCH, PP_, typename IOp::Operation>>>
-        build(const std::array<IOp, BATCH>& instantiableOperations,
-              const int& usedPlanes, const typename IOp::Operation::OutputType& defaultValue) {
-            return BatchRead<BATCH, PP, typename IOp::Operation>::build(instantiableOperations, usedPlanes, defaultValue);
+        FK_HOST_DEVICE_FUSE uint num_elems_x(const Point& thread, const OperationDataType& opData) {
+            return Operation::num_elems_x(thread, opData.params.opData[thread.z]);
+        }
+        FK_HOST_DEVICE_FUSE uint num_elems_y(const Point& thread, const OperationDataType& opData) {
+            return Operation::num_elems_y(thread, opData.params.opData[thread.z]);
+        }
+        FK_HOST_DEVICE_FUSE uint num_elems_z(const Point& thread, const OperationDataType& opData) {
+            return BATCH;
+        }
+        FK_HOST_DEVICE_FUSE uint pitch(const Point& thread, const OperationDataType& opData) {
+            return Operation::pitch(thread, opData.params.opData[thread.z]);
+        }
+    private:
+        template <size_t... Idx>
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads_helper(const std::index_sequence<Idx...>&,
+            const OperationDataType& opData) {
+            return { cxp::max(num_elems_x(Point(0u, 0u, static_cast<uint>(Idx)), opData)...),
+                     cxp::max(num_elems_y(Point(0u, 0u, static_cast<uint>(Idx)), opData)...),
+                     static_cast<uint>(BATCH) };
+        }
+    public:
+        FK_HOST_DEVICE_FUSE ActiveThreads getActiveThreads(const OperationDataType& opData) {
+            return getActiveThreads_helper(std::make_index_sequence<BATCH>{}, opData);
+        }
+        using InstantiableType = Read<BatchRead<BATCH, CONDITIONAL_WITH_DEFAULT, Operation, OutputType_>>;
+        DEFAULT_BUILD
+    private:
+        // DEVICE FUNCTION BASED BUILDERS
+        template <int... Idx>
+        FK_HOST_FUSE InstantiableType build_helper(const std::array<Instantiable<Operation>, BATCH>& instantiableOperations,
+                                                   const int& usedPlanes, const OutputType& defaultValue,
+                                                   const std::integer_sequence<int, Idx...>&) {
+            return { {{{static_cast<OperationData<Operation>>(instantiableOperations[Idx])...}, usedPlanes, defaultValue}} };
+        }
+
+        // END DEVICE FUNCTION BASED BUILDERS
+    public:
+        // DEVICE FUNCTION BASED BUILDERS
+        /// @brief build(): host function to create a Read instance CONDITIONAL_WITH_DEFAULT
+        /// @param instantiableOperations 
+        /// @param usedPlanes 
+        /// @param defaultValue 
+        /// @return 
+        template <typename IOp, typename DefaultValueType>
+        FK_HOST_FUSE auto build(const std::array<IOp, BATCH>& instantiableOperations,
+                                const int& usedPlanes, const DefaultValueType& defaultValue) {
+            static_assert(isAnyReadType<IOp>);
+            if constexpr (std::is_same_v<OutputType, NullType>) {
+                return BatchRead<BATCH, CONDITIONAL_WITH_DEFAULT, typename IOp::Operation, DefaultValueType>::build_helper(instantiableOperations, usedPlanes, defaultValue,
+                    std::make_integer_sequence<int, BATCH>{});
+            } else {
+                return build_helper(instantiableOperations, usedPlanes, defaultValue, std::make_integer_sequence<int, BATCH>{});
+            }
+        }
+
+        // END DEVICE FUNCTION BASED BUILDERS
+        template <size_t... Idx>
+        FK_HOST_FUSE std::array<Instantiable<Operation>, BATCH>
+            toArray_helper(const std::index_sequence<Idx...>&, const Read<BatchRead<BATCH, CONDITIONAL_WITH_DEFAULT, Operation, OutputType_>>& mySelf) {
+            return { Operation::build(mySelf.params.opData[Idx])... };
+        }
+
+        FK_HOST_FUSE std::array<Instantiable<Operation>, BATCH>
+            toArray(const Read<BatchRead<BATCH, CONDITIONAL_WITH_DEFAULT, Operation, OutputType_>>& mySelf) {
+            return toArray_helper(std::make_index_sequence<BATCH>{}, mySelf);
+        }
+    };
+
+    template <int BATCH>
+    struct BatchRead<BATCH, PROCESS_ALL, void> {
+        template <typename IOp>
+        FK_HOST_FUSE auto build(const std::array<IOp, BATCH>& instantiableOperations) {
+            return BatchRead<BATCH, PROCESS_ALL, typename IOp::Operation>::build(instantiableOperations);
+        }
+    };
+
+    template <int BATCH>
+    struct BatchRead<BATCH, CONDITIONAL_WITH_DEFAULT, void> {
+        template <typename IOp, typename DefaultValueType>
+        FK_HOST_FUSE auto build(const std::array<IOp, BATCH>& instantiableOperations,
+                                const int& usedPlanes, const DefaultValueType& defaultValue) {
+            if constexpr (std::is_same_v<typename IOp::Operation::OutputType, NullType>) {
+                return BatchRead<BATCH, CONDITIONAL_WITH_DEFAULT, typename IOp::Operation, DefaultValueType>::build(instantiableOperations, usedPlanes, defaultValue);
+            } else {
+                return BatchRead<BATCH, CONDITIONAL_WITH_DEFAULT, typename IOp::Operation>::build(instantiableOperations, usedPlanes, defaultValue);
+            }
         }
     };
 

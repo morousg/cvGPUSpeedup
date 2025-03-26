@@ -240,12 +240,12 @@ namespace fk {
 
     template <enum InterpolationType IType, enum AspectRatio AR, typename T>
     struct ResizeRead<IType, AR, TypeList<void, T>> {
-        using BackFunction = int;
+        using BackFunction = NullType;
         static constexpr bool THREAD_FUSION{ false };
         using InstanceType = ReadBackType;
-        using OutputType = int;
+        using OutputType = T;
         using ParamsType = IncompleteResizeReadParams<AR, T>;
-        using ReadDataType = int;
+        using ReadDataType = NullType;
         using OperationDataType = OperationData<ResizeRead<IType, AR, TypeList<void, T>>>;
 
         using InstantiableType = ReadBack<ResizeRead<IType, AR, TypeList<void, T>>>;
@@ -269,12 +269,12 @@ namespace fk {
 
     template <enum InterpolationType IType>
     struct ResizeRead<IType, IGNORE_AR, TypeList<void, void>> {
-        using BackFunction = int;
+        using BackFunction = NullType;
         static constexpr bool THREAD_FUSION{ false };
         using InstanceType = ReadBackType;
-        using OutputType = int;
+        using OutputType = NullType;
         using ParamsType = IncompleteResizeReadParams<IGNORE_AR, void>;
-        using ReadDataType = int;
+        using ReadDataType = NullType;
         using OperationDataType = OperationData<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>;
 
         using InstantiableType = Instantiable<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>;

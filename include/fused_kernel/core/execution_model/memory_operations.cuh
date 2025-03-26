@@ -133,6 +133,7 @@ namespace fk {
         }
         using InstantiableType = Write<PerThreadWrite<D, T>>;
         DEFAULT_BUILD
+        DEFAULT_WRITE_BATCH_BUILD
     };
 
     template <typename T>
