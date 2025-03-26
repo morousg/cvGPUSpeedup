@@ -28,7 +28,10 @@ int launch() {
 
     constexpr Rect aCrop(10, 12, 20, 30);
     constexpr auto cropOp = Crop<ReadIOp>::build(readIOp, aCrop);
+    static_assert(cropOp.getActiveThreads().x == 20, "Wrong x");
+    static_assert(cropOp.getActiveThreads().y == 30, "Wrong y");
     constexpr auto fusedCrop = readIOp.then(Crop<>::build(Rect(11, 9, 10, 10)));
+    static_assert(fusedCrop.getActiveThreads().x == 10, "Wrong x");
 
     constexpr std::array<Rect, 2> rects{ aCrop, Rect(15,15, 50, 20)};
 

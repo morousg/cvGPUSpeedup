@@ -42,6 +42,7 @@ int launch() {
                    fk::MidWrite<WriteDummy>, fk::Write<WriteDummy>>;
 
     constexpr bool correctDFRestrict = allInstantiableOperationsComplieWith<fk::NotUnaryRestriction>(DFList{});
+    static_assert(correctDFRestrict, "NotUnaryRestriction is not working properly");
 
     using ListToCheck =
         fk::TypeList<fk::ReadType, fk::BinaryType, fk::UnaryType, fk::TernaryType,

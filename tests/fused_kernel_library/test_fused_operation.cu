@@ -37,14 +37,16 @@ constexpr bool test_fuseDFResultingTypes() {
     constexpr auto fused1 = fuseDF(readOp, addOp, castOp);
 
     constexpr auto read = Read<PerThreadRead<_2D, float>>{ { fk::RawPtr<_2D, float>{nullptr, {128, 4}} } };
+    static_assert(read.getActiveThreads().x == 128, "Wrong x");
 
     constexpr auto readOp2 = PerThreadRead<_2D, uchar3>::build(RawPtr<_2D, uchar3>{nullptr, PtrDims<_2D>(128,128)});
+    static_assert(readOp2.getActiveThreads().x == 128, "Wrong x");
 
     constexpr auto readYUV = ReadYUV<PixelFormat::NV12>::build(RawPtr<_2D, uchar>{nullptr, PtrDims<_2D>(128, 128)});
     constexpr auto readRGB = readYUV.then(ConvertYUVToRGB<PixelFormat::NV12, ColorRange::Full, ColorPrimitives::bt2020, false>::build());
 
     constexpr auto resizeRead = ResizeRead<INTER_LINEAR>::build(readRGB, Size(64, 64)).then(Mul<float>::build(3.f)).then(Div<float>::build(4.3f));
-
+    static_assert(resizeRead.getActiveThreads().x == 64, "Wrong x");
     //decltype(fused1)::
 
     static_assert(std::is_same_v<typename decltype(fused1)::Operation,
@@ -57,6 +59,8 @@ constexpr bool test_fuseDFResultingTypes() {
     static_assert(result1 && result2, "is_fused_operation does not work properly");
 
     constexpr auto fused2 = fk::fuseDF(readOp, addOp, writeOp);
+    static_assert(std::is_same_v<typename decltype(fused2)::Operation,
+        fk::FusedOperation<fk::PerThreadRead<fk::_2D, float>, fk::Add<float>, fk::PerThreadWrite<fk::_2D, float>>>, "Unexpected type after fuseDF");
 
     return result1 && result2;
 }
@@ -65,12 +69,11 @@ constexpr bool test_fuseFusedOperations() {
     const fk::Read<fk::PerThreadRead<fk::_2D, float>> readOp{};
     const fk::Binary<fk::Add<float>> addOp{ 3.f };
     const fk::Unary<fk::Cast<float, int>> castOp{};
-    const fk::Write<fk::PerThreadWrite<fk::_2D, float>> writeOp{};
 
     const auto fused1 = fk::fuseDF(readOp, addOp);
     const auto fused2 = fk::fuseDF(fused1, castOp);
 
-    return true;
+    return fused2.getActiveThreads().x == 0;
 }
 
 int launch() {

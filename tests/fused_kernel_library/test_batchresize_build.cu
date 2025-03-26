@@ -28,15 +28,17 @@ int launch() {
 
     constexpr float defaultValue = 0;
     constexpr std::array<float, BATCH> defaultArray = make_set_std_array<BATCH>(defaultValue);
-    constexpr int usedPlanes = 15;
 
     constexpr auto readDFArray = PerThreadRead<_2D, float>::build_batch<BATCH>(inputs);
 
     constexpr auto oneResizeread = ResizeRead<INTER_LINEAR>::build(readDFArray[0], resParams[0]);
+    static_assert(oneResizeread.getActiveThreads().x == 8, "Wrong x");
 
     constexpr auto resizeDFArray = ResizeRead<INTER_LINEAR>::build(readDFArray, resParams);
+    static_assert(resizeDFArray.getActiveThreads().x == 8, "Wrong x");
     using ReadArrayTye = decltype(readDFArray);
-    const auto resizeDFArray2 = ResizeRead<INTER_LINEAR, PRESERVE_AR>::build(readDFArray, resParams, defaultArray);
+    constexpr auto resizeDFArray2 = ResizeRead<INTER_LINEAR, PRESERVE_AR>::build(readDFArray, resParams, defaultArray);
+    static_assert(resizeDFArray2.getActiveThreads().x == 8, "Wrong x");
 
     return 0;
 }
