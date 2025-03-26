@@ -28,7 +28,7 @@ constexpr size_t NUM_EXPERIMENTS = 15;
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 50;
 #elif (CUDART_MAJOR_VERSION == 12)
-constexpr size_t NUM_EXPERIMENTS = 60;
+constexpr size_t NUM_EXPERIMENTS = 200;
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 100;
 #endif // CUDART_MAJOR_VERSION
@@ -37,30 +37,11 @@ constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<F
 
 using namespace fk;
 
-template <int CV_TYPE_I, int CV_TYPE_O, int OPS_PER_ITER, size_t NumOps, typename DeviceFunction>
-struct VerticalFusion {
-    static inline void execute(const std::array<cv::cuda::GpuMat, 50>& crops,
-        const int& BATCH,
-        const cv::cuda::Stream& cv_stream,
-        const float& alpha,
-        const cv::cuda::GpuMat& d_tensor_output,
-        const cv::Size& cropSize,
-        const DeviceFunction& dFunc) {
-        using InputType = CUDA_T(CV_TYPE_I);
-        using OutputType = CUDA_T(CV_TYPE_O);
-        using Loop = Binary<StaticLoop<StaticLoop<
-            typename DeviceFunction::Operation, INCREMENT / OPS_PER_ITER>, NumOps / INCREMENT>>;
-
-        Loop loop;
-        loop.params = dFunc.params;
-
-        cvGS::executeOperations<false>(crops, cv_stream, cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha), loop, cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
-    }
-};
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAddLauncher.h>
+#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/realBatch.h>
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
 bool benchmark_vertical_fusion_loopMulAdd(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
-    constexpr size_t REAL_BATCH{ 50 };
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
@@ -113,8 +94,8 @@ bool benchmark_vertical_fusion_loopMulAdd(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
 
             // cvGPUSpeedup
             const auto dFunc = Mul<OutputType>::build(val).then(Add<OutputType>::build(val));
-            VerticalFusion<CV_TYPE_I, CV_TYPE_O, OPS_PER_ITERATION, BATCH, decltype(dFunc)>::execute(crops, REAL_BATCH, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
-
+            //VerticalFusion<CV_TYPE_I, CV_TYPE_O, OPS_PER_ITERATION, BATCH, decltype(dFunc)>::execute(crops, REAL_BATCH, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
+            launchMulAdd<BATCH>(crops, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
             STOP_CVGS_BENCHMARK
 
                 // Download results
@@ -191,6 +172,11 @@ int launch() {
     std::make_index_sequence<batchValues.size()> iSeq{};
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
     results["launch_benchmark_vertical_fusion_loopMulAdd"] &= launch_benchmark_vertical_fusion_loopMulAdd<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
+
+    // Warming up for the benchmarks
+    warmup = true;
+    LAUNCH_TESTS(CV_8UC1, CV_32FC1)
+    warmup = false;
 
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
 

@@ -17,19 +17,10 @@
 
 #include <fused_kernel/core/execution_model/instantiable_operations.cuh>
 #include <fused_kernel/core/execution_model/vector_operations.cuh>
+#include <fused_kernel/algorithms/basic_ops/cast_base.cuh>
+
 #include <fused_kernel/core/execution_model/default_builders_def.h>
-
 namespace fk {
-    template <typename I, typename O>
-    struct CastBase {
-        using InputType = I;
-        using OutputType = O;
-        using InstanceType = UnaryType;
-        FK_HOST_DEVICE_FUSE OutputType exec(const InputType& input) {
-            return static_cast<O>(input);
-        }
-    };
-
     template <typename I, typename O>
     struct Cast {
         using InputType = I;
@@ -42,7 +33,6 @@ namespace fk {
         DEFAULT_UNARY_BUILD
     };
 } // namespace fk
-
 #include <fused_kernel/core/execution_model/default_builders_undef.h>
 
 #endif

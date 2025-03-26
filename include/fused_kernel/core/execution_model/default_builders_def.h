@@ -32,25 +32,25 @@ FK_HOST_FUSE auto build_helper_generic(const std::index_sequence<Idx...>&, \
     return std::array<OutputArrayType, sizeof...(Idx)>{ call_build_at_index<Idx>(arrays...)... }; \
 } \
 public: \
-template <size_t BATCH, typename FirstType, typename... ArrayTypes> \
+template <size_t BATCH_N, typename FirstType, typename... ArrayTypes> \
 FK_HOST_FUSE auto \
-build_batch(const std::array<FirstType, BATCH>& firstInstance, const ArrayTypes&... arrays) { \
-    static_assert(allArraysSameSize_v<BATCH, ArrayTypes...>, \
+build_batch(const std::array<FirstType, BATCH_N>& firstInstance, const ArrayTypes&... arrays) { \
+    static_assert(allArraysSameSize_v<BATCH_N, ArrayTypes...>, \
                   "Not all arrays have the same size as BATCH"); \
-    return build_helper_generic(std::make_index_sequence<BATCH>(), firstInstance, arrays...); \
+    return build_helper_generic(std::make_index_sequence<BATCH_N>(), firstInstance, arrays...); \
 } \
-template <size_t BATCH, typename FirstType, typename... ArrayTypes> \
-FK_HOST_FUSE auto build(const std::array<FirstType, BATCH>& firstInstance, \
+template <size_t BATCH_N, typename FirstType, typename... ArrayTypes> \
+FK_HOST_FUSE auto build(const std::array<FirstType, BATCH_N>& firstInstance, \
                         const ArrayTypes&... arrays) { \
     const auto arrayOfIOps = build_batch(firstInstance, arrays...); \
-    return BatchRead<BATCH>::build(arrayOfIOps); \
+    return BatchRead<BATCH_N>::build(arrayOfIOps); \
 } \
-template <size_t BATCH, typename DefaultValueType, typename FirstType, typename... ArrayTypes> \
+template <size_t BATCH_N, typename DefaultValueType, typename FirstType, typename... ArrayTypes> \
 FK_HOST_FUSE auto build(const int& usedPlanes, const DefaultValueType& defaultValue, \
-                        const std::array<FirstType, BATCH>& firstInstance, \
+                        const std::array<FirstType, BATCH_N>& firstInstance, \
                         const ArrayTypes&... arrays) { \
     const auto arrayOfIOps = build_batch(firstInstance, arrays...); \
-    return BatchRead<BATCH, CONDITIONAL_WITH_DEFAULT>::build(arrayOfIOps, usedPlanes, defaultValue); \
+    return BatchRead<BATCH_N, CONDITIONAL_WITH_DEFAULT>::build(arrayOfIOps, usedPlanes, defaultValue); \
 }
 
 #define DEFAULT_WRITE_BATCH_BUILD \
@@ -70,18 +70,18 @@ FK_HOST_FUSE auto build_helper_generic(const std::index_sequence<Idx...>&, \
     return std::array<OutputArrayType, sizeof...(Idx)>{ call_build_at_index<Idx>(arrays...)... }; \
 } \
 public: \
-template <size_t BATCH_, typename FirstType, typename... ArrayTypes> \
+template <size_t BATCH_N, typename FirstType, typename... ArrayTypes> \
 FK_HOST_FUSE auto \
-build_batch(const std::array<FirstType, BATCH_>& firstInstance, const ArrayTypes&... arrays) { \
-    static_assert(allArraysSameSize_v<BATCH_, ArrayTypes...>, \
+build_batch(const std::array<FirstType, BATCH_N>& firstInstance, const ArrayTypes&... arrays) { \
+    static_assert(allArraysSameSize_v<BATCH_N, ArrayTypes...>, \
                   "Not all arrays have the same size as BATCH"); \
-    return build_helper_generic(std::make_index_sequence<BATCH_>(), firstInstance, arrays...); \
+    return build_helper_generic(std::make_index_sequence<BATCH_N>(), firstInstance, arrays...); \
 } \
-template <size_t BATCH_, typename FirstType, typename... ArrayTypes> \
-FK_HOST_FUSE auto build(const std::array<FirstType, BATCH_>& firstInstance, \
+template <size_t BATCH_N, typename FirstType, typename... ArrayTypes> \
+FK_HOST_FUSE auto build(const std::array<FirstType, BATCH_N>& firstInstance, \
                         const ArrayTypes&... arrays) { \
     const auto arrayOfIOps = build_batch(firstInstance, arrays...); \
-    return BatchWrite<BATCH_>::build(arrayOfIOps); \
+    return BatchWrite<BATCH_N>::build(arrayOfIOps); \
 }
 
 #define DEFAULT_BUILD \

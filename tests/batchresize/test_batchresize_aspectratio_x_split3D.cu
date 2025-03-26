@@ -100,7 +100,6 @@ bool test_batchresize_aspectratio_x_split3D(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv
             cv::cuda::GpuMat d_temp2(up, CV_TYPE_O);
 
             std::array<std::vector<cv::cuda::GpuMat>, BATCH> d_output_cv;
-            std::array<std::vector<cv::cuda::GpuMat>, BATCH> d_output_cvGS;
             std::array<std::vector<cv::Mat>, BATCH> h_cvResults;
             std::array<std::vector<cv::Mat>, BATCH> h_cvGSResults;
             
@@ -251,13 +250,22 @@ int launch() {
     std::unordered_map<std::string, bool> results;
     results["test_batchresize_aspectratio_x_split3D"] = true;
 
-#ifdef ENABLE_BENCHMARK
-    // Warming up for the benchmarks
-    results["test_batchresize_aspectratio_x_split3D"] &= test_batchresize_aspectratio_x_split3D<CV_8UC3, CV_32FC3, 5>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, true);
-#endif
-
-    #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
+#define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
     results["test_batchresize_aspectratio_x_split3D"] &= launch_test_batchresize_aspectratio_x_split3D<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, std::make_index_sequence<batchValues.size()>{}, cv_stream, true);
+
+#ifdef ENABLE_BENCHMARK
+
+    // Warming up for the benchmarks
+    warmup = true;
+    LAUNCH_TESTS(CV_8UC3, CV_32FC3)
+    LAUNCH_TESTS(CV_8UC4, CV_32FC4)
+    LAUNCH_TESTS(CV_16UC3, CV_32FC3)
+    LAUNCH_TESTS(CV_16UC4, CV_32FC4)
+    LAUNCH_TESTS(CV_16SC3, CV_32FC3)
+    LAUNCH_TESTS(CV_16SC4, CV_32FC4)
+    warmup = false;
+
+#endif
 
     LAUNCH_TESTS(CV_8UC3, CV_32FC3)
     LAUNCH_TESTS(CV_8UC4, CV_32FC4)

@@ -1,4 +1,4 @@
-# FusedKernel library
+# Fused Kernel Library (FKL)
 
 This folder contains the FusedKernel library, which can be used independently of OpenCV, and compiled with nvcc.
 
