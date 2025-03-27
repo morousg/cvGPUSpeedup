@@ -253,7 +253,7 @@ namespace fk {
         template <enum AspectRatio AR_ = AR>
         FK_HOST_FUSE std::enable_if_t<AR_ != IGNORE_AR, InstantiableType>
         build(const Size& dstSize, const T& backgroundValue) {
-            return InstantiableType{{{dstSize, backgroundValue}, 0}};
+            return InstantiableType{ {{dstSize, backgroundValue}, {}} };
         }
 
         template <typename ReadIOp, enum AspectRatio AR_ = AR>
@@ -280,7 +280,7 @@ namespace fk {
         using InstantiableType = Instantiable<ResizeRead<IType, IGNORE_AR, TypeList<void, void>>>;
 
         FK_HOST_FUSE InstantiableType build(const Size& dstSize) {
-            return {{{dstSize}, 0}};
+            return { {{dstSize}, {}} };
         }
 
         template <typename ReadIOp>
