@@ -181,7 +181,7 @@ namespace fk { // namespace FusedKernel
                     const auto backOpArray = Operation::toArray(*this);
                     const auto forwardOpArray = make_set_std_array<BATCH>(cIOp);
                     if constexpr (Operation::PP == CONDITIONAL_WITH_DEFAULT) {
-                        return then_helper<BATCH>(backOpArray, forwardOpArray, this->params.usedPlanes, thsi->params.default_value);
+                        return then_helper<BATCH>(backOpArray, forwardOpArray, this->params.usedPlanes, this->params.default_value);
                     } else {
                         return then_helper_2arr<BATCH>(backOpArray, forwardOpArray);
                     }
