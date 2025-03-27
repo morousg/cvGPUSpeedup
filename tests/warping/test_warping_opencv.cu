@@ -187,11 +187,82 @@ bool testPerspectiveBatch() {
     return true;
 }
 
+bool testPerspectiveBatchNotAll() {
+    constexpr int BATCH = 5;
+    int usedPlanes = 3;
+
+    // Load the image
+    const cv::Mat img = cv::imread(getSourceDir() + "/images/NSightSystemsTimeline1.png");
+    if (img.empty()) {
+        std::cerr << "Error loading image" << std::endl;
+        return false;
+    }
+
+    cv::cuda::Stream stream;
+
+    // Upload the image to GPU
+    const cv::cuda::GpuMat d_img(img);
+    const std::array<cv::cuda::GpuMat, BATCH> d_imgs = { d_img, d_img, d_img, d_img, d_img };
+
+    // Define the source and destination points for perspective transformation
+    cv::Point2f src_points1[4] = { cv::Point2f(56, 65), cv::Point2f(368, 52), cv::Point2f(28, 387), cv::Point2f(389, 390) };
+    cv::Point2f dst_points1[4] = { cv::Point2f(0, 0), cv::Point2f(300, 0), cv::Point2f(0, 300), cv::Point2f(300, 300) };
+
+    cv::Point2f src_points2[4] = { cv::Point2f(50, 50), cv::Point2f(400, 50), cv::Point2f(50, 400), cv::Point2f(400, 400) };
+    cv::Point2f dst_points2[4] = { cv::Point2f(0, 0), cv::Point2f(300, 0), cv::Point2f(0, 300), cv::Point2f(300, 300) };
+
+    cv::Point2f src_points3[4] = { cv::Point2f(30, 30), cv::Point2f(350, 30), cv::Point2f(30, 350), cv::Point2f(350, 350) };
+    cv::Point2f dst_points3[4] = { cv::Point2f(0, 0), cv::Point2f(250, 0), cv::Point2f(0, 250), cv::Point2f(250, 250) };
+
+    cv::Point2f src_points4[4] = { cv::Point2f(70, 70), cv::Point2f(370, 70), cv::Point2f(70, 370), cv::Point2f(370, 370) };
+    cv::Point2f dst_points4[4] = { cv::Point2f(0, 0), cv::Point2f(280, 0), cv::Point2f(0, 280), cv::Point2f(280, 280) };
+
+    cv::Point2f src_points5[4] = { cv::Point2f(20, 20), cv::Point2f(320, 20), cv::Point2f(20, 320), cv::Point2f(320, 320) };
+    cv::Point2f dst_points5[4] = { cv::Point2f(0, 0), cv::Point2f(200, 0), cv::Point2f(0, 200), cv::Point2f(200, 200) };
+
+    // Get the perspective transformation matrix
+    std::array<cv::Mat, BATCH> perspective_matrices = { cv::getPerspectiveTransform(src_points1, dst_points1),
+                                                        cv::getPerspectiveTransform(src_points2, dst_points2),
+                                                        cv::getPerspectiveTransform(src_points3, dst_points3),
+                                                        {},
+                                                        {} };
+
+    // Preallocate the result images
+    std::array<cv::cuda::GpuMat, BATCH> d_resultscv{ cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3) };
+    std::array<cv::cuda::GpuMat, BATCH> d_resultscvGS{ cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3) };
+
+    // Apply the perspective transformation
+    for (int i = 0; i < usedPlanes; ++i) {
+        cv::cuda::warpPerspective(d_imgs[i], d_resultscv[i], perspective_matrices[i], img.size(), 1, 0, cv::Scalar(), stream);
+    }
+
+    const auto warpFunc = cvGS::warp<fk::WarpType::Perspective, CV_8UC3>(d_imgs, perspective_matrices, img.size(), usedPlanes, cv::Scalar());
+
+    auto fk_outputs = cvGS::gpuMat2RawPtr2D_arr<uchar3>(d_resultscvGS);
+    auto writeFunc = fk::PerThreadWrite<fk::_2D, uchar3>::build(fk_outputs);
+
+    cvGS::executeOperations(stream, warpFunc, fk::Cast<float3, uchar3>::build(), writeFunc);
+
+    stream.waitForCompletion();
+
+    // Download the result back to CPU
+    for (int i = 0; i < BATCH; ++i) {
+        cv::Mat resultcv(d_resultscv[i]);
+        cv::Mat resultcvGS(d_resultscvGS[i]);
+        const bool correct = compareAndCheck<CV_8UC3>(resultcv, resultcvGS);
+        std::cout << "Perspective transformation batch " << i << ": " << (correct ? "PASS" : "EXPECTED_FAIL") << std::endl;
+    }
+
+    return true;
+}
+
 int launch() {
     const bool correctPerspective = testPerspective();
     const bool correctAffine = testAffine();
     const bool correctPerspectiveBatch = testPerspectiveBatch();
+    const bool correctPerspectiveBatchNotAll = testPerspectiveBatchNotAll();
+    const bool correctAll = correctPerspective && correctAffine && correctPerspectiveBatch && correctPerspectiveBatchNotAll;
     // warpPerspective is almost identical to OpenCV's implementation, but there are a few pixels of difference in
     // the border. The reason is hard to find, since OpenCV is using NPP for the warping.
-    return true && correctAffine ? 0 : -1;
+    return correctAll ? 0 : -1;
 }
