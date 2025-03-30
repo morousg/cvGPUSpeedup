@@ -40,8 +40,8 @@ bool testCircularBatchRead() {
 
     for (int i = 0; i < BATCH; i++) {
         fk::Ptr2D<uchar3> h_temp(WIDTH, HEIGHT, 0, fk::MemType::HostPinned);
-        for (uint y = 0; y < HEIGHT; y++) {
-            for (uint x = 0; x < WIDTH; x++) {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
                 const fk::Point p{ x, y, 0 };
                 *fk::PtrAccessor<fk::_2D>::point(p, h_temp.ptr()) = fk::make_<uchar3>(i, i, i);
             }
@@ -69,9 +69,9 @@ bool testCircularBatchRead() {
     gpuErrchk(cudaStreamSynchronize(stream));
 
     bool correct = true;
-    for (uint z = 0; z < BATCH; z++) {
-        for (uint y = 0; y < HEIGHT; y++) {
-            for (uint x = 0; x < WIDTH; x++) {
+    for (int z = 0; z < BATCH; z++) {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
                 fk::Point p{ x, y, z };
                 uchar3 res = *fk::PtrAccessor<fk::_3D>::point(p, h_output.ptr());
                 uchar newZ = (z + FIRST);
@@ -126,17 +126,17 @@ bool testDivergentBatch() {
     h_output.allocTensor(WIDTH, HEIGHT, BATCH, 1, fk::MemType::HostPinned);
     h_groundTruth.allocTensor(WIDTH, HEIGHT, BATCH, 1, fk::MemType::HostPinned);
 
-    for (uint z = 0; z < BATCH; z++) {
+    for (int z = 0; z < BATCH; z++) {
         if (z == 0) {
-            for (uint y = 0; y < HEIGHT; y++) {
-                for (uint x = 0; x < HEIGHT; x++) {
+            for (int y = 0; y < HEIGHT; y++) {
+                for (int x = 0; x < HEIGHT; x++) {
                     const fk::Point p{x,y,z};
                     *fk::PtrAccessor<fk::_3D>::point(p, h_groundTruth.ptr()) = VAL_SUM;
                 }
             }
         } else {
-            for (uint y = 0; y < HEIGHT; y++) {
-                for (uint x = 0; x < HEIGHT; x++) {
+            for (int y = 0; y < HEIGHT; y++) {
+                for (int x = 0; x < HEIGHT; x++) {
                     const fk::Point p{x, y, z};
                     *fk::PtrAccessor<fk::_3D>::point(p, h_groundTruth.ptr()) = z;
                 }
@@ -158,9 +158,9 @@ bool testDivergentBatch() {
     gpuErrchk(cudaStreamSynchronize(stream));
 
     bool correct = true;
-    for (uint z = 0; z < BATCH; z++) {
-        for (uint y = 0; y < HEIGHT; y++) {
-            for (uint x = 0; x < WIDTH; x++) {
+    for (int z = 0; z < BATCH; z++) {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
                 const fk::Point p{x, y, z};
                 const uint gt = *fk::PtrAccessor<fk::_3D>::point(p, h_groundTruth.ptr());
                 const uint res = *fk::PtrAccessor<fk::_3D>::point(p, h_output.ptr());
@@ -206,10 +206,10 @@ bool testCircularTensor() {
     gpuErrchk(cudaStreamSynchronize(stream));
 
     bool correct = true;
-    for (uint z = 0; z < BATCH; z++) {
+    for (int z = 0; z < BATCH; z++) {
         const TensorOT value = (TensorOT)(ITERS - z);
-        for (uint y = 0; y < HEIGHT; y++) {
-            for (uint x = 0; x < WIDTH; x++) {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
                 const fk::Point p{x, y, z};
                 const TensorOT res = *fk::PtrAccessor<fk::_3D>::point(p, h_myTensor.ptr());
                 correct &= value == res;
@@ -261,10 +261,10 @@ bool testCircularTensorcvGS() {
 
     bool correct = true;
     const size_t plane_pixels = h_myTensor.dims().width * h_myTensor.dims().height;
-    for (uint z = 0; z < BATCH; z++) {
+    for (int z = 0; z < BATCH; z++) {
         const TensorOT value = (TensorOT)(ITERS - z);
-        for (uint y = 0; y < HEIGHT; y++) {
-            for (uint x = 0; x < WIDTH; x++) {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
                 const fk::Point p{x, y, z};
                 const TensorOT* workPlane = fk::PtrAccessor<fk::_3D>::point(p, h_myTensor.ptr());
                 const TensorOT resX = *workPlane;

@@ -4,6 +4,10 @@ Every memory read, is an opportunity for compute.
 
 With this idea in mind, this library wants to make OpenCV-CUDA code run faster on the GPU. Especially for typical pre and post processing operations for DL networks.
 
+cvGPUSpeedup is a wrapper on top of the core CUDA library The Fused Kernel Library (FKL) [here](https://github.com/morousg/FusedKernelLibrary)
+
+Currently this repository contains a folder with the entire FKL library, but we are working thowards configuring the repository so that each version of cvGPUSpeedup depends on an specific version of the FKL library. This way the FKL library can evolve independently of cvGPUSpeedup.
+
 ## What does it offer today?
 
 Crop, resize, basic point wise operations (for instance for normalization), color space conversions, color channel split and pack, and a flexible way to pack all those operations in a single fast kernel.
