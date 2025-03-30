@@ -1,0 +1,3 @@
+[submodule "FusedKernelLibrary"]
+ path = include
+ url = https://github.com/morousg/FusedKernelLibrary
