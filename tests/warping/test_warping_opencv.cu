@@ -120,7 +120,7 @@ bool testAffine() {
 }
 
 bool testPerspectiveBatch() {
-    constexpr int BATCH = 5;
+    constexpr size_t NUM_IMGS = 5;
 
     // Load the image
     const cv::Mat img = cv::imread(getSourceDir() + "/images/NSightSystemsTimeline1.png");
@@ -133,7 +133,8 @@ bool testPerspectiveBatch() {
 
     // Upload the image to GPU
     const cv::cuda::GpuMat d_img(img);
-    const std::array<cv::cuda::GpuMat, BATCH> d_imgs = { d_img, d_img, d_img, d_img, d_img };
+    // Compiler bug: can't use NUM_IMGS with std::array
+    const std::array<cv::cuda::GpuMat, 5> d_imgs = { d_img, d_img, d_img, d_img, d_img };
 
     // Define the source and destination points for perspective transformation
     cv::Point2f src_points1[4] = { cv::Point2f(56, 65), cv::Point2f(368, 52), cv::Point2f(28, 387), cv::Point2f(389, 390) };
@@ -152,23 +153,23 @@ bool testPerspectiveBatch() {
     cv::Point2f dst_points5[4] = { cv::Point2f(0, 0), cv::Point2f(200, 0), cv::Point2f(0, 200), cv::Point2f(200, 200) };
 
     // Get the perspective transformation matrix
-    std::array<cv::Mat, BATCH> perspective_matrices = { cv::getPerspectiveTransform(src_points1, dst_points1),
+    std::array<cv::Mat, NUM_IMGS> perspective_matrices = { cv::getPerspectiveTransform(src_points1, dst_points1),
                                                         cv::getPerspectiveTransform(src_points2, dst_points2),
                                                         cv::getPerspectiveTransform(src_points3, dst_points3),
                                                         cv::getPerspectiveTransform(src_points4, dst_points4),
                                                         cv::getPerspectiveTransform(src_points5, dst_points5) };
 
     // Preallocate the result images
-    std::array<cv::cuda::GpuMat, BATCH> d_resultscv{ cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3) };
-    std::array<cv::cuda::GpuMat, BATCH> d_resultscvGS{ cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3) };
+    std::array<cv::cuda::GpuMat, NUM_IMGS> d_resultscv{ cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3) };
+    std::array<cv::cuda::GpuMat, NUM_IMGS> d_resultscvGS{ cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3) };
 
     // Apply the perspective transformation
 
-    for (int i = 0; i < BATCH; ++i) {
+    for (int i = 0; i < NUM_IMGS; ++i) {
         cv::cuda::warpPerspective(d_imgs[i], d_resultscv[i], perspective_matrices[i], img.size(), 1, 0, cv::Scalar(), stream);
     }
 
-    const auto warpFunc = cvGS::warp<fk::WarpType::Perspective, CV_8UC3>(d_imgs, perspective_matrices, img.size());
+    const auto warpFunc = cvGS::warp<fk::WarpType::Perspective, CV_8UC3, NUM_IMGS>(d_imgs, perspective_matrices, img.size());
 
     auto fk_outputs = cvGS::gpuMat2RawPtr2D_arr<uchar3>(d_resultscvGS);
     auto writeFunc = fk::PerThreadWrite<fk::_2D, uchar3>::build(fk_outputs);
@@ -177,7 +178,7 @@ bool testPerspectiveBatch() {
     stream.waitForCompletion();
 
     // Download the result back to CPU
-    for (int i = 0; i < BATCH; ++i) {
+    for (int i = 0; i < NUM_IMGS; ++i) {
         cv::Mat resultcv(d_resultscv[i]);
         cv::Mat resultcvGS(d_resultscvGS[i]);
         const bool correct = compareAndCheck<CV_8UC3>(resultcv, resultcvGS);
@@ -188,8 +189,7 @@ bool testPerspectiveBatch() {
 }
 
 bool testPerspectiveBatchNotAll() {
-    constexpr int BATCH = 5;
-    int usedPlanes = 3;
+    constexpr size_t NUM_IMGS2 = 10;
 
     // Load the image
     const cv::Mat img = cv::imread(getSourceDir() + "/images/NSightSystemsTimeline1.png");
@@ -202,7 +202,9 @@ bool testPerspectiveBatchNotAll() {
 
     // Upload the image to GPU
     const cv::cuda::GpuMat d_img(img);
-    const std::array<cv::cuda::GpuMat, BATCH> d_imgs = { d_img, d_img, d_img, d_img, d_img };
+    const std::array<cv::cuda::GpuMat, NUM_IMGS2> d_imgs = { d_img, d_img, d_img, d_img, d_img, d_img, d_img, d_img, d_img, d_img };
+
+    int usedPlanes = 3;
 
     // Define the source and destination points for perspective transformation
     cv::Point2f src_points1[4] = { cv::Point2f(56, 65), cv::Point2f(368, 52), cv::Point2f(28, 387), cv::Point2f(389, 390) };
@@ -221,22 +223,23 @@ bool testPerspectiveBatchNotAll() {
     cv::Point2f dst_points5[4] = { cv::Point2f(0, 0), cv::Point2f(200, 0), cv::Point2f(0, 200), cv::Point2f(200, 200) };
 
     // Get the perspective transformation matrix
-    std::array<cv::Mat, BATCH> perspective_matrices = { cv::getPerspectiveTransform(src_points1, dst_points1),
-                                                        cv::getPerspectiveTransform(src_points2, dst_points2),
-                                                        cv::getPerspectiveTransform(src_points3, dst_points3),
-                                                        {},
-                                                        {} };
+    std::array<cv::Mat, NUM_IMGS2> perspective_matrices2{ cv::getPerspectiveTransform(src_points1, dst_points1),
+                                                  cv::getPerspectiveTransform(src_points2, dst_points2),
+                                                  cv::getPerspectiveTransform(src_points3, dst_points3),
+                                                  {}, {}, {}, {}, {}, {}, {} };
 
     // Preallocate the result images
-    std::array<cv::cuda::GpuMat, BATCH> d_resultscv{ cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3) };
-    std::array<cv::cuda::GpuMat, BATCH> d_resultscvGS{ cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3) };
+    std::array<cv::cuda::GpuMat, NUM_IMGS2> d_resultscv{ cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3),
+        cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3) };
+    std::array<cv::cuda::GpuMat, NUM_IMGS2> d_resultscvGS{ cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3),
+        cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3), cv::cuda::GpuMat(img.size(), CV_8UC3) };
 
     // Apply the perspective transformation
     for (int i = 0; i < usedPlanes; ++i) {
-        cv::cuda::warpPerspective(d_imgs[i], d_resultscv[i], perspective_matrices[i], img.size(), 1, 0, cv::Scalar(), stream);
+        cv::cuda::warpPerspective(d_imgs[i], d_resultscv[i], perspective_matrices2[i], img.size(), 1, 0, cv::Scalar(), stream);
     }
 
-    const auto warpFunc = cvGS::warp<fk::WarpType::Perspective, CV_8UC3>(d_imgs, perspective_matrices, img.size(), usedPlanes, cv::Scalar());
+    const auto warpFunc = cvGS::warp<fk::WarpType::Perspective, CV_8UC3>(d_imgs, perspective_matrices2, img.size(), usedPlanes, cv::Scalar());
 
     auto fk_outputs = cvGS::gpuMat2RawPtr2D_arr<uchar3>(d_resultscvGS);
     auto writeFunc = fk::PerThreadWrite<fk::_2D, uchar3>::build(fk_outputs);
@@ -246,7 +249,7 @@ bool testPerspectiveBatchNotAll() {
     stream.waitForCompletion();
 
     // Download the result back to CPU
-    for (int i = 0; i < BATCH; ++i) {
+    for (int i = 0; i < NUM_IMGS2; ++i) {
         cv::Mat resultcv(d_resultscv[i]);
         cv::Mat resultcvGS(d_resultscvGS[i]);
         const bool correct = compareAndCheck<CV_8UC3>(resultcv, resultcvGS);

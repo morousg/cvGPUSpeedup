@@ -51,7 +51,7 @@ inline constexpr std::array<fk::Ptr2D<T>, Batch> gpuMat2Ptr2D_arr(const std::arr
     return temp;
 }
 
-template <typename T, int Batch>
+template <typename T, size_t Batch>
 inline constexpr std::array<fk::RawPtr<fk::_2D, T>, Batch> gpuMat2RawPtr2D_arr(const std::array<cv::cuda::GpuMat, Batch>& source, const int& usedElems = Batch) {
     std::array<fk::RawPtr<fk::_2D, T>, Batch> temp;
     if (usedElems == Batch) {
@@ -235,6 +235,7 @@ inline constexpr auto crop(const BackIOp& backIOp, const cv::Rect2d& rect) {
 }
 
 namespace internal {
+
 inline constexpr auto warp_getWarpingAffineParameters(const double* const tm_raw, const cv::Size& dstSize){
     return fk::WarpingParameters<fk::WarpType::Affine>{{{
         { static_cast<float>(tm_raw[0]), static_cast<float>(tm_raw[1]), static_cast<float>(tm_raw[2]) },
@@ -277,39 +278,40 @@ inline constexpr auto warp(const cv::cuda::GpuMat& input, const cv::Mat& transfo
 }
 
 namespace internal {
-    template <int BATCH>
+    template <size_t BATCH>
     inline constexpr auto warp_batchAffineParameters_helper_rt(const std::array<cv::Mat, BATCH>& transform_matrices,
-                                                               const std::array<cv::Size, BATCH>& dstSize, const int& idx) {
+                                                               const std::array<cv::Size, BATCH>& dstSize, const size_t& idx) {
         cv::Mat inverse_transform_matrix;
         cv::invertAffineTransform(transform_matrices[idx], inverse_transform_matrix);
         const double* const tm_raw = inverse_transform_matrix.ptr<double>();
         return warp_getWarpingAffineParameters(tm_raw, dstSize[idx]);
     }
 
-    template <int Idx, int BATCH>
+    template <size_t Idx, size_t BATCH>
     inline constexpr auto warp_batchAffineParameters_helper(const std::array<cv::Mat, BATCH>& transform_matrices,
                                                             const std::array<cv::Size, BATCH>& dstSize) {
         return warp_batchAffineParameters_helper_rt(transform_matrices, dstSize, Idx);
     }
 
-    template <int BATCH>
+    template <size_t BATCH>
     inline constexpr auto warp_batchPerspectiveParameters_helper_rt(const std::array<cv::Mat, BATCH>& transform_matrices,
-                                                                    const std::array<cv::Size, BATCH>& dstSize, const int& idx) {
+                                                                    const std::array<cv::Size, BATCH>& dstSize,
+                                                                    const size_t& idx) {
         const cv::Mat inverse_transform_matrix(transform_matrices[idx].inv());
         const double* const tm_raw = inverse_transform_matrix.ptr<double>();
         return warp_getWarpingPerspectiveParameters(tm_raw, dstSize[idx]);
     }
 
-    template <int Idx, int BATCH>
+    template <size_t Idx, size_t BATCH>
     inline constexpr auto warp_batchPerspectiveParameters_helper(const std::array<cv::Mat, BATCH>& transform_matrices,
                                                                  const std::array<cv::Size, BATCH>& dstSize) {
         return warp_batchPerspectiveParameters_helper_rt(transform_matrices, dstSize, Idx);
     }
 
-    template <enum fk::WarpType WT, int BATCH, int... Idx>
+    template <enum fk::WarpType WT, size_t BATCH, size_t... Idx>
     inline constexpr auto warp_batchParameters_helper(const std::array<cv::Mat, BATCH>& transform_matrices,
                                                       const std::array<cv::Size, BATCH>& dstSize,
-                                                      const std::integer_sequence<int, Idx...>&) {
+                                                      const std::index_sequence<Idx...>&) {
         if constexpr (WT == fk::WarpType::Affine) {
             return std::array{ warp_batchAffineParameters_helper<Idx>(transform_matrices, dstSize)... };
         } else {
@@ -317,7 +319,7 @@ namespace internal {
         }
     }
 
-    template <enum fk::WarpType WT, int BATCH>
+    template <enum fk::WarpType WT, size_t BATCH>
     inline constexpr auto warp_batchParameters_helper(const std::array<cv::Mat, BATCH>& transform_matrices,
                                                       const std::array<cv::Size, BATCH>& dstSize,
                                                       const int& usedPlanes) {
@@ -334,19 +336,19 @@ namespace internal {
         return temp;
     }
 
-    template <enum fk::WarpType WT, int BATCH>
+    template <enum fk::WarpType WT, size_t BATCH>
     inline constexpr std::array<fk::WarpingParameters<WT>, BATCH> warp_batchParameters(const std::array<cv::Mat, BATCH>& transform_matrices,
                                                                                        const std::array<cv::Size, BATCH>& dstSize,
                                                                                        const int& usedPlanes = BATCH) {
-        if (usedPlanes == BATCH) {
-            return warp_batchParameters_helper<WT>(transform_matrices, dstSize, std::make_integer_sequence<int, BATCH>{});
+        if (usedPlanes == static_cast<int>(BATCH)) {
+            return warp_batchParameters_helper<WT>(transform_matrices, dstSize, std::make_index_sequence<BATCH>{});
         } else {
             return warp_batchParameters_helper<WT>(transform_matrices, dstSize, usedPlanes);
         }
     }
 } // namespace internal
 
-template <enum fk::WarpType WT, int InputType, int BATCH>
+template <enum fk::WarpType WT, int InputType, size_t BATCH>
 inline constexpr auto warp(const std::array<cv::cuda::GpuMat, BATCH>& inputs,
                            const std::array<cv::Mat, BATCH>& transform_matrices,
                            const std::array<cv::Size, BATCH>& dstSize) {
@@ -369,14 +371,14 @@ inline constexpr auto warp(const std::array<cv::cuda::GpuMat, BATCH>& inputs,
     return readBatch.then(fk_batch_warp);
 }
 
-template <enum fk::WarpType WT, int InputType, int BATCH>
+template <enum fk::WarpType WT, int InputType, size_t BATCH>
 inline constexpr auto warp(const std::array<cv::cuda::GpuMat, BATCH>& inputs,
                            const std::array<cv::Mat, BATCH>& transform_matrices,
                            const cv::Size& dstSize) {
     return warp<WT, InputType>(inputs, transform_matrices, fk::make_set_std_array<BATCH>(dstSize));
 }
 
-template <enum fk::WarpType WT, int InputType, int BATCH>
+template <enum fk::WarpType WT, int InputType, size_t BATCH>
 inline constexpr auto warp(const std::array<cv::cuda::GpuMat, BATCH>& inputs,
                            const std::array<cv::Mat, BATCH>& transform_matrices,
                            const std::array<cv::Size, BATCH>& dstSize,
@@ -402,7 +404,7 @@ inline constexpr auto warp(const std::array<cv::cuda::GpuMat, BATCH>& inputs,
     return readBatch.then(fk_batch_warp);
 }
 
-template <enum fk::WarpType WT, int InputType, int BATCH>
+template <enum fk::WarpType WT, int InputType, size_t BATCH>
 inline constexpr auto warp(const std::array<cv::cuda::GpuMat, BATCH>& inputs,
                            const std::array<cv::Mat, BATCH>& transform_matrices,
                            const cv::Size& dstSize,
