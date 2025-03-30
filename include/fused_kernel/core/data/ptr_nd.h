@@ -172,6 +172,24 @@ namespace fk {
             pitch(0), plane_pitch(0), color_planes_pitch(0) {}
     };
 
+    template <int W>
+    struct StaticPtrDims1D {
+        static constexpr uint width{ W };
+    };
+
+    template <int W, int H>
+    struct StaticPtrDims2D {
+        static constexpr uint width{ W };
+        static constexpr uint height{ H };
+    };
+
+    template<int W, int H, int P>
+    struct StaticPtrDims3D {
+        static constexpr uint width{ W };
+        static constexpr uint height{ H };
+        static constexpr uint planes{ P };
+    };
+
     template <ND D, typename T>
     struct RawPtr;
 
@@ -205,6 +223,33 @@ namespace fk {
         PtrDims<T3D> dims;
         using type = T;
         enum { ND = T3D };
+    };
+
+    template<typename Dims, typename T>
+    struct StaticRawPtr;
+
+    template<typename T, int W>
+    struct StaticRawPtr<StaticPtrDims1D<W>, T> {
+        using type = T;
+        T data[W];
+        static constexpr StaticPtrDims1D<W> dims{};
+        static constexpr ND ND{ _1D };
+    };
+
+    template<typename T, int W, int H>
+    struct StaticRawPtr<StaticPtrDims2D<W, H>, T> {
+        using type = T;
+        T data[H][W];
+        static constexpr StaticPtrDims2D<W, H> dims{};
+        static constexpr ND ND{ _2D };
+    };
+
+    template<typename T, int W, int H, int P>
+    struct StaticRawPtr<StaticPtrDims3D<W, H, P>, T> {
+        using type = T;
+        T data[P][H][W];
+        static constexpr StaticPtrDims3D<W, H, P> dims{};
+        static constexpr ND ND{ _3D };
     };
 
 } // namespace fk

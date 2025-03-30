@@ -81,6 +81,19 @@ namespace cxp {
         return internal::min_helper(value, values...);
     }
 
+    template <typename T>
+    FK_HOST_DEVICE_CNST T abs(const T& x) {
+        static_assert(std::is_fundamental_v<T>, "abs does not support non fundamental types");
+        if constexpr (std::is_signed_v<T>) {
+            if (x == std::numeric_limits<T>::min()) {
+                return std::numeric_limits<T>::max();
+            }
+            return x < T(0) ? -x : x;
+        } else {
+            return x;
+        }
+    }
+
 } // namespace cxp
 
 #endif

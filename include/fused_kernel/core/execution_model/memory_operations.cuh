@@ -133,6 +133,7 @@ namespace fk {
         }
         using InstantiableType = Write<PerThreadWrite<D, T>>;
         DEFAULT_BUILD
+        DEFAULT_WRITE_BATCH_BUILD
     };
 
     template <typename T>
@@ -446,19 +447,19 @@ namespace fk {
 
     template <typename OperationDataTypeArray>
     struct CircularMemoryParams {
-        uint first;
+        int first;
         OperationDataTypeArray opData;
     };
 
     namespace circular_batch_internal {
         template <CircularDirection direction, int BATCH>
-        FK_HOST_DEVICE_CNST Point computeCircularThreadIdx(const Point& currentIdx, const uint& fst) {
+        FK_HOST_DEVICE_CNST Point computeCircularThreadIdx(const Point& currentIdx, const int& fst) {
             if constexpr (direction == CircularDirection::Ascendent) {
-                const uint z = currentIdx.z + fst;
+                const int z = currentIdx.z + fst;
                 return { currentIdx.x, currentIdx.y, z >= BATCH ? z - BATCH : z };
             } else {
                 const int z = fst - currentIdx.z;
-                return { currentIdx.x, currentIdx.y, z < 0 ? static_cast<uint>(BATCH + z) : static_cast<uint>(z) };
+                return { currentIdx.x, currentIdx.y, z < 0 ? static_cast<int>(BATCH + z) : static_cast<int>(z) };
             }
         }
     } // namespace circular_batch_internal

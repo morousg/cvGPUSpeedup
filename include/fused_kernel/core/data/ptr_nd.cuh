@@ -75,6 +75,61 @@ namespace fk {
         }
     };
 
+    template<ND D>
+    struct StaticPtrAccessor;
+
+    template<>
+    struct StaticPtrAccessor<_1D> {
+        template <int W, typename T>
+        FK_HOST_DEVICE_FUSE T read(const Point& p, const StaticRawPtr<StaticPtrDims1D<W>, T>& ptr) {
+            return ptr.data[p.x];
+        }
+
+        template <int W, typename T>
+        FK_HOST_DEVICE_FUSE void write(const Point& p, StaticRawPtr<StaticPtrDims1D<W>, T>& ptr, const T& value) {
+            ptr.data[p.x] = value;
+        }
+    };
+
+    template<>
+    struct StaticPtrAccessor<_2D> {
+        template <int W, int H, typename T>
+        FK_HOST_DEVICE_FUSE T read(const Point& p, const StaticRawPtr<StaticPtrDims2D<W, H>, T>& ptr) {
+            return ptr.data[p.y][p.x];
+        }
+
+        template <int W, int H, typename T>
+        FK_HOST_DEVICE_FUSE void write(const Point& p, StaticRawPtr<StaticPtrDims2D<W, H>, T>& ptr, const T& value) {
+            ptr.data[p.y][p.x] = value;
+        }
+    };
+
+    template<>
+    struct StaticPtrAccessor<_3D> {
+        template <int W, int H, int P, typename T>
+        FK_HOST_DEVICE_FUSE T read(const Point& p, const StaticRawPtr<StaticPtrDims3D<W, H, P>, T>& ptr) {
+            return ptr.data[p.z][p.y][p.x];
+        }
+
+        template <int W, int H, int P, typename T>
+        FK_HOST_DEVICE_FUSE void write(const Point& p, StaticRawPtr<StaticPtrDims3D<W, H, P>, T>& ptr, const T& value) {
+            ptr.data[p.z][p.y][p.x] = value;
+        }
+    };
+
+    template <typename StaticRawPtr>
+    struct StaticPtr {
+        using Type = typename StaticRawPtr::type;
+        using At = StaticPtrAccessor<StaticRawPtr::ND>;
+        StaticRawPtr ptr_a;
+        inline constexpr StaticRawPtr ptr() const {
+            return ptr_a;
+        }
+        inline constexpr auto dims() const {
+            return ptr_a.dims;
+        }
+    };
+
     template <ND D, typename T>
     struct PtrImpl;
 
@@ -172,7 +227,7 @@ namespace fk {
 
     template <ND D, typename T>
     class Ptr {
-
+        using Type = T;
         using At = PtrAccessor<D>;
 
     protected:
@@ -336,6 +391,7 @@ namespace fk {
     template <typename T>
     class Ptr1D : public Ptr<_1D, T> {
     public:
+        inline constexpr Ptr1D<T>() {}
         inline constexpr Ptr1D<T>(const uint& num_elems, const uint& size_in_bytes = 0, const MemType& type_ = Device, const int& deviceID_ = 0) :
             Ptr<_1D, T>(PtrDims<_1D>(num_elems, size_in_bytes), type_, deviceID_) {}
 

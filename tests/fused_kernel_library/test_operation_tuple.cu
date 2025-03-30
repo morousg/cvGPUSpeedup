@@ -50,6 +50,7 @@ bool test_OTInitialization() {
 
     constexpr auto filtered1 =
         fk::filtered_integer_sequence_t<int, fk::NotUnaryRestriction, fk::TypeList<typename Op::InstanceType>>{};
+    static_assert(decltype(filtered1)::size() == 1, "Wrong size");
 
     const fk::OperationTuple<Op, decltype(ot2)::Operation> test6 = fk::cat(ot1, ot2);
 
@@ -73,6 +74,7 @@ int launch() {
     static_assert(fk::isUnaryType<typename OpTuple1Type::Operation>, "Wrong Operation Type");
 
     constexpr fk::OperationData<fk::Add<int>> data(3);
+    static_assert(data.params == 3, "Wrong value");
 
     constexpr auto opTuple2 =
         fk::make_operation_tuple_<fk::Add<int, int, int, fk::UnaryType>, fk::Add<int>>

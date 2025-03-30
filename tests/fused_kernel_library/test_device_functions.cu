@@ -78,7 +78,7 @@ constexpr inline bool test_read_then_batch() {
 
 constexpr inline bool test_readback_then_batch() {
 
-    constexpr RawPtr<_2D, float> input{ {nullptr}, { 64, 64, 64 * sizeof(float) } };
+    constexpr RawPtr<_2D, float> input{ nullptr, { 64, 64, 64 * sizeof(float) } };
     constexpr auto readIOp = RPerThrFloat::build(input);
     constexpr auto oneResize = ResizeRead<INTER_LINEAR>::build(readIOp, Size(32, 32));
     using ResizeType = decltype(oneResize);
@@ -88,12 +88,14 @@ constexpr inline bool test_readback_then_batch() {
 
     constexpr auto fusedBatch = oneResize.then(batchResize);
 
+    static_assert(fusedBatch.getActiveThreads().z == 2, "Wrong depth");
+
     return true;
 }
 
 constexpr inline bool test_batch_then_readback() {
-    constexpr std::array<RawPtr<_2D, float>, 2> inputs{ RawPtr<_2D, float>{{nullptr}, {64,64, 64 * sizeof(float)}},
-                                                        RawPtr<_2D, float>{{nullptr}, {128,64, 64 * (sizeof(float))}} };
+    constexpr std::array<RawPtr<_2D, float>, 2> inputs{ RawPtr<_2D, float>{nullptr, {64,64, 64 * sizeof(float)}},
+                                                        RawPtr<_2D, float>{nullptr, {128,64, 64 * (sizeof(float))}} };
 
     constexpr auto readBatchOp = RPerThrFloat::build(inputs);
     using ReadIOp = decltype(readBatchOp);
@@ -102,35 +104,39 @@ constexpr inline bool test_batch_then_readback() {
     using ResizeType = decltype(oneResize);
 
     constexpr auto fusedBatch = readBatchOp.then(oneResize);
+    static_assert(fusedBatch.getActiveThreads().z == 2, "Wrong depth");
 
     return true;
 }
 
 constexpr inline bool test_batch_then_compute() {
-    constexpr std::array<RawPtr<_2D, float>, 2> inputs{ RawPtr<_2D, float>{{nullptr}, {64,64, 64 * sizeof(float)}},
-                                                        RawPtr<_2D, float>{{nullptr}, {64,64, 64 * (sizeof(float))}} };
+    constexpr std::array<RawPtr<_2D, float>, 2> inputs{ RawPtr<_2D, float>{nullptr, {64,64, 64 * sizeof(float)}},
+                                                        RawPtr<_2D, float>{nullptr, {64,64, 64 * (sizeof(float))}} };
 
     constexpr auto readBatchOp = RPerThrFloat::build(inputs);
     using ReadIOp = decltype(readBatchOp);
 
     constexpr auto fusedBatch = readBatchOp.then(Add<float>::build(4.5));
+    static_assert(fusedBatch.getActiveThreads().z == 2, "Wrong depth");
 
     return true;
 }
 
 constexpr inline bool test_read_then_readback() {
-    constexpr RawPtr<_2D, float> input{ {nullptr}, { 64, 64, 64 * sizeof(float) } };
+    constexpr RawPtr<_2D, float> input{ nullptr, { 64, 64, 64 * sizeof(float) } };
     constexpr auto readIOp = RPerThrFloat::build(input);
 
     constexpr auto fusedOp = readIOp.then(ResizeRead<INTER_LINEAR, PRESERVE_AR>::build(Size(16,32), 0.5f));
+    static_assert(fusedOp.getActiveThreads().x == 16, "Wrong width");
+    static_assert(fusedOp.getActiveThreads().y == 32, "Wrong height");
 
     return true;
 }
 
 constexpr inline bool test_batched() {
 
-    constexpr std::array<RawPtr<_2D, float>, 2> inputs{ RawPtr<_2D, float>{{nullptr}, {64,64, 64*sizeof(float)}},
-                                                        RawPtr<_2D, float>{{nullptr}, {64,64, 64*(sizeof(float))}}};
+    constexpr std::array<RawPtr<_2D, float>, 2> inputs{ RawPtr<_2D, float>{nullptr, {64,64, 64*sizeof(float)}},
+                                                        RawPtr<_2D, float>{nullptr, {64,64, 64*(sizeof(float))}}};
 
     constexpr auto readBatchOp = RPerThrFloat::build(inputs);
     using ReadIOp = decltype(readBatchOp);
@@ -202,7 +208,6 @@ int launch() {
     const Ptr2D<uint3> outputAlt(32, 32);
     Ptr2D<uint3> h_output(32, 32, 0, HostPinned);
     constexpr RawPtr<_2D, uchar3> input{nullptr, PtrDims<_2D>(128, 128)};
-    constexpr RawPtr<_2D, float3> output{ nullptr, PtrDims<_2D>(32, 32) };
     constexpr Size dstSize(32, 32);
     cudaStream_t stream;
     gpuErrchk(cudaStreamCreate(&stream));
@@ -210,13 +215,17 @@ int launch() {
     constexpr auto someReadOp =
         PerThreadRead<_2D, uchar3>::build(input).then(Cast<uchar3, float3>::build()).then(ResizeRead<INTER_LINEAR>::build(dstSize));
 
-    constexpr OperationTuple<PerThreadRead<_2D, uchar3>, Cast<uchar3, float3>> backFunction = someReadOp.back_function.params;
+    static_assert(
+        std::is_same_v<std::decay_t<decltype(someReadOp.back_function.params)>, OperationTuple<PerThreadRead<_2D, uchar3>, Cast<uchar3, float3>>>,
+        "Unexpected resulting type"
+    );
 
     constexpr bool correct =
         std::is_same_v<OperationTuple<PerThreadRead<_2D, uchar3>, Cast<uchar3, float3>>, decltype(someReadOp.back_function.params)>;
     static_assert(correct, "Unexpected resulting type");
 
     constexpr auto finalOp = someReadOp.then(Mul<float3>::build({ { 3.f, 1.f, 32.f } }));
+    static_assert(finalOp.params.next.size == 1, "Wrong size");
 
     constexpr auto inputAlt = ReadSet<uchar3>::build({ { { 0,0,0 }, {128,128,1} } });
 
@@ -253,8 +262,8 @@ int launch() {
 
     bool correct2{ true };
 
-    for (uint y = 0; y < 32; ++y) {
-        for (uint x = 0; x < 32; ++x) {
+    for (int y = 0; y < 32; ++y) {
+        for (int x = 0; x < 32; ++x) {
             const uint3 temp = *PtrAccessor<_2D>::cr_point({x, y}, h_output.ptr());
             correct2 &= (temp.x == 3 && temp.y == 1 && temp.z == 32);
         }

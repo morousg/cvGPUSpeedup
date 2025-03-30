@@ -153,9 +153,9 @@ namespace fk { // namespace FusedKernel
         FK_DEVICE_FUSE void exec(const Details& details, const IOps&... iOps) {
             const cg::thread_block g = cg::this_thread_block();
 
-            const uint x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
-            const uint y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
-            const uint z = g.group_index().z; // So far we only consider the option of using the z dimension to specify n (x*y) thread planes
+            const int x = (g.dim_threads().x * g.group_index().x) + g.thread_index().x;
+            const int y = (g.dim_threads().y * g.group_index().y) + g.thread_index().y;
+            const int z = g.group_index().z; // So far we only consider the option of using the z dimension to specify n (x*y) thread planes
             const Point thread{ x, y, z };
 
             using TFI = typename Details::TFI;
@@ -173,10 +173,10 @@ namespace fk { // namespace FusedKernel
                         if (!iamlastActiveThread) {
                             execute_instantiable_operations<TFI>(thread, iOps...);
                         } else if (iamlastActiveThread) {
-                            const uint initialX = x * TFI::elems_per_thread;
+                            const int initialX = x * TFI::elems_per_thread;
                             using ReadOp = typename FirstType_t<IOps...>::Operation;
-                            const uint finalX = ReadOp::num_elems_x(thread, get<0>(iOps...));
-                            uint currentX = initialX;
+                            const int finalX = ReadOp::num_elems_x(thread, get<0>(iOps...));
+                            int currentX = initialX;
                             while (currentX < finalX) {
                                 const Point currentThread{ currentX , thread.y, thread.z };
                                 using ReadIT = typename FirstType_t<IOps...>::Operation::ReadDataType;

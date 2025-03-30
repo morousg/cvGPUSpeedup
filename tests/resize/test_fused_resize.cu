@@ -139,7 +139,6 @@ void testComputeWhatYouSee(char* buffer, const uint& NUM_ELEMS_X, const uint& NU
 
     const auto readOpInstance = fk::fuseDF(fk::Read<fk::ReadYUV<fk::NV12>>{d_nv12Image},
                                            fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>{});
-    const auto imgSize = d_nv12Image.dims;
     const auto readOp = fk::ResizeRead<fk::InterpolationType::INTER_LINEAR>::build(readOpInstance, down);
     auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
     auto colorConvert = fk::Unary<fk::VectorReorder<uchar4, 2, 1, 0, 3>>{};
