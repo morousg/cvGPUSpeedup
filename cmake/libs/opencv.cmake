@@ -1,5 +1,5 @@
 set ($ENV{OPENCV_DIR} "")
-find_package(OpenCV ${OPENCV_VERSION})
+find_package(OpenCV ${OPENCV_VERSION} REQUIRED)
 
 function(add_opencv_to_target TARGET_NAME COMPONENTS)
     set(EXPORTED_TARGETS ${COMPONENTS})
