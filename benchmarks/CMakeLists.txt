@@ -2,8 +2,7 @@
 
 
 function (enable_intellisense TARGET_NAME)
-    # Hack to get intellisense working for CUDA includes
-    target_link_libraries(${TARGET_NAME} PRIVATE cvGPUSpeedup)
+    # Hack to get intellisense working for CUDA includes    
     set_target_cuda_arch_flags(${TARGET_NAME})
     add_test(NAME  ${TARGET_NAME} COMMAND ${TARGET_NAME})
 
