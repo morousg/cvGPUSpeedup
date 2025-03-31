@@ -12,6 +12,7 @@ function (discover_tests DIR)
     foreach(cuda_source ${CUDA_SOURCES})
         get_filename_component(cuda_target ${cuda_source} NAME_WE)           
         add_executable(${cuda_target} ${cuda_source} )
+        add_fkl_to_target(${cuda_target})
         target_sources(${cuda_target} PRIVATE ${LAUNCH_SOURCES})            
      
         if(${ENABLE_BENCHMARK})
