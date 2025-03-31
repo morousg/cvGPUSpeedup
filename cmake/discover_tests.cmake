@@ -33,9 +33,10 @@ function (discover_tests DIR)
         endif()
 
         set_target_properties(${cuda_target} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)            
-        target_include_directories(${cuda_target} PRIVATE "${CMAKE_SOURCE_DIR}")        
-        target_link_libraries(${cuda_target} PRIVATE ${PROJECT_NAME})        
-        
+        target_include_directories(${cuda_target} PRIVATE "${CMAKE_SOURCE_DIR}/")      
+        target_include_directories(${cuda_target} PRIVATE "${CMAKE_SOURCE_DIR}/include")          
+        #target_link_libraries(${cuda_target} PRIVATE ${PROJECT_NAME})        
+        add_opencv_to_target(${cuda_target} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs")
         set_target_cuda_arch_flags(${cuda_target})
         add_test(NAME  ${cuda_target} COMMAND ${cuda_target})
          
