@@ -12,8 +12,9 @@ include (cmake/libs/cuda/archs.cmake)
 include (cmake/generators/version_header.cmake)
 project(cvGPUSpeedup VERSION ${PROJECT_VERSION} LANGUAGES CXX CUDA 
 DESCRIPTION "Make OpenCV-CUDA code run faster on the GPU" HOMEPAGE_URL "https://github.com/morousg/cvGPUSpeedup" )
-
+include (cmake/libs/fkl.cmake)
 include (cmake/libs/cuda/cuda.cmake)
+
 include (cmake/cuda_init.cmake)
 include (cmake/libs/opencv.cmake)
 include (cmake/discover_tests.cmake)
@@ -22,8 +23,6 @@ option (BUILD_UTEST "build standard unit tests" ON)
 option (ENABLE_BENCHMARK "build benchmarking unit tests" OFF)
 
 add_subdirectory(include)
-add_subdirectory(lib)
-
 
 
 if (${BUILD_UTEST})
