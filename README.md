@@ -6,7 +6,7 @@ With this idea in mind, this library wants to make OpenCV-CUDA code run faster o
 
 cvGPUSpeedup is a wrapper on top of the core CUDA library The Fused Kernel Library (FKL) [here](https://github.com/morousg/FusedKernelLibrary)
 
-Currently this repository contains a folder with the entire FKL library, but we are working thowards configuring the repository so that each version of cvGPUSpeedup depends on an specific version of the FKL library. This way the FKL library can evolve independently of cvGPUSpeedup.
+The FKL repository is used by cvGPUSpeedup as a mandatory submodule. The goal is to be able to use the FKL to build different wrappers, imitating different well known libraries, and offering great speedups.
 
 ## What does it offer today?
 
