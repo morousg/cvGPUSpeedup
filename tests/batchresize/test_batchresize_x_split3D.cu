@@ -1,4 +1,4 @@
-/* Copyright 2023 Oscar Amoros Huguet
+﻿/* Copyright 2023 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #include "tests/testsCommon.cuh"
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
-
+ 
 #include "tests/main.h"
 
 #ifdef ENABLE_BENCHMARK

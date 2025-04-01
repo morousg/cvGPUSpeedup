@@ -1,4 +1,4 @@
-/* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
+﻿/* Copyright 2023 Mediaproduccion S.L.U. (Oscar Amoros Huguet)
    Copyright 2025 Oscar Amoros Huguet
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,7 @@
 #include <fused_kernel/algorithms/basic_ops/arithmetic.cuh>
 #include <fused_kernel/fused_kernel.cuh>
 #include <cvGPUSpeedup.cuh>
+
 
 #include "tests/main.h"
 
