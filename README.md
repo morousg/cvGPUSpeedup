@@ -8,6 +8,17 @@ cvGPUSpeedup is a wrapper on top of the core CUDA library The Fused Kernel Libra
 
 The FKL repository is used by cvGPUSpeedup as a mandatory submodule. The goal is to be able to use the FKL to build different wrappers, imitating different well known libraries, and offering great speedups.
 
+## How to get the code
+### Clone
+Some git clients like git extensions or SourceTree already load the submodules, but in case you want to do it from the command line here ara the commands:
+```bash
+git clone https://github.com/morousg/cvGPUSpeedup.git
+git submodule init
+git submodule update
+``` 
+### Download zip or tar
+Download the source for cvGPUSpeedup, download the source for the FusedKernelLibrary [here](https://github.com/morousg/FusedKernelLibrary) and place the contents of the FusedKernelLibrary repo in the empty folder named fkl in the cvGPUSpeedup repository.
+
 ## What does it offer today?
 
 Crop, resize, basic point wise operations (for instance for normalization), color space conversions, color channel split and pack, and a flexible way to pack all those operations in a single fast kernel.
