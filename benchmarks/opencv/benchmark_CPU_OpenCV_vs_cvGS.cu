@@ -99,20 +99,11 @@ bool test_cpu_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::
 
             constexpr bool correctDept = CV_MAT_DEPTH(CV_TYPE_O) == CV_32F;
 
-            std::cout << "Executing " << __func__ << " fusing " << BATCH << " operations. " << ((BATCH - FIRST_VALUE) / INCREMENT)+1 << "/" << NUM_EXPERIMENTS << std::endl;
-            BenchmarkResultsNumbers resF;
-            resF.OCVelapsedTimeMax = fk::minValue<float>;
-            resF.OCVelapsedTimeMin = fk::maxValue<float>;
-            resF.OCVelapsedTimeAcum = 0.f;
-            resF.cvGSelapsedTimeMax = fk::minValue<float>;
-            resF.cvGSelapsedTimeMin = fk::maxValue<float>;
-            resF.cvGSelapsedTimeAcum = 0.f;
-            cudaStream_t stream = cv::cuda::StreamAccessor::getStream(cv_stream);
-            std::array<float, ITERS> OCVelapsedTime;
-            std::array<float, ITERS> cvGSelapsedTime;
+            BenchmarkTemp<ITERS> cpuBenchmark =
+                initCPUBenchmark<CV_TYPE_I, CV_TYPE_O, ITERS, BATCH, FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>(__func__, VARIABLE_DIMENSION);
             for (int i = 0; i < ITERS; i++) {
                 // OpenCV version
-                const auto cpu_start1 = std::chrono::high_resolution_clock::now();
+                startOCV_CPU(cpuBenchmark);
                 for (int crop_i = 0; crop_i < BATCH; crop_i++) {
                     crops[crop_i].convertTo(crop_32F, CV_TYPE_O, 1, cv_stream);
                     cv::cuda::resize(crop_32F, d_up, up, 0., 0., cv::INTER_LINEAR, cv_stream);
@@ -126,30 +117,17 @@ bool test_cpu_batchresize_x_split3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::
                     cv::cuda::divide(d_temp2, val_div, d_temp, 1.0, -1, cv_stream);
                     cv::cuda::split(d_temp, d_output_cv[crop_i], cv_stream);
                 }
-                const auto cpu_end1 = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<float, std::milli> cpu_elapsed1 = cpu_end1 - cpu_start1;
-                OCVelapsedTime[i] = cpu_elapsed1.count();
-                resF.OCVelapsedTimeMax = resF.OCVelapsedTimeMax < OCVelapsedTime[i] ? OCVelapsedTime[i] : resF.OCVelapsedTimeMax;
-                resF.OCVelapsedTimeMin = resF.OCVelapsedTimeMin > OCVelapsedTime[i] ? OCVelapsedTime[i] : resF.OCVelapsedTimeMin;
-                resF.OCVelapsedTimeAcum += OCVelapsedTime[i];
-
+                stopOCV_startcvGS_CPU(cpuBenchmark, i);
                 // cvGPUSpeedup
-                const auto cpu_start = std::chrono::high_resolution_clock::now();
                 cvGS::executeOperations(cv_stream, cvGS::resize<CV_TYPE_I, cv::INTER_LINEAR, BATCH>(crops, up, BATCH),
                     cvGS::cvtColor<cv::COLOR_RGB2BGR, CV_TYPE_O>(), cvGS::multiply<CV_TYPE_O>(val_alpha),
                     cvGS::subtract<CV_TYPE_O>(val_sub), cvGS::divide<CV_TYPE_O>(val_div),
                     cvGS::split<CV_TYPE_O>(d_tensor_output, up));
-                const auto cpu_end = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<float, std::milli> cpu_elapsed = cpu_end - cpu_start;
-
-                cvGSelapsedTime[i] = cpu_elapsed.count();
-                resF.cvGSelapsedTimeMax = resF.cvGSelapsedTimeMax < cvGSelapsedTime[i] ? cvGSelapsedTime[i] : resF.cvGSelapsedTimeMax;
-                resF.cvGSelapsedTimeMin = resF.cvGSelapsedTimeMin > cvGSelapsedTime[i] ? cvGSelapsedTime[i] : resF.cvGSelapsedTimeMin;
-                resF.cvGSelapsedTimeAcum += cvGSelapsedTime[i]; 
+                stopcvGS_CPU(cpuBenchmark, i);
                 if (warmup) break;
             }
-            processExecution<CV_TYPE_I, CV_TYPE_O, BATCH, ITERS, batchValues.size(), batchValues>(resF, __func__, OCVelapsedTime, cvGSelapsedTime, VARIABLE_DIMENSION);
-                    d_tensor_output.download(h_tensor_output, cv_stream);
+            processExecution<CV_TYPE_I, CV_TYPE_O, BATCH, ITERS, batchValues.size(), batchValues>(cpuBenchmark.resF, __func__, cpuBenchmark.OCVelapsedTime, cpuBenchmark.cvGSelapsedTime, VARIABLE_DIMENSION);
+            d_tensor_output.download(h_tensor_output, cv_stream);
 
             // Verify results
             for (int crop_i = 0; crop_i < BATCH; crop_i++) {
