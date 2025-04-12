@@ -225,9 +225,7 @@ int launch() {
 
 #undef LAUNCH_TESTS
 
-    for (auto&& [_, file] : currentFile) {
-        file.close();
-    }
+    stopCPUBenchmark();
 
     int returnValue = 0;
     for (const auto& [key, passed] : results) {

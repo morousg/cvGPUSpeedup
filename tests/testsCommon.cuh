@@ -20,6 +20,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <array>
+#include <chrono>
 
 #include <opencv2/core/cuda_stream_accessor.hpp>
 #include <opencv2/cudaarithm.hpp>
@@ -245,6 +246,12 @@ void stopcvGS_CPU(BenchmarkTemp<ITERS>& benchmarkTemp, const int& i) {
     benchmarkTemp.resF.cvGSelapsedTimeAcum += benchmarkTemp.cvGSelapsedTime[i];
 }
 
+void stopCPUBenchmark() {
+    for (auto&& [_, file] : currentFile) {
+        file.close();
+    }
+}
+
 #else
 
 template <int ITERS>
@@ -255,6 +262,8 @@ void stopOCV_startcvGS_CPU(BenchmarkTemp<ITERS>& benchmarkTemp, const int& i) {}
 
 template <int ITERS>
 void stopcvGS_CPU(BenchmarkTemp<ITERS>& benchmarkTemp, const int& i) {}
+
+void stopCPUBenchmark() {}
 
 #endif
 
