@@ -97,7 +97,7 @@ bool compareAndCheck(cv::Mat& cvVersion, cv::Mat& cvGSVersion) {
 
 #ifdef ENABLE_BENCHMARK
 std::unordered_map<std::string, std::stringstream> benchmarkResultsText;
-std::unordered_map < std::string, std::ofstream> currentFile;
+std::unordered_map<std::string, std::ofstream> currentFile;
 // Select the path where to write the benchmark files
 const std::string path{ "" };
 
@@ -182,7 +182,7 @@ inline void processExecution(const BenchmarkResultsNumbers& resF,
 template <int ITERS>
 struct BenchmarkTemp {
     BenchmarkResultsNumbers resF;
-    std::chrono::steady_clock::time_point startTime;
+    std::chrono::system_clock::time_point startTime;
     std::array<float, ITERS> OCVelapsedTime;
     std::array<float, ITERS> cvGSelapsedTime;
 };
@@ -198,23 +198,6 @@ BenchmarkTemp<ITERS> initCPUBenchmark(const std::string& functionName, const std
     benchmarkTemp.resF.cvGSelapsedTimeMax = fk::minValue<float>;
     benchmarkTemp.resF.cvGSelapsedTimeMin = fk::maxValue<float>;
     benchmarkTemp.resF.cvGSelapsedTimeAcum = 0.f;
-
-    if (currentFile.find(functionName) == currentFile.end()) {
-        currentFile[functionName].open(path + functionName);
-        currentFile[functionName] << variableDimension << " ("
-            << cvTypeToString<CV_INPUT_TYPE>() << "X"
-            << cvTypeToString<CV_OUTPUT_TYPE>() << ")";
-        currentFile[functionName] << ", OpenCV MeanTime";
-        currentFile[functionName] << ", OpenCV TimeVariance";
-        currentFile[functionName] << ", OpenCV MaxTime";
-        currentFile[functionName] << ", OpenCV MinTime";
-        currentFile[functionName] << ", cvGS MeanTime";
-        currentFile[functionName] << ", cvGS TimeVariance";
-        currentFile[functionName] << ", cvGS MaxTime";
-        currentFile[functionName] << ", cvGS MinTime";
-        currentFile[functionName] << ", Mean Speedup";
-        currentFile[functionName] << std::endl;
-    }
 
     return benchmarkTemp;
 }
