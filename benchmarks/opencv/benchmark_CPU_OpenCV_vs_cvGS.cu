@@ -29,7 +29,7 @@ constexpr size_t NUM_EXPERIMENTS = 8;
 constexpr size_t NUM_EXPERIMENTS = 16;
 #endif // CUDART_MAJOR_VERSION
 
-constexpr size_t FIRST_VALUE = 1;
+constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 10;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
