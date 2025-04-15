@@ -95,6 +95,23 @@ bool compareAndCheck(cv::Mat& cvVersion, cv::Mat& cvGSVersion) {
     }
 }
 
+struct BenchmarkResultsNumbers {
+    float OCVelapsedTimeMax;
+    float OCVelapsedTimeMin;
+    float OCVelapsedTimeAcum;
+    float cvGSelapsedTimeMax;
+    float cvGSelapsedTimeMin;
+    float cvGSelapsedTimeAcum;
+};
+
+template <int ITERS>
+struct BenchmarkTemp {
+    BenchmarkResultsNumbers resF;
+    std::chrono::system_clock::time_point startTime;
+    std::array<float, ITERS> OCVelapsedTime;
+    std::array<float, ITERS> cvGSelapsedTime;
+};
+
 #ifdef ENABLE_BENCHMARK
 std::unordered_map<std::string, std::stringstream> benchmarkResultsText;
 std::unordered_map<std::string, std::ofstream> currentFile;
@@ -104,15 +121,6 @@ const std::string path{ "" };
 constexpr int ITERS = 100;
 constexpr int ITERS_W = 1;
 bool warmup = false;
-
-struct BenchmarkResultsNumbers {
-    float OCVelapsedTimeMax;
-    float OCVelapsedTimeMin;
-    float OCVelapsedTimeAcum;
-    float cvGSelapsedTimeMax;
-    float cvGSelapsedTimeMin;
-    float cvGSelapsedTimeAcum;
-};
 
 template <size_t ITERATIONS>
 float computeVariance(const float& mean, const std::array<float, ITERATIONS>& times) {
@@ -178,14 +186,6 @@ inline void processExecution(const BenchmarkResultsNumbers& resF,
         currentFile[fileName] << std::endl;
     }
 }
-
-template <int ITERS>
-struct BenchmarkTemp {
-    BenchmarkResultsNumbers resF;
-    std::chrono::system_clock::time_point startTime;
-    std::array<float, ITERS> OCVelapsedTime;
-    std::array<float, ITERS> cvGSelapsedTime;
-};
 
 template <int CV_INPUT_TYPE, int CV_OUTPUT_TYPE, int ITERS, int BATCH, int FIRST_VALUE, int INCREMENT, int NUM_EXPERIMENTS>
 BenchmarkTemp<ITERS> initCPUBenchmark(const std::string& functionName, const std::string& variableDimension) {
