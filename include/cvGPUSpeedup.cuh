@@ -73,29 +73,59 @@ inline constexpr fk::Tensor<T> gpuMat2Tensor(const cv::cuda::GpuMat& source, con
 
 template <int I, int O>
 inline constexpr auto convertTo() {
+    static_assert(fk::cn<CUDA_T(I)> == fk::cn<CUDA_T(O)>, "convertTo does not support changing the number of channels, neither in cvGS nor in OpenCV. Please, use cvGS::cvtColor instead.");
     return fk::Unary<fk::SaturateCast<CUDA_T(I), CUDA_T(O)>>{};
 }
 
 template <int I, int O>
 inline constexpr auto convertTo(float alpha) {
+    static_assert(fk::cn<CUDA_T(I)> == fk::cn<CUDA_T(O)>, "convertTo does not support changing the number of channels, neither in cvGS nor in OpenCV. Please, use cvGS::cvtColor instead.");
+
     using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
     using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
+    constexpr bool outputIsIntegral = std::is_integral_v<fk::VBase<CUDA_T(O)>>;
+    using FloatType = std::conditional_t<outputIsIntegral, fk::VectorType_t<float, fk::cn<CUDA_T(O)>>, CUDA_T(O)>;
+    const auto alphaVec = fk::make_set<FloatType>(alpha);
 
-    using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
-    using SecondOp = fk::Mul<CUDA_T(O)>;
-    return FirstOp::build().then(SecondOp::build(fk::make_set<CUDA_T(O)>(alpha)));
+    if constexpr (outputIsIntegral) {
+        using FirstOp = fk::SaturateCast<CUDA_T(I), FloatType>;
+        using SecondOp = fk::Mul<FloatType>;
+        using ThirdOp = fk::SaturateCast<FloatType, CUDA_T(O)>;
+
+        return FirstOp::build().then(SecondOp::build(alphaVec)).then(ThirdOp::build());
+    } else {
+        using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
+        using SecondOp = fk::Mul<CUDA_T(O)>;
+
+        return FirstOp::build().then(SecondOp::build(alphaVec));
+    }
 }
 
 template <int I, int O>
 inline constexpr auto convertTo(float alpha, float beta) {
+    static_assert(fk::cn<CUDA_T(I)> == fk::cn<CUDA_T(O)>, "convertTo does not support changing the number of channels, neither in cvGS nor in OpenCV. Please, use cvGS::cvtColor instead.");
+
     using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
     using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
+    constexpr bool outputIsIntegral = std::is_integral_v<fk::VBase<CUDA_T(O)>>;
+    using FloatType = std::conditional_t<outputIsIntegral, fk::VectorType_t<float, fk::cn<CUDA_T(O)>>, CUDA_T(O)>;
+    const auto alphaVec = fk::make_set<FloatType>(alpha);
+    const auto betaVec = fk::make_set<FloatType>(beta);
 
-    using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
-    using SecondOp = fk::Mul<CUDA_T(O)>;
-    using ThirdOp = fk::Add<CUDA_T(O)>;
+    if constexpr (outputIsIntegral) {
+        using FirstOp = fk::SaturateCast<CUDA_T(I), FloatType>;
+        using SecondOp = fk::Mul<FloatType>;
+        using ThirdOp = fk::Add<FloatType>;
+        using FourthOp = fk::SaturateCast<FloatType, CUDA_T(O)>;
+        
+        return FirstOp::build().then(SecondOp::build(alphaVec)).then(ThirdOp::build(betaVec)).then(FourthOp::build());
+    } else {
+        using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
+        using SecondOp = fk::Mul<CUDA_T(O)>;
+        using ThirdOp = fk::Add<CUDA_T(O)>;
 
-    return fk::FusedOperation<FirstOp, SecondOp, ThirdOp>::build({ { {fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }} } });
+        return fk::FusedOperation<FirstOp, SecondOp, ThirdOp>::build({ { { alphaVec, { betaVec } } } });
+    }
 }
 
 template <int I>
