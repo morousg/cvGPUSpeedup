@@ -66,7 +66,6 @@ bool compareAndCheck(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& cvVersion, cv::M
     cv::Mat diff = cv::abs(cvVersion - cvGSVersion);
     std::vector<cv::Mat> h_comparison1C(CV_MAT_CN(T));
     cv::split(diff, h_comparison1C);
-    #define CVGS_DEBUG
     #ifdef CVGS_DEBUG
     for (int y = 0; y < cvVersion.rows; y++) {
         for (int x = 0; x < cvVersion.cols; x++) {
@@ -75,7 +74,6 @@ bool compareAndCheck(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& cvVersion, cv::M
         }
     }
     #endif
-    #undef CVGS_DEBUG
     for (int i = 0; i < CV_MAT_CN(T); i++) {
         passed &= checkResults<CV_MAT_DEPTH(T)>(NUM_ELEMS_X, NUM_ELEMS_Y, h_comparison1C.at(i));
     }

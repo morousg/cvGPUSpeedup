@@ -27,15 +27,15 @@ constexpr char VARIABLE_DIMENSION[] {"Batch size"};
 #define BENCHMARK_ENABLED false
 #endif
 
-constexpr size_t FIRST_VALUE = 10;
-constexpr size_t INCREMENT = 10;
+constexpr size_t FIRST_VALUE = 1;
+constexpr size_t INCREMENT = 5;
 
 #ifndef CUDART_MAJOR_VERSION
 #error CUDART_MAJOR_VERSION Undefined!
 #elif (CUDART_MAJOR_VERSION == 11)
 constexpr size_t NUM_EXPERIMENTS = 5;
 #elif (CUDART_MAJOR_VERSION == 12 && BENCHMARK_ENABLED)
-constexpr size_t NUM_EXPERIMENTS = 30;
+constexpr size_t NUM_EXPERIMENTS = 60;
 #elif (CUDART_MAJOR_VERSION == 12)
 constexpr size_t NUM_EXPERIMENTS = 5;
 #endif // CUDART_MAJOR_VERSION
@@ -212,7 +212,7 @@ bool test_batchread_x_write3D_only_HorizontalFusion(size_t NUM_ELEMS_X, size_t N
                     cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
                     cvGS::subtract<CV_TYPE_O>(val_sub),
                     cvGS::divide<CV_TYPE_O>(val_div),
-                    cvGS::write<CV_TYPE_O>(d_output_cv[crop_i], cropSize));
+                    cvGS::write<CV_TYPE_O>(d_output_cv[crop_i]));
             }
 
             STOP_OCV_START_CVGS_BENCHMARK
