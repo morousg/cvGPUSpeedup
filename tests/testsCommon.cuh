@@ -114,7 +114,7 @@ struct BenchmarkResultsNumbers {
 template <int ITERS>
 struct BenchmarkTemp {
     BenchmarkResultsNumbers resF;
-    std::chrono::system_clock::time_point startTime;
+    std::chrono::steady_clock::time_point startTime;
     std::array<float, ITERS> OCVelapsedTime;
     std::array<float, ITERS> cvGSelapsedTime;
 };
@@ -211,24 +211,24 @@ BenchmarkTemp<ITERS> initCPUBenchmark(const std::string& functionName, const std
 
 template <int ITERS>
 void startOCV_CPU(BenchmarkTemp<ITERS>& benchmarkTemp) {
-    benchmarkTemp.startTime = std::chrono::high_resolution_clock::now();
+    benchmarkTemp.startTime = std::chrono::steady_clock::now();
 }
 
 template <int ITERS>
 void stopOCV_startcvGS_CPU(BenchmarkTemp<ITERS>& benchmarkTemp, const int& i) {
-    const auto endTime = std::chrono::high_resolution_clock::now();
+    const auto endTime = std::chrono::steady_clock::now();
     const std::chrono::duration<float, std::milli> elapsedTime = endTime - benchmarkTemp.startTime;
     benchmarkTemp.OCVelapsedTime[i] = elapsedTime.count();
     benchmarkTemp.resF.OCVelapsedTimeMax = benchmarkTemp.resF.OCVelapsedTimeMax < benchmarkTemp.OCVelapsedTime[i] ? benchmarkTemp.OCVelapsedTime[i] : benchmarkTemp.resF.OCVelapsedTimeMax;
     benchmarkTemp.resF.OCVelapsedTimeMin = benchmarkTemp.resF.OCVelapsedTimeMin > benchmarkTemp.OCVelapsedTime[i] ? benchmarkTemp.OCVelapsedTime[i] : benchmarkTemp.resF.OCVelapsedTimeMin;
     benchmarkTemp.resF.OCVelapsedTimeAcum += benchmarkTemp.OCVelapsedTime[i];
 
-    benchmarkTemp.startTime = std::chrono::high_resolution_clock::now();
+    benchmarkTemp.startTime = std::chrono::steady_clock::now();
 }
 
 template <int ITERS>
 void stopcvGS_CPU(BenchmarkTemp<ITERS>& benchmarkTemp, const int& i) {
-    const auto endTime = std::chrono::high_resolution_clock::now();
+    const auto endTime = std::chrono::steady_clock::now();
     const std::chrono::duration<float, std::milli> elapsedTime = endTime - benchmarkTemp.startTime;
     benchmarkTemp.cvGSelapsedTime[i] = elapsedTime.count();
     benchmarkTemp.resF.cvGSelapsedTimeMax = benchmarkTemp.resF.cvGSelapsedTimeMax < benchmarkTemp.cvGSelapsedTime[i] ? benchmarkTemp.cvGSelapsedTime[i] : benchmarkTemp.resF.cvGSelapsedTimeMax;

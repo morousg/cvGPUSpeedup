@@ -203,7 +203,7 @@ inline constexpr auto splitT(const fk::RawPtr<fk::T3D, typename fk::VectorTraits
 
 template <int INTER_F>
 inline const auto resize(const cv::Size& dsize) {
-    return fk::ResizeRead<static_cast<fk::InterpolationType>(INTER_F)>::build(fk::Size(dsize.width, dsize.height));
+    return fk::Resize<static_cast<fk::InterpolationType>(INTER_F)>::build(fk::Size(dsize.width, dsize.height));
 }
 
 template <int T, int INTER_F>
@@ -212,7 +212,7 @@ inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, d
 
     const fk::RawPtr<fk::_2D, CUDA_T(T)> fk_input = gpuMat2Ptr2D<CUDA_T(T)>(input);
     const fk::Size dSize{ dsize.width, dsize.height };
-    return fk::ResizeRead<(fk::InterpolationType)INTER_F>::build(fk_input, dSize, fx, fy);
+    return fk::Resize<(fk::InterpolationType)INTER_F>::build(fk_input, dSize, fx, fy);
 }
 
 template <int T, int INTER_F, int NPtr, AspectRatio AR_ = IGNORE_AR>
@@ -234,7 +234,7 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input,
     const auto readOP = PixelReadOp::build_batch(fk_input);
     const auto sizeArr = fk::make_set_std_array<NPtr>(fk::Size(dsize.width, dsize.height));
     const auto backgroundArr = fk::make_set_std_array<NPtr>(backgroundValue);
-    using Resize = fk::ResizeRead<IType, AR, fk::Read<PixelReadOp>>;
+    using Resize = fk::Resize<IType, AR, fk::Read<PixelReadOp>>;
     if constexpr (AR != fk::IGNORE_AR) {
         const auto resizeDFs = Resize::build_batch(readOP, sizeArr, backgroundArr);
         return fk::BatchRead<NPtr, fk::CONDITIONAL_WITH_DEFAULT>::build(resizeDFs, usedPlanes, backgroundValue);

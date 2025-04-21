@@ -120,13 +120,13 @@ bool test_cvGS_VS_fk_CPU_and_GPU(cv::cuda::Stream& cv_stream, bool enabled) {
             START_OCV_BENCHMARK
 
             // fk version
-            const auto cpu_start1 = std::chrono::high_resolution_clock::now();
+            const auto cpu_start1 = std::chrono::steady_clock::now();
             PUSH_RANGE("Launching fk")
 
             const auto readOP = PixelReadOp::build_batch(fk_crops);
             const auto sizeArr = fk::make_set_std_array<BATCH>(fk_size);
             const auto backgroundArr = fk::make_set_std_array<BATCH>(backgroundValue);
-            using Resize = fk::ResizeRead<IType, AR, fk::Read<PixelReadOp>>;
+            using Resize = fk::Resize<IType, AR, fk::Read<PixelReadOp>>;
             const auto resizeDFs = Resize::build_batch(readOP, sizeArr, backgroundArr);
             const auto resizeOp = fk::BatchRead<BATCH, fk::CONDITIONAL_WITH_DEFAULT>::build(resizeDFs, BATCH, backgroundValue);
 
@@ -138,14 +138,14 @@ bool test_cvGS_VS_fk_CPU_and_GPU(cv::cuda::Stream& cv_stream, bool enabled) {
                 fk::Binary<fk::Div<float3>>{fk_val_div},
                 fk::Write<fk::TensorSplit<float3>>{{ fk_output }});
             POP_RANGE
-            const auto cpu_end1 = std::chrono::high_resolution_clock::now();
+            const auto cpu_end1 = std::chrono::steady_clock::now();
             std::chrono::duration<float, std::milli> cpu_elapsed1 = cpu_end1 - cpu_start1;
             fkCPUTime[i] = cpu_elapsed1.count();
 
             STOP_OCV_START_CVGS_BENCHMARK
 
             // cvGPUSpeedup
-            const auto cpu_start = std::chrono::high_resolution_clock::now();
+            const auto cpu_start = std::chrono::steady_clock::now();
             PUSH_RANGE("Launching cvGS")
             cvGS::executeOperations(cv_stream,
                 cvGS::resize<CV_8UC3, cv::INTER_LINEAR, BATCH, cvGS::PRESERVE_AR>(crops, up, BATCH, val_init_output),
@@ -155,7 +155,7 @@ bool test_cvGS_VS_fk_CPU_and_GPU(cv::cuda::Stream& cv_stream, bool enabled) {
                 cvGS::divide<CV_32FC3>(val_div),
                 cvGS::split<CV_32FC3>(d_tensor_output, up));
             POP_RANGE
-            const auto cpu_end = std::chrono::high_resolution_clock::now();
+            const auto cpu_end = std::chrono::steady_clock::now();
             std::chrono::duration<float, std::milli> cpu_elapsed = cpu_end - cpu_start;
             cvGSCPUTime[i] = cpu_elapsed.count();
 

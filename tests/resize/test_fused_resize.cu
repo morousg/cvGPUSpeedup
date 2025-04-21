@@ -59,7 +59,7 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer, const uint& NUM_ELE
     }
 
     for (int i = 0; i < OUTPUTS; i++) {
-        auto read3 = fk::ResizeRead<fk::INTER_LINEAR>::build(d_rgbaImageBig.ptr(), down, 0., 0.);
+        auto read3 = fk::Resize<fk::INTER_LINEAR>::build(d_rgbaImageBig.ptr(), down, 0., 0.);
         fk::Unary<fk::SaturateCast<float4, uchar4>> convertTo3{};
         fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>> write3{ d_rgbaImage.ptr() };
         fk::executeOperations(stream, read3, convertTo3, write3);
@@ -74,7 +74,7 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer, const uint& NUM_ELE
                                        fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>{});
     const fk::Size srcSize(NUM_ELEMS_X, NUM_ELEMS_Y);
     const auto readOp =
-        fk::ResizeRead<fk::InterpolationType::INTER_LINEAR>::build(readBackOp, down);
+        fk::Resize<fk::InterpolationType::INTER_LINEAR>::build(readBackOp, down);
     auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
     auto colorConvert = fk::Unary<fk::VectorReorder<uchar4, 2, 1, 0, 3>>{};
 
@@ -128,7 +128,7 @@ void testComputeWhatYouSee(char* buffer, const uint& NUM_ELEMS_X, const uint& NU
     fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>> write2{ d_rgbaImageBig.ptr() };
     fk::executeOperations(stream, read2, cvtColor2, write2);
 
-    auto read3 = fk::ResizeRead<fk::INTER_LINEAR>::build(d_rgbaImageBig.ptr(), down, 0., 0.);
+    auto read3 = fk::Resize<fk::INTER_LINEAR>::build(d_rgbaImageBig.ptr(), down, 0., 0.);
     fk::Unary<fk::SaturateCast<float4, uchar4>> convertTo3{};
     fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>> write3{ d_rgbaImage.ptr() };
     fk::executeOperations(stream, read3, convertTo3, write3);
@@ -140,7 +140,7 @@ void testComputeWhatYouSee(char* buffer, const uint& NUM_ELEMS_X, const uint& NU
 
     const auto readOpInstance = fk::fuseDF(fk::Read<fk::ReadYUV<fk::NV12>>{d_nv12Image},
                                            fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>{});
-    const auto readOp = fk::ResizeRead<fk::InterpolationType::INTER_LINEAR>::build(readOpInstance, down);
+    const auto readOp = fk::Resize<fk::InterpolationType::INTER_LINEAR>::build(readOpInstance, down);
     auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
     auto colorConvert = fk::Unary<fk::VectorReorder<uchar4, 2, 1, 0, 3>>{};
     auto writeOp = fk::Write<fk::PerThreadWrite<fk::_2D, uchar4>>{ d_rgbaImage.ptr() };
