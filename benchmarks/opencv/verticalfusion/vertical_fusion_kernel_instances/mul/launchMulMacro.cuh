@@ -19,6 +19,8 @@
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/mulOpType.cuh>
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/realBatch.h>
 
+#undef ENABLE_BENCHMARK
+#ifdef ENABLE_BENCHMARK
 #define LAUNCH(NumOps) \
 void launchMul##NumOps(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops, \
     const cv::cuda::Stream& cv_stream, \
@@ -28,5 +30,8 @@ void launchMul##NumOps(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops, \
     const MulFuncType& dFunc) { \
     VerticalFusion<CV_8UC1, CV_32FC1, 2, NumOps, MulFuncType>::execute(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc); \
 }
+#else
+#define LAUNCH(NumOps)
+#endif
 
 #endif // LAUNCH_MUL_MACRO_CUH
