@@ -391,7 +391,6 @@ inline constexpr auto warp(const std::array<cv::cuda::GpuMat, BATCH>& inputs,
         }
     }
     const auto fk_inputs = gpuMat2RawPtr2D_arr<CUDA_T(InputType)>(inputs);
-    constexpr int DEFAULT_TYPE = CV_MAKETYPE(CV_32F, CV_MAT_CN(InputType));
     const auto readBatch = fk::PerThreadRead<fk::_2D, CUDA_T(InputType)>::build(fk_inputs);
 
     const auto fk_warpParams = internal::warp_batchParameters<WT>(transform_matrices, dstSize);
