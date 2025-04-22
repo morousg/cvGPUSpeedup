@@ -66,7 +66,14 @@ bool compareAndCheck(int NUM_ELEMS_X, int NUM_ELEMS_Y, cv::Mat& cvVersion, cv::M
     cv::Mat diff = cv::abs(cvVersion - cvGSVersion);
     std::vector<cv::Mat> h_comparison1C(CV_MAT_CN(T));
     cv::split(diff, h_comparison1C);
-
+    #ifdef CVGS_DEBUG
+    for (int y = 0; y < cvVersion.rows; y++) {
+        for (int x = 0; x < cvVersion.cols; x++) {
+            std::cout << "OpenCV (" << x << "," << y << ")= " << cvVersion.at<CUDA_T(T)>(y, x) << ";" << std::endl;
+            std::cout << "cvGPUSpeedup (" << x << "," << y << ")= " << cvGSVersion.at<CUDA_T(T)>(y, x) << ";" << std::endl;
+        }
+    }
+    #endif
     for (int i = 0; i < CV_MAT_CN(T); i++) {
         passed &= checkResults<CV_MAT_DEPTH(T)>(NUM_ELEMS_X, NUM_ELEMS_Y, h_comparison1C.at(i));
     }
@@ -107,7 +114,7 @@ struct BenchmarkResultsNumbers {
 template <int ITERS>
 struct BenchmarkTemp {
     BenchmarkResultsNumbers resF;
-    std::chrono::system_clock::time_point startTime;
+    std::chrono::steady_clock::time_point startTime;
     std::array<float, ITERS> OCVelapsedTime;
     std::array<float, ITERS> cvGSelapsedTime;
 };
@@ -204,24 +211,24 @@ BenchmarkTemp<ITERS> initCPUBenchmark(const std::string& functionName, const std
 
 template <int ITERS>
 void startOCV_CPU(BenchmarkTemp<ITERS>& benchmarkTemp) {
-    benchmarkTemp.startTime = std::chrono::high_resolution_clock::now();
+    benchmarkTemp.startTime = std::chrono::steady_clock::now();
 }
 
 template <int ITERS>
 void stopOCV_startcvGS_CPU(BenchmarkTemp<ITERS>& benchmarkTemp, const int& i) {
-    const auto endTime = std::chrono::high_resolution_clock::now();
+    const auto endTime = std::chrono::steady_clock::now();
     const std::chrono::duration<float, std::milli> elapsedTime = endTime - benchmarkTemp.startTime;
     benchmarkTemp.OCVelapsedTime[i] = elapsedTime.count();
     benchmarkTemp.resF.OCVelapsedTimeMax = benchmarkTemp.resF.OCVelapsedTimeMax < benchmarkTemp.OCVelapsedTime[i] ? benchmarkTemp.OCVelapsedTime[i] : benchmarkTemp.resF.OCVelapsedTimeMax;
     benchmarkTemp.resF.OCVelapsedTimeMin = benchmarkTemp.resF.OCVelapsedTimeMin > benchmarkTemp.OCVelapsedTime[i] ? benchmarkTemp.OCVelapsedTime[i] : benchmarkTemp.resF.OCVelapsedTimeMin;
     benchmarkTemp.resF.OCVelapsedTimeAcum += benchmarkTemp.OCVelapsedTime[i];
 
-    benchmarkTemp.startTime = std::chrono::high_resolution_clock::now();
+    benchmarkTemp.startTime = std::chrono::steady_clock::now();
 }
 
 template <int ITERS>
 void stopcvGS_CPU(BenchmarkTemp<ITERS>& benchmarkTemp, const int& i) {
-    const auto endTime = std::chrono::high_resolution_clock::now();
+    const auto endTime = std::chrono::steady_clock::now();
     const std::chrono::duration<float, std::milli> elapsedTime = endTime - benchmarkTemp.startTime;
     benchmarkTemp.cvGSelapsedTime[i] = elapsedTime.count();
     benchmarkTemp.resF.cvGSelapsedTimeMax = benchmarkTemp.resF.cvGSelapsedTimeMax < benchmarkTemp.cvGSelapsedTime[i] ? benchmarkTemp.cvGSelapsedTime[i] : benchmarkTemp.resF.cvGSelapsedTimeMax;

@@ -73,29 +73,59 @@ inline constexpr fk::Tensor<T> gpuMat2Tensor(const cv::cuda::GpuMat& source, con
 
 template <int I, int O>
 inline constexpr auto convertTo() {
+    static_assert(fk::cn<CUDA_T(I)> == fk::cn<CUDA_T(O)>, "convertTo does not support changing the number of channels, neither in cvGS nor in OpenCV. Please, use cvGS::cvtColor instead.");
     return fk::Unary<fk::SaturateCast<CUDA_T(I), CUDA_T(O)>>{};
 }
 
 template <int I, int O>
 inline constexpr auto convertTo(float alpha) {
+    static_assert(fk::cn<CUDA_T(I)> == fk::cn<CUDA_T(O)>, "convertTo does not support changing the number of channels, neither in cvGS nor in OpenCV. Please, use cvGS::cvtColor instead.");
+
     using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
     using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
+    constexpr bool outputIsIntegral = std::is_integral_v<fk::VBase<CUDA_T(O)>>;
+    using FloatType = std::conditional_t<outputIsIntegral, fk::VectorType_t<float, fk::cn<CUDA_T(O)>>, CUDA_T(O)>;
+    const auto alphaVec = fk::make_set<FloatType>(alpha);
 
-    using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
-    using SecondOp = fk::Mul<CUDA_T(O)>;
-    return FirstOp::build().then(SecondOp::build(fk::make_set<CUDA_T(O)>(alpha)));
+    if constexpr (outputIsIntegral) {
+        using FirstOp = fk::SaturateCast<CUDA_T(I), FloatType>;
+        using SecondOp = fk::Mul<FloatType>;
+        using ThirdOp = fk::SaturateCast<FloatType, CUDA_T(O)>;
+
+        return FirstOp::build().then(SecondOp::build(alphaVec)).then(ThirdOp::build());
+    } else {
+        using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
+        using SecondOp = fk::Mul<CUDA_T(O)>;
+
+        return FirstOp::build().then(SecondOp::build(alphaVec));
+    }
 }
 
 template <int I, int O>
 inline constexpr auto convertTo(float alpha, float beta) {
+    static_assert(fk::cn<CUDA_T(I)> == fk::cn<CUDA_T(O)>, "convertTo does not support changing the number of channels, neither in cvGS nor in OpenCV. Please, use cvGS::cvtColor instead.");
+
     using InputBase = typename fk::VectorTraits<CUDA_T(I)>::base;
     using OutputBase = typename fk::VectorTraits<CUDA_T(O)>::base;
+    constexpr bool outputIsIntegral = std::is_integral_v<fk::VBase<CUDA_T(O)>>;
+    using FloatType = std::conditional_t<outputIsIntegral, fk::VectorType_t<float, fk::cn<CUDA_T(O)>>, CUDA_T(O)>;
+    const auto alphaVec = fk::make_set<FloatType>(alpha);
+    const auto betaVec = fk::make_set<FloatType>(beta);
 
-    using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
-    using SecondOp = fk::Mul<CUDA_T(O)>;
-    using ThirdOp = fk::Add<CUDA_T(O)>;
+    if constexpr (outputIsIntegral) {
+        using FirstOp = fk::SaturateCast<CUDA_T(I), FloatType>;
+        using SecondOp = fk::Mul<FloatType>;
+        using ThirdOp = fk::Add<FloatType>;
+        using FourthOp = fk::SaturateCast<FloatType, CUDA_T(O)>;
+        
+        return FirstOp::build().then(SecondOp::build(alphaVec)).then(ThirdOp::build(betaVec)).then(FourthOp::build());
+    } else {
+        using FirstOp = fk::SaturateCast<CUDA_T(I), CUDA_T(O)>;
+        using SecondOp = fk::Mul<CUDA_T(O)>;
+        using ThirdOp = fk::Add<CUDA_T(O)>;
 
-    return fk::FusedOperation<FirstOp, SecondOp, ThirdOp>::build({ { {fk::make_set<CUDA_T(O)>(alpha), { fk::make_set<CUDA_T(O)>(beta) }} } });
+        return fk::FusedOperation<FirstOp, SecondOp, ThirdOp>::build({ { { alphaVec, { betaVec } } } });
+    }
 }
 
 template <int I>
@@ -173,7 +203,7 @@ inline constexpr auto splitT(const fk::RawPtr<fk::T3D, typename fk::VectorTraits
 
 template <int INTER_F>
 inline const auto resize(const cv::Size& dsize) {
-    return fk::ResizeRead<static_cast<fk::InterpolationType>(INTER_F)>::build(fk::Size(dsize.width, dsize.height));
+    return fk::Resize<static_cast<fk::InterpolationType>(INTER_F)>::build(fk::Size(dsize.width, dsize.height));
 }
 
 template <int T, int INTER_F>
@@ -182,7 +212,7 @@ inline const auto resize(const cv::cuda::GpuMat& input, const cv::Size& dsize, d
 
     const fk::RawPtr<fk::_2D, CUDA_T(T)> fk_input = gpuMat2Ptr2D<CUDA_T(T)>(input);
     const fk::Size dSize{ dsize.width, dsize.height };
-    return fk::ResizeRead<(fk::InterpolationType)INTER_F>::build(fk_input, dSize, fx, fy);
+    return fk::Resize<(fk::InterpolationType)INTER_F>::build(fk_input, dSize, fx, fy);
 }
 
 template <int T, int INTER_F, int NPtr, AspectRatio AR_ = IGNORE_AR>
@@ -204,7 +234,7 @@ inline const auto resize(const std::array<cv::cuda::GpuMat, NPtr>& input,
     const auto readOP = PixelReadOp::build_batch(fk_input);
     const auto sizeArr = fk::make_set_std_array<NPtr>(fk::Size(dsize.width, dsize.height));
     const auto backgroundArr = fk::make_set_std_array<NPtr>(backgroundValue);
-    using Resize = fk::ResizeRead<IType, AR, fk::Read<PixelReadOp>>;
+    using Resize = fk::Resize<IType, AR, fk::Read<PixelReadOp>>;
     if constexpr (AR != fk::IGNORE_AR) {
         const auto resizeDFs = Resize::build_batch(readOP, sizeArr, backgroundArr);
         return fk::BatchRead<NPtr, fk::CONDITIONAL_WITH_DEFAULT>::build(resizeDFs, usedPlanes, backgroundValue);
@@ -361,7 +391,6 @@ inline constexpr auto warp(const std::array<cv::cuda::GpuMat, BATCH>& inputs,
         }
     }
     const auto fk_inputs = gpuMat2RawPtr2D_arr<CUDA_T(InputType)>(inputs);
-    constexpr int DEFAULT_TYPE = CV_MAKETYPE(CV_32F, CV_MAT_CN(InputType));
     const auto readBatch = fk::PerThreadRead<fk::_2D, CUDA_T(InputType)>::build(fk_inputs);
 
     const auto fk_warpParams = internal::warp_batchParameters<WT>(transform_matrices, dstSize);

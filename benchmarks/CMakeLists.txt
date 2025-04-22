@@ -57,8 +57,8 @@ function (discover_tests DIR)
         # Detect this 4 particualr cases to compile the kernels they need as a library
         string(FIND ${cuda_source} "benchmark_vertical_fusionCompareMul.cu" is_vmul)
         string(FIND ${cuda_source} "benchmark_vertical_fusionCompareMul1.cu" is_vmul1)
-        string(FIND ${cuda_source} "benchmark_vertical_fusionCompareMulSum.cu" is_vmulsum)
-        string(FIND ${cuda_source} "benchmark_vertical_fusionCompareMulSum1.cu" is_vmulsum1)
+        string(FIND ${cuda_source} "benchmark_vertical_fusionCompareMulAdd.cu" is_vmulsum)
+        string(FIND ${cuda_source} "benchmark_vertical_fusionCompareMulAdd1.cu" is_vmulsum1)
 
         if (${is_vfki} EQUAL -1)
              

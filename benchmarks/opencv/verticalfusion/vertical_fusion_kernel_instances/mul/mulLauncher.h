@@ -15,6 +15,8 @@
 #ifndef MUL_LAUNCHER_H
 #define MUL_LAUNCHER_H
 
+#undef ENABLE_BENCHMARK
+#ifdef ENABLE_BENCHMARK
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/mul2-1002.h>
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/mul1102-2002.h>
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/mul2102-3002.h>
@@ -247,5 +249,5 @@ void launchMul(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops,
     LAUNCH_MUL(19902)
 #undef LAUNCH_MUL
 }
-
+#endif // ENABLE_BENCHMARK
 #endif // MUL_LAUNCHER_H
