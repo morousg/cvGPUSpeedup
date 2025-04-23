@@ -36,6 +36,10 @@ void launchMul(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops,
                const cv::cuda::GpuMat& d_tensor_output,
                const cv::Size& cropSize,
                const MulFuncType& dFunc) {
+    // Not using else if constexpr because VS2022 does not support so many if else constexpr by default
+    if constexpr (NumOps > 13002) {
+        throw std::runtime_error("Unsupported number of operations");
+    }
 #define LAUNCH_MUL(n) if constexpr (NumOps == n) { launchMul##n(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc); }
     LAUNCH_MUL(2)
     LAUNCH_MUL(102)

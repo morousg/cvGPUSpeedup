@@ -28,7 +28,7 @@ constexpr size_t NUM_EXPERIMENTS = 15;
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 50;
 #elif (CUDART_MAJOR_VERSION == 12)
-constexpr size_t NUM_EXPERIMENTS = 200;
+constexpr size_t NUM_EXPERIMENTS = 131;
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 100;
 #endif // CUDART_MAJOR_VERSION
@@ -139,8 +139,8 @@ bool benchmark_vertical_fusion_loopMul1(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, 
                 std::stringstream ss;
                 ss << "benchmark_vertical_fusion_loopMul<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
-            }
         }
+    }
     }
 
     return passed;
