@@ -23,6 +23,15 @@
 
 #include <type_traits>
 
+#undef ENABLE_BENCHMARK // Disabled by default for the current paper
+#undef START_OCV_BENCHMARK
+#define START_OCV_BENCHMARK
+#undef STOP_OCV_START_CVGS_BENCHMARK
+#define STOP_OCV_START_CVGS_BENCHMARK
+#undef STOP_CVGS_BENCHMARK
+#define STOP_CVGS_BENCHMARK
+#undef CLOSE_BENCHMARK
+#define CLOSE_BENCHMARK
 #ifdef ENABLE_BENCHMARK
 constexpr size_t NUM_EXPERIMENTS = 5;
 constexpr char VARIABLE_DIMENSION[]{ "Pixels per side" };
