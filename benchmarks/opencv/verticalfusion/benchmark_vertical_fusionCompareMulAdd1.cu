@@ -94,7 +94,6 @@ bool benchmark_vertical_fusion_loopMulAdd1(size_t NUM_ELEMS_X, size_t NUM_ELEMS_
 
             // cvGPUSpeedup
             const auto dFunc = Mul<OutputType>::build(val).then(Add<OutputType>::build(val));
-            //VerticalFusion<CV_TYPE_I, CV_TYPE_O, OPS_PER_ITERATION, BATCH, decltype(dFunc)>::execute(crops, REAL_BATCH, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
             launchMulAdd<BATCH>(crops, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
             STOP_CVGS_BENCHMARK
 
