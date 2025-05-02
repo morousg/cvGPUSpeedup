@@ -42,6 +42,10 @@ function(add_cuda_to_target TARGET_NAME COMPONENTS)
     if (${ENABLE_DEBUG})    
         add_cuda_debug_support_to_target(${TARGET_NAME})
     endif()
+    if (${ENABLE_NVTX})    
+         add_nvtx_support_to_target(${TARGET_NAME})
+    endif()
+    
     #debug cuda code with -G already enables lineinfo, so no need to pass it
     if(${ENABLE_LINE_INFO})            
         add_cuda_lineinfo_to_target(${TARGET_NAME})
