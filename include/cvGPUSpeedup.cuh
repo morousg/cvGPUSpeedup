@@ -290,7 +290,7 @@ inline constexpr auto warp(const cv::cuda::GpuMat& input, const cv::Mat& transfo
     if (transform_matrix.type() != CV_64FC1) {
         throw std::runtime_error("Transform matrix type should be CV_64FC1.");
     }
-    const auto read = fk::PerThreadRead<fk::_2D, CUDA_T(InputType)>::build({ (CUDA_T(InputType)*)input.data, { static_cast<uint>(input.cols), static_cast<uint>(input.rows), static_cast<uint>(input.step) } });
+    const auto read = fk::PerThreadRead<fk::_2D, CUDA_T(InputType)>::build(fk::RawPtr<fk::_2D, CUDA_T(InputType)>{ (CUDA_T(InputType)*)input.data, { static_cast<uint>(input.cols), static_cast<uint>(input.rows), static_cast<uint>(input.step) } });
     if constexpr (WT == fk::WarpType::Affine) {
         cv::Mat inverse_transform_matrix;
         cv::invertAffineTransform(transform_matrix, inverse_transform_matrix);
