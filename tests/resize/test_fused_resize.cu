@@ -70,7 +70,7 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer, const uint& NUM_ELE
         down.width * sizeof(uchar4), down.height, cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaStreamSynchronize(stream));
 
-    const auto readBackOp = fk::fuseDF(fk::Read<fk::ReadYUV<fk::NV12>>{d_nv12Image},
+    const auto readBackOp = fk::fuse(fk::Read<fk::ReadYUV<fk::NV12>>{d_nv12Image},
                                        fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>{});
     const fk::Size srcSize(NUM_ELEMS_X, NUM_ELEMS_Y);
     const auto readOp =
@@ -138,7 +138,7 @@ void testComputeWhatYouSee(char* buffer, const uint& NUM_ELEMS_X, const uint& NU
         down.width * sizeof(uchar4), down.height, cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaStreamSynchronize(stream));
 
-    const auto readOpInstance = fk::fuseDF(fk::Read<fk::ReadYUV<fk::NV12>>{d_nv12Image},
+    const auto readOpInstance = fk::fuse(fk::Read<fk::ReadYUV<fk::NV12>>{d_nv12Image},
                                            fk::Unary<fk::ConvertYUVToRGB<fk::NV12, fk::Full, fk::bt709, true, float4>>{});
     const auto readOp = fk::Resize<fk::InterpolationType::INTER_LINEAR>::build(readOpInstance, down);
     auto convertOp = fk::Unary<fk::SaturateCast<float4, uchar4>>{};
