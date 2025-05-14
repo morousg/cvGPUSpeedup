@@ -150,9 +150,10 @@ bool testDivergentBatch() {
     auto opSeq2 = fk::buildOperationSequence(fk::Read<fk::PerThreadRead<fk::_2D, uint>> { input[1] },
                                              fk::Write<fk::PerThreadWrite<fk::_3D, uint>> { output.ptr() });
 
-    dim3 block = inputAllocations[0].getBlockSize();
-    dim3 grid{ (uint)ceil((float)WIDTH / (float)block.x), (uint)ceil((float)HEIGHT / (float)block.y), BATCH };
-    fk::launchDivergentBatchTransformDPP_Kernel<OneToOne><<<grid, block, 0, stream>>>(opSeq1, opSeq2);
+    const dim3 block = dim3(std::min(static_cast<int>(inputAllocations[0].dims().width), 32),
+                      std::min(static_cast<int>(inputAllocations[0].dims().height), 8));
+    const dim3 grid{ (uint)ceil((float)WIDTH / (float)block.x), (uint)ceil((float)HEIGHT / (float)block.y), BATCH };
+    fk::launchDivergentBatchTransformDPP_Kernel<fk::ParArch::GPU_NVIDIA, OneToOne><<<grid, block, 0, stream>>>(opSeq1, opSeq2);
 
     gpuErrchk(cudaMemcpyAsync(h_output.ptr().data, output.ptr().data, output.sizeInBytes(), cudaMemcpyDeviceToHost, stream));
     gpuErrchk(cudaStreamSynchronize(stream));

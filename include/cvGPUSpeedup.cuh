@@ -510,9 +510,7 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
                                         const IOpTypes&... instantiableOperations) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
     using InputType = fk::FirstInstantiableOperationInputType_t<IOpTypes...>;
-    // On Linux (gcc 11.4) it is necessary to pass the InputType and Batch as a template parameter
-    // On Windows (VS2022 Community) it is not needed, it is deduced from the parameters being passed
-    fk::executeOperations<ENABLE_THREAD_FUSION, InputType, Batch>(gpuMat2Ptr2D_arr<InputType, Batch>(input),
+    fk::executeOperations<ENABLE_THREAD_FUSION>(gpuMat2Ptr2D_arr<InputType, Batch>(input),
                                                                   activeBatch, cvScalar2CUDAV_t<InputType>::get(defaultValue),
                                                                   cu_stream, instantiableOperations...);
 }
@@ -523,9 +521,7 @@ inline constexpr void executeOperations(const std::array<cv::cuda::GpuMat, Batch
                                         const IOpTypes&... instantiableOperations) {
     const cudaStream_t cu_stream = cv::cuda::StreamAccessor::getStream(stream);
     using InputType = fk::FirstInstantiableOperationInputType_t<IOpTypes...>;
-    // On Linux (gcc 11.4) it is necessary to pass the InputType and Batch as a template parameter
-    // On Windows (VS2022 Community) it is not needed, it is deduced from the parameters being passed
-    fk::executeOperations<ENABLE_THREAD_FUSION, InputType, Batch>(gpuMat2Ptr2D_arr<InputType, Batch>(input),
+    fk::executeOperations<ENABLE_THREAD_FUSION>(gpuMat2Ptr2D_arr<InputType, Batch>(input),
                                                                   cu_stream, instantiableOperations...);
 }
 

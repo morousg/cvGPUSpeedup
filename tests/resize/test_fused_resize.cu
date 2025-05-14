@@ -84,12 +84,12 @@ void testComputeWhatYouSeePlusHorizontalFusion(char* buffer, const uint& NUM_ELE
 
     auto OpSeqTensor = fk::buildOperationSequence(readOp, convertOp, colorConvert, writesTensor);
 
-    dim3 block = myTensor.getBlockSize();
+    dim3 block = dim3(32,8);
     dim3 grid((uint)ceil((float)down.width / (float)block.x),
               (uint)ceil((float)down.height / (float)block.y),
               (uint)OUTPUTS);
 
-    fk::launchDivergentBatchTransformDPP_Kernel<PerPlaneSequenceSelector><<<grid, block, 0, stream>>>(OpSeqTensor);
+    fk::launchDivergentBatchTransformDPP_Kernel<fk::ParArch::GPU_NVIDIA, PerPlaneSequenceSelector><<<grid, block, 0, stream>>>(OpSeqTensor);
    
     gpuErrchk(cudaStreamSynchronize(stream));
 
