@@ -21,8 +21,8 @@
 
  
 // --- End Dummies ---
-int main() {
-  /* // Dummy data for the function call
+int launch() {
+   // Dummy data for the function call
   std::array<cv::cuda::GpuMat, REAL_BATCH> crops_data;
   cv::cuda::Stream stream_data;
   float alpha_data = 1.0f;
@@ -37,6 +37,6 @@ int main() {
   
   // ... and so on, or use a loop if you pass N at runtime (which launchMulPipeline is not designed for)
   cudaDeviceSynchronize(); // Wait for all CUDA work to finish
-  std::cout << "All launched experiments synchronized." << std::endl;*/
+  std::cout << "All launched experiments synchronized." << std::endl;
   return 0;
 }

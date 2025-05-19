@@ -27,6 +27,17 @@ function (enable_intellisense TARGET_NAME)
 
 endfunction()
 
+function(add_vertical_fusion_kernels TARGET_NAME FOLDER_FROM)
+    file(
+        GLOB_RECURSE
+        VF_KERNEL_SOURCES
+        CONFIGURE_DEPENDS
+        "${FOLDER_FROM}/*"
+    )
+    target_sources(${TARGET_NAME} PRIVATE ${VF_KERNEL_SOURCES})
+endfunction()
+
+
 # --- Configuration ---
 set(NUM_EXPERIMENTS 50 CACHE STRING "Number of experiments to generate (e.g., 50)")
 option (NUM_EXPERIMENTS "Number of experiments to generate (e.g., 50)" ${NUM_EXPERIMENTS})
@@ -37,7 +48,7 @@ endif()
 
 # --- Paths ---
 set(TEMPLATE_DIR "${CMAKE_SOURCE_DIR}/templates") # Store your .in files here
-set(GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated_kernels/${NUM_EXPERIMENTS}") # Output directory for generated files
+set(GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated_kernels/mul1/${NUM_EXPERIMENTS}_experiments") # Output directory for generated files
 file(MAKE_DIRECTORY ${GENERATED_DIR}) # Create directory if it doesn't exist
 
 # Source directory for <benchmarks/...> includes
@@ -86,24 +97,24 @@ configure_file("${IN_LAUNCHER_H}" "${OUT_LAUNCHER_H_FILE}" @ONLY)
 # This is the target for the generated kernels
 
 set (cuda_target MyVerticalFusionApp)   
-add_executable(${cuda_target}  main.cpp  ${GENERATED_CU_FILES_LIST} "${OUT_LAUNCHER_H_FILE}"
-    ${GENERATED_DIR}/mul_launcher.h
- 
-)
+add_executable(${cuda_target}  launcher.cu  ${GENERATED_CU_FILES_LIST} "${OUT_LAUNCHER_H_FILE}"
+    ${GENERATED_DIR}/mul_launcher.h)
+target_sources(${cuda_target} PRIVATE ${LAUNCH_SOURCES})            
+
+add_vertical_fusion_kernels(${cuda_target}  ${GENERATED_DIR})
 add_cuda_to_target(${cuda_target} "")
 
 # --- Include Directories ---
 target_include_directories(${cuda_target} PRIVATE
-    ${GENERATED_DIR}                     # For "mulN.h", "mul_launcher.h"
+    ${CMAKE_SOURCE_DIR}/include    
     ${BENCHMARKS_INCLUDE_ROOT}           # For <benchmarks/opencv/...>
-    ${CMAKE_SOURCE_DIR}/include          # For <benchmarks/...> includes
-    # Add path to OpenCV includes if not found globally
-    # e.g. /usr/local/include/opencv4 or C:/OpenCV/build/include
+    ${GENERATED_DIR}                     # For "mulN.h", "mul_launcher.h"
+     
 )
  
 # To pass NUM_EXPERIMENTS_AS_INT to your C++ code (e.g., main.cu)
 
-target_compile_definitions(${cuda_target} PRIVATE CPP_NUM_EXPERIMENTS=${NUM_EXPERIMENTS_AS_INT} ENABLE_BENCHMARK=ON)
+target_compile_definitions(${cuda_target} PRIVATE CPP_NUM_EXPERIMENTS=${NUM_EXPERIMENTS_AS_INT})
 add_fkl_to_target(${cuda_target})                 
 add_opencv_to_target(${cuda_target} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs")
 enable_intellisense(${cuda_target})
