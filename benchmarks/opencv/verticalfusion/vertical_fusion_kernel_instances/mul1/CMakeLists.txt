@@ -1,31 +1,4 @@
 
-function (enable_intellisense TARGET_NAME)
-    # Hack to get intellisense working for CUDA includes    
-    set_target_cuda_arch_flags(${TARGET_NAME})
-    add_test(NAME  ${TARGET_NAME} COMMAND ${TARGET_NAME})
-
-    cmake_path(SET path2 "${DIR}")
-    cmake_path(GET path2 FILENAME DIR_NAME)
-    set_property(TARGET ${TARGET_NAME} PROPERTY FOLDER benchmarks/${DIR_NAME})
-    add_cuda_to_target(${TARGET_NAME} "")
-    
-    if(${ENABLE_DEBUG})
-        add_cuda_debug_support_to_target(${TARGET_NAME})
-    endif()
-
-    if(${ENABLE_NVTX})
-        add_nvtx_support_to_target(${TARGET_NAME})
-    endif()
-
-    if(${ENABLE_BENCHMARK})
-        target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_BENCHMARK)
-    endif()
-
-    set_target_properties(${TARGET_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
-  
-    target_include_directories(${TARGET_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
-
-endfunction()
 
 function(add_vertical_fusion_kernels TARGET_NAME FOLDER_FROM)
     file(
@@ -47,7 +20,7 @@ if(NUM_EXPERIMENTS_AS_INT LESS_EQUAL 0)
 endif()
 
 # --- Paths ---
-set(TEMPLATE_DIR "${CMAKE_SOURCE_DIR}/templates") # Store your .in files here
+set(TEMPLATE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/templates") # Store your .in files here
 set(GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated_kernels/mul1/${NUM_EXPERIMENTS}_experiments") # Output directory for generated files
 file(MAKE_DIRECTORY ${GENERATED_DIR}) # Create directory if it doesn't exist
 
@@ -96,8 +69,8 @@ configure_file("${IN_LAUNCHER_H}" "${OUT_LAUNCHER_H_FILE}" @ONLY)
 # ---add target for the generated kernels---
 # This is the target for the generated kernels
 
-set (cuda_target MyVerticalFusionApp)   
-add_executable(${cuda_target}  launcher.cu  ${GENERATED_CU_FILES_LIST} "${OUT_LAUNCHER_H_FILE}"
+set (cuda_target benchmark_vertical_fusionCompareMul1) # Name of the target 
+add_executable(${cuda_target}  launcher.cu mulOpType.cuh realBatch.h ${GENERATED_CU_FILES_LIST} "${OUT_LAUNCHER_H_FILE}"
     ${GENERATED_DIR}/mul_launcher.h)
 target_sources(${cuda_target} PRIVATE ${LAUNCH_SOURCES})            
 
