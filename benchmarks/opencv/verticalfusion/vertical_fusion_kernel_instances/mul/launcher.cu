@@ -25,7 +25,7 @@ constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
 #ifndef CUDART_MAJOR_VERSION
 #error CUDART_MAJOR_VERSION Undefined!
 #elif (CUDART_MAJOR_VERSION == 11)
-constexpr size_t NUM_EXPERIMENTS = 15;
+constexpr size_t NUM_EXPERIMENTS = CPP_NUM_EXPERIMENTS;
 constexpr size_t FIRST_VALUE = 2;
 constexpr size_t INCREMENT = 50;
 #elif (CUDART_MAJOR_VERSION == 12)
