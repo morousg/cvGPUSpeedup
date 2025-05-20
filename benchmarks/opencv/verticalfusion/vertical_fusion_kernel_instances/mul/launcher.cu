@@ -38,7 +38,7 @@ constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<F
 
 using namespace fk;
 
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/mulLauncher.h>
+#include "mul_launcher.h"
 #include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/realBatch.h>
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
