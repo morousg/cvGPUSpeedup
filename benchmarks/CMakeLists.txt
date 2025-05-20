@@ -107,8 +107,13 @@ endif()
 # Source directory for <benchmarks/...> includes
 # Adjust this if your 'benchmarks' directory is elsewhere (e.g., inside a 'src' folder)
 set(BENCHMARKS_INCLUDE_ROOT "${CMAKE_SOURCE_DIR}")
-add_subdirectory(opencv/verticalfusion/vertical_fusion_kernel_instances/mul)
-add_subdirectory(opencv/verticalfusion/vertical_fusion_kernel_instances/mul1)
-add_subdirectory(opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add)
-add_subdirectory(opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1)
-add_subdirectory(opencv) 
+
+add_single_benchmark("benchmark_CPU_OpenCV_vs_cvGS")
+add_single_benchmark("benchmark_CPUandGPU_cvGS_vs_fk")
+add_single_benchmark("benchmark_image_resolution_MAD_loop")
+
+add_subdirectory(verticalfusion/vertical_fusion_kernel_instances/mul)
+add_subdirectory(verticalfusion/vertical_fusion_kernel_instances/mul1)
+add_subdirectory(verticalfusion/vertical_fusion_kernel_instances/mul_add)
+add_subdirectory(verticalfusion/vertical_fusion_kernel_instances/mul_add1)
+

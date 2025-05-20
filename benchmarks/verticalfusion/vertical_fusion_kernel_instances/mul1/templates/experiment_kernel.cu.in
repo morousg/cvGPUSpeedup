@@ -15,9 +15,9 @@
 // templates/experiment_kernel.cu.in
 #include "mul@N@.h" // Corrected include for the paired generated header
 
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_static_loop.cuh>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/mulOpType.cuh>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul/realBatch.h>
+#include <benchmarks/verticalfusion/vertical_fusion_static_loop.cuh>
+#include <benchmarks/verticalfusion/vertical_fusion_kernel_instances/mul1/mulOpType.cuh>
+#include <benchmarks/verticalfusion/vertical_fusion_kernel_instances/mul1/realBatch.h>
 
 #include <opencv2/core/cuda.hpp> // For cv::cuda::GpuMat, cv::cuda::Stream, cv::Size
 #include <opencv2/core/hal/interface.h> // For CV_8UC1, CV_32FC1 (or other appropriate OpenCV header)

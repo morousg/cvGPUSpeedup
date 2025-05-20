@@ -21,8 +21,8 @@
 #include <stdexcept>               // For std::runtime_error
 
 // Paths for these dependencies need to be resolved by include_directories
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAddOpType.cuh>
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/realBatch.h>
+#include <benchmarks/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAddOpType.cuh>
+#include <benchmarks/verticalfusion/vertical_fusion_kernel_instances/mul_add/realBatch.h>
 
 // Placeholder for including all generated mul@N@.h files
 // e.g., #include "mul1.h"

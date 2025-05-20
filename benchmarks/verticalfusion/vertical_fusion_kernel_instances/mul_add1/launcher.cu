@@ -36,11 +36,12 @@ constexpr size_t INCREMENT = 100;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 using namespace fk;
+
 #include "mul_launcher.h"
-#include <benchmarks/opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add/realBatch.h>
+#include <benchmarks/verticalfusion/vertical_fusion_kernel_instances/mul_add1/realBatch.h>
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
-bool benchmark_vertical_fusion_loopMulAdd(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
+bool benchmark_vertical_fusion_loopMulAdd1(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
@@ -93,7 +94,6 @@ bool benchmark_vertical_fusion_loopMulAdd(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
 
             // cvGPUSpeedup
             const auto dFunc = Mul<OutputType>::build(val).then(Add<OutputType>::build(val));
-            //VerticalFusion<CV_TYPE_I, CV_TYPE_O, OPS_PER_ITERATION, BATCH, decltype(dFunc)>::execute(crops, REAL_BATCH, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
             launchMulAddPipeline<1>(crops, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
             STOP_CVGS_BENCHMARK
 
@@ -133,11 +133,11 @@ bool benchmark_vertical_fusion_loopMulAdd(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
         if (!passed) {
             if (!exception) {
                 std::stringstream ss;
-                ss << "benchmark_vertical_fusion_loopMulAdd<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "benchmark_vertical_fusion_loopMulAdd1<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
             } else {
                 std::stringstream ss;
-                ss << "benchmark_vertical_fusion_loopMulAdd<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "benchmark_vertical_fusion_loopMulAdd1<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
             }
         }
@@ -147,10 +147,10 @@ bool benchmark_vertical_fusion_loopMulAdd(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
 }
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t... Is>
-bool launch_benchmark_vertical_fusion_loopMulAdd(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream cv_stream, bool enabled) {
+bool launch_benchmark_vertical_fusion_loopMulAdd1(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream cv_stream, bool enabled) {
     bool passed = true;
 
-    int dummy[] = { (passed &= benchmark_vertical_fusion_loopMulAdd<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
+    int dummy[] = { (passed &= benchmark_vertical_fusion_loopMulAdd1<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
     (void)dummy;
 
     return passed;
@@ -159,18 +159,18 @@ bool launch_benchmark_vertical_fusion_loopMulAdd(const size_t NUM_ELEMS_X, const
 
 int launch() {
 #ifdef ENABLE_BENCHMARK
-    constexpr size_t NUM_ELEMS_X = 60;
-    constexpr size_t NUM_ELEMS_Y = 120;
+    constexpr size_t NUM_ELEMS_X = 4096;
+    constexpr size_t NUM_ELEMS_Y = 2160;
 
     cv::cuda::Stream cv_stream;
 
     cv::Mat::setDefaultAllocator(cv::cuda::HostMem::getAllocator(cv::cuda::HostMem::AllocType::PAGE_LOCKED));
 
     std::unordered_map<std::string, bool> results;
-    results["launch_benchmark_vertical_fusion_loopMulAdd"] = true;
+    results["launch_benchmark_vertical_fusion_loopMulAdd1"] = true;
     std::make_index_sequence<batchValues.size()> iSeq{};
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-    results["launch_benchmark_vertical_fusion_loopMulAdd"] &= launch_benchmark_vertical_fusion_loopMulAdd<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
+    results["launch_benchmark_vertical_fusion_loopMulAdd1"] &= launch_benchmark_vertical_fusion_loopMulAdd1<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
 
     // Warming up for the benchmarks
     warmup = true;

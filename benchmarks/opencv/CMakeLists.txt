@@ -1,4 +1,0 @@
-
-add_single_benchmark("benchmark_CPU_OpenCV_vs_cvGS")
-add_single_benchmark("benchmark_CPUandGPU_cvGS_vs_fk")
-add_single_benchmark("benchmark_image_resolution_MAD_loop")
