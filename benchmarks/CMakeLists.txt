@@ -79,6 +79,25 @@ function (add_vertical_fusion_benchmark TARGET_NAME GENERATED_DIR OPTYPE)
     
 endfunction()
 
+function (add_single_benchmark TARGET_NAME)
+    # --- File Generation Loop ---
+  
+    add_executable(${TARGET_NAME}  ${TARGET_NAME}.cu)            
+    add_cuda_to_target(${TARGET_NAME} "")
+
+    # --- Include Directories ---
+    target_include_directories(${TARGET_NAME} PRIVATE
+        ${CMAKE_SOURCE_DIR}/include    
+        ${BENCHMARKS_INCLUDE_ROOT}           # For <benchmarks/opencv/...>        
+        
+    )
+    add_fkl_to_target(${TARGET_NAME})                 
+    add_opencv_to_target(${TARGET_NAME} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs")
+    enable_intellisense(${TARGET_NAME})
+    
+endfunction()
+ 
+
 set(NUM_EXPERIMENTS 50 CACHE STRING "Number of experiments to generate (e.g., 50)")
 option (NUM_EXPERIMENTS "Number of experiments to generate (e.g., 50)" ${NUM_EXPERIMENTS})
 math(EXPR NUM_EXPERIMENTS_AS_INT "${NUM_EXPERIMENTS}") # Convert to integer for loop
@@ -88,9 +107,8 @@ endif()
 # Source directory for <benchmarks/...> includes
 # Adjust this if your 'benchmarks' directory is elsewhere (e.g., inside a 'src' folder)
 set(BENCHMARKS_INCLUDE_ROOT "${CMAKE_SOURCE_DIR}")
-
 add_subdirectory(opencv/verticalfusion/vertical_fusion_kernel_instances/mul)
 add_subdirectory(opencv/verticalfusion/vertical_fusion_kernel_instances/mul1)
 add_subdirectory(opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add)
 add_subdirectory(opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1)
-add_subdirectory(opencv/verticalfusion) 
+add_subdirectory(opencv) 
