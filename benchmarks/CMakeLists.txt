@@ -72,7 +72,6 @@ function (add_vertical_fusion_benchmark TARGET_NAME GENERATED_DIR OPTYPE)
     add_fkl_to_target(${TARGET_NAME})                 
     add_opencv_to_target(${TARGET_NAME} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs")
     enable_intellisense(${TARGET_NAME})
-
     
     # To pass NUM_EXPERIMENTS_AS_INT to your C++ code (e.g., main.cu)
     # In C++: int max_exp = CPP_NUM_EXPERIMENTS;
@@ -93,3 +92,4 @@ set(BENCHMARKS_INCLUDE_ROOT "${CMAKE_SOURCE_DIR}")
 add_subdirectory(opencv/verticalfusion/vertical_fusion_kernel_instances/mul)
 add_subdirectory(opencv/verticalfusion/vertical_fusion_kernel_instances/mul1)
 add_subdirectory(opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add)
+add_subdirectory(opencv/verticalfusion/vertical_fusion_kernel_instances/mul_add1)
