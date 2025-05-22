@@ -142,7 +142,12 @@ template <int CV_TYPE_I, int CV_TYPE_O, size_t... Is>
 bool launch_benchmark_vertical_fusion_loopMul1(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y,
                                                std::index_sequence<Is...> seq, cv::cuda::Stream cv_stream,
                                                bool enabled) {
-  return (benchmark_vertical_fusion_loopMul1<CV_TYPE_I, CV_TYPE_O, (Is+1)>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled) && ...);
+    bool passed = true;
+
+    int dummy[] = { (passed &= benchmark_vertical_fusion_loopMul1<CV_TYPE_I, CV_TYPE_O, (Is + 1)>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
+    (void)dummy;
+
+    return passed;
 }
 #endif
 
