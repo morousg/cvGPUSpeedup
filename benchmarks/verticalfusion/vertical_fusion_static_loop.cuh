@@ -18,8 +18,6 @@
 #include <cvGPUSpeedup.cuh>
 #include <fused_kernel/algorithms/basic_ops/static_loop.cuh>
 
-constexpr size_t INCREMENT = 100;
-
 template <int CV_TYPE_I, int CV_TYPE_O, int OPS_PER_ITER, size_t NumOps, typename DeviceFunction>
 struct VerticalFusion {
     static inline void execute(const std::array<cv::cuda::GpuMat, 1>& crops,

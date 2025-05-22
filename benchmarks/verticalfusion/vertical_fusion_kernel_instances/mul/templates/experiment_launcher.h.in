@@ -30,7 +30,7 @@
 //       ...
 @GENERATED_MUL_INCLUDES@
 
-template <int NumOps> // NumOps is the 1-based experiment number
+template <size_t EXPERIMENT_NUMBER> // NumOps is the 1-based experiment number
 void launchMulPipeline(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops,
                   const cv::cuda::Stream& cv_stream,
                   const float& alpha,
@@ -39,20 +39,13 @@ void launchMulPipeline(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops,
                   const MulFuncType& dFunc) {
 
     // Compile-time check for the validity of NumOps (experiment number N)
-    static_assert(NumOps > 0 && NumOps <= @NUM_EXPERIMENTS_TOTAL@,
-                  "NumOps (experiment number) is out of the compiled range.");
-
-    // Your original check was: if constexpr (NumOps > 13002)
-    // That 13002 likely refers to a maximum *VALUE*, not the experiment index NumOps.
-    // The check against VALUE would be implicit in how many experiments you compile.
-    // If you still need a check against a max VALUE, it would be more complex here,
-    // as this function is templated on N (NumOps), not VALUE.
+    static_assert(EXPERIMENT_NUMBER > 0 && EXPERIMENT_NUMBER <= @NUM_EXPERIMENTS_TOTAL@,
+                  "EXPERIMENT_NUMBER is out of the compiled range.");
 
 // Macro to dispatch to the correct launchMul<N> function
 #define DISPATCH_TO_MUL_INSTANCE(INSTANCE_N) \
-    if constexpr (NumOps == INSTANCE_N) { \
+    if constexpr (EXPERIMENT_NUMBER == INSTANCE_N) { \
         launchMul##INSTANCE_N(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc); \
-        return; /* Exit after dispatching */ \
     }
 
 // Placeholder for the series of dispatch calls
@@ -62,8 +55,6 @@ void launchMulPipeline(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops,
 @GENERATED_DISPATCH_CALLS@
 
 #undef DISPATCH_TO_MUL_INSTANCE
-    // Control should not reach here if static_assert passes and NumOps is within range,
-    // as one of the if constexpr branches would have been taken and returned.
 }
 
 #endif // MUL_LAUNCHER_H
