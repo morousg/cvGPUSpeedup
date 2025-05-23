@@ -1,4 +1,4 @@
 
-add_single_benchmark("benchmark_vertical_fusionCompareDiv")
-add_single_benchmark("benchmark_vertical_fusionCompareSub")
-add_single_benchmark("benchmark_vertical_fusionCompareSum")
+add_single_benchmark("benchmark_vertical_fusionCompareDiv" "verticalfusion")
+add_single_benchmark("benchmark_vertical_fusionCompareSub" "verticalfusion")
+add_single_benchmark("benchmark_vertical_fusionCompareSum" "verticalfusion")

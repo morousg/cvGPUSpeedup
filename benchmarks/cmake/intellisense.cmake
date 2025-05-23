@@ -1,11 +1,10 @@
 
-function (enable_intellisense TARGET_NAME)
+function (enable_intellisense TARGET_NAME DIR_NAME)
     # Hack to get intellisense working for CUDA includes    
     set_target_cuda_arch_flags(${TARGET_NAME})
     add_test(NAME  ${TARGET_NAME} COMMAND ${TARGET_NAME})
 
-    cmake_path(SET path2 "${DIR}")
-    cmake_path(GET path2 FILENAME DIR_NAME)
+ 
     set_property(TARGET ${TARGET_NAME} PROPERTY FOLDER benchmarks/${DIR_NAME})
     add_cuda_to_target(${TARGET_NAME} "")
     
