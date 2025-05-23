@@ -39,7 +39,7 @@ void launchMulAddPipeline(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops,
                           const MulAddFuncType& dFunc) {
 
     // Compile-time check for the validity of NumOps (experiment number N)
-    static_assert(EXPERIMENT_NUMBER > 0 && NumOps <= @NUM_EXPERIMENTS_TOTAL@,
+    static_assert(EXPERIMENT_NUMBER > 0 && EXPERIMENT_NUMBER <= @NUM_EXPERIMENTS_TOTAL@,
                   "EXPERIMENT_NUMBER is out of the compiled range.");
 
 // Macro to dispatch to the correct launchMul<N> function
