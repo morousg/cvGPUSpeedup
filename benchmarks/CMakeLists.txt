@@ -19,6 +19,7 @@ add_single_benchmark("benchmark_image_resolution_MAD_loop" "")
 
 add_subdirectory(verticalfusion)
 add_subdirectory(verticalfusion/vertical_fusion_kernel_instances/add)
+add_subdirectory(verticalfusion/vertical_fusion_kernel_instances/div)
 add_subdirectory(verticalfusion/vertical_fusion_kernel_instances/mul)
 add_subdirectory(verticalfusion/vertical_fusion_kernel_instances/mul1)
 add_subdirectory(verticalfusion/vertical_fusion_kernel_instances/mul_add)

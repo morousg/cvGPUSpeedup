@@ -19,50 +19,15 @@
 #include <cvGPUSpeedup.cuh>
 #include <opencv2/cudaimgproc.hpp>
 
-// By default this benchmark is disabled because it's compilation is too slow
-#undef ENABLE_BENCHMARK
 #ifdef ENABLE_BENCHMARK
+#include "launcher.h"
 constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
-#ifndef CUDART_MAJOR_VERSION
-#error CUDART_MAJOR_VERSION Undefined!
-#elif (CUDART_MAJOR_VERSION == 11)
-constexpr size_t NUM_EXPERIMENTS = 15;
-constexpr size_t FIRST_VALUE = 2;
-constexpr size_t INCREMENT = 50;
-#elif (CUDART_MAJOR_VERSION == 12)
-constexpr size_t NUM_EXPERIMENTS = 60;
-constexpr size_t FIRST_VALUE = 2;
-constexpr size_t INCREMENT = 100;
-#endif // CUDART_MAJOR_VERSION
-
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 using namespace fk;
 
-template <int CV_TYPE_I, int CV_TYPE_O, int OPS_PER_ITER, size_t NumOps, typename DeviceFunction>
-struct VerticalFusion {
-    static inline void execute(const std::array<cv::cuda::GpuMat, 50>& crops,
-        const int& BATCH,
-        const cv::cuda::Stream& cv_stream,
-        const float& alpha,
-        const cv::cuda::GpuMat& d_tensor_output,
-        const cv::Size& cropSize,
-        const DeviceFunction& dFunc) {
-        using InputType = CUDA_T(CV_TYPE_I);
-        using OutputType = CUDA_T(CV_TYPE_O);
-        using Loop = Binary<StaticLoop<StaticLoop<
-            typename DeviceFunction::Operation, INCREMENT / OPS_PER_ITER>, NumOps / INCREMENT>>;
-
-        Loop loop;
-        loop.params = dFunc.params;
-
-        cvGS::executeOperations<false>(crops, cv_stream, cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha), loop, cvGS::write<CV_TYPE_O>(d_tensor_output, cropSize));
-    }
-};
-
-template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
-bool benchmark_vertical_fusion_loopDivide(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
-    constexpr size_t REAL_BATCH{ 50 };
+template <int CV_TYPE_I, int CV_TYPE_O, size_t EXPERIMENT_NUMBER>
+bool benchmark_vertical_fusion_loopDiv(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
     bool passed = true;
     bool exception = false;
@@ -70,7 +35,7 @@ bool benchmark_vertical_fusion_loopDivide(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
     if (enabled) {
         struct Parameters {
             const cv::Scalar init;
-            const cv::Scalar val_mul;
+            const cv::Scalar val_Div;
         };
 
         double alpha = 1.0;
@@ -78,7 +43,7 @@ bool benchmark_vertical_fusion_loopDivide(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
         const Parameters one{ {30u}, {0.54f} };
 
         const cv::Scalar val_init = one.init;
-        const cv::Scalar val_mul = one.val_mul;
+        const cv::Scalar val_Div = one.val_Div;
         try {
             const cv::Size cropSize(NUM_ELEMS_X, NUM_ELEMS_Y);
 
@@ -95,15 +60,17 @@ bool benchmark_vertical_fusion_loopDivide(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
             d_output_cvGS.step = cropSize.width * cropSize.height * sizeof(CUDA_T(CV_TYPE_O));
             cv::Mat h_output_cvGS(REAL_BATCH, cropSize.width * cropSize.height, CV_TYPE_O);
 
+            constexpr size_t NUM_OPS = FIRST_VALUE + (INCREMENT * (EXPERIMENT_NUMBER - 1));
+            constexpr size_t BATCH = NUM_OPS;
             START_OCV_BENCHMARK
             // OpenCV version
             constexpr int OPS_PER_ITERATION = 2;
 
             for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
                 crops[crop_i].convertTo(d_output_cv[crop_i], CV_TYPE_O, alpha, cv_stream);
-                for (int numOp = 0; numOp < BATCH; numOp+= OPS_PER_ITERATION) {
-                    cv::cuda::divide(d_output_cv[crop_i], val_mul, d_output_cv[crop_i], 1.0, -1, cv_stream);
-                    cv::cuda::divide(d_output_cv[crop_i], val_mul, d_output_cv[crop_i], 1.0, -1, cv_stream);
+                for (int numOp = 0; numOp < NUM_OPS; numOp += OPS_PER_ITERATION) {
+                    cv::cuda::divide(d_output_cv[crop_i], val_Div, d_output_cv[crop_i], 1, -1, cv_stream);
+                    cv::cuda::divide(d_output_cv[crop_i], val_Div, d_output_cv[crop_i], 1, -1, cv_stream);
                 }
             }
 
@@ -111,19 +78,17 @@ bool benchmark_vertical_fusion_loopDivide(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
             using InputType = CUDA_T(CV_TYPE_I);
             using OutputType = CUDA_T(CV_TYPE_O);
 
-            const OutputType val{ cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_mul) };
+            const OutputType val{ cvGS::cvScalar2CUDAV<CV_TYPE_O>::get(val_Div) };
 
             // cvGPUSpeedup
             const auto dFunc = Div<OutputType>::build(val).then(Div<OutputType>::build(val));
-            using DeviceFunction = decltype(dFunc);
-            VerticalFusion<CV_TYPE_I, CV_TYPE_O, OPS_PER_ITERATION, BATCH, DeviceFunction>::execute(crops, REAL_BATCH, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
-            
+            launchPipeline<EXPERIMENT_NUMBER>(crops, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
             STOP_CVGS_BENCHMARK
 
-            // Download results
-            for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
-                d_output_cv[crop_i].download(h_output_cv[crop_i], cv_stream);
-            }
+                // Download results
+                for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
+                    d_output_cv[crop_i].download(h_output_cv[crop_i], cv_stream);
+                }
             d_output_cvGS.download(h_output_cvGS, cv_stream);
 
             cv_stream.waitForCompletion();
@@ -140,7 +105,7 @@ bool benchmark_vertical_fusion_loopDivide(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
                 }
             }
             if (!passed) {
-                std::cout << "Failed for num fused operations = " << BATCH << std::endl;
+                std::cout << "Failed for num fused operations = " << NUM_OPS << std::endl;
             }
         } catch (const cv::Exception& e) {
             if (e.code != -210) {
@@ -156,11 +121,11 @@ bool benchmark_vertical_fusion_loopDivide(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
         if (!passed) {
             if (!exception) {
                 std::stringstream ss;
-                ss << "benchmark_vertical_fusion_loopDivide<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "benchmark_vertical_fusion_loopDiv<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
             } else {
                 std::stringstream ss;
-                ss << "benchmark_vertical_fusion_loopDivide<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
+                ss << "benchmark_vertical_fusion_loopDiv<" << cvTypeToString<CV_TYPE_I>() << ", " << cvTypeToString<CV_TYPE_O>();
                 std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
             }
         }
@@ -170,10 +135,10 @@ bool benchmark_vertical_fusion_loopDivide(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
 }
 
 template <int CV_TYPE_I, int CV_TYPE_O, size_t... Is>
-bool launch_benchmark_vertical_fusion_loopDivide(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream cv_stream, bool enabled) {
+bool launch_benchmark_vertical_fusion_loopDiv(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream cv_stream, bool enabled) {
     bool passed = true;
 
-    int dummy[] = { (passed &= benchmark_vertical_fusion_loopDivide<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
+    int dummy[] = { (passed &= benchmark_vertical_fusion_loopDiv<CV_TYPE_I, CV_TYPE_O, (Is+1)>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
     (void)dummy;
 
     return passed;
@@ -190,10 +155,10 @@ int launch() {
     cv::Mat::setDefaultAllocator(cv::cuda::HostMem::getAllocator(cv::cuda::HostMem::AllocType::PAGE_LOCKED));
 
     std::unordered_map<std::string, bool> results;
-    results["benchmark_vertical_fusion_loopDivide"] = true;
-    std::make_index_sequence<batchValues.size()> iSeq{};
+    results["launch_benchmark_vertical_fusion_loopDiv"] = true;
+    constexpr auto iSeq = std::make_index_sequence<NUM_EXPERIMENTS>{};
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-    results["benchmark_vertical_fusion_loopDivide"] &= launch_benchmark_vertical_fusion_loopDivide<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
+    results["launch_benchmark_vertical_fusion_loopDiv"] &= launch_benchmark_vertical_fusion_loopDiv<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
 
     // Warming up for the benchmarks
     warmup = true;
