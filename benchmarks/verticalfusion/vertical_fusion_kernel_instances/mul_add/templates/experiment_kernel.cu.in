@@ -17,15 +17,11 @@
 
 #include <benchmarks/verticalfusion/vertical_fusion_static_loop.cuh>
 #include <benchmarks/verticalfusion/vertical_fusion_kernel_instances/mul_add/mulAddOpType.cuh>
-#include <benchmarks/verticalfusion/vertical_fusion_kernel_instances/mul_add/realBatch.h>
 
 #include <opencv2/core/cuda.hpp> // For cv::cuda::GpuMat, cv::cuda::Stream, cv::Size
 #include <opencv2/core/hal/interface.h> // For CV_8UC1, CV_32FC1 (or other appropriate OpenCV header)
 #include <array>     // For std::array
 #include <cstdio>    // For printf, if used
-
-// Definitions for CV_8UC1, CV_32FC1 if not from headers (e.g. could be from imgproc types)
-// Ensure VerticalFusion template is declared/defined (presumably in vertical_fusion_static_loop.cuh)
 
 void launchMulAdd@N@(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops,
                   const cv::cuda::Stream& cv_stream,
@@ -34,13 +30,9 @@ void launchMulAdd@N@(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops,
                   const cv::Size& cropSize,
                   const MulAddFuncType& dFunc) {
     constexpr size_t EXPERIMENT_NUMBER = @N@; // CMake substitutes @N@
-    constexpr size_t FIRST_VALUE = 2;
-    constexpr size_t INCREMENT = 100;
-    // VALUE calculation is 1-based for EXPERIMENT_NUMBER
-    constexpr size_t VALUE = FIRST_VALUE + (INCREMENT * (EXPERIMENT_NUMBER - 1));
 
-    // Optional: Print to verify which instance is called
-    // printf("Host: Launching mul%zu (Experiment %zu), VALUE = %zu\n", (size_t)@N@, EXPERIMENT_NUMBER, VALUE);
+    // NUM_OPS calculation is 1-based for EXPERIMENT_NUMBER
+    constexpr size_t NUM_OPS = FIRST_VALUE + (INCREMENT * (EXPERIMENT_NUMBER - 1));
 
-    VerticalFusion<CV_8UC1, CV_32FC1, 2, VALUE, MulAddFuncType>::execute(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc);
+    VerticalFusion<CV_8UC1, CV_32FC1, 2, NUM_OPS, MulAddFuncType>::execute(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc);
 }

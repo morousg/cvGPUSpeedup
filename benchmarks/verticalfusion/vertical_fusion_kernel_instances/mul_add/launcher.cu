@@ -20,18 +20,8 @@
 #include <opencv2/cudaimgproc.hpp>
 
 #ifdef ENABLE_BENCHMARK
+#include "mul_launcher.h"
 constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
-#ifndef CUDART_MAJOR_VERSION
-#error CUDART_MAJOR_VERSION Undefined!
-#elif (CUDART_MAJOR_VERSION == 11)
-constexpr size_t NUM_EXPERIMENTS = CPP_NUM_EXPERIMENTS;
-constexpr size_t FIRST_VALUE = 2;
-constexpr size_t INCREMENT = 50;
-#elif (CUDART_MAJOR_VERSION == 12)
-constexpr size_t NUM_EXPERIMENTS = CPP_NUM_EXPERIMENTS;
-constexpr size_t FIRST_VALUE = 2;
-constexpr size_t INCREMENT = 100;
-#endif // CUDART_MAJOR_VERSION
 
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
@@ -39,7 +29,7 @@ using namespace fk;
 #include "mul_launcher.h"
 #include <benchmarks/verticalfusion/vertical_fusion_kernel_instances/mul_add/realBatch.h>
 
-template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
+template <int CV_TYPE_I, int CV_TYPE_O, size_t EXPERIMENT_NUMBER>
 bool benchmark_vertical_fusion_loopMulAdd(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
     bool passed = true;
@@ -73,13 +63,15 @@ bool benchmark_vertical_fusion_loopMulAdd(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
             d_output_cvGS.step = cropSize.width * cropSize.height * sizeof(CUDA_T(CV_TYPE_O));
             cv::Mat h_output_cvGS(REAL_BATCH, cropSize.width * cropSize.height, CV_TYPE_O);
 
+            constexpr size_t NUM_OPS = FIRST_VALUE + ((EXPERIMENT_NUMBER - 1) * INCREMENT);
+            constexpr size_t BATCH = NUM_OPS;
             START_OCV_BENCHMARK
                 // OpenCV version
                 constexpr int OPS_PER_ITERATION = 2;
 
             for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
                 crops[crop_i].convertTo(d_output_cv[crop_i], CV_TYPE_O, alpha, cv_stream);
-                for (int numOp = 0; numOp < BATCH; numOp += OPS_PER_ITERATION) {
+                for (int numOp = 0; numOp < NUM_OPS; numOp += OPS_PER_ITERATION) {
                     cv::cuda::multiply(d_output_cv[crop_i], val_mul, d_output_cv[crop_i], 1.0, -1, cv_stream);
                     cv::cuda::add(d_output_cv[crop_i], val_mul, d_output_cv[crop_i], cv::noArray(), -1, cv_stream);
                 }
@@ -93,14 +85,13 @@ bool benchmark_vertical_fusion_loopMulAdd(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
 
             // cvGPUSpeedup
             const auto dFunc = Mul<OutputType>::build(val).then(Add<OutputType>::build(val));
-            //VerticalFusion<CV_TYPE_I, CV_TYPE_O, OPS_PER_ITERATION, BATCH, decltype(dFunc)>::execute(crops, REAL_BATCH, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
-            launchMulAddPipeline<1>(crops, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
+            launchMulAddPipeline<EXPERIMENT_NUMBER>(crops, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
             STOP_CVGS_BENCHMARK
 
-                // Download results
-                for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
-                    d_output_cv[crop_i].download(h_output_cv[crop_i], cv_stream);
-                }
+            // Download results
+            for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
+                d_output_cv[crop_i].download(h_output_cv[crop_i], cv_stream);
+            }
             d_output_cvGS.download(h_output_cvGS, cv_stream);
 
             cv_stream.waitForCompletion();
@@ -117,7 +108,7 @@ bool benchmark_vertical_fusion_loopMulAdd(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y
                 }
             }
             if (!passed) {
-                std::cout << "Failed for num fused operations = " << BATCH << std::endl;
+                std::cout << "Failed for num fused operations = " << NUM_OPS << std::endl;
             }
         } catch (const cv::Exception& e) {
             if (e.code != -210) {
@@ -150,7 +141,7 @@ template <int CV_TYPE_I, int CV_TYPE_O, size_t... Is>
 bool launch_benchmark_vertical_fusion_loopMulAdd(const size_t NUM_ELEMS_X, const size_t NUM_ELEMS_Y, std::index_sequence<Is...> seq, cv::cuda::Stream cv_stream, bool enabled) {
     bool passed = true;
 
-    int dummy[] = { (passed &= benchmark_vertical_fusion_loopMulAdd<CV_TYPE_I, CV_TYPE_O, batchValues[Is]>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
+    int dummy[] = { (passed &= benchmark_vertical_fusion_loopMulAdd<CV_TYPE_I, CV_TYPE_O, (Is+1)>(NUM_ELEMS_X, NUM_ELEMS_Y, cv_stream, enabled), 0)... };
     (void)dummy;
 
     return passed;
@@ -168,7 +159,7 @@ int launch() {
 
     std::unordered_map<std::string, bool> results;
     results["launch_benchmark_vertical_fusion_loopMulAdd"] = true;
-    std::make_index_sequence<batchValues.size()> iSeq{};
+    constexpr auto iSeq = std::make_index_sequence<batchValues.size()>();
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
     results["launch_benchmark_vertical_fusion_loopMulAdd"] &= launch_benchmark_vertical_fusion_loopMulAdd<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
 
