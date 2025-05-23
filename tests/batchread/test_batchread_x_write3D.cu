@@ -89,11 +89,7 @@ bool test_batchread_x_write3D(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::
             }
 
             STOP_OCV_START_CVGS_BENCHMARK
-            // cvGPUSpeedup
-            // Assuming we use all the batch
-            // On Linux it is necessary to pass the BATCH as a template parameter
-            // On Windows (VS2022 Community) it is not needed, it is deduced from crops 
-            cvGS::executeOperations<false, BATCH>(crops, cv_stream,
+            cvGS::executeOperations<false>(crops, cv_stream,
                 cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>((float)alpha),
                 cvGS::subtract<CV_TYPE_O>(val_sub),
                 cvGS::divide<CV_TYPE_O>(val_div),

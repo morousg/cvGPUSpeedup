@@ -1,0 +1,60 @@
+/* Copyright 2023-2025 Oscar Amoros Huguet
+   Copyright 2025 Albert Andaluz González
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License. */
+   
+#ifndef LAUNCHER_H
+#define LAUNCHER_H
+
+#include <opencv2/cudaimgproc.hpp> // General OpenCV include
+#include <opencv2/core/cuda.hpp>   // For GpuMat, Stream, Size
+#include <array>                   // For std::array
+#include <stdexcept>               // For std::runtime_error
+
+// Paths for these dependencies need to be resolved by include_directories
+#include <benchmarks/verticalfusion/vertical_fusion_kernel_instances/@OPTYPE@/opType.cuh>
+#include <benchmarks/verticalfusion/vertical_fusion_kernel_instances/@OPTYPE@/realBatch.h>
+
+// Placeholder for including all generated kernel@N@.h files
+// e.g., #include "kernel1.h"
+//       #include "kernel2.h"
+//       ...
+@GENERATED_INCLUDES@
+
+template <size_t EXPERIMENT_NUMBER> // EXPERIMENT_NUMBER is the 1-based experiment number
+void launchPipeline(const std::array<cv::cuda::GpuMat, REAL_BATCH>& crops,
+                    const cv::cuda::Stream& cv_stream,
+                    const float& alpha,
+                    const cv::cuda::GpuMat& d_tensor_output,
+                    const cv::Size& cropSize,
+                    const FuncType& dFunc) {
+
+    // Compile-time check for the validity of NumOps (experiment number N)
+    static_assert(EXPERIMENT_NUMBER > 0 && EXPERIMENT_NUMBER <= @NUM_EXPERIMENTS_TOTAL@,
+                  "EXPERIMENT_NUMBER is out of the compiled range.");
+
+    // Macro to dispatch to the correct launch<N> function
+    #define DISPATCH_INSTANCE(INSTANCE_N) \
+        if constexpr (EXPERIMENT_NUMBER == INSTANCE_N) { \
+            launch##INSTANCE_N(crops, cv_stream, alpha, d_tensor_output, cropSize, dFunc); \
+        }
+
+    // Placeholder for the series of dispatch calls
+    // e.g., DISPATCH_INSTANCE(1)
+    //       DISPATCH_INSTANCE(2)
+    //       ...
+    @GENERATED_DISPATCH_CALLS@
+
+    #undef DISPATCH_INSTANCE
+}
+
+#endif//LAUNCHER_H
