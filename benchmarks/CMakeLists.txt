@@ -2,8 +2,8 @@
 include(cmake/intellisense.cmake)
 include(cmake/benchmark.cmake)
  
-set(NUM_EXPERIMENTS 50 CACHE STRING "Number of experiments to generate (e.g., 50)")
-option (NUM_EXPERIMENTS "Number of experiments to generate (e.g., 50)" ${NUM_EXPERIMENTS})
+set(NUM_EXPERIMENTS 5 CACHE STRING "Number of experiments to generate (e.g., 5)")
+option (NUM_EXPERIMENTS "Number of experiments to generate (e.g., 5)" ${NUM_EXPERIMENTS})
 math(EXPR NUM_EXPERIMENTS_AS_INT "${NUM_EXPERIMENTS}") # Convert to integer for loop
 if(NUM_EXPERIMENTS_AS_INT LESS_EQUAL 0)
     message(FATAL_ERROR "NUM_EXPERIMENTS must be a positive integer. Value: ${NUM_EXPERIMENTS}")
