@@ -12,13 +12,13 @@
    See the License for the specific language governing permissions and
    limitations under the License. */
 
-#ifndef MULADDOPTYPE_H
-#define MULADDOPTYPE_H
+#ifndef OPTYPE_H
+#define OPTYPE_H
 
 #include <cvGPUSpeedup.cuh>
 
 using MulOutType = float;
-using MulAddFuncType = decltype(std::declval<decltype(fk::Mul<MulOutType>::build(std::declval<MulOutType>()))>()
-    .then(std::declval<decltype(fk::Add<MulOutType>::build(std::declval<MulOutType>()))>()));
+using FuncType = decltype(std::declval<decltype(fk::Mul<MulOutType>::build(std::declval<MulOutType>()))>()
+                    .then(std::declval<decltype(fk::Mul<MulOutType>::build(std::declval<MulOutType>()))>()));
 
-#endif // !MULADDOPTYPE_H
+#endif // !OPTYPE_H

@@ -20,7 +20,7 @@
 #include <opencv2/cudaimgproc.hpp>
 
 #ifdef ENABLE_BENCHMARK
-#include "mul_launcher.h"
+#include "launcher.h"
 constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
@@ -82,7 +82,7 @@ bool benchmark_vertical_fusion_loopMul(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, c
 
             // cvGPUSpeedup
             const auto dFunc = Mul<OutputType>::build(val).then(Mul<OutputType>::build(val));
-            launchMulPipeline<EXPERIMENT_NUMBER>(crops, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
+            launchPipeline<EXPERIMENT_NUMBER>(crops, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
             STOP_CVGS_BENCHMARK
 
                 // Download results
