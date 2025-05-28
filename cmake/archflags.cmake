@@ -1,7 +1,7 @@
 function (add_msvc_flags TARGET_NAME)
     # Add MSVC specific flags for the target
     if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "AMD64")
-        SET(ARCH_FLAGS "disabled" CACHE STRING "instrucion set to use")
+        SET(ARCH_FLAGS "AVX2" CACHE STRING "instrucion set to use")
         SET_PROPERTY(CACHE ARCH_FLAGS PROPERTY STRINGS AVX AVX2 AVX512 AVX10.1 disabled)  
         option(ARCH_FLAGS "CPU arch" "AVX2")
             
@@ -33,7 +33,7 @@ function (add_unix_flags TARGET_NAME)
         SET_PROPERTY(CACHE ARCH_FLAGS PROPERTY STRINGS native armv8.2-a armv9-a disabled)  
     endif()
     
-    option(ARCH_FLAGS "disabled" "instrucion set to use")          
+    option(ARCH_FLAGS "native" "instrucion set to use")          
     if (NOT(${ARCH_FLAGS} STREQUAL "disabled"))                
         target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-march=${ARCH_FLAGS} -mtune=${ARCH_FLAGS}>)     
     endif()                        
