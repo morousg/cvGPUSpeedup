@@ -12,7 +12,7 @@ function (add_msvc_flags TARGET_NAME)
     elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "ARM64")
         #we don't have  windows arm64 hw to test 
         SET_PROPERTY(CACHE ARCH_FLAGS PROPERTY STRINGS armv8.2 disabled)  
-        option(ARCH_FLAGS "CPU arch" "AVX2")
+        option(ARCH_FLAGS "CPU arch" "disabled")
         if (NOT(${ARCH_FLAGS} STREQUAL "disabled"))                
             target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/arch:${ARCH_FLAGS}>)        
         endif()
