@@ -8,6 +8,7 @@ include (cmake/cmake_init.cmake)
 include (cmake/doxygen.cmake)
 include (cmake/targets/virtualfolders.cmake)
 include (cmake/deploy/deploy_dependencies.cmake)
+include (cmake/archflags.cmake)
 include (cmake/libs/cuda/archs.cmake)
 include (cmake/generators/version_header.cmake)
 project(cvGPUSpeedup VERSION ${PROJECT_VERSION} LANGUAGES CXX CUDA 

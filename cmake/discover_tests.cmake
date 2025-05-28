@@ -1,4 +1,7 @@
-set (LAUNCH_SOURCES "${CMAKE_SOURCE_DIR}/tests/main.cpp;${CMAKE_SOURCE_DIR}/tests/main.h")
+set (LAUNCH_SOURCES "${CMAKE_SOURCE_DIR}/tests/main.cpp;${CMAKE_SOURCE_DIR}/tests/main.h;")
+if (WIN32)
+    list(APPEND LAUNCH_SOURCES "${CMAKE_SOURCE_DIR}/manifest.xml")
+endif()
  
 function (discover_tests DIR)    
     file(
@@ -39,7 +42,7 @@ function (discover_tests DIR)
         add_opencv_to_target(${cuda_target} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs")
         set_target_cuda_arch_flags(${cuda_target})
         add_test(NAME  ${cuda_target} COMMAND ${cuda_target})
-         
+        add_optimization_flags(${cuda_target})
     	string(FIND ${cuda_source} "npp" is_npp)    	
 		 
 		if (${is_npp} GREATER -1)		    
