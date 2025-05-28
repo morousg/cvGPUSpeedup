@@ -28,8 +28,10 @@ endfunction()
     
 function (add_unix_flags TARGET_NAME)
     if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+        SET(ARCH_FLAGS "native" CACHE STRING "instrucion set to use") 
         SET_PROPERTY(CACHE ARCH_FLAGS PROPERTY STRINGS native sandybridge haswell skylake-avx512 diamondrapids disabled)             
-    elseif (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")         
+    elseif (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
+        SET(ARCH_FLAGS "native" CACHE STRING "instrucion set to use")          
         SET_PROPERTY(CACHE ARCH_FLAGS PROPERTY STRINGS native armv8.2-a armv9-a disabled)  
     endif()
     
