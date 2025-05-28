@@ -59,7 +59,7 @@ function (add_vertical_fusion_benchmark TARGET_NAME GENERATED_DIR OPTYPE)
         
     add_vertical_fusion_kernels(${TARGET_NAME}  ${GENERATED_DIR})
     add_cuda_to_target(${TARGET_NAME} "")
-
+    add_optimization_flags(${TARGET_NAME})
     # --- Include Directories ---
     target_include_directories(${TARGET_NAME} PRIVATE
         ${CMAKE_SOURCE_DIR}/include    
@@ -77,7 +77,7 @@ function (add_vertical_fusion_benchmark TARGET_NAME GENERATED_DIR OPTYPE)
     
 endfunction()
 
-function (add_single_benchmark TARGET_NAME DIR_NAME)
+function (add_single_benchmark TARGET_NAME)
     # --- File Generation Loop ---
   
     add_executable(${TARGET_NAME}  ${TARGET_NAME}.cu)            
@@ -91,6 +91,7 @@ function (add_single_benchmark TARGET_NAME DIR_NAME)
     )
     add_fkl_to_target(${TARGET_NAME})                 
     add_opencv_to_target(${TARGET_NAME} "core;cudaarithm;imgproc;cudafilters;cudaimgproc;cudawarping;imgcodecs")
-    enable_intellisense(${TARGET_NAME} "${DIR_NAME}")
+    enable_intellisense(${TARGET_NAME} "")
+    add_optimization_flags(${TARGET_NAME})
     
 endfunction()

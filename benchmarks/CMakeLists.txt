@@ -13,9 +13,9 @@ endif()
 set(BENCHMARKS_INCLUDE_ROOT "${CMAKE_SOURCE_DIR}")
 
 
-add_single_benchmark("benchmark_CPU_OpenCV_vs_cvGS" "")
-add_single_benchmark("benchmark_CPUandGPU_cvGS_vs_fk" "")
-add_single_benchmark("benchmark_image_resolution_MAD_loop" "")
+add_single_benchmark("benchmark_CPU_OpenCV_vs_cvGS")
+add_single_benchmark("benchmark_CPUandGPU_cvGS_vs_fk")
+add_single_benchmark("benchmark_image_resolution_MAD_loop")
 
 add_subdirectory(verticalfusion/vertical_fusion_kernel_instances/add)
 add_subdirectory(verticalfusion/vertical_fusion_kernel_instances/div)

@@ -1,4 +1,7 @@
-set (LAUNCH_SOURCES "${CMAKE_SOURCE_DIR}/tests/main.cpp;${CMAKE_SOURCE_DIR}/tests/main.h")
+set (LAUNCH_SOURCES "${CMAKE_SOURCE_DIR}/tests/main.cpp;${CMAKE_SOURCE_DIR}/tests/main.h;")
+if (WIN32)
+    list(APPEND LAUNCH_SOURCES "${CMAKE_SOURCE_DIR}/manifest.xml")
+endif()
  
 function (discover_tests DIR)    
     file(
