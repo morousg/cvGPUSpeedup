@@ -169,7 +169,7 @@ inline constexpr auto split(const std::vector<cv::cuda::GpuMat>& output) {
     return fk::SplitWrite<fk::_2D, CUDA_T(O)>::build(fk_output);
 }
 
-template <int O, int N>
+template <int O, size_t N>
 inline constexpr auto split(const std::array<std::vector<cv::cuda::GpuMat>, N>& output) {
     std::array<std::vector<fk::Ptr2D<BASE_CUDA_T(O)>>, N> fkOutput{};
     for (int i = 0; i < N; ++i) {
