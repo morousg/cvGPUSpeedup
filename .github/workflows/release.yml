@@ -5,13 +5,16 @@ on:
     tags:
       - 'Alpha-*'  # Push events to matching Alpha-*, i.e. Alpha-0.0.21
 
+permissions:
+  contents: write  # This is crucial for creating releases
+
 jobs:
   build:
     name: Create Release with Submodules
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: 'recursive'  # Fetch all submodules recursively
           
@@ -21,7 +24,6 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/}
           VERSION=${VERSION#Alpha-}
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          echo "::set-output name=version::${VERSION}"
       
       - name: Create release package
         run: |
@@ -29,62 +31,39 @@ jobs:
           RELEASE_DIR="cvGPUSpeedup-Alpha-${{ env.VERSION }}"
           mkdir -p "${RELEASE_DIR}"
           
-          # Copy main repository files (only those that exist)
-          # First, create a list of directories/files to copy
-          FILES_TO_COPY=""
-          for item in include lib src CMakeLists.txt LICENSE README.md; do
+          # Copy only files that exist
+          for item in include CMakeLists.txt LICENSE README.md; do
             if [ -e "$item" ]; then
-              FILES_TO_COPY="$FILES_TO_COPY $item"
+              cp -r "$item" "${RELEASE_DIR}/"
             fi
           done
-          
-          # Copy the files that exist
-          if [ -n "$FILES_TO_COPY" ]; then
-            cp -r $FILES_TO_COPY "${RELEASE_DIR}/"
-          fi
-          
-          # Copy tests directory if it exists
-          if [ -d "tests" ]; then
-            cp -r tests "${RELEASE_DIR}/"
-          fi
-          
+    
+          # Copy folders only if they exist
+          for dir in lib src tests; do
+            if [ -d "$dir" ]; then
+              cp -r "$dir" "${RELEASE_DIR}/"
+            fi
+          done
+    
           # Copy fkl submodule files if they exist
           if [ -d "fkl" ]; then
             mkdir -p "${RELEASE_DIR}/fkl"
             cp -r fkl/* "${RELEASE_DIR}/fkl/"
           fi
-          
+    
           # Create archive
           zip -r "${RELEASE_DIR}.zip" "${RELEASE_DIR}"
           tar -czf "${RELEASE_DIR}.tar.gz" "${RELEASE_DIR}"
-      
+
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1  # Different action with better permissions handling
         with:
-          tag_name: ${{ github.ref }}
-          release_name: cvGPUSpeedup Alpha ${{ env.VERSION }}
+          files: |
+            cvGPUSpeedup-Alpha-${{ env.VERSION }}.zip
+            cvGPUSpeedup-Alpha-${{ env.VERSION }}.tar.gz
+          name: cvGPUSpeedup Alpha ${{ env.VERSION }}
           draft: false
           prerelease: false
-      
-      - name: Upload Release Assets (ZIP)
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./cvGPUSpeedup-Alpha-${{ env.VERSION }}.zip
-          asset_name: cvGPUSpeedup-Alpha-${{ env.VERSION }}.zip
-          asset_content_type: application/zip
-      
-      - name: Upload Release Assets (TAR.GZ)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./cvGPUSpeedup-Alpha-${{ env.VERSION }}.tar.gz
-          asset_name: cvGPUSpeedup-Alpha-${{ env.VERSION }}.tar.gz
-          asset_content_type: application/gzip
