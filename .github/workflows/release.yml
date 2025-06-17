@@ -29,12 +29,30 @@ jobs:
           RELEASE_DIR="cvGPUSpeedup-Alpha-${{ env.VERSION }}"
           mkdir -p "${RELEASE_DIR}"
           
-          # Copy main repository files (adjust patterns as needed)
-          cp -r include lib src CMakeLists.txt LICENSE README.md "${RELEASE_DIR}/"
+          # Copy main repository files (only those that exist)
+          # First, create a list of directories/files to copy
+          FILES_TO_COPY=""
+          for item in include lib src CMakeLists.txt LICENSE README.md; do
+            if [ -e "$item" ]; then
+              FILES_TO_COPY="$FILES_TO_COPY $item"
+            fi
+          done
           
-          # Copy fkl submodule files
-          mkdir -p "${RELEASE_DIR}/fkl"
-          cp -r fkl/* "${RELEASE_DIR}/fkl/"
+          # Copy the files that exist
+          if [ -n "$FILES_TO_COPY" ]; then
+            cp -r $FILES_TO_COPY "${RELEASE_DIR}/"
+          fi
+          
+          # Copy tests directory if it exists
+          if [ -d "tests" ]; then
+            cp -r tests "${RELEASE_DIR}/"
+          fi
+          
+          # Copy fkl submodule files if they exist
+          if [ -d "fkl" ]; then
+            mkdir -p "${RELEASE_DIR}/fkl"
+            cp -r fkl/* "${RELEASE_DIR}/fkl/"
+          fi
           
           # Create archive
           zip -r "${RELEASE_DIR}.zip" "${RELEASE_DIR}"
