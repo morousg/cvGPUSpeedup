@@ -1,0 +1,72 @@
+name: Create Release with Submodules
+
+on:
+  push:
+    tags:
+      - 'Alpha-*'  # Push events to matching Alpha-*, i.e. Alpha-0.0.21
+
+jobs:
+  build:
+    name: Create Release with Submodules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'  # Fetch all submodules recursively
+          
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION=${VERSION#Alpha-}
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "::set-output name=version::${VERSION}"
+      
+      - name: Create release package
+        run: |
+          # Create release directory with proper naming
+          RELEASE_DIR="cvGPUSpeedup-Alpha-${{ env.VERSION }}"
+          mkdir -p "${RELEASE_DIR}"
+          
+          # Copy main repository files (adjust patterns as needed)
+          cp -r include lib src CMakeLists.txt LICENSE README.md "${RELEASE_DIR}/"
+          
+          # Copy fkl submodule files
+          mkdir -p "${RELEASE_DIR}/fkl"
+          cp -r fkl/* "${RELEASE_DIR}/fkl/"
+          
+          # Create archive
+          zip -r "${RELEASE_DIR}.zip" "${RELEASE_DIR}"
+          tar -czf "${RELEASE_DIR}.tar.gz" "${RELEASE_DIR}"
+      
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: cvGPUSpeedup Alpha ${{ env.VERSION }}
+          draft: false
+          prerelease: false
+      
+      - name: Upload Release Assets (ZIP)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./cvGPUSpeedup-Alpha-${{ env.VERSION }}.zip
+          asset_name: cvGPUSpeedup-Alpha-${{ env.VERSION }}.zip
+          asset_content_type: application/zip
+      
+      - name: Upload Release Assets (TAR.GZ)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./cvGPUSpeedup-Alpha-${{ env.VERSION }}.tar.gz
+          asset_name: cvGPUSpeedup-Alpha-${{ env.VERSION }}.tar.gz
+          asset_content_type: application/gzip
