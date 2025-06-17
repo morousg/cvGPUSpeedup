@@ -160,15 +160,18 @@ cvGPUSpeedup is a wrapper over the library FusedKernel. All the files related to
 
 ### Fused Kernel Library
 
-Assuming you installed the NVIDIA CUDA SDK versions 11.8 or 12 up to 12.3.
+Assuming you installed the NVIDIA CUDA SDK versions 11.8 or 12 up to 12.3, or 12.8.0
 
-In Linux you only need to create a CUDA program (.cu file) and include "fused_kernel.cuh".
+Either clone the FKL repository https://github.com/morousg/FusedKernelLibrary/tree/main or use the folder cvGPUSpeedup/fkl (assuming you cloned cvGPUSpeedup with "git clone --recurse-submodules https://github.com/morousg/cvGPUSpeedup.git").
+
+In Linux you only need to create a CUDA program (.cu file) and include "fused_kernel.cuh" and any algorith you need in the folder fused_kernel/algorithms/
 
 For instance, let's imagine we have a file "myApp.cu"
 ```cpp
 // myApp.cu
 
 #include "fused_kernel/fused_kernel.cuh"
+// Add includes depending on the Operations you want to use from algorithms folder
 
 int main() {
   // Use anything you want from the Fused Kernel Library
