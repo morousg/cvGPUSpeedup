@@ -21,14 +21,12 @@
 
 #ifdef ENABLE_BENCHMARK
 #include "launcher.h"
+#include <benchmarks/verticalfusion/vertical_fusion_kernel_instances/mul_add/realBatch.h>
 constexpr char VARIABLE_DIMENSION[]{ "Number of Operations" };
 
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 using namespace fk;
-#include "launcher.h"
-#include <benchmarks/verticalfusion/vertical_fusion_kernel_instances/mul_add/realBatch.h>
-
 template <int CV_TYPE_I, int CV_TYPE_O, size_t EXPERIMENT_NUMBER>
 bool benchmark_vertical_fusion_loopMulAdd(size_t NUM_ELEMS_X, size_t NUM_ELEMS_Y, cv::cuda::Stream& cv_stream, bool enabled) {
     std::stringstream error_s;
