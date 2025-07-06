@@ -241,12 +241,12 @@ bool benchmark_vertical_fusion_loopMul1_CUDAGraphs(size_t NUM_ELEMS_X, size_t NU
     if (!passed) {
       if (!exception) {
         std::stringstream ss;
-        ss << "benchmark_vertical_fusion_loopMul<" << cvTypeToString<CV_TYPE_I>() << ", "
+        ss << "benchmark_vertical_fusion_loopMul_CUDAGraphs<" << cvTypeToString<CV_TYPE_I>() << ", "
            << cvTypeToString<CV_TYPE_O>();
         std::cout << ss.str() << "> failed!! RESULT ERROR: Some results do not match baseline." << std::endl;
       } else {
         std::stringstream ss;
-        ss << "benchmark_vertical_fusion_loopMul<" << cvTypeToString<CV_TYPE_I>() << ", "
+        ss << "benchmark_vertical_fusion_loopMul_CUDAGraphs<" << cvTypeToString<CV_TYPE_I>() << ", "
            << cvTypeToString<CV_TYPE_O>();
         std::cout << ss.str() << "> failed!! EXCEPTION: " << error_s.str() << std::endl;
       }
