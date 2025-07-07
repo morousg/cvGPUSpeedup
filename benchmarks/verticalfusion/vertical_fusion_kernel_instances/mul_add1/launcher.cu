@@ -291,8 +291,11 @@ int launch() {
     results["launch_benchmark_vertical_fusion_loopMulAdd1"] = true;
     results["launch_benchmark_vertical_fusion_loopMulAdd1_CUDAGraphs"] = true;
     constexpr auto iSeq = std::make_index_sequence<batchValues.size()>{};
+
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
-    results["launch_benchmark_vertical_fusion_loopMulAdd1"] &= launch_benchmark_vertical_fusion_loopMulAdd1<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true); \
+    results["launch_benchmark_vertical_fusion_loopMulAdd1"] &= launch_benchmark_vertical_fusion_loopMulAdd1<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
+
+#define LAUNCH_TESTS_CUDA_GRAPHS(CV_INPUT, CV_OUTPUT) \
     results["launch_benchmark_vertical_fusion_loopMulAdd1_CUDAGraphs"] &= launch_benchmark_vertical_fusion_loopMulAdd1_CUDAGraphs<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
 
     // Warming up for the benchmarks
@@ -301,6 +304,12 @@ int launch() {
     warmup = false;
 
     LAUNCH_TESTS(CV_8UC1, CV_32FC1)
+
+    warmup = true;
+    LAUNCH_TESTS_CUDA_GRAPHS(CV_8UC1, CV_32FC1)
+    warmup = false;
+
+    LAUNCH_TESTS_CUDA_GRAPHS(CV_8UC1, CV_32FC1)
 
     CLOSE_BENCHMARK
 
