@@ -190,6 +190,7 @@ bool benchmark_vertical_fusion_loopMul1_CUDAGraphs(size_t NUM_ELEMS_X, size_t NU
       gpuErrchk(cudaStreamEndCapture(cu_stream, &graph));
       cudaGraphExec_t graphExec;
       gpuErrchk(cudaGraphInstantiate(&graphExec, graph, NULL, NULL, 0));
+      gpuErrchk(cudaGraphDestroy(graph));
 
       using InputType = CUDA_T(CV_TYPE_I);
       using OutputType = CUDA_T(CV_TYPE_O);
@@ -212,6 +213,8 @@ bool benchmark_vertical_fusion_loopMul1_CUDAGraphs(size_t NUM_ELEMS_X, size_t NU
       d_output_cvGS.download(h_output_cvGS, cv_stream);
 
       cv_stream.waitForCompletion();
+
+      gpuErrchk(cudaGraphExecDestroy(graphExec));
 
       // Verify results
       for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {

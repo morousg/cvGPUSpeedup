@@ -196,7 +196,10 @@ bool benchmark_vertical_fusion_loopMulAdd_CUDAGraphs(size_t NUM_ELEMS_X, size_t 
             }
             cudaGraphExec_t graphExec;
             gpuErrchk(cudaGraphInstantiate(&graphExec, mainGraph, NULL, NULL, 0));
-
+            for (int i=0; i<REAL_BATCH; ++i) {
+                gpuErrchk(cudaGraphDestroyNode(subGraphNodes[i]));
+            }
+            gpuErrchk(cudaGraphDestroy(mainGraph));
             using InputType = CUDA_T(CV_TYPE_I);
             using OutputType = CUDA_T(CV_TYPE_O);
 
@@ -210,7 +213,6 @@ bool benchmark_vertical_fusion_loopMulAdd_CUDAGraphs(size_t NUM_ELEMS_X, size_t 
             STOP_OCV_START_CVGS_BENCHMARK
             launchPipeline<EXPERIMENT_NUMBER>(crops, cv_stream, alpha, d_output_cvGS, cropSize, dFunc);
             STOP_CVGS_BENCHMARK
-
             // Download results
             for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
                 d_output_cv[crop_i].download(h_output_cv[crop_i], cv_stream);
@@ -219,6 +221,8 @@ bool benchmark_vertical_fusion_loopMulAdd_CUDAGraphs(size_t NUM_ELEMS_X, size_t 
 
             cv_stream.waitForCompletion();
 
+            gpuErrchk(cudaGraphExecDestroy(graphExec));
+            
             // Verify results
             for (int crop_i = 0; crop_i < REAL_BATCH; crop_i++) {
                 cv::Mat cvRes = h_output_cv[crop_i];
@@ -295,7 +299,7 @@ int launch() {
     results["launch_benchmark_vertical_fusion_loopMulAdd"] = true;
     results["launch_benchmark_vertical_fusion_loopMulAdd_CUDAGraphs"] = true;
     constexpr auto iSeq = std::make_index_sequence<batchValues.size()>();
-    
+
 #define LAUNCH_TESTS(CV_INPUT, CV_OUTPUT) \
     results["launch_benchmark_vertical_fusion_loopMulAdd"] &= \
         launch_benchmark_vertical_fusion_loopMulAdd<CV_INPUT, CV_OUTPUT>(NUM_ELEMS_X, NUM_ELEMS_Y, iSeq, cv_stream, true);
