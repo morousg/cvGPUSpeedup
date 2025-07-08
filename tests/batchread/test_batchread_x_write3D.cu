@@ -25,9 +25,9 @@ constexpr char VARIABLE_DIMENSION[] {"Batch size"};
 #define BENCHMARK_ENABLED false
 #endif
 
-constexpr size_t FIRST_VALUE = 1;
-constexpr size_t INCREMENT = 5;
-constexpr size_t NUM_EXPERIMENTS = 5;
+constexpr size_t FIRST_VALUE = 50;
+constexpr size_t INCREMENT = 1;
+constexpr size_t NUM_EXPERIMENTS = 1;
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
 template <int CV_TYPE_I, int CV_TYPE_O, int BATCH>
