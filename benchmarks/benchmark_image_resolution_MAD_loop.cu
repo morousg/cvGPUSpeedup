@@ -29,7 +29,7 @@ constexpr size_t NUM_EXPERIMENTS = 10;
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 100;
 #elif (CUDART_MAJOR_VERSION == 12)
-constexpr size_t NUM_EXPERIMENTS = 60;
+constexpr size_t NUM_EXPERIMENTS = 40;
 constexpr size_t FIRST_VALUE = 100;
 constexpr size_t INCREMENT = 282270;
 #endif // CUDART_MAJOR_VERSION
@@ -115,11 +115,15 @@ bool benchmark_image_resolution_MAD_loop(cv::cuda::Stream& cv_stream, bool enabl
             cv::Mat h_cvGSOutput(dataSize, CV_TYPE_O, cv::Scalar(0));
 
             START_OCV_BENCHMARK
-            // OpenCV version
-            cvInput.convertTo(cvOutput, CV_TYPE_O, 1, cv_stream);
+            // cvGS individual kernels
+            cvGS::executeOperations(cvInput, cvOutput, cv_stream, cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>());
+            
+            //cvInput.convertTo(cvOutput, CV_TYPE_O, 1, cv_stream);
             for (int numOp = 0; numOp < 200; numOp+=2) {
-                cv::cuda::multiply(cvOutput, val_mul, cvTemp, 1.0, -1, cv_stream);
-                cv::cuda::add(cvTemp, val_add, cvOutput, cv::noArray(), -1, cv_stream);
+                cvGS::executeOperations(cvOutput, cvTemp, cv_stream, cvGS::multiply<CV_TYPE_O>(val_mul));
+                cvGS::executeOperations(cvTemp, cvOutput, cv_stream, cvGS::add<CV_TYPE_O>(val_add));
+                //cv::cuda::multiply(cvOutput, val_mul, cvTemp, 1.0, -1, cv_stream);
+                //cv::cuda::add(cvTemp, val_add, cvOutput, cv::noArray(), -1, cv_stream);
             }
             STOP_OCV_START_CVGS_BENCHMARK
             // cvGPUSpeedup
