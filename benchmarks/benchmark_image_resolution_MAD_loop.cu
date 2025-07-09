@@ -29,9 +29,9 @@ constexpr size_t NUM_EXPERIMENTS = 10;
 constexpr size_t FIRST_VALUE = 10;
 constexpr size_t INCREMENT = 100;
 #elif (CUDART_MAJOR_VERSION == 12)
-constexpr size_t NUM_EXPERIMENTS = 30;
-constexpr size_t FIRST_VALUE = 10;
-constexpr size_t INCREMENT = 100;
+constexpr size_t NUM_EXPERIMENTS = 60;
+constexpr size_t FIRST_VALUE = 100;
+constexpr size_t INCREMENT = 282270;
 #endif // CUDART_MAJOR_VERSION
 constexpr std::array<size_t, NUM_EXPERIMENTS> batchValues = arrayIndexSecuence<FIRST_VALUE, INCREMENT, NUM_EXPERIMENTS>;
 
@@ -62,14 +62,21 @@ struct VerticalFusionMAD {
         const fk::RawPtr<fk::_1D, OutputType> fkOutput{ reinterpret_cast<OutputType*>(d_output.data), { outputWidth, static_cast<uint>(outputWidth * sizeof(OutputType)) } };
         const auto writeOp = fk::PerThreadWrite<fk::_1D, OutputType>::build(fkOutput);
 
-        fk::executeOperations(cv::cuda::StreamAccessor::getStream(cv_stream), readOp, cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(), loop, writeOp);
+        constexpr bool THREAD_FUSION = false;
+        const auto tDetails = fk::TransformDPP<fk::ParArch::GPU_NVIDIA, void>::build_details<THREAD_FUSION>(readOp, cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(), loop, writeOp);
+
+        const dim3 block(256);
+        const dim3 grid(ceil(inputWidth / static_cast<float>(block.x)));
+        const cudaStream_t stream = cv::cuda::StreamAccessor::getStream(cv_stream);
+        fk::launchTransformDPP_Kernel<fk::ParArch::GPU_NVIDIA, true><<<grid, block, 0, stream>>>(tDetails, readOp, cvGS::convertTo<CV_TYPE_I, CV_TYPE_O>(), loop, writeOp);
+        gpuErrchk(cudaGetLastError());
     }
 };
 
 // Here BATCH means resolution
 template <int CV_TYPE_I, int CV_TYPE_O, size_t BATCH>
 bool benchmark_image_resolution_MAD_loop(cv::cuda::Stream& cv_stream, bool enabled) {
-    constexpr size_t NUM_ELEMS_X = BATCH * BATCH;
+    constexpr size_t NUM_ELEMS_X = BATCH;
     constexpr size_t NUM_ELEMS_Y = 1;
     std::stringstream error_s;
     bool passed = true;
