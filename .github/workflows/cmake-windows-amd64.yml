@@ -23,13 +23,10 @@ jobs:
 
           - host_compiler: "cl"
             msvc_env_version: "14.51"
-            cuda_version: "13.3"       
-            opencv_version: "opencv-4.14.0.cuda13.3.msvc1451"     
+            cuda_version: "13.4"       
+            opencv_version: "opencv-4.14.0.cuda13.4.msvc1451"     
           
-          - host_compiler: "clang-cl"
-            msvc_env_version: "14.51"
-            cuda_version: "13.3"       
-            opencv_version: "opencv-4.14.0.cuda13.3.msvc1451"     
+           
 
     steps:
       - uses: actions/checkout@v6

@@ -47,15 +47,15 @@ In terms of feature completeness, the Fused Kernel Library is less than 1% compl
 Our aim with this repository is to create a code demonstration platform, and an space where to keep adding new ideas, features, and share it with the community to make it as big and useful as possible.
   
 ## Tested hw/sw
-*  Cuda SDK 11.8, 12.1, 12.3 and 12.8.
+*  Cuda SDK 12.8, 13.0 and 13.4.
     *  versions 12.4 to 12.6 are NOT supported due to [bug](https://forums.developer.nvidia.com/t/starting-with-cuda-12-4-nvcc-cant-deduce-a-template-type-in-template-function-under-weird-conditions/297637))
   
-*  Visual Studio Community 2022 compiler versions v14.39 to 14.43
+*  Visual Studio Community  compiler versions v14.44 (2022) and 14.51 (2026A)
     *  cuda 12.3 is compatible only until 14.39 (17.10).
-*  OpenCV 4.8, 4.9 and and 4.11 (first version to support cuda 12.8)
-*  OS Windows 11 22H2 ,23H2 and 24H2 with drivers from 516.94 to 572.16.
-*  Ubuntu 22.04 and 24.04 (both native and under WSL2 enviroment)   
-*  Compute Capabilities 7.5 (Turing), 8.6 (Ampere), 8.9 (Ada Lovelace). Should work with any Compute Capability. 
+*  OpenCV 4.14,9 
+*  OS Windows 11 25H2 with drivers from 516.94 to 615.92
+*  Ubuntu 24.04 (both native and under WSL2 enviroment)   
+*  Compute Capabilities  8.6 (Ampere), 8.9 (Ada Lovelace). Should work with any Compute Capability. 
 *  Systems with x86_64 (Intel/AMD) and ARM 64 (Jetson Orin) platform.
 
 ## Examples
